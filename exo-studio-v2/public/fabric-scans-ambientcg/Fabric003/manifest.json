@@ -1,0 +1,37 @@
+{
+  "id": "Fabric003",
+  "source": "ambientCG",
+  "name": "Fabric 003",
+  "license": "CC0-1.0",
+  "assetUrl": "https://ambientcg.com/a/Fabric003",
+  "authors": "ambientCG",
+  "categoryTags": [
+    "3",
+    "blue",
+    "clean",
+    "fabric",
+    "jeans",
+    "new"
+  ],
+  "scanWidthCm": 20,
+  "scanHeightCm": 20,
+  "physicalScaleStatus": "unknown-illustrative-20cm",
+  "maps": {
+    "color": {
+      "src": "/fabric-scans-ambientcg/Fabric003/color.jpg",
+      "sha256": "76b5ebccc5fd6c250fe21d3cd270647487408e2178174cbe01ff92b603d631ec",
+      "resolution": "1k"
+    },
+    "normal": {
+      "src": "/fabric-scans-ambientcg/Fabric003/normal.jpg",
+      "sha256": "ab8b34b4ab4e2e0ff598edc65479789ea5e598a4f61bebc34e52d036ee40cde5",
+      "resolution": "1k"
+    },
+    "roughness": {
+      "src": "/fabric-scans-ambientcg/Fabric003/roughness.jpg",
+      "sha256": "aca2a3a83d9fb8cabd573b27bad1e46e5264a4656a6fe4f34f27165384af9130",
+      "resolution": "1k"
+    }
+  },
+  "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+}

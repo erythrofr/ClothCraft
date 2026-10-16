@@ -1,0 +1,683 @@
+{
+  "schema": 1,
+  "source": "locally rendered Garment Studio assets; not extracted CLO art",
+  "uniqueCount": 47,
+  "slotCount": 78,
+  "referenceExactMatches": 0,
+  "files": [
+    {
+      "id": "simulate",
+      "file": "simulate.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "simulation-modes",
+      "file": "simulation-modes.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "hand",
+      "file": "hand.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "select-3d",
+      "file": "select-3d.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "move-3d",
+      "file": "move-3d.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "rotate-3d",
+      "file": "rotate-3d.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "seam-links",
+      "file": "seam-links.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "wireframe",
+      "file": "wireframe.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "surface",
+      "file": "surface.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "select-2d",
+      "file": "select-2d.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "sew",
+      "file": "sew.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "points",
+      "file": "points.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "split",
+      "file": "split.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "polygon-tool",
+      "file": "polygon-tool.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "curve",
+      "file": "curve.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "internal",
+      "file": "internal.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "pin",
+      "file": "pin.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "notch",
+      "file": "notch.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "fastener",
+      "file": "fastener.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "measure",
+      "file": "measure.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "delete-piece",
+      "file": "delete-piece.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "settings",
+      "file": "settings.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "grid-2d",
+      "file": "grid-2d.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "fabric",
+      "file": "fabric.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "avatar",
+      "file": "avatar.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "sewing-inspector",
+      "file": "sewing-inspector.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "pattern-properties",
+      "file": "pattern-properties.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "fit",
+      "file": "fit.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "grading",
+      "file": "grading.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "render",
+      "file": "render.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "camera",
+      "file": "camera.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "duplicate-piece",
+      "file": "duplicate-piece.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "mirror",
+      "file": "mirror.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "panel",
+      "file": "panel.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "fabric-roll",
+      "file": "fabric-roll.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "topstitch",
+      "file": "topstitch.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "buttons",
+      "file": "buttons.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "trim",
+      "file": "trim.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "pom",
+      "file": "pom.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "pressure",
+      "file": "pressure.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "graphics",
+      "file": "graphics.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "buttonholes",
+      "file": "buttonholes.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "scene",
+      "file": "scene.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "material",
+      "file": "material.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "reset",
+      "file": "reset.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "export",
+      "file": "export.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    },
+    {
+      "id": "seam-weld",
+      "file": "seam-weld.svg",
+      "source": "Original Garment Studio CadToolIcon geometric drawing",
+      "status": "generated; CLO pixel-accuracy unverified"
+    }
+  ],
+  "placements": [
+    {
+      "side": "left",
+      "position": 1,
+      "id": "simulate"
+    },
+    {
+      "side": "left",
+      "position": 2,
+      "id": "select-3d"
+    },
+    {
+      "side": "left",
+      "position": 3,
+      "id": "wireframe"
+    },
+    {
+      "side": "left",
+      "position": 4,
+      "id": "curve"
+    },
+    {
+      "side": "left",
+      "position": 5,
+      "id": "seam-links"
+    },
+    {
+      "side": "left",
+      "position": 6,
+      "id": "sew"
+    },
+    {
+      "side": "left",
+      "position": 7,
+      "id": "pin"
+    },
+    {
+      "side": "left",
+      "position": 8,
+      "id": "simulation-modes"
+    },
+    {
+      "side": "left",
+      "position": 9,
+      "id": "hand"
+    },
+    {
+      "side": "left",
+      "position": 10,
+      "id": "move-3d"
+    },
+    {
+      "side": "left",
+      "position": 11,
+      "id": "rotate-3d"
+    },
+    {
+      "side": "left",
+      "position": 12,
+      "id": "wireframe"
+    },
+    {
+      "side": "left",
+      "position": 13,
+      "id": "surface"
+    },
+    {
+      "side": "left",
+      "position": 14,
+      "id": "select-2d"
+    },
+    {
+      "side": "left",
+      "position": 15,
+      "id": "points"
+    },
+    {
+      "side": "left",
+      "position": 16,
+      "id": "split"
+    },
+    {
+      "side": "left",
+      "position": 17,
+      "id": "curve"
+    },
+    {
+      "side": "left",
+      "position": 18,
+      "id": "internal"
+    },
+    {
+      "side": "left",
+      "position": 19,
+      "id": "polygon-tool"
+    },
+    {
+      "side": "left",
+      "position": 20,
+      "id": "notch"
+    },
+    {
+      "side": "left",
+      "position": 21,
+      "id": "fastener"
+    },
+    {
+      "side": "left",
+      "position": 22,
+      "id": "measure"
+    },
+    {
+      "side": "left",
+      "position": 23,
+      "id": "delete-piece"
+    },
+    {
+      "side": "left",
+      "position": 24,
+      "id": "settings"
+    },
+    {
+      "side": "left",
+      "position": 25,
+      "id": "grid-2d"
+    },
+    {
+      "side": "left",
+      "position": 26,
+      "id": "seam-links"
+    },
+    {
+      "side": "left",
+      "position": 27,
+      "id": "fabric"
+    },
+    {
+      "side": "left",
+      "position": 28,
+      "id": "avatar"
+    },
+    {
+      "side": "left",
+      "position": 29,
+      "id": "sewing-inspector"
+    },
+    {
+      "side": "left",
+      "position": 30,
+      "id": "pattern-properties"
+    },
+    {
+      "side": "left",
+      "position": 31,
+      "id": "fit"
+    },
+    {
+      "side": "left",
+      "position": 32,
+      "id": "grading"
+    },
+    {
+      "side": "left",
+      "position": 33,
+      "id": "render"
+    },
+    {
+      "side": "left",
+      "position": 34,
+      "id": "camera"
+    },
+    {
+      "side": "left",
+      "position": 35,
+      "id": "duplicate-piece"
+    },
+    {
+      "side": "left",
+      "position": 36,
+      "id": "mirror"
+    },
+    {
+      "side": "left",
+      "position": 37,
+      "id": "panel"
+    },
+    {
+      "side": "left",
+      "position": 38,
+      "id": "fabric-roll"
+    },
+    {
+      "side": "left",
+      "position": 39,
+      "id": "topstitch"
+    },
+    {
+      "side": "left",
+      "position": 40,
+      "id": "buttons"
+    },
+    {
+      "side": "left",
+      "position": 41,
+      "id": "trim"
+    },
+    {
+      "side": "left",
+      "position": 42,
+      "id": "grading"
+    },
+    {
+      "side": "left",
+      "position": 43,
+      "id": "pom"
+    },
+    {
+      "side": "left",
+      "position": 44,
+      "id": "pressure"
+    },
+    {
+      "side": "right",
+      "position": 1,
+      "id": "select-2d"
+    },
+    {
+      "side": "right",
+      "position": 2,
+      "id": "points"
+    },
+    {
+      "side": "right",
+      "position": 3,
+      "id": "curve"
+    },
+    {
+      "side": "right",
+      "position": 4,
+      "id": "split"
+    },
+    {
+      "side": "right",
+      "position": 5,
+      "id": "internal"
+    },
+    {
+      "side": "right",
+      "position": 6,
+      "id": "mirror"
+    },
+    {
+      "side": "right",
+      "position": 7,
+      "id": "notch"
+    },
+    {
+      "side": "right",
+      "position": 8,
+      "id": "measure"
+    },
+    {
+      "side": "right",
+      "position": 9,
+      "id": "grading"
+    },
+    {
+      "side": "right",
+      "position": 10,
+      "id": "pom"
+    },
+    {
+      "side": "right",
+      "position": 11,
+      "id": "scene"
+    },
+    {
+      "side": "right",
+      "position": 12,
+      "id": "fabric"
+    },
+    {
+      "side": "right",
+      "position": 13,
+      "id": "material"
+    },
+    {
+      "side": "right",
+      "position": 14,
+      "id": "graphics"
+    },
+    {
+      "side": "right",
+      "position": 15,
+      "id": "camera"
+    },
+    {
+      "side": "right",
+      "position": 16,
+      "id": "fit"
+    },
+    {
+      "side": "right",
+      "position": 17,
+      "id": "export"
+    },
+    {
+      "side": "right",
+      "position": 18,
+      "id": "seam-links"
+    },
+    {
+      "side": "right",
+      "position": 19,
+      "id": "sew"
+    },
+    {
+      "side": "right",
+      "position": 20,
+      "id": "seam-weld"
+    },
+    {
+      "side": "right",
+      "position": 21,
+      "id": "topstitch"
+    },
+    {
+      "side": "right",
+      "position": 22,
+      "id": "fastener"
+    },
+    {
+      "side": "right",
+      "position": 23,
+      "id": "buttons"
+    },
+    {
+      "side": "right",
+      "position": 24,
+      "id": "buttonholes"
+    },
+    {
+      "side": "right",
+      "position": 25,
+      "id": "trim"
+    },
+    {
+      "side": "right",
+      "position": 26,
+      "id": "pin"
+    },
+    {
+      "side": "right",
+      "position": 27,
+      "id": "simulate"
+    },
+    {
+      "side": "right",
+      "position": 28,
+      "id": "reset"
+    },
+    {
+      "side": "right",
+      "position": 29,
+      "id": "select-3d"
+    },
+    {
+      "side": "right",
+      "position": 30,
+      "id": "move-3d"
+    },
+    {
+      "side": "right",
+      "position": 31,
+      "id": "rotate-3d"
+    },
+    {
+      "side": "right",
+      "position": 32,
+      "id": "hand"
+    },
+    {
+      "side": "right",
+      "position": 33,
+      "id": "surface"
+    },
+    {
+      "side": "right",
+      "position": 34,
+      "id": "wireframe"
+    }
+  ]
+}

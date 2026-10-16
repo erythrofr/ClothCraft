@@ -1,0 +1,190 @@
+/* EXO Fabric Store | dark, technical storefront, original UI and specimen art. */
+.exo-store{--fs-bg:#0c1013;--fs-panel:#151b20;--fs-line:#2e3940;--fs-border:#3b484e;--fs-label:#86979e;--fs-ink:#e7eff0;--fs-highlight:#b8e8d0;--fs-green:#7fd0b2;color:var(--fs-ink);background:var(--fs-bg);font-family:var(--sans);min-height:100vh;padding-bottom:95px}
+.exo-fabrics-active .feature-banner{display:none!important}
+.exo-store button,.exo-store select,.exo-store input{font-family:inherit}
+.exo-store button:focus-visible,.exo-store a:focus-visible,.exo-store select:focus-visible,.exo-store input:focus-visible{outline:2px solid #b6f2db;outline-offset:3px}
+.exfs-banner{height:39px;padding:0 clamp(20px,5vw,85px);display:flex;align-items:center;justify-content:space-between;background:#111b20;border-bottom:1px solid #2d3a40;letter-spacing:1px;font:9px var(--mono);color:#afc1c6}
+.exfs-banner>span:first-child{color:#bddecf}.exfs-banner i{display:inline-block;background:#84d8ba;width:6px;height:6px;border-radius:50%;margin-right:11px;box-shadow:0 0 10px #71d7b06b}
+.exfs-banner>span:last-child{color:#708993}
+.exfs-hero{min-height:337px;display:grid;grid-template-columns:53% 47%;border-bottom:1px solid #36444b;background:linear-gradient(112deg,#111a1e,#171f23)}
+.exfs-hero-copy{padding:58px 50px 37px clamp(25px,6vw,110px);display:flex;flex-direction:column;align-items:start}
+.exfs-kicker{display:flex;gap:18px;align-items:center;color:#a9d1bf;font:10px var(--mono);letter-spacing:1px}
+.exfs-kicker b{border-left:1px solid #406151;padding-left:15px;font-weight:400;color:#79958a}
+.exfs-hero h1{font:650 clamp(53px,5.6vw,85px)/.98 var(--sans);letter-spacing:-3.7px;margin:28px 0 15px}
+.exfs-hero h1 em{font:italic 400 .97em/.9 var(--serif);color:#a4d9c1}
+.exfs-hero p{color:#a1b4b8;line-height:1.7;font-size:13px;max-width:490px;margin:0}
+.exfs-hero-bottom{display:flex;flex-wrap:wrap;align-items:end;gap:26px;margin-top:auto;padding-top:30px;font:9px var(--mono);letter-spacing:.7px;color:#8ea4aa}
+.exfs-hero-bottom strong{font:650 28px var(--sans);color:#e4f4ef;letter-spacing:-.8px;vertical-align:-5px;margin-right:8px}
+.exfs-hero-art{position:relative;overflow:hidden;background:radial-gradient(ellipse at 57% 44%,#5d6c66 0%,#2a3e3e 43%,#142125 80%);border-left:1px solid #3c504e}
+.exfs-hero-art:before{content:'';position:absolute;inset:0;background-image:linear-gradient(#9acabd12 1px,transparent 1px),linear-gradient(90deg,#9acabd12 1px,transparent 1px);background-size:33px 33px;mask-image:linear-gradient(to bottom,transparent,#000 35%,#000 72%,transparent)}
+.exfs-sample{position:absolute;top:9%;width:31%;height:77%;left:38%;box-shadow:15px 22px 48px #0c1b1d8f;border:1px solid #d2e1cf42}
+.exfs-sample:before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(145deg,#ffffff0e 0px,#e6f2e810 2px,#00000012 3px,transparent 6px),radial-gradient(ellipse at 50% 20%,#ffffff34,transparent 65%);mix-blend-mode:screen}
+.exfs-back{left:26%;top:18%;transform:rotate(-13deg);background:#3c625b;filter:brightness(.73)}
+.exfs-mid{left:40%;top:10%;transform:rotate(-3deg);background:#d1c8ae}
+.exfs-front{left:54%;top:13%;transform:rotate(11deg);background:linear-gradient(145deg,#627b79,#2a4a4c);padding:21px;display:flex;flex-direction:column;justify-content:space-between}
+.exfs-front span{font:800 23px/1.04 var(--sans);letter-spacing:-1px;color:#e4f3e9}
+.exfs-front small{font:9px/1.65 var(--mono);color:#cedcd6;letter-spacing:.4px}
+.exfs-spec-label{position:absolute;left:18px;bottom:17px;font:8px/1.8 var(--mono);color:#b3cbc2;letter-spacing:.8px}
+.exfs-category-bar{display:flex;align-items:center;justify-content:space-between;gap:15px;min-height:67px;padding:0 clamp(22px,5vw,85px);border-bottom:1px solid var(--fs-line);background:#10171b}
+.exfs-tabs{display:flex;align-items:center;gap:20px;overflow:auto;scrollbar-width:none}
+.exfs-tabs::-webkit-scrollbar{display:none}
+.exfs-tabs button{white-space:nowrap;border:0;border-bottom:2px solid transparent;background:transparent;padding:23px 4px 21px;font-weight:650;font-size:11px;color:#8fa4aa}
+.exfs-tabs button:hover{color:#e5f4ec}.exfs-tabs button.active{border-bottom-color:#b7e8d3;color:#e9f9f1}
+.exfs-external{white-space:nowrap;color:#9bbaa9;text-decoration:none;font:9px var(--mono);letter-spacing:.5px;border:1px solid #41534c;padding:11px 14px;border-radius:5px}
+.exfs-external:hover{background:#27372f;color:#e2f3de}.exfs-external span{font-size:13px;margin-left:10px}
+.exfs-body{max-width:1650px;padding:40px clamp(22px,5vw,85px) 0;margin:0 auto;display:grid;grid-template-columns:212px minmax(0,1fr);gap:37px;align-items:start}
+.exfs-filters{position:sticky;top:14px;border-top:1px solid #576762}
+.exfs-filter-heading{display:flex;align-items:center;justify-content:space-between;padding:22px 0 15px}
+.exfs-filter-heading strong{font:700 10px var(--mono);letter-spacing:.8px;color:#e0ebe2}
+.exfs-filter-heading button{padding:2px 0;border:0;background:none;color:#90c9b2;font:9px var(--mono)}
+.exfs-filter-heading button:hover{text-decoration:underline}
+.exfs-filter-group{border-bottom:1px solid #2e3b40;padding:13px 0 14px}
+.exfs-filter-group label{display:flex;justify-content:space-between;align-items:center;gap:12px;color:#bccbc7;font-size:11px;font-weight:620}
+.exfs-filter-group label small{font:10px var(--mono);color:#97baa6}
+.exfs-filter-group select{display:block;width:100%;height:35px;padding:5px 23px 5px 0;margin-top:9px;border:0;border-bottom:1px solid #3a484e;background:transparent;color:#9aabb0;font:11px var(--sans);outline-offset:0}
+.exfs-filter-group select:focus{border-color:#b8e4d0;color:#f1f7ef}
+.exfs-filter-note{font:10px/1.75 var(--sans);color:#7c9194;margin-top:26px}
+.exfs-results{min-width:0}
+.exfs-controls{display:flex;gap:11px;align-items:center}
+.exfs-search{display:flex;align-items:center;gap:10px;background:#171f24;border:1px solid #394850;border-radius:5px;padding:0 14px;height:47px;flex:1;min-width:0}
+.exfs-search>span{font-size:22px;color:#bbd9c9}
+.exfs-search input{min-width:0;flex:1;background:none;border:0;outline:0!important;color:#ecf4ef;font-size:12px}
+.exfs-search input::placeholder{color:#81979c}
+.exfs-search kbd{font:9px var(--mono);color:#768b8f;border:1px solid #3f5055;padding:4px 5px}
+#exfs-sort{height:47px;padding:0 16px;background:#172025;border:1px solid #3c4b53;border-radius:5px;min-width:165px;color:#c7d9d4;font-size:11px}
+#exfs-mobile-filters{display:none}
+.exfs-results-meta{display:flex;gap:12px;justify-content:space-between;align-items:center;margin:17px 0 24px;min-height:29px}
+.exfs-results-meta>div:last-child{display:flex;gap:14px;align-items:center;white-space:nowrap;font:9px var(--mono);color:#97aeb0}
+.exfs-result-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;white-space:nowrap}
+.exfs-result-actions #exfs-saved-only{background:#172521;color:#b4d2c4;border:1px solid #405649;border-radius:5px;padding:8px 10px;font:10px var(--mono);letter-spacing:.4px;cursor:pointer}
+.exfs-result-actions #exfs-saved-only span{display:inline-block;min-width:17px;padding:3px 4px;margin-left:5px;background:#294036;color:#d4eed8;text-align:center;border-radius:3px;font:9px var(--mono)}
+.exfs-result-actions #exfs-saved-only[aria-pressed=true]{color:#e8f9ee;border-color:#b5eccd;background:#2a4537}
+.exfs-result-actions #exfs-saved-only:hover{border-color:#a9dac0}
+.exfs-view-glyph{font-size:17px;color:#b3c6bf}
+.exfs-chips{display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:#809a9c;font:9px var(--mono);letter-spacing:.3px}
+.exfs-chips button{font:10px var(--sans);border:1px solid #486558;border-radius:5px;padding:6px 10px;background:#1c3129;color:#caebd3}
+.exfs-chips button span{margin-left:6px}
+.exfs-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:30px 18px}
+.exfs-card{min-width:0}
+.exfs-card-media{position:relative;aspect-ratio:1.06;background:#1b2528;overflow:hidden;border:1px solid #39484b;border-radius:5px}
+.exfs-card:hover .exfs-card-media{border-color:#a8e0c9}
+.exfs-swatch{position:relative;overflow:hidden;isolation:isolate;background:radial-gradient(ellipse at 50% 35%,var(--fabric-light),var(--fabric-color) 58%,var(--fabric-dark));height:100%;width:100%}
+.exfs-fabric-plane{position:absolute;inset:7% -11% 8% 13%;transform:rotate(-8deg);background:var(--fabric-color);border:1px solid #ffffff22;box-shadow:-13px 21px 36px #0105076e,12px 2px 11px #ffffff0e,inset -25px 0 23px #00000021,inset 28px 0 22px #ffffff18}
+.exfs-fabric-weave{position:absolute;inset:7% -11% 8% 13%;transform:rotate(-8deg);opacity:.67;mix-blend-mode:soft-light;background-image:repeating-linear-gradient(145deg,transparent 0 2px,#ffffff52 2px 3px,#00000047 3px 5px,transparent 5px 8px),repeating-linear-gradient(45deg,#ffffff17 0 1px,#00000034 1px 2px,transparent 2px 5px);background-size:22px 22px}
+.exfs-swatch.knits .exfs-fabric-weave{background-image:radial-gradient(ellipse at center,#ffffffb0 17%,transparent 23%),radial-gradient(ellipse at center,#00000077 12%,transparent 28%);background-size:9px 13px;background-position:0 0,4px 5px;opacity:.42}
+.exfs-swatch.technical .exfs-fabric-weave{background-image:linear-gradient(#f1f7ff4d 1px,transparent 1px),linear-gradient(90deg,#f0fff75c 1px,transparent 1px);background-size:16px 16px;opacity:.45}
+.exfs-swatch.leather-suede .exfs-fabric-weave{background-image:radial-gradient(#ffffff99 .65px,transparent 1px),radial-gradient(#000000bb .8px,transparent 1px);background-size:9px 7px,7px 8px;opacity:.22}
+.exfs-swatch.denim .exfs-fabric-weave{background-image:repeating-linear-gradient(135deg,#ffffff85 0 1px,transparent 1px 4px,#0000009c 4px 5px);background-size:11px 11px;opacity:.55}
+.exfs-fabric-light{position:absolute;inset:7% -11% 8% 13%;transform:rotate(-8deg);background:radial-gradient(ellipse at 24% 12%,#ffffff3f,transparent 54%),repeating-linear-gradient(100deg,transparent 0 45px,#ffffff12 55px 78px,#00000021 106px 155px);pointer-events:none}
+.exfs-media-code{position:absolute;top:13px;left:14px;color:#f0f9ef;font:9px var(--mono);letter-spacing:.7px;z-index:2;text-shadow:0 1px 9px #0007}
+.exfs-card-media>.exfs-open{position:absolute;inset:0;z-index:2;width:100%;height:100%;border:0;background:transparent;cursor:pointer}
+.exfs-save{position:absolute;z-index:3;top:10px;right:10px;width:31px;height:31px;display:grid;place-items:center;background:#11191bad;color:#f6f8ed;border:1px solid #ffffff48;border-radius:50%;font-size:21px;line-height:1;cursor:pointer}
+.exfs-save.saved{color:#a8efd1;background:#193f35;border-color:#90e1bf}
+.exfs-card-title{width:100%;display:block;text-align:left;padding:15px 0 0;border:0;background:none;color:#e5efea;font-size:13px;font-weight:690;letter-spacing:-.25px;line-height:1.3;cursor:pointer}
+.exfs-card-title:hover{color:#a8e5ca}
+.exfs-card-meta{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-top:8px;color:#8ba2a5;font-size:10px;min-height:29px}
+.exfs-card-meta span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.exfs-card-meta span:last-child{color:#bbcfc6;white-space:nowrap;font:9px var(--mono)}
+.exfs-card-footer{display:flex;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:1px solid #2b383d;color:#94c9ad;font:9px var(--mono);letter-spacing:.3px}
+.exfs-pagination{text-align:center;padding:43px 0 10px;color:#82989a;font:10px var(--mono)}
+.exfs-pagination button{width:min(340px,100%);min-height:45px;background:#1c2b29;border:1px solid #4b6255;border-radius:4px;color:#e2f1e5;font-size:11px;font-weight:720}
+.exfs-pagination button span{margin-left:10px;color:#8fa69c;font:9px var(--mono)}
+.exfs-pagination button:hover{background:#2e4438;border-color:#a1d7bf}
+.exfs-empty{grid-column:1/-1;padding:75px 20px;text-align:center;border:1px dashed #4a5e57;background:#131e1d}
+.exfs-empty strong{font-size:20px}.exfs-empty p{color:#9db0aa;font-size:12px;margin:13px 0 23px}
+.exfs-empty button{background:#aedeca;border:0;color:#1a2b24;padding:12px 22px;border-radius:4px;font-weight:720}
+.exfs-disclosure{max-width:1480px;border-top:1px solid #35454a;margin:75px auto 0;padding:23px clamp(22px,5vw,85px);display:grid;grid-template-columns:170px 1fr;gap:20px}
+.exfs-disclosure>span{color:#acd4bd;font:10px var(--mono);letter-spacing:1px}
+.exfs-disclosure p{margin:0;max-width:830px;line-height:1.75;color:#8ba4a6;font-size:11px}
+body.exfs-modal-open{overflow:hidden}
+.exfs-modal-scrim{position:fixed;inset:0;background:#030607d9;z-index:8001}
+.exfs-detail{position:fixed;inset:5vh max(3vw,20px);z-index:8002;display:grid;grid-template-columns:53% 47%;background:#10171b;border:1px solid #5c6e69;box-shadow:0 23px 80px #000a;overflow:auto}
+.exfs-detail-visual{position:relative;min-height:690px;background:#263534;overflow:hidden}
+.exfs-detail-visual>.exfs-swatch{position:absolute;inset:0}
+.exfs-detail-visual .exfs-fabric-plane,.exfs-detail-visual .exfs-fabric-weave,.exfs-detail-visual .exfs-fabric-light{inset:10% 12% 17% 14%;transform:rotate(5deg);box-shadow:17px 33px 55px #0610129c}
+.exfs-detail-cover-label{position:absolute;bottom:55px;left:38px;z-index:2;display:grid;gap:7px;color:#e7f1e8;text-shadow:0 2px 14px #0009}
+.exfs-detail-cover-label span{font:9px var(--mono);letter-spacing:1px;color:#e5f1e2}
+.exfs-detail-cover-label strong{font:650 27px var(--sans);letter-spacing:-.9px}
+.exfs-detail-cover-label small{font:9px var(--mono);letter-spacing:1px}
+.exfs-visual-footer{position:absolute;bottom:14px;left:20px;right:20px;display:flex;justify-content:space-between;z-index:3;color:#e9f3e6;font:9px var(--mono);text-shadow:0 2px 10px #000}
+.exfs-detail-info{padding:27px clamp(22px,3vw,52px) 43px;min-width:0}
+.exfs-detail-header{display:flex;align-items:center;justify-content:space-between;gap:15px;font:9px var(--mono);letter-spacing:.5px;color:#91aba4}
+ .exfs-detail-header button{border:1px solid #43534d;border-radius:4px;background:#1b2928;color:#e7f6ea;width:35px;height:35px}
+.exfs-detail-category{display:block;color:#a5d1b6;font:10px var(--mono);letter-spacing:.7px;margin-top:35px}
+.exfs-detail-info h2{font:650 clamp(32px,3.5vw,55px)/1.04 var(--sans);letter-spacing:-2px;margin:14px 0 17px;color:#e9f1e6}
+.exfs-detail-description{font:12px/1.8 var(--sans);color:#a9bcb5;margin-bottom:22px}
+.exfs-detail-badges{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 30px}
+.exfs-detail-badges span{border:1px solid #3c5b4a;color:#b9ddbf;background:#1c3025;font:9px var(--mono);padding:8px}
+.exfs-detail-specs{margin-top:21px}
+.exfs-detail-specs h3{color:#c1d7c7;font:10px var(--mono);letter-spacing:.7px;border-bottom:1px solid #51635a;padding-bottom:12px}
+.exfs-detail-specs>div{display:flex;gap:18px;align-items:start;justify-content:space-between;padding:13px 0;border-bottom:1px solid #2d4043;font-size:11px}
+.exfs-detail-specs dt{color:#889fa0;flex:0 0 36%}
+.exfs-detail-specs dd{color:#cdded5;text-align:right;margin:0;line-height:1.5}
+.exfs-detail-actions{display:flex;gap:9px;margin-top:28px}
+.exfs-detail-actions button{flex:1;min-height:46px;border-radius:4px;padding:10px;font-weight:750;font-size:10px}
+.exfs-study-action{background:#b2e6ce;border:1px solid #b2e6ce;color:#132b20}
+.exfs-fav-action{background:#1c2b29;border:1px solid #506358;color:#d7e7dc}
+.exfs-study-intro{margin:27px 0 13px;padding-top:23px;border-top:1px solid #35484b;font:10px var(--mono);color:#a9d7bb}
+#exfs-study-slot .exo-material{margin-top:15px}
+#exfs-study-slot .exo-material-head,#exfs-study-slot .exo-m-library,#exfs-study-slot .exo-m-inspector .exo-m-provenance{display:none}
+#exfs-study-slot .exo-m-shell{display:flex;flex-direction:column}
+#exfs-study-slot .exo-m-stage,#exfs-study-slot .exo-m-inspector{min-width:0;width:100%}
+#exfs-study-slot .exo-m-inspector{margin-top:8px}
+#exfs-study-slot .exo-m-apply{display:none}
+.exfs-detail-note{font:10px/1.8 var(--sans);color:#87a39b;margin-top:24px}
+@media(max-width:1250px){.exfs-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:23px 14px}.exfs-body{grid-template-columns:195px minmax(0,1fr);gap:25px}.exfs-hero h1{font-size:62px}.exfs-tabs{gap:10px}}
+@media(max-width:1020px){.exfs-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.exfs-hero{min-height:320px}.exfs-hero-copy{padding-left:37px}.exfs-hero h1{font-size:58px}.exfs-category-bar{padding-inline:25px}.exfs-body{padding-inline:25px}.exfs-detail{grid-template-columns:45% 55%}}
+@media(max-width:780px){
+ .exfs-banner{padding-inline:18px}.exfs-banner>span:last-child{display:none}
+ .exfs-hero{grid-template-columns:1fr;min-height:0}
+ .exfs-hero-copy{padding:50px 24px 42px}
+ .exfs-hero h1{font-size:61px;letter-spacing:-3.5px}
+ .exfs-hero-bottom{margin-top:15px}
+ .exfs-hero-art{min-height:280px;border-left:0;border-top:1px solid #344840}
+ .exfs-sample{height:70%;top:13%}
+ .exfs-back{top:19%}
+ .exfs-category-bar{padding:0 18px;min-height:61px}
+ .exfs-tabs{gap:10px;flex:1;overflow-x:auto}
+ .exfs-tabs button{padding:20px 8px 18px}
+ .exfs-external{display:block;flex:1 1 100%;text-align:center;padding:9px 12px;margin-bottom:11px;font-size:9px}
+ .exfs-category-bar{flex-wrap:wrap}
+ .exfs-body{display:block;padding:19px 18px 0}
+ .exfs-filters{position:static;display:none;max-height:60vh;overflow:auto;background:#151f22;border:1px solid #35494b;border-radius:4px;padding:0 16px 17px;margin:0 0 18px}
+ .exfs-filters.open{display:block}
+ #exfs-mobile-filters{display:flex;gap:8px;align-items:center;justify-content:space-between;border:1px solid #52645e;border-radius:5px;background:#1d3028;color:#d1e5d7;padding:0 14px;min-height:45px;white-space:nowrap;font:10px var(--mono)}
+ #exfs-mobile-filters span{font-size:16px;color:#a2d6b7}
+ .exfs-controls{flex-wrap:wrap}
+ .exfs-search{flex:1 1 100%}
+ #exfs-sort{flex:1;min-width:0}
+ .exfs-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:25px 11px}
+ .exfs-results-meta{margin:17px 0}
+ .exfs-result-actions{gap:9px;flex-wrap:wrap;justify-content:flex-end}
+ .exfs-result-actions #exfs-saved-only{font-size:9px;padding:7px 8px}
+ .exfs-card-title{font-size:12px}
+ .exfs-card-meta{font-size:9px;flex-wrap:wrap;gap:4px}
+ .exfs-disclosure{margin-top:44px;display:block;padding-inline:18px}.exfs-disclosure>span{display:block;margin-bottom:13px}
+ .exfs-detail{inset:0;display:flex;flex-direction:column}
+ .exfs-detail-visual{min-height:370px;flex:none}
+ .exfs-detail-info{padding:23px 22px 40px}
+ .exfs-detail-category{margin-top:24px}
+ .exfs-detail-info h2{font-size:40px}
+ .exfs-detail-cover-label{bottom:47px;left:25px}
+}
+@media(max-width:440px){.exfs-hero h1{font-size:53px}.exfs-sample{width:42%}.exfs-front{left:50%}.exfs-mid{left:33%}.exfs-back{left:17%}.exfs-hero-bottom{font-size:8px}.exfs-hero-bottom>span:last-child{max-width:150px}.exfs-category-bar{padding-inline:11px}.exfs-tabs button{font-size:10px}.exfs-body{padding-inline:13px}.exfs-card-title{font-size:11px}.exfs-card-meta span:last-child{font-size:8px}.exfs-card-footer{font-size:8px}.exfs-media-code{font-size:8px;left:9px;top:10px}.exfs-detail-actions{flex-direction:column}.exfs-detail-visual{min-height:300px}.exfs-result-actions #exfs-saved-only{font-size:8px}.exfs-results-meta>div:last-child{font-size:8px}}
+@media(prefers-reduced-motion:reduce){.exo-store *{scroll-behavior:auto!important;transition:none!important}}
+@media(max-width:780px){
+  .exfs-detail-header button[data-close]{
+    position:fixed;
+    top:max(12px,env(safe-area-inset-top));
+    right:15px;
+    z-index:8010;
+    width:43px;
+    height:43px;
+    border:1px solid #b2d9bf;
+    background:#142521f2;
+    color:#eef8e9;
+    font-size:17px;
+    box-shadow:0 9px 25px #0008;
+  }
+  .exfs-detail-info .exfs-detail-header{min-height:28px}
+}

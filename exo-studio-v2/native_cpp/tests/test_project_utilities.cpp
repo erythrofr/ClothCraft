@@ -1,0 +1,4 @@
+#include "project_utilities.hpp"
+#include <iostream>
+using namespace garment::project_utilities;
+int main(){try{Json req;std::cin>>req;Json results=Json::array();for(const auto& item:req.at("cases")){try{auto op=item.at("op").get<std::string>();Json value;if(op=="clone")value=cloneProject(item.at("project"));else if(op=="touch")value=touchProject(item.at("project"),item.at("timestamp"));else if(op=="get")value=getPiece(item.at("project"),item.at("id"));else if(op=="unique")value=uniqueId(item.value("prefix",std::string("id")),item.at("time"),item.at("random"));else if(op=="rectangle")value=makeRectanglePiece(item.value("index",0.0),item.at("time"),item.at("random"));else throw std::invalid_argument("unknown operation");results.push_back({{"ok",true},{"result",value}});}catch(const std::exception& e){results.push_back({{"ok",false},{"error",e.what()}});}}std::cout<<results.dump()<<'\n';}catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}}

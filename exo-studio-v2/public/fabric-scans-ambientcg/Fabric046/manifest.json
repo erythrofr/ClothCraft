@@ -1,0 +1,37 @@
+{
+  "id": "Fabric046",
+  "source": "ambientCG",
+  "name": "Fabric 046",
+  "license": "CC0-1.0",
+  "assetUrl": "https://ambientcg.com/a/Fabric046",
+  "authors": "ambientCG",
+  "categoryTags": [
+    "46",
+    "blue",
+    "fabric",
+    "polyester",
+    "substance",
+    "vest"
+  ],
+  "scanWidthCm": 40,
+  "scanHeightCm": 40,
+  "physicalScaleStatus": "provider-cm-dimensions",
+  "maps": {
+    "color": {
+      "src": "/fabric-scans-ambientcg/Fabric046/color.jpg",
+      "sha256": "702aabc23011bad9b9077cd49477bfe5873bcf7a8e08e9ed9f1749ffe0178b16",
+      "resolution": "1k"
+    },
+    "normal": {
+      "src": "/fabric-scans-ambientcg/Fabric046/normal.jpg",
+      "sha256": "ddf38ea6a0051aa8281e215527d9d9507f1c90df7877e71712b16d94d47b01c3",
+      "resolution": "1k"
+    },
+    "roughness": {
+      "src": "/fabric-scans-ambientcg/Fabric046/roughness.jpg",
+      "sha256": "1b9b2d13853eb35091974ea5837b80c482a7befd74a3e18bfb2655870209f572",
+      "resolution": "1k"
+    }
+  },
+  "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+}

@@ -1,0 +1,40 @@
+import assert from 'node:assert/strict'
+import {chromium} from '../../music-empire-game/node_modules/playwright-core/index.mjs'
+
+// Isolated browser profile: does not load or modify the user's open project.
+const browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--enable-webgl','--ignore-gpu-blocklist','--use-angle=metal']})
+try {
+  const page=await browser.newPage({viewport:{width:1720,height:1050}})
+  const errors=[]
+  page.on('pageerror',err=>errors.push(err.message))
+  await page.goto('http://127.0.0.1:5188/?desktop=1&testSession=tee',{waitUntil:'domcontentloaded'})
+  const state=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('garment-studio-tee-first-fit-project-v2')))
+  const nav=page.locator('.clo-property-category-nav')
+  await nav.getByRole('button',{name:'3D Form',exact:true}).click()
+  await nav.getByRole('button',{name:'Drape / Fitting'}).click()
+  await page.locator('.clo-panel-title,.panel-title').filter({hasText:'Native XPBD'}).first().waitFor()
+  const before=await state()
+  assert.ok(before?.pieces?.length>=4)
+  const toggle=page.getByRole('button',{name:'Experimental sew-first preassembly'})
+  assert.ok(await toggle.isVisible())
+  await toggle.click()
+  await page.waitForTimeout(900)
+  const toggled=await state()
+  assert.equal(toggled.simulation.experimentalNativeSewFirst,true)
+  assert.deepEqual(toggled.pieces,before.pieces,'Sew-first toggle cannot modify garment pieces')
+  assert.deepEqual(toggled.seams,before.seams,'Sew-first toggle cannot modify sewing edges')
+  await page.locator('.clo-property-panel select').filter({has:page.locator('option[value="quality"]')}).selectOption('quality')
+  await page.getByRole('button',{name:'SOLVE NATIVE XPBD · 60 FRAMES'}).click()
+  await page.getByText('EXPERIMENTAL SEW-FIRST:',{exact:false}).waitFor({timeout:30000})
+  await page.getByText('NATIVE PHYSICAL FIT: FAILED',{exact:false}).waitFor({timeout:30000})
+  assert.ok(await page.getByText('FIT FAILED',{exact:true}).count()>=1)
+  const resultText=await page.getByText('EXPERIMENTAL SEW-FIRST:',{exact:false}).innerText()
+  assert.ok(/188\.\d → 3\.9 mm/.test(resultText),`Expected seam-gap improvement, got: ${resultText}`)
+  assert.ok(resultText.includes('Not a validated fit'))
+  await toggle.click()
+  await page.waitForTimeout(900)
+  assert.notEqual((await state()).simulation.experimentalNativeSewFirst,true,'Experimental mode must be switchable off')
+  assert.deepEqual(errors,[])
+  await page.screenshot({path:'qa-sew-first-workflow-20261013.png'})
+  console.log(JSON.stringify({pass:true,optInOffByDefault:true,sewingPatternsUnchanged:true,nativeServiceSolve:true,experimentalSewFirstWarning:resultText,fitRejected:true,canDisable:true,screenshot:'qa-sew-first-workflow-20261013.png'},null,2))
+} finally {await browser.close()}

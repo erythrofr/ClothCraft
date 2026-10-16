@@ -1,0 +1,35 @@
+{
+  "id": "Leather032",
+  "source": "ambientCG",
+  "name": "Leather 032",
+  "license": "CC0-1.0",
+  "assetUrl": "https://ambientcg.com/a/Leather032",
+  "authors": "ambientCG",
+  "categoryTags": [
+    "32",
+    "black",
+    "leather",
+    "scratched"
+  ],
+  "scanWidthCm": 45,
+  "scanHeightCm": 45,
+  "physicalScaleStatus": "provider-cm-dimensions",
+  "maps": {
+    "color": {
+      "src": "/fabric-scans-ambientcg/Leather032/color.jpg",
+      "sha256": "601f2019f3283741cdc7f039aca1b9328540ac5e93a5de7776e0af810ac89379",
+      "resolution": "1k"
+    },
+    "normal": {
+      "src": "/fabric-scans-ambientcg/Leather032/normal.jpg",
+      "sha256": "ea252998e666e96af281ce2cea69e3142d684d28488b3585578f433bd60120c8",
+      "resolution": "1k"
+    },
+    "roughness": {
+      "src": "/fabric-scans-ambientcg/Leather032/roughness.jpg",
+      "sha256": "11dd8a86ce7de66b2f12da6763a0b4e223999a734ccd7bf3b9cabef6a1af398c",
+      "resolution": "1k"
+    }
+  },
+  "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+}

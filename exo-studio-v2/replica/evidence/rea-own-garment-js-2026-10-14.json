@@ -1,0 +1,87 @@
+{
+  "source": "https://github.com/morluto/rea",
+  "upstreamVersion": "6.5.0",
+  "upstreamCommitReviewed": "9a44fea3479a2ad463fdad2b14e86b412717f771",
+  "target": "Garment Studio built JavaScript and HTML only (no avatars or user projects)",
+  "evidenceId": "ev_e4112ca913ca990d6c2d16039aee4d3ff298a60ceea25a6f9d0ce5e3d17392ba",
+  "artifactHashSha256": "76feef9109506e740f19e78d9a04a8abf851ba455c8b4977d8aea80f8a460775",
+  "mode": "read-only shipped-artifact static reconstruction",
+  "authority": "shipped-artifact",
+  "summary": {
+    "browser_windows": 0,
+    "explicit_web_preferences": 0,
+    "preload_entrypoints": 0,
+    "context_bridge_apis": 0,
+    "exposed_api_members": 0,
+    "ipc": {
+      "operations": 0,
+      "literal_channels": 0,
+      "dynamic_channel_operations": 0,
+      "renderer_transmissions": 0,
+      "renderer_listeners": 0,
+      "main_handlers": 0,
+      "paired_renderer_transmissions": 0,
+      "ambiguous_renderer_transmissions": 0,
+      "unpaired_literal_renderer_transmissions": 0
+    },
+    "sender_validation_observations": 0,
+    "utility_processes": 0,
+    "resolved_utility_entrypoints": 0,
+    "native_addon_bindings": 0,
+    "resolved_native_addon_bindings": 0
+  },
+  "statistics": {
+    "relevant_files": 4,
+    "nested_asar_containers": 0,
+    "text_bytes_read": 1651095,
+    "invalid_utf8_files": 0,
+    "parsed_javascript_files": 3,
+    "visited_ast_nodes": 455232,
+    "findings": 112,
+    "modules": 0,
+    "parse_failures": 0
+  },
+  "graph": {
+    "id": "jag_992aa6f02d8e61ff6659f557f50fcf933437bb6fa629f4eea6548f0d0cb67ce4",
+    "coverage": {
+      "status": "partial",
+      "truncated": false,
+      "omitted_count": null,
+      "limits": []
+    },
+    "nodes": 64,
+    "edges": 121,
+    "rootNodes": 1,
+    "nodeKinds": {
+      "artifact": 2,
+      "electron-renderer": 1,
+      "endpoint": 14,
+      "javascript-asset": 3,
+      "javascript-module": 37,
+      "storage": 7
+    },
+    "edgeKinds": {
+      "calls": 20,
+      "contains": 8,
+      "exposes": 34,
+      "imports": 37,
+      "loads": 1,
+      "maps_to": 1,
+      "persists_to": 20
+    }
+  },
+  "limitations": [
+    "CommonJS and ESM binding relationships were recovered from inert syntax and resolved only within the inventoried artifact container.",
+    "Graph coverage is incomplete; unavailable facts remain explicit and must not be read as absence.",
+    "JavaScript and HTML were parsed as inert text; bundle bootstrap code was never executed.",
+    "Static imports, entrypoints, workers, endpoints, and storage relationships do not prove runtime execution.",
+    "Static paths and relationships may remain unresolved when expressions are dynamic or obfuscated.",
+    "Webpack/Rspack factories were recovered from AST literals; REA did not invoke push handlers or bundle bootstrap code."
+  ],
+  "conclusions": [
+    "REA successfully parsed the shipped Garment Studio JavaScript without executing it.",
+    "The shipped JS contains no inferred Electron BrowserWindow/IPC interfaces; this is expected for the Swift/WebKit shell, not evidence of absent macOS integration.",
+    "Static module and boundary findings do not prove that CAD tools work, that the original source is complete, or that native garment physics is correct.",
+    "The report contains no runtime trace, no inspected CLO3D source, and no visual CLO comparison score."
+  ]
+}

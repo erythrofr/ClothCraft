@@ -1,0 +1,102 @@
+/* Same Garment Studio ViewportQuickTools/CadToolIcon widget families.
+   The main rail is vertical; each group reveals a horizontal hover row. */
+.cc-board .cc-corner-tool-host,
+.cc-scene .cc-corner-tool-host {
+  position:absolute;
+  top:8px;
+  left:8px;
+  z-index:48;
+  pointer-events:auto;
+}
+.cc-corner-tool-host .clo-corner-toolkit {
+  position:relative;
+  /* Original global .canvas-tool-flyouts is top:50px/left:8px. Our wrapper
+     owns the precise top-left inset, so reset those inherited offsets. */
+  top:0;
+  left:0;
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:2px;
+  width:max-content;
+  padding:3px;
+  border:1px solid #67696b;
+  border-radius:4px;
+  background:rgba(40,42,45,.94);
+  box-shadow:0 4px 12px #0004;
+}
+.cc-corner-tool-host .clo-corner-tool-group {position:relative;display:block}
+.cc-corner-tool-host .clo-corner-tool-group > button {
+  position:relative;
+  display:grid;
+  place-items:center;
+  width:30px;
+  height:30px;
+  min-width:30px;
+  margin:0;
+  padding:3px;
+  border:1px solid transparent;
+  border-radius:2px;
+  background:#414347;
+  color:#d5d9dd;
+  cursor:pointer;
+}
+.cc-corner-tool-host .clo-corner-tool-group > button:disabled {opacity:.42;cursor:not-allowed}
+.cc-corner-tool-host .clo-corner-tool-group > button:not(:disabled):hover,
+.cc-corner-tool-host .clo-corner-tool-group > button:not(:disabled):focus-visible {background:#4c5359;border-color:#77818a;color:#fff}
+.cc-rust-embedded .cc-corner-tool-host .clo-corner-tool-group > button.active,
+.cc-corner-tool-host .clo-corner-tool-group > button.active {
+  background:#344950;
+  color:#83d9f2;
+  border-color:#5b8da3;
+}
+.cc-corner-tool-host .clo-corner-flyout-caret {
+  position:absolute;right:2px;bottom:2px;width:0;height:0;
+  border-left:4px solid transparent;border-bottom:4px solid #adb3b8;
+}
+.cc-corner-tool-host .clo-corner-toolkit .clo-corner-tool-options {
+  display:none;
+  position:absolute;
+  top:-4px;
+  left:100%;
+  z-index:55;
+  align-items:center;
+  flex-direction:row;
+  flex-wrap:nowrap;
+  gap:3px;
+  width:max-content;
+  padding:4px;
+  border:1px solid #676b6e;
+  border-radius:4px;
+  background:#2c2f34;
+  box-shadow:0 8px 18px #0009;
+}
+.cc-corner-tool-host .clo-corner-toolkit .clo-corner-tool-group:hover > .clo-corner-tool-options,
+.cc-corner-tool-host .clo-corner-toolkit .clo-corner-tool-group:focus-within > .clo-corner-tool-options {
+  display:flex;
+  flex-direction:row;
+}
+.cc-corner-tool-host .clo-corner-tool-options > button {
+  display:flex;
+  align-items:center;
+  gap:6px;
+  width:auto;
+  min-width:max-content;
+  height:30px;
+  padding:4px 7px;
+  border:1px solid transparent;
+  border-radius:2px;
+  background:#35383d;
+  color:#d8dcdf;
+  white-space:nowrap;
+  font-size:10px;
+  cursor:pointer;
+}
+.cc-rust-embedded .cc-corner-tool-host .clo-corner-tool-options > button:hover:not(:disabled),
+.cc-corner-tool-host .clo-corner-tool-options > button:hover:not(:disabled),
+.cc-corner-tool-host .clo-corner-tool-options > button:focus-visible:not(:disabled) {color:#fff;background:#4b5055;border-color:#757e87}
+.cc-rust-embedded .cc-corner-tool-host .clo-corner-tool-options > button.active,
+.cc-corner-tool-host .clo-corner-tool-options > button.active {color:#83d9f2;background:#344950}
+.cc-corner-tool-host .clo-corner-tool-options > button:disabled {opacity:.4;cursor:not-allowed}
+.cc-corner-tool-host .cad-tool-icon {flex-shrink:0}
+.cc-corner-tool-host .clo-corner-tool-group > button .cad-tool-icon {width:21px;height:21px}

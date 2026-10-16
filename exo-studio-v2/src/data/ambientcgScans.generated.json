@@ -1,0 +1,1091 @@
+{
+  "schemaVersion": 1,
+  "license": "CC0-1.0",
+  "licenseReference": "https://docs.ambientcg.com/books/website-licensing/page/license-information",
+  "assets": {
+    "Fabric003": {
+      "id": "Fabric003",
+      "source": "ambientCG",
+      "name": "Fabric 003",
+      "license": "CC0-1.0",
+      "assetUrl": "https://ambientcg.com/a/Fabric003",
+      "authors": "ambientCG",
+      "categoryTags": [
+        "3",
+        "blue",
+        "clean",
+        "fabric",
+        "jeans",
+        "new"
+      ],
+      "scanWidthCm": 20,
+      "scanHeightCm": 20,
+      "physicalScaleStatus": "unknown-illustrative-20cm",
+      "maps": {
+        "color": {
+          "src": "/fabric-scans-ambientcg/Fabric003/color.jpg",
+          "sha256": "76b5ebccc5fd6c250fe21d3cd270647487408e2178174cbe01ff92b603d631ec",
+          "resolution": "1k"
+        },
+        "normal": {
+          "src": "/fabric-scans-ambientcg/Fabric003/normal.jpg",
+          "sha256": "ab8b34b4ab4e2e0ff598edc65479789ea5e598a4f61bebc34e52d036ee40cde5",
+          "resolution": "1k"
+        },
+        "roughness": {
+          "src": "/fabric-scans-ambientcg/Fabric003/roughness.jpg",
+          "sha256": "aca2a3a83d9fb8cabd573b27bad1e46e5264a4656a6fe4f34f27165384af9130",
+          "resolution": "1k"
+        }
+      },
+      "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+    },
+    "Fabric019": {
+      "id": "Fabric019",
+      "source": "ambientCG",
+      "name": "Fabric 019",
+      "license": "CC0-1.0",
+      "assetUrl": "https://ambientcg.com/a/Fabric019",
+      "authors": "ambientCG",
+      "categoryTags": [
+        "19",
+        "cloth",
+        "fabric",
+        "weave",
+        "white",
+        "wool",
+        "woven"
+      ],
+      "scanWidthCm": 20,
+      "scanHeightCm": 20,
+      "physicalScaleStatus": "unknown-illustrative-20cm",
+      "maps": {
+        "color": {
+          "src": "/fabric-scans-ambientcg/Fabric019/color.jpg",
+          "sha256": "aa6dfd091735228f85545906014ad0755c03e67ce2d53eea8523f620b6d22146",
+          "resolution": "1k"
+        },
+        "normal": {
+          "src": "/fabric-scans-ambientcg/Fabric019/normal.jpg",
+          "sha256": "ae72fff5f8c645d1749604c1775b22e10d4b9a1b458cb51780dd92e00c5eaab3",
+          "resolution": "1k"
+        },
+        "roughness": {
+          "src": "/fabric-scans-ambientcg/Fabric019/roughness.jpg",
+          "sha256": "dd0240cdc492fb104bca2f7ec1386da9bf7b6d837b1ecfcca1f349381a7edc53",
+          "resolution": "1k"
+        }
+      },
+      "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+    },
+    "Fabric032": {
+      "id": "Fabric032",
+      "source": "ambientCG",
+      "name": "Fabric 032",
+      "license": "CC0-1.0",
+      "assetUrl": "https://ambientcg.com/a/Fabric032",
+      "authors": "ambientCG",
+      "categoryTags": [
+        "32",
+        "cloth",
+        "fabric",
+        "white",
+        "wool"
+      ],
+      "scanWidthCm": 20,
+      "scanHeightCm": 20,
+      "physicalScaleStatus": "unknown-illustrative-20cm",
+      "maps": {
+        "color": {
+          "src": "/fabric-scans-ambientcg/Fabric032/color.jpg",
+          "sha256": "9b8435528e63b4c7948bec000eee5067c41c5de51798a0a2c6563503306f44de",
+          "resolution": "1k"
+        },
+        "normal": {
+          "src": "/fabric-scans-ambientcg/Fabric032/normal.jpg",
+          "sha256": "c25867f1aa79f64e62f1bab9f162713b590d1c83984b60f7c9cd14c19e6b3961",
+          "resolution": "1k"
+        },
+        "roughness": {
+          "src": "/fabric-scans-ambientcg/Fabric032/roughness.jpg",
+          "sha256": "3d4db8efebfd3236e42651b4690f19c686d56a11e6656b1735b30c9019444e81",
+          "resolution": "1k"
+        }
+      },
+      "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+    },
+    "Fabric034": {
+      "id": "Fabric034",
+      "source": "ambientCG",
+      "name": "Fabric 034",
+      "license": "CC0-1.0",
+      "assetUrl": "https://ambientcg.com/a/Fabric034",
+      "authors": "ambientCG",
+      "categoryTags": [
+        "34",
+        "fabric",
+        "felt",
+        "grey",
+        "white"
+      ],
+      "scanWidthCm": 20,
+      "scanHeightCm": 20,
+      "physicalScaleStatus": "unknown-illustrative-20cm",
+      "maps": {
+        "color": {
+          "src": "/fabric-scans-ambientcg/Fabric034/color.jpg",
+          "sha256": "23d4da86236b98235a493d5ab9a79f0345d041fc721544fd5f148a76d96d1f01",
+          "resolution": "1k"
+        },
+        "normal": {
+          "src": "/fabric-scans-ambientcg/Fabric034/normal.jpg",
+          "sha256": "2e8bcb8be56ff6f1f529ac0d9f798120210e54d98adc7e3d437904cf9287ce94",
+          "resolution": "1k"
+        },
+        "roughness": {
+          "src": "/fabric-scans-ambientcg/Fabric034/roughness.jpg",
+          "sha256": "768c4d09770b4198a7525d406e30c3a4c1197846a14e4cd67132fa91c7065893",
+          "resolution": "1k"
+        }
+      },
+      "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+    },
+    "Fabric036": {
+      "id": "Fabric036",
+      "source": "ambientCG",
+      "name": "Fabric 036",
+      "license": "CC0-1.0",
+      "assetUrl": "https://ambientcg.com/a/Fabric036",
+      "authors": "ambientCG",
+      "categoryTags": [
+        "36",
+        "clean",
+        "fabric",
+        "smooth",
+        "woven"
+      ],
+      "scanWidthCm": 20,
+      "scanHeightCm": 20,
+      "physicalScaleStatus": "unknown-illustrative-20cm",
+      "maps": {
+        "color": {
+          "src": "/fabric-scans-ambientcg/Fabric036/color.jpg",
+          "sha256": "d786e4a1c229f96f781667d062817e14fdbf2ffaba81d38f4fcc04c39a0062d4",
+          "resolution": "1k"
+        },
+        "normal": {
+          "src": "/fabric-scans-ambientcg/Fabric036/normal.jpg",
+          "sha256": "b9c2153b5f78b8d1ee0529b5d8e3174fa25accb4131e425aa18b808efede4feb",
+          "resolution": "1k"
+        },
+        "roughness": {
+          "src": "/fabric-scans-ambientcg/Fabric036/roughness.jpg",
+          "sha256": "9ad01f95163602e6ae63c4ced864edc9b8347936b51e3f49f89e64e868f995fd",
+          "resolution": "1k"
+        }
+      },
+      "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+    },
+    "Fabric046": {
+      "id": "Fabric046",
+      "source": "ambientCG",
+      "name": "Fabric 046",
+      "license": "CC0-1.0",
+      "assetUrl": "https://ambientcg.com/a/Fabric046",
+      "authors": "ambientCG",
+      "categoryTags": [
+        "46",
+        "blue",
+        "fabric",
+        "polyester",
+        "substance",
+        "vest"
+      ],
+      "scanWidthCm": 40,
+      "scanHeightCm": 40,
+      "physicalScaleStatus": "provider-cm-dimensions",
+      "maps": {
+        "color": {
+          "src": "/fabric-scans-ambientcg/Fabric046/color.jpg",
+          "sha256": "702aabc23011bad9b9077cd49477bfe5873bcf7a8e08e9ed9f1749ffe0178b16",
+          "resolution": "1k"
+        },
+        "normal": {
+          "src": "/fabric-scans-ambientcg/Fabric046/normal.jpg",
+          "sha256": "ddf38ea6a0051aa8281e215527d9d9507f1c90df7877e71712b16d94d47b01c3",
+          "resolution": "1k"
+        },
+        "roughness": {
+          "src": "/fabric-scans-ambientcg/Fabric046/roughness.jpg",
+          "sha256": "1b9b2d13853eb35091974ea5837b80c482a7befd74a3e18bfb2655870209f572",
+          "resolution": "1k"
+        }
+      },
+      "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+    },
+    "Fabric047": {
+      "id": "Fabric047",
+      "source": "ambientCG",
+      "name": "Fabric 047",
+      "license": "CC0-1.0",
+      "assetUrl": "https://ambientcg.com/a/Fabric047",
+      "authors": "ambientCG",
+      "categoryTags": [
+        "47",
+        "fabric",
+        "green",
+        "polyester",
+        "substance",
+        "vest"
+      ],
+      "scanWidthCm": 40,
+      "scanHeightCm": 40,
+      "physicalScaleStatus": "provider-cm-dimensions",
+      "maps": {
+        "color": {
+          "src": "/fabric-scans-ambientcg/Fabric047/color.jpg",
+          "sha256": "769c0a993f12b5a938547ceeb9df8359a3bd54bcaffb14ed78dae1156f731b6a",
+          "resolution": "1k"
+        },
+        "normal": {
+          "src": "/fabric-scans-ambientcg/Fabric047/normal.jpg",
+          "sha256": "5533f7f4dd010a4a8ccd9ac925dc1853bf5cec4066887ff12453663d6f806e67",
+          "resolution": "1k"
+        },
+        "roughness": {
+          "src": "/fabric-scans-ambientcg/Fabric047/roughness.jpg",
+          "sha256": "9ac15d8f0dadad92c2321762626b04d3c2349546e965632236b159debfdc98a9",
+          "resolution": "1k"
+        }
+      },
+      "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+    },
+    "Fabric048": {
+      "id": "Fabric048",
+      "source": "ambientCG",
+      "name": "Fabric 048",
+      "license": "CC0-1.0",
+      "assetUrl": "https://ambientcg.com/a/Fabric048",
+      "authors": "ambientCG",
+      "categoryTags": [
+        "48",
+        "fabric",
+        "polyester",
+        "substance",
+        "vest",
+        "white"
+      ],
+      "scanWidthCm": 40,
+      "scanHeightCm": 40,
+      "physicalScaleStatus": "provider-cm-dimensions",
+      "maps": {
+        "color": {
+          "src": "/fabric-scans-ambientcg/Fabric048/color.jpg",
+          "sha256": "8d69eed812a4ba416ac24024056c4ee3e7ef5ea09d5c07d0bc7d064d09dcba91",
+          "resolution": "1k"
+        },
+        "normal": {
+          "src": "/fabric-scans-ambientcg/Fabric048/normal.jpg",
+          "sha256": "c5136de5acb31421722c1d52d817482f983b09fb322984f0b7f9b1496ebed2be",
+          "resolution": "1k"
+        },
+        "roughness": {
+          "src": "/fabric-scans-ambientcg/Fabric048/roughness.jpg",
+          "sha256": "b630e0d694dcf07c47f4d555b0f689e4cd6d8706cdf2f8c498fa805c8f541907",
+          "resolution": "1k"
+        }
+      },
+      "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+    },
+    "Fabric049": {
+      "id": "Fabric049",
+      "source": "ambientCG",
+      "name": "Fabric 049",
+      "license": "CC0-1.0",
+      "assetUrl": "https://ambientcg.com/a/Fabric049",
+      "authors": "ambientCG",
+      "categoryTags": [
+        "49",
+        "black",
+        "fabric",
+        "polyester",
+        "substance",
+        "vest"
+      ],
+      "scanWidthCm": 40,
+      "scanHeightCm": 40,
+      "physicalScaleStatus": "provider-cm-dimensions",
+      "maps": {
+        "color": {
+          "src": "/fabric-scans-ambientcg/Fabric049/color.jpg",
+          "sha256": "7f5d561bcf6e28603f6fb025377ad9c70fdb85c25185175af6db0d49480dc420",
+          "resolution": "1k"
+        },
+        "normal": {
+          "src": "/fabric-scans-ambientcg/Fabric049/normal.jpg",
+          "sha256": "bc15a234f537e2b66f59c7c23957cc1bde182a352e1cead66ed29fe5eabaa6cc",
+          "resolution": "1k"
+        },
+        "roughness": {
+          "src": "/fabric-scans-ambientcg/Fabric049/roughness.jpg",
+          "sha256": "c61c39fa1a9c99a81fbc272a4b77828cbea7ece4fd0652d43b7eafc85aa2db5f",
+          "resolution": "1k"
+        }
+      },
+      "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+    },
+    "Fabric061": {
+      "id": "Fabric061",
+      "source": "ambientCG",
+      "name": "Fabric 061",
+      "license": "CC0-1.0",
+      "assetUrl": "https://ambientcg.com/a/Fabric061",
+      "authors": "ambientCG",
+      "categoryTags": [
+        "61",
+        "fabric",
+        "rough"
+      ],
+      "scanWidthCm": 40,
+      "scanHeightCm": 40,
+      "physicalScaleStatus": "provider-cm-dimensions",
+      "maps": {
+        "color": {
+          "src": "/fabric-scans-ambientcg/Fabric061/color.jpg",
+          "sha256": "de7321c185f7dfe83e71b84ad1f813364107f85f5ed2e605c820b8f7f4fe498b",
+          "resolution": "1k"
+        },
+        "normal": {
+          "src": "/fabric-scans-ambientcg/Fabric061/normal.jpg",
+          "sha256": "528808da93efcd6a4cf0370c6647af748115c54db7b7ee5f983f2d8a0d0eb2aa",
+          "resolution": "1k"
+        },
+        "roughness": {
+          "src": "/fabric-scans-ambientcg/Fabric061/roughness.jpg",
+          "sha256": "dd486d17cea570bf971b3f09b6bcf888b5926894c9ce65e136498690bc098680",
+          "resolution": "1k"
+        }
+      },
+      "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+    },
+    "Fabric062": {
+      "id": "Fabric062",
+      "source": "ambientCG",
+      "name": "Fabric 062",
+      "license": "CC0-1.0",
+      "assetUrl": "https://ambientcg.com/a/Fabric062",
+      "authors": "ambientCG",
+      "categoryTags": [
+        "62",
+        "fabric",
+        "rough"
+      ],
+      "scanWidthCm": 40,
+      "scanHeightCm": 40,
+      "physicalScaleStatus": "provider-cm-dimensions",
+      "maps": {
+        "color": {
+          "src": "/fabric-scans-ambientcg/Fabric062/color.jpg",
+          "sha256": "5a357aac1faf7e09bad1f960e1a5b684f045f86ca692535a101232727d5d438b",
+          "resolution": "1k"
+        },
+        "normal": {
+          "src": "/fabric-scans-ambientcg/Fabric062/normal.jpg",
+          "sha256": "3b9187406e4661a725ece4694fc5ef8c64590c31179145312dbd3235e8c47fb7",
+          "resolution": "1k"
+        },
+        "roughness": {
+          "src": "/fabric-scans-ambientcg/Fabric062/roughness.jpg",
+          "sha256": "d1081843b0d790a81a21c92758a405dd48c1cc79ff040ffc8f71de95a7dc9aa6",
+          "resolution": "1k"
+        }
+      },
+      "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+    },
+    "Fabric066": {
+      "id": "Fabric066",
+      "source": "ambientCG",
+      "name": "Fabric 066",
+      "license": "CC0-1.0",
+      "assetUrl": "https://ambientcg.com/a/Fabric066",
+      "authors": "ambientCG",
+      "categoryTags": [
+        "66",
+        "fabric",
+        "rough"
+      ],
+      "scanWidthCm": 40,
+      "scanHeightCm": 40,
+      "physicalScaleStatus": "provider-cm-dimensions",
+      "maps": {
+        "color": {
+          "src": "/fabric-scans-ambientcg/Fabric066/color.jpg",
+          "sha256": "e8d2fc74a7a7e8710986e35fc723771783745fc37a91ff1bd995465c0fe61690",
+          "resolution": "1k"
+        },
+        "normal": {
+          "src": "/fabric-scans-ambientcg/Fabric066/normal.jpg",
+          "sha256": "447c95581c84a7a1d2efb622faf331be72307f54c62995338e5cd60dcf7f3645",
+          "resolution": "1k"
+        },
+        "roughness": {
+          "src": "/fabric-scans-ambientcg/Fabric066/roughness.jpg",
+          "sha256": "9c7724412af052e6260d5fe35e7f3a98b0732d7d594361e8ca3590c34e2e995a",
+          "resolution": "1k"
+        }
+      },
+      "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+    },
+    "Fabric069": {
+      "id": "Fabric069",
+      "source": "ambientCG",
+      "name": "Fabric 069",
+      "license": "CC0-1.0",
+      "assetUrl": "https://ambientcg.com/a/Fabric069",
+      "authors": "ambientCG",
+      "categoryTags": [
+        "69",
+        "fabric",
+        "jeans"
+      ],
+      "scanWidthCm": 20,
+      "scanHeightCm": 20,
+      "physicalScaleStatus": "unknown-illustrative-20cm",
+      "maps": {
+        "color": {
+          "src": "/fabric-scans-ambientcg/Fabric069/color.jpg",
+          "sha256": "41454a5a275153308fa5550c509f5bd57f6e63993567268ce4a494c9a6570487",
+          "resolution": "1k"
+        },
+        "normal": {
+          "src": "/fabric-scans-ambientcg/Fabric069/normal.jpg",
+          "sha256": "7ac3eff8ac3f82f67e752469caa83f078b2d260293db89f273e4eee97ee1166b",
+          "resolution": "1k"
+        },
+        "roughness": {
+          "src": "/fabric-scans-ambientcg/Fabric069/roughness.jpg",
+          "sha256": "dfc958ae8e3c5e56c1b69786e5528cae038847a0c2bd7a192b86e5379405ff48",
+          "resolution": "1k"
+        }
+      },
+      "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+    },
+    "Fabric070": {
+      "id": "Fabric070",
+      "source": "ambientCG",
+      "name": "Fabric 070",
+      "license": "CC0-1.0",
+      "assetUrl": "https://ambientcg.com/a/Fabric070",
+      "authors": "ambientCG",
+      "categoryTags": [
+        "70",
+        "fabric",
+        "green",
+        "light",
+        "sport",
+        "sportswear"
+      ],
+      "scanWidthCm": 20,
+      "scanHeightCm": 20,
+      "physicalScaleStatus": "unknown-illustrative-20cm",
+      "maps": {
+        "color": {
+          "src": "/fabric-scans-ambientcg/Fabric070/color.jpg",
+          "sha256": "f9f720705d48ccfe0a6ccbed7637a333fdc558b2c33f50dd2ee9f8371a4ad3c9",
+          "resolution": "1k"
+        },
+        "normal": {
+          "src": "/fabric-scans-ambientcg/Fabric070/normal.jpg",
+          "sha256": "8e9a5799354579966b450791e15facca8e5d052da1357d50a8fd5d84a7d0ed8e",
+          "resolution": "1k"
+        },
+        "roughness": {
+          "src": "/fabric-scans-ambientcg/Fabric070/roughness.jpg",
+          "sha256": "1c262a143a7c9508d81c604fe14aacae97c3336b436509aa1b94258e4765ba1c",
+          "resolution": "1k"
+        }
+      },
+      "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+    },
+    "Fabric077": {
+      "id": "Fabric077",
+      "source": "ambientCG",
+      "name": "Fabric 077",
+      "license": "CC0-1.0",
+      "assetUrl": "https://ambientcg.com/a/Fabric077",
+      "authors": "ambientCG",
+      "categoryTags": [
+        "77",
+        "fabric",
+        "jeans",
+        "white"
+      ],
+      "scanWidthCm": 20,
+      "scanHeightCm": 20,
+      "physicalScaleStatus": "unknown-illustrative-20cm",
+      "maps": {
+        "color": {
+          "src": "/fabric-scans-ambientcg/Fabric077/color.jpg",
+          "sha256": "bbe9060310766516f51fc54ec967787d4091031e7f0046d2578886cfadb56f5d",
+          "resolution": "1k"
+        },
+        "normal": {
+          "src": "/fabric-scans-ambientcg/Fabric077/normal.jpg",
+          "sha256": "db9b6954cbebcc0dda8de5ffb0f283b35565768c647ee67adf15435772386b90",
+          "resolution": "1k"
+        },
+        "roughness": {
+          "src": "/fabric-scans-ambientcg/Fabric077/roughness.jpg",
+          "sha256": "a748e634a63274f7daddb8ae68813407f3008162b270facee34a4870d1254cb1",
+          "resolution": "1k"
+        }
+      },
+      "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+    },
+    "Fabric078": {
+      "id": "Fabric078",
+      "source": "ambientCG",
+      "name": "Fabric 078",
+      "license": "CC0-1.0",
+      "assetUrl": "https://ambientcg.com/a/Fabric078",
+      "authors": "ambientCG",
+      "categoryTags": [
+        "78",
+        "cloth",
+        "fabric",
+        "green"
+      ],
+      "scanWidthCm": 60,
+      "scanHeightCm": 60,
+      "physicalScaleStatus": "provider-cm-dimensions",
+      "maps": {
+        "color": {
+          "src": "/fabric-scans-ambientcg/Fabric078/color.jpg",
+          "sha256": "cea2914fd4bfdc5462c3d64d9476bb081b573bb7422433c333552b23860b4254",
+          "resolution": "1k"
+        },
+        "normal": {
+          "src": "/fabric-scans-ambientcg/Fabric078/normal.jpg",
+          "sha256": "0f709170a3f9138c2dfd1cea908265d524b78556a3b787ced73debc71a8e6de4",
+          "resolution": "1k"
+        },
+        "roughness": {
+          "src": "/fabric-scans-ambientcg/Fabric078/roughness.jpg",
+          "sha256": "e34e55485658dc1afd9be9e70eeb065cfabd10b150171639d3b076a3449691e1",
+          "resolution": "1k"
+        }
+      },
+      "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+    },
+    "Fabric081A": {
+      "id": "Fabric081A",
+      "source": "ambientCG",
+      "name": "Fabric 081 A",
+      "license": "CC0-1.0",
+      "assetUrl": "https://ambientcg.com/a/Fabric081A",
+      "authors": "ambientCG",
+      "categoryTags": [
+        "81",
+        "blue",
+        "fabric",
+        "fine",
+        "woven"
+      ],
+      "scanWidthCm": 20,
+      "scanHeightCm": 20,
+      "physicalScaleStatus": "unknown-illustrative-20cm",
+      "maps": {
+        "color": {
+          "src": "/fabric-scans-ambientcg/Fabric081A/color.jpg",
+          "sha256": "7123771132122a06d7cb315fd1c00a8dabef56963b12721b9a43dee5e9c00b50",
+          "resolution": "1k"
+        },
+        "normal": {
+          "src": "/fabric-scans-ambientcg/Fabric081A/normal.jpg",
+          "sha256": "ea830c4a4a0271c18c067b9aa9a20c7f720b1eecea9c4b7246546ec090245a71",
+          "resolution": "1k"
+        },
+        "roughness": {
+          "src": "/fabric-scans-ambientcg/Fabric081A/roughness.jpg",
+          "sha256": "0e6edb182a5da94e8a6568a0afa2d7ace76fac6798a5e6cd3cdc9ebaaea1f086",
+          "resolution": "1k"
+        }
+      },
+      "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+    },
+    "Fabric082A": {
+      "id": "Fabric082A",
+      "source": "ambientCG",
+      "name": "Fabric 082 A",
+      "license": "CC0-1.0",
+      "assetUrl": "https://ambientcg.com/a/Fabric082A",
+      "authors": "ambientCG",
+      "categoryTags": [
+        "82",
+        "fabric",
+        "fine",
+        "grey",
+        "smooth",
+        "woven"
+      ],
+      "scanWidthCm": 20,
+      "scanHeightCm": 20,
+      "physicalScaleStatus": "unknown-illustrative-20cm",
+      "maps": {
+        "color": {
+          "src": "/fabric-scans-ambientcg/Fabric082A/color.jpg",
+          "sha256": "014f3fcd3655e5ba01fbaa5eb9fdeb9d1ad9902dcac5471fc1cf16ee2781fa39",
+          "resolution": "1k"
+        },
+        "normal": {
+          "src": "/fabric-scans-ambientcg/Fabric082A/normal.jpg",
+          "sha256": "e8e5aaad31408d450b5fbefdfb444ce5bd817c9d93e7b6889219e6221884374d",
+          "resolution": "1k"
+        },
+        "roughness": {
+          "src": "/fabric-scans-ambientcg/Fabric082A/roughness.jpg",
+          "sha256": "7dfc09a6fce4fec5473d84a481b2dfde4dec407bd6f80e9de38402dea34fd208",
+          "resolution": "1k"
+        }
+      },
+      "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+    },
+    "Fabric084": {
+      "id": "Fabric084",
+      "source": "ambientCG",
+      "name": "Fabric 084",
+      "license": "CC0-1.0",
+      "assetUrl": "https://ambientcg.com/a/Fabric084",
+      "authors": "ambientCG",
+      "categoryTags": [
+        "084",
+        "84",
+        "blue",
+        "fabric",
+        "fabric084",
+        "fur",
+        "microfiber",
+        "soft"
+      ],
+      "scanWidthCm": 30,
+      "scanHeightCm": 30,
+      "physicalScaleStatus": "provider-cm-dimensions",
+      "maps": {
+        "color": {
+          "src": "/fabric-scans-ambientcg/Fabric084/color.jpg",
+          "sha256": "100668a6ef1ef1e1c5a55dd82b82edc725fa6b2aa0d9a5581fe05a842ea9e99c",
+          "resolution": "1k"
+        },
+        "normal": {
+          "src": "/fabric-scans-ambientcg/Fabric084/normal.jpg",
+          "sha256": "75782b2f9f5599b8188df018aa7dcf5e431e886a79631765d41e7e03aecff7d5",
+          "resolution": "1k"
+        },
+        "roughness": {
+          "src": "/fabric-scans-ambientcg/Fabric084/roughness.jpg",
+          "sha256": "3b1d1f5862c78c771a2db39c1460c5ba84fb034a139d899bf4956a5c640793d9",
+          "resolution": "1k"
+        }
+      },
+      "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+    },
+    "Fabric085": {
+      "id": "Fabric085",
+      "source": "ambientCG",
+      "name": "Fabric 085",
+      "license": "CC0-1.0",
+      "assetUrl": "https://ambientcg.com/a/Fabric085",
+      "authors": "ambientCG",
+      "categoryTags": [
+        "085",
+        "85",
+        "fabric",
+        "fabric085",
+        "orange",
+        "red",
+        "wool"
+      ],
+      "scanWidthCm": 30,
+      "scanHeightCm": 30,
+      "physicalScaleStatus": "provider-cm-dimensions",
+      "maps": {
+        "color": {
+          "src": "/fabric-scans-ambientcg/Fabric085/color.jpg",
+          "sha256": "afbcdb635193549e777ac49ac5f9599db98afd1f4e165a389f69458913f027a5",
+          "resolution": "1k"
+        },
+        "normal": {
+          "src": "/fabric-scans-ambientcg/Fabric085/normal.jpg",
+          "sha256": "5136bdf5d87b755454c9bc716e7b1adf981accb4fa081f4d773790c5ace73703",
+          "resolution": "1k"
+        },
+        "roughness": {
+          "src": "/fabric-scans-ambientcg/Fabric085/roughness.jpg",
+          "sha256": "94f58ed52e4e7babd42b59e4c7f5a223b803f58099e40569d0020db1d4cc21b3",
+          "resolution": "1k"
+        }
+      },
+      "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+    },
+    "Leather023": {
+      "id": "Leather023",
+      "source": "ambientCG",
+      "name": "Leather 023",
+      "license": "CC0-1.0",
+      "assetUrl": "https://ambientcg.com/a/Leather023",
+      "authors": "ambientCG",
+      "categoryTags": [
+        "23",
+        "beige",
+        "brown",
+        "leather",
+        "light",
+        "smooth"
+      ],
+      "scanWidthCm": 20,
+      "scanHeightCm": 20,
+      "physicalScaleStatus": "unknown-illustrative-20cm",
+      "maps": {
+        "color": {
+          "src": "/fabric-scans-ambientcg/Leather023/color.jpg",
+          "sha256": "7c6c85d3f700ec4777243156c486e5e5e47ef9d6294fd251f194dd97280e04b1",
+          "resolution": "1k"
+        },
+        "normal": {
+          "src": "/fabric-scans-ambientcg/Leather023/normal.jpg",
+          "sha256": "78c1a3bbe7dc7781b798cfb32b6867ea812f360b19494df9f1ec2ec8ee30edee",
+          "resolution": "1k"
+        },
+        "roughness": {
+          "src": "/fabric-scans-ambientcg/Leather023/roughness.jpg",
+          "sha256": "80968c10c2295b79010c7d6e12afb652c44612cbbc598d425f65003e55743b05",
+          "resolution": "1k"
+        }
+      },
+      "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+    },
+    "Leather024": {
+      "id": "Leather024",
+      "source": "ambientCG",
+      "name": "Leather 024",
+      "license": "CC0-1.0",
+      "assetUrl": "https://ambientcg.com/a/Leather024",
+      "authors": "ambientCG",
+      "categoryTags": [
+        "24",
+        "leather",
+        "red",
+        "shiny",
+        "smooth"
+      ],
+      "scanWidthCm": 20,
+      "scanHeightCm": 20,
+      "physicalScaleStatus": "unknown-illustrative-20cm",
+      "maps": {
+        "color": {
+          "src": "/fabric-scans-ambientcg/Leather024/color.jpg",
+          "sha256": "0ca4183154b7dec8b3164a7c3fab40aa1d8ab1c199b0ad2249df0f382b803b70",
+          "resolution": "1k"
+        },
+        "normal": {
+          "src": "/fabric-scans-ambientcg/Leather024/normal.jpg",
+          "sha256": "24b4d358fce30a615a1d9b63e6075f009903fdca792e98f899067a8ced52848f",
+          "resolution": "1k"
+        },
+        "roughness": {
+          "src": "/fabric-scans-ambientcg/Leather024/roughness.jpg",
+          "sha256": "befd5d209ef94aaf14ccba4994659b30fc330aae3aecd816cf55a1ff4136ae89",
+          "resolution": "1k"
+        }
+      },
+      "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+    },
+    "Leather025": {
+      "id": "Leather025",
+      "source": "ambientCG",
+      "name": "Leather 025",
+      "license": "CC0-1.0",
+      "assetUrl": "https://ambientcg.com/a/Leather025",
+      "authors": "ambientCG",
+      "categoryTags": [
+        "25",
+        "leather",
+        "rough",
+        "smooth",
+        "white"
+      ],
+      "scanWidthCm": 20,
+      "scanHeightCm": 20,
+      "physicalScaleStatus": "unknown-illustrative-20cm",
+      "maps": {
+        "color": {
+          "src": "/fabric-scans-ambientcg/Leather025/color.jpg",
+          "sha256": "490a6c0e2bd00675b0130ad3da0f231511e1286a70a3bb7bdde0d08e5c4800f6",
+          "resolution": "1k"
+        },
+        "normal": {
+          "src": "/fabric-scans-ambientcg/Leather025/normal.jpg",
+          "sha256": "933a5225def7245bbffce6b61dd0e443d213e287a9d44127b8831e7c6fe0b033",
+          "resolution": "1k"
+        },
+        "roughness": {
+          "src": "/fabric-scans-ambientcg/Leather025/roughness.jpg",
+          "sha256": "4fee1df8dc775c5635000420ebac8e71f820de786a761fcc3fd11ad01060978b",
+          "resolution": "1k"
+        }
+      },
+      "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+    },
+    "Leather026": {
+      "id": "Leather026",
+      "source": "ambientCG",
+      "name": "Leather 026",
+      "license": "CC0-1.0",
+      "assetUrl": "https://ambientcg.com/a/Leather026",
+      "authors": "ambientCG",
+      "categoryTags": [
+        "26",
+        "black",
+        "dark",
+        "leather",
+        "smooth"
+      ],
+      "scanWidthCm": 20,
+      "scanHeightCm": 20,
+      "physicalScaleStatus": "unknown-illustrative-20cm",
+      "maps": {
+        "color": {
+          "src": "/fabric-scans-ambientcg/Leather026/color.jpg",
+          "sha256": "b84e117b23895db1fc4f02f481788f2ad39a965cf777f0efc4e7f90c66b5304e",
+          "resolution": "1k"
+        },
+        "normal": {
+          "src": "/fabric-scans-ambientcg/Leather026/normal.jpg",
+          "sha256": "02d85cb546396c3faae47792e8d1a9d6ff40771b1a8439c93ddea08255619306",
+          "resolution": "1k"
+        },
+        "roughness": {
+          "src": "/fabric-scans-ambientcg/Leather026/roughness.jpg",
+          "sha256": "dea058b5c912b3755ae7352aff64f8aca98d0b8c90ba6c89807d1ee5a2d145c4",
+          "resolution": "1k"
+        }
+      },
+      "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+    },
+    "Leather028": {
+      "id": "Leather028",
+      "source": "ambientCG",
+      "name": "Leather 028",
+      "license": "CC0-1.0",
+      "assetUrl": "https://ambientcg.com/a/Leather028",
+      "authors": "ambientCG",
+      "categoryTags": [
+        "28",
+        "brown",
+        "leather"
+      ],
+      "scanWidthCm": 45,
+      "scanHeightCm": 45,
+      "physicalScaleStatus": "provider-cm-dimensions",
+      "maps": {
+        "color": {
+          "src": "/fabric-scans-ambientcg/Leather028/color.jpg",
+          "sha256": "7c57d49661aa7da4e34276ce997b152b886417af3945e216b9e7f52eb6862f71",
+          "resolution": "1k"
+        },
+        "normal": {
+          "src": "/fabric-scans-ambientcg/Leather028/normal.jpg",
+          "sha256": "60436c54d7d69c1a3bbd0d5f7f0f70a55bdaec6570c8fbc1a84ee407ed4e08fa",
+          "resolution": "1k"
+        },
+        "roughness": {
+          "src": "/fabric-scans-ambientcg/Leather028/roughness.jpg",
+          "sha256": "ba67af328cdb7186cca82f7d9d260a14d8986230a43764533fae42869323b5ba",
+          "resolution": "1k"
+        }
+      },
+      "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+    },
+    "Leather031": {
+      "id": "Leather031",
+      "source": "ambientCG",
+      "name": "Leather 031",
+      "license": "CC0-1.0",
+      "assetUrl": "https://ambientcg.com/a/Leather031",
+      "authors": "ambientCG",
+      "categoryTags": [
+        "31",
+        "black",
+        "leather"
+      ],
+      "scanWidthCm": 45,
+      "scanHeightCm": 45,
+      "physicalScaleStatus": "provider-cm-dimensions",
+      "maps": {
+        "color": {
+          "src": "/fabric-scans-ambientcg/Leather031/color.jpg",
+          "sha256": "ee1312c66dd864fbef7ef8f8bcc0ee5fbd77a7fd35ac53aa9304ac1189e1f359",
+          "resolution": "1k"
+        },
+        "normal": {
+          "src": "/fabric-scans-ambientcg/Leather031/normal.jpg",
+          "sha256": "fcad5d23b3fbae986c887391b0e9e542e40376a8fd6f2775752912df395b1db6",
+          "resolution": "1k"
+        },
+        "roughness": {
+          "src": "/fabric-scans-ambientcg/Leather031/roughness.jpg",
+          "sha256": "8f7da829a3c158fa4ca9711f1459e83e73cc296bfefe72e163d918902b4c3a2c",
+          "resolution": "1k"
+        }
+      },
+      "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+    },
+    "Leather032": {
+      "id": "Leather032",
+      "source": "ambientCG",
+      "name": "Leather 032",
+      "license": "CC0-1.0",
+      "assetUrl": "https://ambientcg.com/a/Leather032",
+      "authors": "ambientCG",
+      "categoryTags": [
+        "32",
+        "black",
+        "leather",
+        "scratched"
+      ],
+      "scanWidthCm": 45,
+      "scanHeightCm": 45,
+      "physicalScaleStatus": "provider-cm-dimensions",
+      "maps": {
+        "color": {
+          "src": "/fabric-scans-ambientcg/Leather032/color.jpg",
+          "sha256": "601f2019f3283741cdc7f039aca1b9328540ac5e93a5de7776e0af810ac89379",
+          "resolution": "1k"
+        },
+        "normal": {
+          "src": "/fabric-scans-ambientcg/Leather032/normal.jpg",
+          "sha256": "ea252998e666e96af281ce2cea69e3142d684d28488b3585578f433bd60120c8",
+          "resolution": "1k"
+        },
+        "roughness": {
+          "src": "/fabric-scans-ambientcg/Leather032/roughness.jpg",
+          "sha256": "11dd8a86ce7de66b2f12da6763a0b4e223999a734ccd7bf3b9cabef6a1af398c",
+          "resolution": "1k"
+        }
+      },
+      "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+    },
+    "Leather037": {
+      "id": "Leather037",
+      "source": "ambientCG",
+      "name": "Leather 037",
+      "license": "CC0-1.0",
+      "assetUrl": "https://ambientcg.com/a/Leather037",
+      "authors": "ambientCG",
+      "categoryTags": [
+        "37",
+        "brown",
+        "clean",
+        "dark",
+        "leather"
+      ],
+      "scanWidthCm": 20,
+      "scanHeightCm": 20,
+      "physicalScaleStatus": "unknown-illustrative-20cm",
+      "maps": {
+        "color": {
+          "src": "/fabric-scans-ambientcg/Leather037/color.jpg",
+          "sha256": "e1033ea8a95a313bdd80ea52aa04b1eee9a8934f1c695430408dacfc8636cc1a",
+          "resolution": "1k"
+        },
+        "normal": {
+          "src": "/fabric-scans-ambientcg/Leather037/normal.jpg",
+          "sha256": "b0684254670e067d88fa89d04b1dabb832e4652246c7e3878604c713eecd50f7",
+          "resolution": "1k"
+        },
+        "roughness": {
+          "src": "/fabric-scans-ambientcg/Leather037/roughness.jpg",
+          "sha256": "b67300743ff88fe4aafd0d303997d9acaa7f2f730262a3079814d5b673721e46",
+          "resolution": "1k"
+        }
+      },
+      "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+    },
+    "Leather038": {
+      "id": "Leather038",
+      "source": "ambientCG",
+      "name": "Leather 038",
+      "license": "CC0-1.0",
+      "assetUrl": "https://ambientcg.com/a/Leather038",
+      "authors": "ambientCG",
+      "categoryTags": [
+        "38",
+        "brown",
+        "fine",
+        "leather",
+        "orange",
+        "smooth"
+      ],
+      "scanWidthCm": 20,
+      "scanHeightCm": 20,
+      "physicalScaleStatus": "unknown-illustrative-20cm",
+      "maps": {
+        "color": {
+          "src": "/fabric-scans-ambientcg/Leather038/color.jpg",
+          "sha256": "cc601f778f13f87cd4a448c54a2634c97b9bb467a0c52e1fbe5cf90f0b8a0f61",
+          "resolution": "1k"
+        },
+        "normal": {
+          "src": "/fabric-scans-ambientcg/Leather038/normal.jpg",
+          "sha256": "7096bbe36f5d29454e7a4ade786924862e041f01d1041e633c8931d82fb9fd16",
+          "resolution": "1k"
+        },
+        "roughness": {
+          "src": "/fabric-scans-ambientcg/Leather038/roughness.jpg",
+          "sha256": "e47866f43664377cb2aeba6f271a6914335a86c6576fdb4cc08f863c27341684",
+          "resolution": "1k"
+        }
+      },
+      "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+    },
+    "Leather039": {
+      "id": "Leather039",
+      "source": "ambientCG",
+      "name": "Leather 039",
+      "license": "CC0-1.0",
+      "assetUrl": "https://ambientcg.com/a/Leather039",
+      "authors": "ambientCG",
+      "categoryTags": [
+        "39",
+        "bright",
+        "fine",
+        "leather",
+        "light",
+        "rough",
+        "suede"
+      ],
+      "scanWidthCm": 20,
+      "scanHeightCm": 20,
+      "physicalScaleStatus": "unknown-illustrative-20cm",
+      "maps": {
+        "color": {
+          "src": "/fabric-scans-ambientcg/Leather039/color.jpg",
+          "sha256": "19a5fb3782a8f1f7ceab22886878a272aecac7f1ca33adf6162ad912fcab440c",
+          "resolution": "1k"
+        },
+        "normal": {
+          "src": "/fabric-scans-ambientcg/Leather039/normal.jpg",
+          "sha256": "0dbc2fec478a1bb5ca6337ff006a17230af9e95201bc06ad849b4414ca6a851e",
+          "resolution": "1k"
+        },
+        "roughness": {
+          "src": "/fabric-scans-ambientcg/Leather039/roughness.jpg",
+          "sha256": "bee4f43dc94d70e98f59ae08756c6ffb4ed97db124ce13527430dd31c2b1ace7",
+          "resolution": "1k"
+        }
+      },
+      "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+    }
+  },
+  "skipped": {}
+}

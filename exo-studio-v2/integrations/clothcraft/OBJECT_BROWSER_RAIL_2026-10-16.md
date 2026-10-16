@@ -1,0 +1,7 @@
+# EXO V2 Object Browser — in-panel category tab
+
+The three-bullet Object Browser icon is **the first tab in the horizontal row immediately below Object Browser**, directly before Scene. It is not part of the independent vertical right-hand tool rail.
+
+Like Scene, Fabric, Graphics, and the other tabs, clicking the icon now **replaces the contents of the Object Browser panel below the horizontal tab row** with the categories view. No floating dropdown, overlay, absolute-positioned menu, or obscuring shadow remains. The category list occupies the full panel width and naturally scrolls within the panel. The original 2D Pattern, Sewing, 3D Form, Material and Environment groups expand in place to show their nested tools; choosing a nested tool navigates to its existing section/tab and closes the category view. Selecting Scene/Fabric/any other tab also replaces the category view with that tab's ordinary object list. Repeatedly clicking the three-bullet tab toggles the category view and last active object tab.
+
+Validation: `node integrations/clothcraft/qa-v2-object-menu.mjs` runs disposable services and verifies first horizontal placement before Scene, full-width in-flow panel replacement, absence of floating shadow/overlaid object rows, all category/subtool actions, and switching back to the normal Scene list. The signed V2 macOS app was rebuilt, opened, and tested on its installed ports 5385/5386. V1 and the active garment project remain unchanged.

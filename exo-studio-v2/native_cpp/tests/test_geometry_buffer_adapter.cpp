@@ -1,0 +1,4 @@
+#include "geometry_buffer_adapter.hpp"
+#include <iostream>
+using namespace garment::geometry_buffer_adapter;
+int main(){try{Json input;std::cin>>input;Json out=Json::array();for(const auto& q:input.at("cases")){try{std::string op=q.at("op");Json r;if(op=="create")r=createGeometry(q.at("piece"));else if(op=="uv")r=updateGeometryFabricUV(q.at("piece"),q.at("geometry"),q.value("fabric",Json::object()));else if(op=="sync")r=syncGeometry(q.at("piece"),q.at("geometry"),q.value("project",Json()));else if(op=="colors")r=syncAnalysisColors(q.at("piece"),q.at("geometry"),q.value("mode",std::string("surface")));else throw std::runtime_error("invalid operation");out.push_back({{"ok",true},{"result",r}});}catch(const std::exception& e){out.push_back({{"ok",false},{"error",e.what()}});}}std::cout<<out.dump()<<'\n';}catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}}

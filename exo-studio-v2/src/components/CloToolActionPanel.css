@@ -1,0 +1,21 @@
+.exo-clo-tool-card {
+ position:fixed;top:116px;left:310px;z-index:510;width:min(336px,calc(100vw - 80px));
+ border:1px solid #57758d;border-radius:7px;background:#19252e;color:#e5f0f9;
+ padding:0 14px 14px;box-shadow:0 15px 45px #0009;font:inherit;
+}
+.exo-clo-tool-card[data-dimension="2d"]{left:auto;right:395px;}
+.exo-clo-tool-card header{display:flex;align-items:center;justify-content:space-between;min-height:39px;border-bottom:1px solid #3a5160;}
+.exo-clo-tool-card header span{color:#87bad3;font-size:10px;font-weight:700;letter-spacing:.06em;}
+.exo-clo-tool-card header button{background:none;border:0;color:#b8d2df;cursor:pointer;padding:5px;}
+.exo-clo-tool-name{display:block;font-size:17px;margin-top:13px;}
+.exo-clo-tool-state{margin:10px 0 8px;display:flex;gap:7px;align-items:center;color:#8acbcb;font-size:11px;font-weight:700;}
+.exo-clo-tool-card p{font-size:12px;color:#beced7;line-height:1.48;margin:9px 0 14px;}
+.exo-clo-tool-card button.exo-clo-tool-run,
+.exo-clo-tool-card button.exo-clo-tool-workspace{
+ display:flex;align-items:center;justify-content:center;gap:7px;
+ width:100%;padding:9px 12px;border-radius:4px;cursor:pointer;font-size:11px;
+}
+.exo-clo-tool-card button.exo-clo-tool-run{background:#376f88;border:1px solid #58a0bc;color:white;margin-bottom:9px;}
+.exo-clo-tool-card button.exo-clo-tool-workspace{background:#283b48;border:1px solid #435f72;color:#e0eff6;}
+.exo-clo-tool-boundary{display:block;margin-top:11px;color:#9eb2c1;font-size:10px;line-height:1.4;}
+@media(max-width:1100px){.exo-clo-tool-card,.exo-clo-tool-card[data-dimension="2d"]{left:50%;right:auto;transform:translateX(-50%);top:120px;}}

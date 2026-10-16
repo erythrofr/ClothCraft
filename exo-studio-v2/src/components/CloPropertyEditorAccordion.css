@@ -1,0 +1,77 @@
+/* Dense context-sensitive CLO-style Property Editor. This is deliberately
+   distinct from Object Browser category navigation (which lives above). */
+.clo-inspector .clo-property-panel {min-height:0;}
+.clo-inspector .clo-pe-header {
+  min-height:32px;flex:0 0 32px;align-items:center;
+  border-bottom:1px solid #41474c;
+}
+.clo-inspector .clo-pe-header>span {font-size:11px;font-weight:750;letter-spacing:.065em;color:#a9d2eb;}
+.clo-inspector .clo-pe-header>strong {font-size:9px;font-weight:600;color:#869da9;}
+.clo-inspector .clo-pe-list {overflow-y:auto;flex:1 1 auto;min-height:0;background:#262729;}
+.clo-inspector .clo-pe-section {border-bottom:1px solid #343941;}
+.clo-inspector .clo-pe-trigger {
+  display:flex;align-items:center;gap:8px;width:100%;min-height:34px;
+  padding:7px 12px;border:0;text-align:left;cursor:pointer;
+  background:#303134;color:#a7d3ec;
+}
+.clo-inspector .clo-pe-trigger svg {flex:0 0 auto;color:#9ba4ac;}
+.clo-inspector .clo-pe-trigger span {font-size:11px;font-weight:650;letter-spacing:.015em;}
+.clo-inspector .clo-pe-trigger:hover {background:#3a434b;color:#e1f4ff;}
+.clo-inspector .clo-pe-section.expanded>.clo-pe-trigger {background:#36424a;color:#9fdbff;}
+.clo-inspector .clo-pe-trigger:focus-visible {outline:2px solid #64b5ea;outline-offset:-2px;}
+.clo-inspector .clo-pe-content {padding:9px 12px 12px;background:#25282b;color:#d5dee4;}
+.clo-inspector .clo-pe-content[hidden] {display:none!important;}
+.clo-inspector .clo-pe-readout {display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:5px 1px;border-bottom:1px solid #353b40;font-size:10px;}
+.clo-inspector .clo-pe-readout>span {color:#97aab9;}
+.clo-inspector .clo-pe-readout>strong {max-width:55%;font-size:10px;font-weight:550;text-align:right;overflow-wrap:anywhere;color:#dde5e9;}
+.clo-inspector .clo-pe-note {font-size:10px;line-height:1.55;color:#a4adb5;margin:8px 0 2px;}
+.clo-inspector .clo-pe-actions {display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:9px;}
+.clo-inspector .clo-pe-actions button,.clo-inspector .clo-pe-action {
+  min-height:29px;padding:6px;border:1px solid #506372;border-radius:3px;
+  background:#34434e;color:#c3e0f1;font-size:9px;font-weight:650;cursor:pointer;
+}
+.clo-inspector .clo-pe-action {width:100%;margin-top:9px;}
+.clo-inspector .clo-pe-actions button:hover,.clo-inspector .clo-pe-action:hover {background:#486174;color:#fff;}
+.clo-inspector .clo-pe-fabric {display:grid;grid-template-columns:27px 1fr;grid-template-rows:auto auto;column-gap:9px;align-items:center;padding:8px 0;}
+.clo-inspector .clo-pe-fabric>span {grid-row:span 2;width:27px;height:27px;border:1px solid #7a8894;}
+.clo-inspector .clo-pe-fabric>strong {font-size:11px;color:#dae6eb;}
+.clo-inspector .clo-pe-fabric>small {font-size:10px;color:#90a5b2;}
+.clo-inspector .clo-pe-existing-properties {padding-top:8px;margin-top:10px;border-top:1px solid #3b444a;}
+.clo-inspector .clo-pe-existing-properties>.panel-section {padding:10px 0;}
+.clo-inspector .clo-pe-existing-properties>.clo-selected-summary {padding:9px 0;}
+.clo-inspector .clo-pe-existing-properties .panel-title>span {color:#a8c6d6;}
+.clo-inspector .clo-pe-line-target {display:grid;grid-template-columns:1fr auto;gap:6px;margin:10px 0;align-items:center;}
+.clo-inspector .clo-pe-line-target label {grid-column:1/-1;font-size:10px;color:#a8c6d6;}
+.clo-inspector .clo-pe-line-target input {min-width:0;width:100%;background:#1d2227;color:#eef4f7;border:1px solid #567082;padding:6px;font-size:11px;}
+.clo-inspector .clo-pe-line-target button {font-size:9px;background:#385469;color:#d6f0fc;border:1px solid #5b859d;padding:7px;cursor:pointer;}
+.clo-inspector .clo-pe-line-settings {border-top:1px solid #44515b;margin-top:10px;padding-top:5px;}
+.clo-inspector .clo-pe-line-subheading {font-size:10px;letter-spacing:.07em;font-weight:700;color:#b2d9ec;padding:8px 0 4px;}
+.clo-inspector .clo-pe-subtrigger {display:flex;align-items:center;gap:5px;width:100%;margin-top:6px;padding:8px 2px 5px;border:0;border-bottom:1px solid #38464f;background:transparent;color:#b2d9ec;text-align:left;font-size:10px;font-weight:700;letter-spacing:.07em;cursor:pointer;}
+.clo-inspector .clo-pe-subtrigger:hover {background:#344047;color:#e2f4ff;}
+.clo-inspector .clo-pe-subtrigger:focus-visible {outline:2px solid #64b5ea;outline-offset:-2px;}
+.clo-inspector #clo-pe-material-basic[hidden],.clo-inspector #clo-pe-material-reflection[hidden] {display:none!important;}
+.clo-inspector .clo-pe-line-settings label {display:flex;justify-content:space-between;align-items:center;font-size:10px;color:#acbbc6;padding:5px 1px;}
+.clo-inspector .clo-pe-line-settings input:disabled {opacity:.5;cursor:not-allowed;}
+.clo-inspector .clo-pe-typed-fields {display:grid;gap:1px;padding:6px 0 8px;border-bottom:1px solid #38464f;margin-bottom:8px;}
+.clo-inspector .clo-pe-edit-field {display:grid;grid-template-columns:minmax(92px,1fr) minmax(0,1fr);align-items:center;gap:9px;padding:5px 0;min-height:24px;}
+.clo-inspector .clo-pe-edit-field>label {font-size:10px;color:#a9bac6;min-width:0;overflow-wrap:anywhere;}
+.clo-inspector .clo-pe-edit-field>input,.clo-inspector .clo-pe-edit-field>select,.clo-inspector .clo-pe-edit-input input {
+  min-width:0;max-width:100%;box-sizing:border-box;width:100%;min-height:26px;border:1px solid #53636d;border-radius:2px;
+  background:#242b31;color:#e7eef3;padding:4px 7px;font-size:11px;font-variant-numeric:tabular-nums;
+}
+.clo-inspector .clo-pe-edit-field>input[type=checkbox]{width:14px;min-height:14px;justify-self:end;accent-color:#62badd;cursor:pointer;}
+.clo-inspector .clo-pe-edit-field>input[type=color]{padding:2px;min-height:28px;cursor:pointer;}
+.clo-inspector .clo-pe-edit-input {display:flex;min-width:0;align-items:center;gap:4px;}
+.clo-inspector .clo-pe-edit-input>span {color:#829cae;min-width:20px;text-align:right;font-size:9px;}
+.clo-inspector .clo-pe-field-error {grid-column:1/-1;color:#ffb1a7;font-size:9px;}
+.clo-inspector .clo-pe-identity input[readonly] {opacity:.72;background:#222529;border-style:dashed;cursor:default;}
+.clo-inspector .clo-pe-identity input:not([readonly]):focus {outline:2px solid #7bc4e9;outline-offset:0;border-color:#7bc4e9;}
+.clo-inspector .clo-pe-empty {padding:19px 14px;color:#9fb1bf;font-size:11px;line-height:1.6;}
+.clo-inspector .clo-pe-native-seam-picker {display:grid;gap:6px;color:#b0cfdf;padding:9px;font-size:10px;border-bottom:1px solid #445360;}
+.clo-inspector .clo-pe-native-seam-picker select {background:#1e282e;color:#d8eaf3;border:1px solid #4b6575;min-height:29px;width:100%;font-size:11px;}
+.clo-inspector .clo-pe-material-faces {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;margin:9px 0 7px;border-bottom:1px solid #46535e;}
+.clo-inspector .clo-pe-material-faces button {height:26px;border:0;background:#28323a;color:#8da2b2;font-size:10px;}
+.clo-inspector .clo-pe-material-faces button[aria-selected=true]{background:#435b6b;color:#ecf8ff;border-bottom:2px solid #8ed3f7;}
+.clo-inspector .clo-pe-material-faces button:disabled{opacity:.55;cursor:not-allowed;}
+.clo-inspector .clo-pe-unit-selection {display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 10px;border-bottom:1px solid #414c55;color:#9caeb9;font-size:10px;}
+.clo-inspector .clo-pe-unit-selection select {background:#1e282e;color:#d8eaf3;border:1px solid #465c6c;border-radius:2px;font-size:10px;min-height:22px;padding:1px 6px;}

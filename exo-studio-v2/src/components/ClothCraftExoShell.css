@@ -1,0 +1,151 @@
+/* EXO's dark CLO-style perimeter around ClothCraft's unchanged 2D/3D editors. */
+.cc-exo-shell{--exo-surface:#303133;--exo-header:#252629;--exo-raised:#3a3b3f;--exo-border:#505156;--exo-text:#eeeef0;--exo-muted:#aaadb2;--exo-accent:#bfcdd0;background:var(--exo-header);color:var(--exo-text);font-size:11px}
+.cc-exo-shell .cc-header{height:45px;min-height:45px;padding:0 12px;background:#222326;border-bottom:1px solid #424448;display:flex;gap:14px}
+.cc-exo-shell .cc-brand{display:flex;align-items:center;gap:9px;min-width:175px;color:#f1f1f2;white-space:nowrap}
+.cc-exo-shell .cc-brand strong{font-size:12px;letter-spacing:.095em}
+.cc-exo-shell .cc-brand strong span{font-weight:500;color:#d6d7da}
+.cc-exo-shell .cc-brand small{font-size:8px;letter-spacing:.11em;color:#a5bac3;white-space:nowrap}
+.cc-exo-shell .cc-exo-menus,.cc-exo-shell .cc-header-actions{display:flex;align-items:center;gap:5px;min-width:0}
+.cc-exo-shell .cc-header-actions{margin-left:auto}
+.cc-exo-shell button,.cc-exo-shell select,.cc-exo-shell .cc-button{border-radius:3px;transition:background .12s,border-color .12s}
+.cc-exo-shell .cc-header button,.cc-exo-shell .cc-header .cc-button,.cc-exo-shell .cc-header select{background:#303135;color:#dedfe1;border:1px solid #46484d;padding:6px 8px;font-size:10px;display:flex;align-items:center;gap:5px;white-space:nowrap}
+.cc-exo-shell .cc-header a{display:inline-flex;align-items:center;gap:3px;font-size:10px;color:#c9d3d6;white-space:nowrap}
+.cc-exo-shell .cc-project-bar{height:42px;min-height:42px;display:flex;align-items:center;justify-content:space-between;background:#2c2d30;padding:0 16px;border-bottom:1px solid #505156}
+.cc-exo-shell .cc-project-bar>div:first-child{display:flex;align-items:center;gap:13px;min-width:0}
+.cc-exo-shell .cc-project-bar strong{font-size:10px;letter-spacing:.1em;color:#eff0f1;white-space:nowrap}
+.cc-exo-shell .cc-project-bar span{font-size:10px;color:#e3e4e5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cc-exo-shell .cc-project-bar small{color:#8e939a;font-size:9px;white-space:nowrap}
+.cc-exo-shell .cc-project-fittings{display:flex;align-items:center;gap:8px;color:#afb4bc;font-size:9px;letter-spacing:.08em;white-space:nowrap}
+.cc-exo-shell .cc-project-fittings .cc-online-dot{display:inline-block;width:7px;height:7px;background:#79bd9b;border-radius:50%;box-shadow:0 0 6px #79bd9b60}
+.cc-exo-shell .cc-project-fittings .cc-project-status{color:#bfd0c9;border:1px solid #476358;padding:4px 6px;border-radius:3px}
+.cc-exo-shell .cc-toolbar{background:#37383b;border-bottom:1px solid #4b4b4f;padding:5px 8px;min-height:42px;align-items:center;gap:5px}
+.cc-exo-shell .cc-toolbar>div{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+.cc-exo-shell .cc-toolbar button{background:#37383b;color:#d7d8da;border-color:#515258;padding:7px 8px;display:inline-flex;align-items:center;gap:5px;min-height:30px;font-size:10px;white-space:nowrap}
+.cc-exo-shell .cc-toolbar button.active{background:#50575c;color:#fff;border-color:#8498a2}
+.cc-exo-shell .cc-toolbar .cc-primary{background:#647d86;color:#fff;border-color:#8fa5af;font-weight:600}
+.cc-exo-shell .cc-body{grid-template-columns:58px 200px minmax(0,1fr) minmax(0,1fr) 296px;min-height:0;min-width:0;overflow:hidden}
+.cc-exo-shell .cc-body.cc-no-library{grid-template-columns:58px minmax(0,1fr) minmax(0,1fr) 296px}
+.cc-exo-shell .cc-body.cc-no-inspector{grid-template-columns:58px 200px minmax(0,1fr) minmax(0,1fr)}
+.cc-exo-shell .cc-body.cc-no-library.cc-no-inspector{grid-template-columns:58px minmax(0,1fr) minmax(0,1fr)}
+.cc-exo-shell .cc-body.cc-layout-3d .cc-viewport-2d,.cc-exo-shell .cc-body.cc-layout-2d .cc-viewport-3d{display:none}
+.cc-exo-shell .cc-body.cc-layout-3d{grid-template-columns:58px 200px minmax(0,1fr) 296px}
+.cc-exo-shell .cc-body.cc-layout-2d{grid-template-columns:58px 200px minmax(0,1fr) 296px}
+.cc-exo-shell .cc-body.cc-layout-3d.cc-no-library,.cc-exo-shell .cc-body.cc-layout-2d.cc-no-library{grid-template-columns:58px minmax(0,1fr) 296px}
+.cc-exo-shell .cc-body.cc-layout-3d.cc-no-inspector,.cc-exo-shell .cc-body.cc-layout-2d.cc-no-inspector{grid-template-columns:58px 200px minmax(0,1fr)}
+.cc-exo-shell .cc-body.cc-layout-3d.cc-no-library.cc-no-inspector,.cc-exo-shell .cc-body.cc-layout-2d.cc-no-library.cc-no-inspector{grid-template-columns:58px minmax(0,1fr)}
+.cc-exo-shell .cc-exo-rail{display:flex;flex-direction:column;align-items:stretch;gap:1px;padding:10px 3px;background:#28292b;border-right:1px solid #505155;overflow:auto}
+.cc-exo-shell .cc-exo-rail button{background:transparent;color:#bfc3c8;border:1px solid transparent;padding:9px 1px;min-height:59px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:9px;letter-spacing:.025em}
+.cc-exo-shell .cc-exo-rail button.active{background:#414448;border-color:#60666a;color:#f4f6f6;box-shadow:inset 3px 0 #a1c2d0}
+.cc-exo-shell .cc-exo-rail button:hover{background:#444649;color:white}
+.cc-exo-shell .cc-pieces,.cc-exo-shell .cc-inspector{background:var(--exo-surface);color:var(--exo-text);padding:0;border-color:#505155;min-width:0;scrollbar-color:#707277 #303133;scrollbar-width:thin}
+.cc-exo-shell .cc-pieces{padding:0 9px 18px;display:flex;flex-direction:column;gap:5px}
+.cc-exo-shell .cc-side-title{margin:0 -9px;padding:11px 12px;background:#27282a;border-bottom:1px solid #4c4e52;display:flex;align-items:center;justify-content:space-between;font-size:9px;letter-spacing:.14em;font-weight:600}
+.cc-exo-shell .cc-library-tabs{display:flex;gap:2px;flex-wrap:wrap;margin:8px 0 3px}
+.cc-exo-shell .cc-library-tabs button{padding:6px;font-size:9px;border-color:#4d5053;background:#35373a;color:#bfc2c7;flex:1}
+.cc-exo-shell .cc-library-tabs button.active{background:#59656c;border-color:#83949c;color:white}
+.cc-exo-shell .cc-search{display:flex;align-items:center;gap:5px;color:#c0c2c8;background:#252629;border:1px solid #515257;border-radius:3px;padding:5px 8px}
+.cc-exo-shell .cc-search input{width:100%;min-width:0;font-size:10px;color:#e8e9ed;border:0;background:transparent;outline:none}
+.cc-exo-shell .cc-pieces h3,.cc-exo-shell .cc-inspector h3{font-size:9px;color:#b9bdc1;margin:14px 3px 6px}
+.cc-exo-shell .cc-pieces p{font-size:10px;color:#b5b7bc;line-height:1.45}
+.cc-exo-shell .cc-pieces>button,.cc-exo-shell .cc-seam-row button{background:#36383b;color:#e0e2e4;border-color:#55565a;font-size:10px;display:flex;align-items:center;gap:6px;text-align:left}
+.cc-exo-shell .cc-pieces>button.active{background:#505a60;border-color:#8397a2;color:#fff}
+.cc-exo-shell .cc-pieces>button svg:last-child{margin-left:auto;flex-shrink:0}
+.cc-exo-shell .cc-pieces footer{color:#999da4;border-top:1px solid #505155;margin-top:auto;font-size:9px}
+.cc-exo-shell .cc-view h2{background:#eeeeee;color:#414449;border-color:#cccfd0;height:36px;min-height:36px}
+.cc-exo-shell .cc-view h2 span{display:flex;align-items:center;gap:7px;letter-spacing:.08em;font-size:10px}
+.cc-exo-shell .cc-view h2 small{color:#74797d}
+.cc-exo-shell .cc-inspector-heading{padding:11px 13px;background:#27282b;border-bottom:1px solid #505257;display:flex;align-items:center;justify-content:space-between}
+.cc-exo-shell .cc-inspector-heading span{font-size:9px;color:#c0c4c8;letter-spacing:.14em}
+.cc-exo-shell .cc-inspector-heading strong{font-size:10px;color:white}
+.cc-exo-shell .cc-inspector-context{display:flex;flex-direction:column;gap:5px;padding:13px 14px;background:#393b3f;border-bottom:1px solid #515257}
+.cc-exo-shell .cc-inspector-context small{color:#a7c0cb;font-size:9px;letter-spacing:.09em}
+.cc-exo-shell .cc-inspector-context strong{color:#f0f0f0;font-size:13px}
+.cc-exo-shell .cc-inspector-context span{color:#bcc4c8;font-size:10px}
+.cc-exo-shell .cc-section-intro{padding:0 14px;margin:12px 0 5px;font-size:11px;line-height:1.55;color:#bcbec1}
+.cc-exo-shell .cc-inspector fieldset{border-radius:3px;border-color:#57595c;background:#343639;padding:10px;margin:13px 10px;gap:8px}
+.cc-exo-shell .cc-inspector legend{font-size:9px;color:#c7ced2;letter-spacing:.06em}
+.cc-exo-shell .cc-inspector fieldset p,.cc-exo-shell .cc-inspector small{font-size:10px;color:#c0c3c7;line-height:1.5}
+.cc-exo-shell .cc-inspector label{color:#e0e1e3;font-size:10px;gap:8px}
+.cc-exo-shell .cc-inspector input[type=number],.cc-exo-shell .cc-inspector select{background:#28292b;color:#f0f1f1;border:1px solid #65696c;border-radius:3px;padding:6px;font-size:10px}
+.cc-exo-shell .cc-inspector button{background:#4a4c50;color:#f0f0f1;border-color:#696b6f;font-size:10px;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.cc-exo-shell .cc-inspector button:hover{background:#60666b}
+.cc-exo-shell .cc-inspector .cc-warning{color:#e4ba8c}
+.cc-exo-shell .cc-inspector .cc-go-classic{display:flex;align-items:center;color:#c5dae3;gap:5px;text-decoration:none;font-size:10px}
+.cc-exo-shell .cc-status{height:31px;background:#2a2c30;border-color:#505256;color:#dde0e2;font-size:10px;white-space:nowrap}
+.cc-exo-shell .cc-status small{color:#adb6bc}
+.cc-exo-shell .cc-error,.cc-exo-shell .cc-notice{background:#543a33;color:#ffead9;font-size:11px}
+.cc-exo-shell .cc-notice{background:#334c43;color:#e0eee6}
+@media(max-width:1360px){.cc-exo-shell .cc-body{grid-template-columns:52px 170px minmax(0,1fr) minmax(0,1fr) 260px}.cc-exo-shell .cc-body.cc-no-library{grid-template-columns:52px minmax(0,1fr) minmax(0,1fr) 260px}.cc-exo-shell .cc-body.cc-no-inspector{grid-template-columns:52px 170px minmax(0,1fr) minmax(0,1fr)}.cc-exo-shell .cc-body.cc-no-library.cc-no-inspector{grid-template-columns:52px minmax(0,1fr) minmax(0,1fr)}.cc-exo-shell .cc-body.cc-layout-3d,.cc-exo-shell .cc-body.cc-layout-2d{grid-template-columns:52px 170px minmax(0,1fr) 260px}.cc-exo-shell .cc-body.cc-layout-3d.cc-no-library,.cc-exo-shell .cc-body.cc-layout-2d.cc-no-library{grid-template-columns:52px minmax(0,1fr) 260px}.cc-exo-shell .cc-body.cc-layout-3d.cc-no-inspector,.cc-exo-shell .cc-body.cc-layout-2d.cc-no-inspector{grid-template-columns:52px 170px minmax(0,1fr)}.cc-exo-shell .cc-body.cc-layout-3d.cc-no-library.cc-no-inspector,.cc-exo-shell .cc-body.cc-layout-2d.cc-no-library.cc-no-inspector{grid-template-columns:52px minmax(0,1fr)}.cc-exo-shell .cc-brand small{display:none}.cc-exo-shell .cc-toolbar button{padding:6px}.cc-exo-shell .cc-view h2 small{display:none}}
+@media(max-width:1070px){.cc-exo-shell .cc-header{gap:5px}.cc-exo-shell .cc-project-fittings{display:none}.cc-exo-shell .cc-toolbar{overflow-x:auto}.cc-exo-shell .cc-body{grid-template-columns:48px 140px minmax(0,1fr) minmax(0,1fr) 220px}.cc-exo-shell .cc-header-actions a,.cc-exo-shell .cc-exo-menus>button{display:none}}
+
+/* Exact original EXO chrome mode. App.jsx retains all original menus, the
+   library, dual toolbars, object browser and property editor. ClothCraft
+   replaces only the center editing area, never the side tool system. */
+.workspaces.cc-rust-embedded{display:block!important;position:relative!important;min-width:0;min-height:0;overflow:hidden;background:#e8e9e7}
+.cc-rust-embedded .cc-embedded-root{height:100%;width:100%;min-height:0;min-width:0;display:flex;flex-direction:column;font:11px -apple-system,BlinkMacSystemFont,sans-serif;color:#27363d;background:#efefed}
+.cc-rust-embedded .cc-embedded-root *{box-sizing:border-box}
+.cc-rust-embedded button{display:inline-flex;align-items:center;gap:5px;justify-content:center;cursor:pointer;font:inherit;padding:5px 7px;color:#2a393e;background:#f7f7f5;border:1px solid #c7cbca;border-radius:3px;white-space:nowrap}
+.cc-rust-embedded button:disabled{opacity:.44;cursor:default}
+.cc-rust-embedded button.active,.cc-rust-embedded button:hover:not(:disabled){background:#d2e0e4;border-color:#859ca8}
+.cc-rust-embedded .cc-embedded-top{min-height:35px;flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 8px;background:#323539;color:#e9edf0;border-bottom:1px solid #515459;overflow-x:auto}
+.cc-rust-embedded .cc-embedded-title{display:flex;align-items:center;gap:6px;min-width:0;white-space:nowrap}
+.cc-rust-embedded .cc-embedded-pulse{width:7px;height:7px;border-radius:50%;background:#84c0ab;flex:0 0 auto}
+.cc-rust-embedded .cc-embedded-title strong{font-size:10px;letter-spacing:.05em;color:#f1f4f4}
+.cc-rust-embedded .cc-embedded-title small{font-size:9px;color:#b5bec3;overflow:hidden;text-overflow:ellipsis}
+.cc-rust-embedded .cc-embedded-actions{display:flex;align-items:center;gap:4px;white-space:nowrap}
+.cc-rust-embedded .cc-embedded-actions button{background:#454b50;color:#eaf1f2;border-color:#737a7f;font-size:9px;padding:5px 6px}
+.cc-rust-embedded .cc-embedded-actions button:hover:not(:disabled){background:#61737c;color:#fff}
+.cc-rust-embedded .cc-embedded-disclosure{font-size:9px;color:#626d6f;background:#e0e6e5;border-bottom:1px solid #c9cdcc;padding:5px 10px;display:flex;align-items:center;gap:6px;line-height:1.35}
+.cc-rust-embedded .cc-embedded-disclosure strong{color:#455a61;white-space:nowrap}
+.cc-rust-embedded .cc-embedded-main{display:grid;grid-template-columns:minmax(0,var(--cc-embedded-split,50%)) minmax(0,1fr);flex:1;min-height:0;min-width:0;overflow:hidden}
+.cc-rust-embedded .cc-embedded-stack .cc-embedded-main{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,var(--cc-embedded-split,50%)) minmax(0,1fr)}
+.cc-rust-embedded .cc-embedded-3d .cc-embedded-main,.cc-rust-embedded .cc-embedded-2d .cc-embedded-main{display:block}
+.cc-rust-embedded .cc-embedded-3d .cc-viewport-2d,.cc-rust-embedded .cc-embedded-2d .cc-viewport-3d{display:none}
+.cc-rust-embedded .cc-embedded-main .cc-view{min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden;border-right:1px solid #c6cbc9}
+.cc-rust-embedded .cc-embedded-root.cc-embedded-3d .cc-view.cc-viewport-2d,.cc-rust-embedded .cc-embedded-root.cc-embedded-2d .cc-view.cc-viewport-3d{display:none}
+.cc-rust-embedded .cc-embedded-3d .cc-viewport-3d,.cc-rust-embedded .cc-embedded-2d .cc-viewport-2d{height:100%}
+.cc-rust-embedded .cc-embedded-main .cc-view h2{height:29px;min-height:29px;background:#f6f7f5;font-size:10px;border-bottom:1px solid #d3d8d5;padding:0 9px;color:#3b5057;display:flex;align-items:center;justify-content:space-between}
+.cc-rust-embedded .cc-embedded-main .cc-view h2 span{display:flex;align-items:center;gap:5px;font-size:10px;letter-spacing:.05em}
+.cc-rust-embedded .cc-embedded-main .cc-view h2 small{font-size:9px;color:#7b888a}
+.cc-rust-embedded .cc-scene,.cc-rust-embedded .cc-board{min-height:0;flex:1;position:relative;overflow:hidden;background:#f2f2ef}
+.cc-rust-embedded .cc-scene canvas,.cc-rust-embedded .cc-board svg{height:100%;width:100%;display:block}
+.cc-rust-embedded .cc-embedded-bottom{min-height:31px;flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;gap:5px;padding:3px 8px;background:#edf1f0;border-top:1px solid #cad0cf;overflow-x:auto}
+.cc-rust-embedded .cc-embedded-bottom>div{display:flex;align-items:center;gap:3px;white-space:nowrap}
+.cc-rust-embedded .cc-embedded-bottom button{font-size:9px;padding:4px 6px}
+.cc-rust-embedded .cc-embedded-footer{min-height:24px;flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;gap:7px;padding:3px 9px;color:#c9d5d7;background:#343f43;font-size:9px;white-space:nowrap}
+.cc-rust-embedded .cc-embedded-footer strong{color:#f0f3f4}
+.cc-rust-embedded .cc-embedded-footer small{font-size:9px;color:#b0c5c8}
+.cc-rust-embedded .cc-error,.cc-rust-embedded .cc-notice{padding:6px 10px;background:#fee2db;color:#873d2e;display:flex;justify-content:space-between;align-items:center;font-size:10px}
+.cc-rust-embedded .cc-notice{background:#dcede3;color:#2c674a}
+@media(max-width:1260px){.cc-rust-embedded .cc-embedded-title small,.cc-rust-embedded .cc-embedded-main .cc-view h2 small,.cc-rust-embedded .cc-embedded-footer small{display:none}.cc-rust-embedded .cc-embedded-disclosure{font-size:8px}}
+.cc-exo-inspector-warning{padding:10px 11px;background:#3c4044;border-top:1px solid #68818e;border-bottom:1px solid #62696d;display:flex;flex-direction:column;gap:4px;color:#dce6eb;font-size:10px;line-height:1.35}
+.cc-exo-inspector-warning strong{color:#bcd9e4;font-size:9px;letter-spacing:.07em}
+.cc-exo-inspector-warning span{color:#c4cdd2}
+.cc-exo-inspector-warning a{color:#e3eff7;align-self:flex-start;text-decoration:underline}
+
+/* Match the ORIGINAL Garment Studio neutral CLO palette rather than a new
+   blue-gradient imitation. The 3D gradient is the actual GarmentViewport
+   WebGL environment texture; the 2D board matches PatternEditor grayscale. */
+.exo-v2-shell .clo-mac-menu,.exo-v2-shell .project-strip,
+.exo-v2-shell .clo-inspector-topline,.exo-v2-shell .clo-property-panel .inspector-head{background:#252527;color:#ededee;border-color:#4b4b4e}
+.exo-v2-shell .asset-browser,.exo-v2-shell .tool-rail,
+.exo-v2-shell .clo-inspector,.exo-v2-shell .clo-inspector-content,
+.exo-v2-shell .clo-right-tool-palette,.exo-v2-shell .clo-property-panel{background:#2d2d2e;color:#ededee}
+.exo-v2-shell .cc-rust-embedded .cc-board,
+.exo-v2-shell .cc-rust-embedded .cc-board svg{background:#c6c7c9}
+.exo-v2-shell .cc-rust-embedded .cc-embedded-bottom{background:#d5d6d7;border-color:#9c9da0}
+.exo-v2-shell .cc-rust-embedded .cc-embedded-footer{background:#29292b}
+.exo-v2-shell .cc-rust-embedded .cc-embedded-root{background:#c5c6c8}
+.exo-v2-shell .cc-rust-embedded .cc-embedded-main .cc-view{border-right:1px solid #88898b}
+/* Rust's existing top actions are now in EXO's REAL top menubar. */
+.exo-v2-rust-engine{display:inline-flex;gap:5px;align-items:center;border:1px solid #4b4b4e;background:#313235;border-radius:3px;padding:4px 8px;white-space:nowrap;color:#e4e8ea;font-size:9px;letter-spacing:.045em}
+.exo-v2-rust-engine strong{color:#eaf2f3;font-weight:750}
+.exo-v2-rust-dot{display:block;width:6px;height:6px;border-radius:50%;background:#75bb98}
+.exo-v2-shell .exo-v2-top-action{display:inline-flex;align-items:center;gap:4px;padding:5px 7px;background:#363739;border:1px solid #535457;border-radius:3px;color:#f0f1f2;font-size:9px;font-weight:650}
+.exo-v2-shell .exo-v2-top-action:disabled{opacity:.42}
+.cc-v2-orientation{position:absolute;top:11px;left:12px;z-index:4;display:flex;gap:3px;align-items:center;padding:4px;background:rgba(231,238,242,.91);border:1px solid #a1b1bb;border-radius:8px;box-shadow:0 3px 16px #172e4240;backdrop-filter:blur(8px)}
+.cc-v2-orientation strong{padding:0 7px;font-size:10px;letter-spacing:.06em;color:#34515f}
+.cc-v2-orientation button{padding:5px 7px!important;font-size:9px!important;letter-spacing:.03em;font-weight:650;border:1px solid transparent!important;background:transparent!important;color:#3d5869!important}
+.cc-v2-orientation button:hover{background:#9bb7c6!important;color:white!important}
+.cc-v2-orientation button:focus-visible{outline:2px solid #47768b}
+.cc-rust-embedded .cc-embedded-bottom button[title*="Spread"]{background:#afc4ce;border-color:#7c9ead;font-weight:650}

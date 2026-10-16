@@ -1,0 +1,17 @@
+# EXO ClothCraft Studio V2 · Right Inspector Property Editor
+
+## User-facing layout
+
+The separate **PROPERTY CATEGORIES** navigator beneath the Object Browser has been removed. It is replaced with a **single PROPERTY EDITOR**, immediately below the existing movable Object Browser splitter. The editor consists of exactly eight vertically stacked accordion headers, in this order: **Information**, **Selected Line**, **Simulation Properties**, **Fabric**, **Bond**, **Solidify**, **Arrange**, and **Miscellaneous**. Each header has a chevron only (no icon), CLO-inspired slate background and visibly blue-tinted (#9fdbff when expanded) text. Groups expand within the panel and are independently collapsible. Information is expanded at startup; switching the active EXO workspace opens its relevant existing controls. All eight are presented as real, accessible keyboard-usable buttons with `aria-expanded` and labelled regions.
+
+The actual Object Browser's three-bullet categories tab above remains a real first horizontal tab. The five expandable categories — 2D Pattern, Sewing, 3D Form, Material, and Environment — now each have the original Garment Studio `CadToolIcon` immediately to the left of their category text; this does **not** add icons to the Property Editor sections.
+
+## Working controls and truthful limitations
+
+The app's substantial original property controls are preserved and mounted in the most appropriate section for the selected workspace: Pattern → Arrange, Sewing → Selected Line, Fit → Simulation Properties, Fabric → Fabric, and Render/Avatar/Production → Miscellaneous. Their source callbacks continue to work. The special precision-drafting portal `#clo-pattern-properties-host` is kept at a **stable DOM address**, including while Arrange is collapsed or workspaces change; this avoids breaking precision tools and internal measurement editing on the original EXO project.
+
+The eight groups show selected-pattern and project information, available line and sewing counts, the real simulation commands, fabric swatch and weight, current arrangement readouts, and links to the corresponding detailed editor. The native ClothCraft Rust garment currently has its own data model; EXO's draft-only property data is explicitly distinguished to avoid suggesting that the full original EXO production controls edit native Rust garment data. **Bond and Solidify are visible but not misrepresented as supported:** the current Rust VBD+OGC backend has no certified Bond/Skive or Solidify-strength controls, so these are read-only with an honest limitation rather than silent nonfunctional toggles.
+
+## QA and state
+
+`node integrations/clothcraft/qa-v2-right-inspector.mjs` launches isolated V2 backend and frontend servers, checks the exact eight headings and their order, removes/forbids the old PROPERTY CATEGORIES section, confirms no property-header icons, verifies tinted lettering, independent expand/collapse, availability of the existing pattern host, and all five Object Browser category icons. `node integrations/clothcraft/qa-v2-object-menu.mjs` verifies the retained first horizontal category tab and its nonfloating inline panel navigation. `npm run check:non-simulation` and `npm run build` protect original manufacturing, precision drafting and React compilation. Installed `EXO ClothCraft Studio V2.app` was rebuilt, ad-hoc signed, launched and UI-smoke-tested on ports 5385/5386, with V1 source and saved project untouched. All checkpoint commits are local unless separately pushed to GitHub.

@@ -1,0 +1,29 @@
+name: New simulation backend
+description: Propose or implement another solver backend
+title: "[Backend] "
+labels: [simulation, backend]
+body:
+  - type: input
+    id: engine
+    attributes:
+      label: Engine / implementation
+    validations:
+      required: true
+  - type: input
+    id: license
+    attributes:
+      label: License
+    validations:
+      required: true
+  - type: textarea
+    id: capabilities
+    attributes:
+      label: Capabilities
+      description: Platform, GPU/CPU, anisotropy, self-collision, body collision, layering, animation, contact outputs.
+    validations:
+      required: true
+  - type: textarea
+    id: benchmark
+    attributes:
+      label: Benchmark evidence
+      description: Tee/hoodie/pants results, runtime, seam error, penetration/intersection and strain where available.

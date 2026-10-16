@@ -1,0 +1,36 @@
+{
+  "id": "Leather024",
+  "source": "ambientCG",
+  "name": "Leather 024",
+  "license": "CC0-1.0",
+  "assetUrl": "https://ambientcg.com/a/Leather024",
+  "authors": "ambientCG",
+  "categoryTags": [
+    "24",
+    "leather",
+    "red",
+    "shiny",
+    "smooth"
+  ],
+  "scanWidthCm": 20,
+  "scanHeightCm": 20,
+  "physicalScaleStatus": "unknown-illustrative-20cm",
+  "maps": {
+    "color": {
+      "src": "/fabric-scans-ambientcg/Leather024/color.jpg",
+      "sha256": "0ca4183154b7dec8b3164a7c3fab40aa1d8ab1c199b0ad2249df0f382b803b70",
+      "resolution": "1k"
+    },
+    "normal": {
+      "src": "/fabric-scans-ambientcg/Leather024/normal.jpg",
+      "sha256": "24b4d358fce30a615a1d9b63e6075f009903fdca792e98f899067a8ced52848f",
+      "resolution": "1k"
+    },
+    "roughness": {
+      "src": "/fabric-scans-ambientcg/Leather024/roughness.jpg",
+      "sha256": "befd5d209ef94aaf14ccba4994659b30fc330aae3aecd816cf55a1ff4136ae89",
+      "resolution": "1k"
+    }
+  },
+  "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+}

@@ -1,0 +1,36 @@
+{
+  "id": "Fabric034",
+  "source": "ambientCG",
+  "name": "Fabric 034",
+  "license": "CC0-1.0",
+  "assetUrl": "https://ambientcg.com/a/Fabric034",
+  "authors": "ambientCG",
+  "categoryTags": [
+    "34",
+    "fabric",
+    "felt",
+    "grey",
+    "white"
+  ],
+  "scanWidthCm": 20,
+  "scanHeightCm": 20,
+  "physicalScaleStatus": "unknown-illustrative-20cm",
+  "maps": {
+    "color": {
+      "src": "/fabric-scans-ambientcg/Fabric034/color.jpg",
+      "sha256": "23d4da86236b98235a493d5ab9a79f0345d041fc721544fd5f148a76d96d1f01",
+      "resolution": "1k"
+    },
+    "normal": {
+      "src": "/fabric-scans-ambientcg/Fabric034/normal.jpg",
+      "sha256": "2e8bcb8be56ff6f1f529ac0d9f798120210e54d98adc7e3d437904cf9287ce94",
+      "resolution": "1k"
+    },
+    "roughness": {
+      "src": "/fabric-scans-ambientcg/Fabric034/roughness.jpg",
+      "sha256": "768c4d09770b4198a7525d406e30c3a4c1197846a14e4cd67132fa91c7065893",
+      "resolution": "1k"
+    }
+  },
+  "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+}

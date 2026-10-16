@@ -1,0 +1,1310 @@
+{
+  "schemaVersion": 1,
+  "kind": "visual-heuristic-not-laboratory-measurement",
+  "note": "Audit flags require visual confirmation. Flat roughness and normal maps may be correct for smooth textiles.",
+  "sources": {
+    "ambientCG:Fabric003": {
+      "assetId": "Fabric003",
+      "provider": "ambientCG",
+      "channels": {
+        "color": {
+          "sha256": "76b5ebccc5fd6c250fe21d3cd270647487408e2178174cbe01ff92b603d631ec",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "ab8b34b4ab4e2e0ff598edc65479789ea5e598a4f61bebc34e52d036ee40cde5",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "aca2a3a83d9fb8cabd573b27bad1e46e5264a4656a6fe4f34f27165384af9130",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "ambientCG:Fabric019": {
+      "assetId": "Fabric019",
+      "provider": "ambientCG",
+      "channels": {
+        "color": {
+          "sha256": "aa6dfd091735228f85545906014ad0755c03e67ce2d53eea8523f620b6d22146",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "ae72fff5f8c645d1749604c1775b22e10d4b9a1b458cb51780dd92e00c5eaab3",
+          "flags": [
+            "directional_banding_candidate"
+          ]
+        },
+        "roughness": {
+          "sha256": "dd0240cdc492fb104bca2f7ec1386da9bf7b6d837b1ecfcca1f349381a7edc53",
+          "flags": []
+        }
+      },
+      "needsReview": true
+    },
+    "ambientCG:Fabric032": {
+      "assetId": "Fabric032",
+      "provider": "ambientCG",
+      "channels": {
+        "color": {
+          "sha256": "9b8435528e63b4c7948bec000eee5067c41c5de51798a0a2c6563503306f44de",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "c25867f1aa79f64e62f1bab9f162713b590d1c83984b60f7c9cd14c19e6b3961",
+          "flags": [
+            "normal_vector_length_review"
+          ]
+        },
+        "roughness": {
+          "sha256": "3d4db8efebfd3236e42651b4690f19c686d56a11e6656b1735b30c9019444e81",
+          "flags": []
+        }
+      },
+      "needsReview": true
+    },
+    "ambientCG:Fabric034": {
+      "assetId": "Fabric034",
+      "provider": "ambientCG",
+      "channels": {
+        "color": {
+          "sha256": "23d4da86236b98235a493d5ab9a79f0345d041fc721544fd5f148a76d96d1f01",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "2e8bcb8be56ff6f1f529ac0d9f798120210e54d98adc7e3d437904cf9287ce94",
+          "flags": [
+            "normal_vector_length_review"
+          ]
+        },
+        "roughness": {
+          "sha256": "768c4d09770b4198a7525d406e30c3a4c1197846a14e4cd67132fa91c7065893",
+          "flags": []
+        }
+      },
+      "needsReview": true
+    },
+    "ambientCG:Fabric036": {
+      "assetId": "Fabric036",
+      "provider": "ambientCG",
+      "channels": {
+        "color": {
+          "sha256": "d786e4a1c229f96f781667d062817e14fdbf2ffaba81d38f4fcc04c39a0062d4",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "b9c2153b5f78b8d1ee0529b5d8e3174fa25accb4131e425aa18b808efede4feb",
+          "flags": [
+            "normal_vector_length_review"
+          ]
+        },
+        "roughness": {
+          "sha256": "9ad01f95163602e6ae63c4ced864edc9b8347936b51e3f49f89e64e868f995fd",
+          "flags": []
+        }
+      },
+      "needsReview": true
+    },
+    "ambientCG:Fabric046": {
+      "assetId": "Fabric046",
+      "provider": "ambientCG",
+      "channels": {
+        "color": {
+          "sha256": "702aabc23011bad9b9077cd49477bfe5873bcf7a8e08e9ed9f1749ffe0178b16",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "ddf38ea6a0051aa8281e215527d9d9507f1c90df7877e71712b16d94d47b01c3",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "1b9b2d13853eb35091974ea5837b80c482a7befd74a3e18bfb2655870209f572",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "ambientCG:Fabric047": {
+      "assetId": "Fabric047",
+      "provider": "ambientCG",
+      "channels": {
+        "color": {
+          "sha256": "769c0a993f12b5a938547ceeb9df8359a3bd54bcaffb14ed78dae1156f731b6a",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "5533f7f4dd010a4a8ccd9ac925dc1853bf5cec4066887ff12453663d6f806e67",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "9ac15d8f0dadad92c2321762626b04d3c2349546e965632236b159debfdc98a9",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "ambientCG:Fabric048": {
+      "assetId": "Fabric048",
+      "provider": "ambientCG",
+      "channels": {
+        "color": {
+          "sha256": "8d69eed812a4ba416ac24024056c4ee3e7ef5ea09d5c07d0bc7d064d09dcba91",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "c5136de5acb31421722c1d52d817482f983b09fb322984f0b7f9b1496ebed2be",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "b630e0d694dcf07c47f4d555b0f689e4cd6d8706cdf2f8c498fa805c8f541907",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "ambientCG:Fabric049": {
+      "assetId": "Fabric049",
+      "provider": "ambientCG",
+      "channels": {
+        "color": {
+          "sha256": "7f5d561bcf6e28603f6fb025377ad9c70fdb85c25185175af6db0d49480dc420",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "bc15a234f537e2b66f59c7c23957cc1bde182a352e1cead66ed29fe5eabaa6cc",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "c61c39fa1a9c99a81fbc272a4b77828cbea7ece4fd0652d43b7eafc85aa2db5f",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "ambientCG:Fabric061": {
+      "assetId": "Fabric061",
+      "provider": "ambientCG",
+      "channels": {
+        "color": {
+          "sha256": "de7321c185f7dfe83e71b84ad1f813364107f85f5ed2e605c820b8f7f4fe498b",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "528808da93efcd6a4cf0370c6647af748115c54db7b7ee5f983f2d8a0d0eb2aa",
+          "flags": [
+            "normal_vector_length_review"
+          ]
+        },
+        "roughness": {
+          "sha256": "dd486d17cea570bf971b3f09b6bcf888b5926894c9ce65e136498690bc098680",
+          "flags": []
+        }
+      },
+      "needsReview": true
+    },
+    "ambientCG:Fabric062": {
+      "assetId": "Fabric062",
+      "provider": "ambientCG",
+      "channels": {
+        "color": {
+          "sha256": "5a357aac1faf7e09bad1f960e1a5b684f045f86ca692535a101232727d5d438b",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "3b9187406e4661a725ece4694fc5ef8c64590c31179145312dbd3235e8c47fb7",
+          "flags": [
+            "normal_vector_length_review"
+          ]
+        },
+        "roughness": {
+          "sha256": "d1081843b0d790a81a21c92758a405dd48c1cc79ff040ffc8f71de95a7dc9aa6",
+          "flags": []
+        }
+      },
+      "needsReview": true
+    },
+    "ambientCG:Fabric066": {
+      "assetId": "Fabric066",
+      "provider": "ambientCG",
+      "channels": {
+        "color": {
+          "sha256": "e8d2fc74a7a7e8710986e35fc723771783745fc37a91ff1bd995465c0fe61690",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "447c95581c84a7a1d2efb622faf331be72307f54c62995338e5cd60dcf7f3645",
+          "flags": [
+            "normal_vector_length_review"
+          ]
+        },
+        "roughness": {
+          "sha256": "9c7724412af052e6260d5fe35e7f3a98b0732d7d594361e8ca3590c34e2e995a",
+          "flags": []
+        }
+      },
+      "needsReview": true
+    },
+    "ambientCG:Fabric069": {
+      "assetId": "Fabric069",
+      "provider": "ambientCG",
+      "channels": {
+        "color": {
+          "sha256": "41454a5a275153308fa5550c509f5bd57f6e63993567268ce4a494c9a6570487",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "7ac3eff8ac3f82f67e752469caa83f078b2d260293db89f273e4eee97ee1166b",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "dfc958ae8e3c5e56c1b69786e5528cae038847a0c2bd7a192b86e5379405ff48",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "ambientCG:Fabric070": {
+      "assetId": "Fabric070",
+      "provider": "ambientCG",
+      "channels": {
+        "color": {
+          "sha256": "f9f720705d48ccfe0a6ccbed7637a333fdc558b2c33f50dd2ee9f8371a4ad3c9",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "8e9a5799354579966b450791e15facca8e5d052da1357d50a8fd5d84a7d0ed8e",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "1c262a143a7c9508d81c604fe14aacae97c3336b436509aa1b94258e4765ba1c",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "ambientCG:Fabric077": {
+      "assetId": "Fabric077",
+      "provider": "ambientCG",
+      "channels": {
+        "color": {
+          "sha256": "bbe9060310766516f51fc54ec967787d4091031e7f0046d2578886cfadb56f5d",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "db9b6954cbebcc0dda8de5ffb0f283b35565768c647ee67adf15435772386b90",
+          "flags": [
+            "normal_vector_length_review"
+          ]
+        },
+        "roughness": {
+          "sha256": "a748e634a63274f7daddb8ae68813407f3008162b270facee34a4870d1254cb1",
+          "flags": []
+        }
+      },
+      "needsReview": true
+    },
+    "ambientCG:Fabric078": {
+      "assetId": "Fabric078",
+      "provider": "ambientCG",
+      "channels": {
+        "color": {
+          "sha256": "cea2914fd4bfdc5462c3d64d9476bb081b573bb7422433c333552b23860b4254",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "0f709170a3f9138c2dfd1cea908265d524b78556a3b787ced73debc71a8e6de4",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "e34e55485658dc1afd9be9e70eeb065cfabd10b150171639d3b076a3449691e1",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "ambientCG:Fabric081A": {
+      "assetId": "Fabric081A",
+      "provider": "ambientCG",
+      "channels": {
+        "color": {
+          "sha256": "7123771132122a06d7cb315fd1c00a8dabef56963b12721b9a43dee5e9c00b50",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "ea830c4a4a0271c18c067b9aa9a20c7f720b1eecea9c4b7246546ec090245a71",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "0e6edb182a5da94e8a6568a0afa2d7ace76fac6798a5e6cd3cdc9ebaaea1f086",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "ambientCG:Fabric082A": {
+      "assetId": "Fabric082A",
+      "provider": "ambientCG",
+      "channels": {
+        "color": {
+          "sha256": "014f3fcd3655e5ba01fbaa5eb9fdeb9d1ad9902dcac5471fc1cf16ee2781fa39",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "e8e5aaad31408d450b5fbefdfb444ce5bd817c9d93e7b6889219e6221884374d",
+          "flags": [
+            "normal_vector_length_review"
+          ]
+        },
+        "roughness": {
+          "sha256": "7dfc09a6fce4fec5473d84a481b2dfde4dec407bd6f80e9de38402dea34fd208",
+          "flags": []
+        }
+      },
+      "needsReview": true
+    },
+    "ambientCG:Fabric084": {
+      "assetId": "Fabric084",
+      "provider": "ambientCG",
+      "channels": {
+        "color": {
+          "sha256": "100668a6ef1ef1e1c5a55dd82b82edc725fa6b2aa0d9a5581fe05a842ea9e99c",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "75782b2f9f5599b8188df018aa7dcf5e431e886a79631765d41e7e03aecff7d5",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "3b1d1f5862c78c771a2db39c1460c5ba84fb034a139d899bf4956a5c640793d9",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "ambientCG:Fabric085": {
+      "assetId": "Fabric085",
+      "provider": "ambientCG",
+      "channels": {
+        "color": {
+          "sha256": "afbcdb635193549e777ac49ac5f9599db98afd1f4e165a389f69458913f027a5",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "5136bdf5d87b755454c9bc716e7b1adf981accb4fa081f4d773790c5ace73703",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "94f58ed52e4e7babd42b59e4c7f5a223b803f58099e40569d0020db1d4cc21b3",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "ambientCG:Leather023": {
+      "assetId": "Leather023",
+      "provider": "ambientCG",
+      "channels": {
+        "color": {
+          "sha256": "7c6c85d3f700ec4777243156c486e5e5e47ef9d6294fd251f194dd97280e04b1",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "78c1a3bbe7dc7781b798cfb32b6867ea812f360b19494df9f1ec2ec8ee30edee",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "80968c10c2295b79010c7d6e12afb652c44612cbbc598d425f65003e55743b05",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "ambientCG:Leather024": {
+      "assetId": "Leather024",
+      "provider": "ambientCG",
+      "channels": {
+        "color": {
+          "sha256": "0ca4183154b7dec8b3164a7c3fab40aa1d8ab1c199b0ad2249df0f382b803b70",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "24b4d358fce30a615a1d9b63e6075f009903fdca792e98f899067a8ced52848f",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "befd5d209ef94aaf14ccba4994659b30fc330aae3aecd816cf55a1ff4136ae89",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "ambientCG:Leather025": {
+      "assetId": "Leather025",
+      "provider": "ambientCG",
+      "channels": {
+        "color": {
+          "sha256": "490a6c0e2bd00675b0130ad3da0f231511e1286a70a3bb7bdde0d08e5c4800f6",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "933a5225def7245bbffce6b61dd0e443d213e287a9d44127b8831e7c6fe0b033",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "4fee1df8dc775c5635000420ebac8e71f820de786a761fcc3fd11ad01060978b",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "ambientCG:Leather026": {
+      "assetId": "Leather026",
+      "provider": "ambientCG",
+      "channels": {
+        "color": {
+          "sha256": "b84e117b23895db1fc4f02f481788f2ad39a965cf777f0efc4e7f90c66b5304e",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "02d85cb546396c3faae47792e8d1a9d6ff40771b1a8439c93ddea08255619306",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "dea058b5c912b3755ae7352aff64f8aca98d0b8c90ba6c89807d1ee5a2d145c4",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "ambientCG:Leather028": {
+      "assetId": "Leather028",
+      "provider": "ambientCG",
+      "channels": {
+        "color": {
+          "sha256": "7c57d49661aa7da4e34276ce997b152b886417af3945e216b9e7f52eb6862f71",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "60436c54d7d69c1a3bbd0d5f7f0f70a55bdaec6570c8fbc1a84ee407ed4e08fa",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "ba67af328cdb7186cca82f7d9d260a14d8986230a43764533fae42869323b5ba",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "ambientCG:Leather031": {
+      "assetId": "Leather031",
+      "provider": "ambientCG",
+      "channels": {
+        "color": {
+          "sha256": "ee1312c66dd864fbef7ef8f8bcc0ee5fbd77a7fd35ac53aa9304ac1189e1f359",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "fcad5d23b3fbae986c887391b0e9e542e40376a8fd6f2775752912df395b1db6",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "8f7da829a3c158fa4ca9711f1459e83e73cc296bfefe72e163d918902b4c3a2c",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "ambientCG:Leather032": {
+      "assetId": "Leather032",
+      "provider": "ambientCG",
+      "channels": {
+        "color": {
+          "sha256": "601f2019f3283741cdc7f039aca1b9328540ac5e93a5de7776e0af810ac89379",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "ea252998e666e96af281ce2cea69e3142d684d28488b3585578f433bd60120c8",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "11dd8a86ce7de66b2f12da6763a0b4e223999a734ccd7bf3b9cabef6a1af398c",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "ambientCG:Leather037": {
+      "assetId": "Leather037",
+      "provider": "ambientCG",
+      "channels": {
+        "color": {
+          "sha256": "e1033ea8a95a313bdd80ea52aa04b1eee9a8934f1c695430408dacfc8636cc1a",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "b0684254670e067d88fa89d04b1dabb832e4652246c7e3878604c713eecd50f7",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "b67300743ff88fe4aafd0d303997d9acaa7f2f730262a3079814d5b673721e46",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "ambientCG:Leather038": {
+      "assetId": "Leather038",
+      "provider": "ambientCG",
+      "channels": {
+        "color": {
+          "sha256": "cc601f778f13f87cd4a448c54a2634c97b9bb467a0c52e1fbe5cf90f0b8a0f61",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "7096bbe36f5d29454e7a4ade786924862e041f01d1041e633c8931d82fb9fd16",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "e47866f43664377cb2aeba6f271a6914335a86c6576fdb4cc08f863c27341684",
+          "flags": [
+            "near_constant_roughness"
+          ]
+        }
+      },
+      "needsReview": true
+    },
+    "ambientCG:Leather039": {
+      "assetId": "Leather039",
+      "provider": "ambientCG",
+      "channels": {
+        "color": {
+          "sha256": "19a5fb3782a8f1f7ceab22886878a272aecac7f1ca33adf6162ad912fcab440c",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "0dbc2fec478a1bb5ca6337ff006a17230af9e95201bc06ad849b4414ca6a851e",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "bee4f43dc94d70e98f59ae08756c6ffb4ed97db124ce13527430dd31c2b1ace7",
+          "flags": [
+            "near_constant_roughness"
+          ]
+        }
+      },
+      "needsReview": true
+    },
+    "Poly Haven:bi_stretch": {
+      "assetId": "bi_stretch",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "435dbe90312a9666bdacd37a564c8f6938c3a0f2b31288d4ad2581c2aa1304c1",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "b282a065f0fc027e375c2cfe35a6344b18d9e7154f3f7b3604ab9c7fdf6e6b1a",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "06ade3abeb3c08c6dd96c396757ca18d2e0cd1e5d6819ae4a585dc265ae9f3ee",
+          "flags": [
+            "near_constant_roughness"
+          ]
+        }
+      },
+      "needsReview": true
+    },
+    "Poly Haven:brown_leather": {
+      "assetId": "brown_leather",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "7e9e1d6566d1fd91d4ceb4966c4820361e85d53a7a828b6bab3b2a093a876cd1",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "506a0b7650c2dea285e247f26ed2d0d6ec38fc10dd584359f0d203e9c082236d",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "f9739ef2da2e3d17b9ec253f5042f61b10dc10f3ae28f6cf6491650d3d1b0ca3",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:caban": {
+      "assetId": "caban",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "e6502a2516772c3158d11fc447a4d0972900dc81347334465b99b18f3b09524c",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "27cd0f98d833648c43d2c85db2e23a151b1ec2b74feaf56964a16b6c0c892f84",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "625125e1ba8e741c87da18e45e45ff870bce13fa2bb81fecef2edc6255c79918",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:cotton_jersey": {
+      "assetId": "cotton_jersey",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "0f1b790e4087223275aaa6fdffdd46a556a26d2af72cd811acf72ba9c21ec1f6",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "9b79709806511b62567fb007ff61009c3b194bb0d0821fbaee3faf1b2bff0318",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "89bed18f5c3f03fc7b4c2382446891629716278e521e06e8b7f6c8f02dd22590",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:crepe_georgette": {
+      "assetId": "crepe_georgette",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "6fdb3b245a8721aac49c293a47ebe58654618f7440631de5ac5b6cd67ab2db4a",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "dfa6c138f5d9a68c0577d9c16ec9af581f5b85fa2e896367a7c7e685e44e9dd2",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "bc9ad923a5f24c0e735b941078a19e1b17aa0b5b619b5332640a5e26884f85df",
+          "flags": [
+            "near_constant_roughness"
+          ]
+        }
+      },
+      "needsReview": true
+    },
+    "Poly Haven:crepe_satin": {
+      "assetId": "crepe_satin",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "403b5af633cb194117bcd63b3158497507290ee3fd7b7092fb5638d05426bb86",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "a60130ba163d1742644793ccce3332efc6b5c76e051fcb4805d57fdf98a0359f",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "8aa2fc46a9028f7404cecd9337b24f5b312a94bdee8301a281b955ebb4e877eb",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:curly_teddy_checkered": {
+      "assetId": "curly_teddy_checkered",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "936df3ddbe8f775be9f6dd84a6112a9b96ddba307f6fb5fbe04902ae1c05aa44",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "191b900d570e804f5c0e4529ad7f0eb65ba27ee7dece77cd33bd50213526c109",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "9e5ba4165bfa1101d4551065ed180b781fb94a422157cb0706b31f615ccabf91",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:curly_teddy_natural": {
+      "assetId": "curly_teddy_natural",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "3e524df3f6b35bfd87b71ed6a1e2d0c96797e55ec4c1a5b2f7c4332b635a1d79",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "a6cea84bddf31c9d4643a25a09c3ec8fa8884e3c3e2d8ac291623e3f702159b8",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "b6e3c3eba019ec5d97b690c97fc602891d29de2428b536c0cc8b814e7c23520b",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:denim_fabric": {
+      "assetId": "denim_fabric",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "d6d0254e2c90768482b0be8cfdc16e18117acc92bad00d406fd4b9be24facdec",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "de0e9c5ed5cce7dacd50a67be16c6d8b8dc036907638e3702729c2f60296094e",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "51b971b7e83d733d88940be2a417c6ce8ea3a82c27a7cb3525f4bacc97aad2b7",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:denim_fabric_03": {
+      "assetId": "denim_fabric_03",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "4a1d34077a5c999f590a31a056be5f70edac19f254b6d970e41942b335788575",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "9b72b5f97f71d4256acb7ee21e532d7fe8af93c49aabf196cc6692b63bd67c09",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "1c92a2278fb834849ae2c16379a6f5a0e6c616c237654791a93bbdc86c7b1d43",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:denim_fabric_04": {
+      "assetId": "denim_fabric_04",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "fc2527c166196684e588ef858daf977285b6701a3c4a68ef71da0c8f01f00263",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "d042e595687ae08f3c8e1188d3ea8cd45dbbf5f7777d2538671d41f08e3d1f15",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "7b34c730688e15ea459632cd24037c911056538dfcf3e6c5b7bbdf4e3bf3e9d4",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:denim_fabric_05": {
+      "assetId": "denim_fabric_05",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "38a33838172801f4be45fa107278f15b32eb84ca671eb923cb6de462bb687f9d",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "7ee9ec3f1ed43665c446df0cb25f0bf66c20a22376d872384104a027c5c3e01e",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "a84887be5e1492676f338e30cf3f2894419a76f850bf00f7fd02ff44a7f3bb66",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:denim_fabric_06": {
+      "assetId": "denim_fabric_06",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "9da7f6672e71a87135d5b4b6bdf4471ee9d250f88ae78ce51f36cd0a6ed5d78d",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "f94bbaa53003762c96624cabebb1a3fd334780c8c96548e9c14990f1e6920df2",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "4309d3acc80fb097652e1b2f5d6bd63f16351e215c3ce55490776ae0bd8380cb",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:denmin_fabric_02": {
+      "assetId": "denmin_fabric_02",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "fba56bdb36b4a68cd5b01e8afa69c59f52970508e0042d4189562a08c77021cc",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "665e0bc009f29c2fdeb5e72791e66f6955e2e7b90c317112a6c873f9492cb3c4",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "950fbf74a861bbb1c50f62a4fe36e999e657252ab5a7aaab55c0ba674f5f36a0",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:fabric_leather_01": {
+      "assetId": "fabric_leather_01",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "19d8935e5f9ece35b422290b1a0333cc438fabab88990d8217ee37408bc33c64",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "a6ce4658c551d6c1576b9e0253791322ac02fc1ccf5c836d7e7e8d168ea30e51",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "e86b189a48f0de9ea7e6abb6a0a45220ee199b1228335952e1e130a16778d1e4",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:fabric_leather_02": {
+      "assetId": "fabric_leather_02",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "97ba9480c7619efc9b8c08202c3e3773d1dd532dacce4dfe97f86e95339cf132",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "2652ece55bd2780be1e16fb5ebc4171b139da45bcf9839a161b9ae236534e471",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "bce3c63ead508ffa0c110c176fdd94e5dbf57b51efdbc6781026a21e217b0edd",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:faux_fur_geometric": {
+      "assetId": "faux_fur_geometric",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "1487de0bbaa323734913e2c9212882f3a67229662a704be02feab36acbc2cd04",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "857fa4534836d8191acec354dc1150c46c8e6d7c0246e2ff9f6baf442adc3b2a",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "976d30898dcf0ced4b6dfdef5aa016d7371ef0c446a8c6c944514de13b11e7ff",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:floral_jacquard": {
+      "assetId": "floral_jacquard",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "4534bf28534ebd8f24544c389a76f42630bca7621ae55feabbb8da32f98e6bf4",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "30defdd06c3afbfac3a22b98c2027d24dc739fee9dbb70281e23b8f7889af5f7",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "08070e242615135bc2420e3859659a5533325cb07c78a9decffe3e0373ec6ef7",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:gingham_check": {
+      "assetId": "gingham_check",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "648db1890b39063d141c00d5db0f742d7cd63ea7bd80f7ed55340f1a12774821",
+          "flags": [
+            "directional_banding_candidate"
+          ]
+        },
+        "normal": {
+          "sha256": "91d694e67acea61048de022bf3a96709593c7798137414aaed4f0211763c1d03",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "cafcf495df52793d19b2b48f8898cf1dbb4fafe8b4b4168601dfab6d2bccdf25",
+          "flags": []
+        }
+      },
+      "needsReview": true
+    },
+    "Poly Haven:hessian_230": {
+      "assetId": "hessian_230",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "ef9ac1a0129b6d0f44b6d5beb68db7be7a0adf11e09fe52fd2cdc9370b27d4ba",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "6d5a6d23c880dbaae98477ed33dbd5d7c0eeda910a39319aec2d0014892974aa",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "469ea3c219147ba83d7a650d7769cc43f25b5e3d8ea8ae4e5e89e7226a32658a",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:hessian_380": {
+      "assetId": "hessian_380",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "5727302df3a9c845e6320ff186ac13fc7d0f1ffcd6fda71667e808e09379fe6f",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "3994fd74148cb413892edd08155976497b3e7e15a403a182f07325a6b1e7be1a",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "a828755c5ddc9af0697eeed46427c5145df1dea5f1e2839f643156a285282fed",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:jersey_melange": {
+      "assetId": "jersey_melange",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "23729f197c28961de6eb92bab5fe335cb6477d6c9b36d1d66f25cbcb83ae359d",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "395bff8325243664cee0356265e7c2d29fddf767834d0d37959032f9b8b9b008",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "c061bb17387609fff0d5d80be967204aaa0fe5239457ab07800cd49f851399ea",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:jogging_melange": {
+      "assetId": "jogging_melange",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "d957b85205d1b639c50017f751865d117f510ca2d791b4c6c2b034d62a084d41",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "8e327a661fc1a335e35005f87bceaf7ae9b2138e47a34a1a6bd552f6c2639d2c",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "276dfbc1d609b7e850c933ad3ecc9f1763c97581f01b227a72de0c25e151fc9c",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:knitted_fleece": {
+      "assetId": "knitted_fleece",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "57d7e416b698d02171a260da1a47109fc0f85b232f565d2a42d6d1be416c32e0",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "ca1f965fee9957665a78a54bfa09e2c44f4e626d38fff6238a9a214cad5bab99",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "0f82adaf29135b0d0a799d7dfcb2f64e76a9836bbf43d5745fb66330077e2042",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:leather_white": {
+      "assetId": "leather_white",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "4d916dfe89c9d2b88bf52e0c70c6a9798a5c29c8c2fcb6ba1ab7b7ded9ef3ed5",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "51bdac4b76da70dc54c288cffea4ecaf837ebb6ed9264664bf5c9a1fc79aa074",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "dbae1aeb5f9a2a46f7fe758f38811beb6a109021848462032d9a3cd63f187a66",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:polar_fleece": {
+      "assetId": "polar_fleece",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "d3053dad0f9ea77c347a92ddd675d5d138bcace6f57e49beb4aedbd972381ea9",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "2c698788b2586445419a5473404abfac2c8778001b7164e399e6ab17772f5558",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "5693b1956ae4ccfce64720a846091d61973cb7a10a2396b50fa4168cc2b0bc3c",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:poly_wool_herringbone": {
+      "assetId": "poly_wool_herringbone",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "fd889a46f617efd331e522e36b8ad2548e16e1cb018c001872f17537d7666af5",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "314ac7c1b7c101a48106e05199bfdb24e33671e58a6ccb334249b441d8e8ac98",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "028b4fb92c322a31b5374171f62f43af2cfd6a012748be175fd44dbf1109903c",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:quatrefoil_jacquard_fabric": {
+      "assetId": "quatrefoil_jacquard_fabric",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "674e9d4c2c116099b79ab364eb04e2101031745f2eb27e4a9e198a81e31c8cd7",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "9320e4ce8f986d26d30711dbb654e8d88371dc1ea28337f7bb373b243ea30286",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "87f300df50b8819d067fe3dbd9c995b123b333b29f923fb1c5ad291e0d7fd395",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:ribbed_corduroy": {
+      "assetId": "ribbed_corduroy",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "4ca8faa90670d9ac921bc0d8a7edebbe6cd807078fa2ba0a5362c962206f70fe",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "cbf7ca6506678e40dd8388be8402e900e375c7c35fe069874367433d7f8cc773",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "a1194b25eb9d96ea17c39afb67217a82a4a204290c84180958765ea821a7a579",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:rough_linen": {
+      "assetId": "rough_linen",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "04897d7611d7390ddf5b2c6f7273f448dfc48341fdbd1f4f207fa30b331d7f57",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "e2402166d1a489f7414814e69e1836ab672aa24e30bec2d41fea356f81687e53",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "734ad6718841a6e296aacaa6e9ee2e1686eed5f62bb8d71c915c5605e162bcb4",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:scuba_suede": {
+      "assetId": "scuba_suede",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "ec8af4e3cfa5a1ec30fd9fb116e1821bca1e847d7458ebd9a1ad49254a817c3f",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "7b2a30665892b7e02d309487a5f7729adc8ddf46fe12086cb14a2917a4b7a68e",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "4f920efccd7183340039dbccacdaab795ecb368a4d42801df586567adc2ece7e",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:stretch_poplin": {
+      "assetId": "stretch_poplin",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "43d1fa852fea75ef9ccb0832f70df3d717190263f3048c4d26a8ec764af49640",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "a94ae78f3e4726bc6ce7d4eee75dc6c54af270579ab26405a972814789fbe4cf",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "da4e8fd6176241d072616018c0ef8eec58880609658ed103f9f324d2b0331ad2",
+          "flags": [
+            "near_constant_roughness"
+          ]
+        }
+      },
+      "needsReview": true
+    },
+    "Poly Haven:terlenka": {
+      "assetId": "terlenka",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "74c4333ed05e133928b0cf6d52e732135c8c0ce6dc8623efa590fb31b90f15c0",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "05d7152ff680a6699018f5c37456a14e16eb1e70014a79d4d500dfd2e099c8f9",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "ec726afa814ff6bb92ae27e916bcbfc4d467acb5203d324355531a57cba4910d",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:terry_cloth": {
+      "assetId": "terry_cloth",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "8605d028a0109de5f2db5992795581f441b56266f27f7969dca32d30866eb9db",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "06ba21255a91259a95115b63cd894fd073327bde05948e51786f37cf46795955",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "5974e1cb44ae7782255f330b46740945ba1cf373ab588728b142169791681abe",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:velour_velvet": {
+      "assetId": "velour_velvet",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "e6e92d808b3456deb892ff17905f3b44717fcfbcbce9fcf03ad7abcabda799df",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "046c92c48c1cb36656d394addf21dea9582f563479b73f2c0b16f356128e872b",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "82b6f22e9a225af76dc8960dab3ed4a936ad8a8061e9272137c3367af2970952",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:waffle_pique_cotton": {
+      "assetId": "waffle_pique_cotton",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "aefa6db3ee7f619f6ffa84ce7093af958faa15d457cb694e7dc540e0524561a8",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "d8aa0eef91fa7468d1f9a582301db6c17081a12bee9be42719de352e1a87efae",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "e7c5d225ddfbfcc386cea0cd5f16605f1af8ff3b84c7289344c6f11c5a9b3186",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    },
+    "Poly Haven:wool_boucle": {
+      "assetId": "wool_boucle",
+      "provider": "Poly Haven",
+      "channels": {
+        "color": {
+          "sha256": "fee39653b3c78efe89636508f2c10ceb38ecb10c0d735ae8dd4e9935cf26540e",
+          "flags": []
+        },
+        "normal": {
+          "sha256": "2cc13a2be4d0bb942a59a86d613665c0d24ff201560daa4d841cee597af0c752",
+          "flags": []
+        },
+        "roughness": {
+          "sha256": "f09f24bd26378b03bb798d4b75010ac8cc0fd1e4b858959e97e6d8d74fa3f6d8",
+          "flags": []
+        }
+      },
+      "needsReview": false
+    }
+  }
+}

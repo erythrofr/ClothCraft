@@ -1,0 +1,38 @@
+{
+  "id": "Fabric085",
+  "source": "ambientCG",
+  "name": "Fabric 085",
+  "license": "CC0-1.0",
+  "assetUrl": "https://ambientcg.com/a/Fabric085",
+  "authors": "ambientCG",
+  "categoryTags": [
+    "085",
+    "85",
+    "fabric",
+    "fabric085",
+    "orange",
+    "red",
+    "wool"
+  ],
+  "scanWidthCm": 30,
+  "scanHeightCm": 30,
+  "physicalScaleStatus": "provider-cm-dimensions",
+  "maps": {
+    "color": {
+      "src": "/fabric-scans-ambientcg/Fabric085/color.jpg",
+      "sha256": "afbcdb635193549e777ac49ac5f9599db98afd1f4e165a389f69458913f027a5",
+      "resolution": "1k"
+    },
+    "normal": {
+      "src": "/fabric-scans-ambientcg/Fabric085/normal.jpg",
+      "sha256": "5136bdf5d87b755454c9bc716e7b1adf981accb4fa081f4d773790c5ace73703",
+      "resolution": "1k"
+    },
+    "roughness": {
+      "src": "/fabric-scans-ambientcg/Fabric085/roughness.jpg",
+      "sha256": "94f58ed52e4e7babd42b59e4c7f5a223b803f58099e40569d0020db1d4cc21b3",
+      "resolution": "1k"
+    }
+  },
+  "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+}

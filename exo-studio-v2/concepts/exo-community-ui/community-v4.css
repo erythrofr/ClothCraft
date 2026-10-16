@@ -1,0 +1,90 @@
+/* Fourth edition / unified discovery and creator network. */
+body{background:#090e11}
+.topbar{position:relative;z-index:25;background:#0c1216;border-color:#30403b}
+.topbar .main-links{gap:clamp(7px,1.1vw,20px)}
+.topbar .nav-link{font-size:12px;font-weight:650;letter-spacing:.2px;min-width:0}
+.topbar .nav-link.selected{color:#e9f6ed}
+.topbar .nav-link.selected:after{background:#a6e1bc}
+.topbar .brand small{color:#96b39e;letter-spacing:1.4px}
+.topbar .brand-mark{color:#b7e3c6}
+.topbar .header-submit{background:#b9e5c6;color:#101e16;border-color:#b9e5c6}
+.topbar .header-submit:hover{background:#e4f5e1;color:#172719}
+.website:has(.exo-home-revamp) #hero,.website:has(.exo-home-revamp) .intro-strip,.website:has(.exo-home-revamp) .edition-feature{display:none!important}
+.website:has(.exo-home-revamp) #catalog-section{max-width:1700px;padding-top:48px}
+#project-home[hidden],#fabric-store[hidden]{display:none!important}
+.exo-community-social-active #site-content .feature-banner{display:none!important}
+.exo-community-social-active #site-content .footer{margin-top:0}
+.exo-market-tabs{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:16px 0 28px;margin:-8px 0 12px;border-bottom:1px solid #405449}
+.exo-market-tabs button{padding:13px 18px;border:1px solid #405347;background:#17231c;color:#a9c9b2;border-radius:3px;font:660 11px var(--sans);cursor:pointer}
+.exo-market-tabs button[aria-pressed=true]{background:#c1e7cf;color:#12241a;border-color:#c1e7cf}
+.exo-market-tabs button:hover:not([aria-pressed=true]){background:#294638;color:#e7f7e9;border-color:#9ccba9}
+#catalog-section .heading-line h2{font-size:clamp(42px,5vw,74px)}
+#catalog-section .asset-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.asset-photograph{position:absolute;inset:0;overflow:hidden;background:#192820}
+.asset-photograph img{width:100%;height:100%;object-fit:cover;object-position:center;filter:saturate(.84);transition:transform .6s cubic-bezier(.4,0,.2,1),filter .5s ease}
+.asset-card:hover .asset-photograph img{transform:scale(1.06);filter:saturate(1)}
+.asset-card:has(.asset-photograph) .asset-art{background:#16251d}
+.asset-card .asset-visual-label{z-index:4}
+#catalog-section #fabric-store{padding-top:0;margin-top:3px}
+#catalog-section #fabric-store .exo-store{min-height:0;margin:0 -5px;padding-bottom:50px;background:#0b1113}
+#catalog-section #fabric-store .exfs-banner{display:none}
+#catalog-section #fabric-store .exfs-hero{min-height:250px}
+#catalog-section #fabric-store .exfs-hero-copy{padding:36px 35px}
+#catalog-section #fabric-store .exfs-hero-copy h1{font-size:clamp(45px,5vw,68px);margin:18px 0 12px}
+#catalog-section #fabric-store .exfs-body{padding:28px 15px 0}
+#catalog-section #fabric-store .exfs-category-bar{padding-inline:22px}
+#catalog-section #fabric-store .exfs-filters{top:20px}
+.exo-project-overlay{position:fixed;inset:0;z-index:8000;display:grid;place-items:center;padding:35px 22px}
+.exo-project-shade{position:absolute;inset:0;background:#020708e8;backdrop-filter:blur(8px)}
+.exo-project-panel{width:min(1120px,100%);max-height:min(90vh,900px);overflow:auto;display:grid;grid-template-columns:1.15fr .85fr;position:relative;z-index:2;background:#111b1a;border:1px solid #56705d;box-shadow:0 30px 110px #000a}
+.exo-project-large-photo{position:relative;min-height:540px;background:#142323;overflow:hidden}
+.exo-project-large-photo>img{width:100%;height:100%;position:absolute;inset:0;object-fit:cover}
+.exo-project-large-photo:after{content:'';position:absolute;inset:0;background:linear-gradient(0deg,#050d0dbb,transparent 37%);pointer-events:none}
+.exo-project-large-photo span{position:absolute;bottom:25px;left:23px;z-index:2;color:#e6f7e8;font:10px var(--mono);letter-spacing:.65px}
+.exo-project-description{padding:31px clamp(28px,3.8vw,56px) 43px;color:#f1f6eb}
+.exo-project-top{display:flex;justify-content:space-between;align-items:center;gap:10px;font:10px var(--mono);color:#9ab8a2}
+.exo-project-top button{background:#21362a;color:#f2fbee;border:1px solid #68826b;border-radius:4px;padding:11px 13px;cursor:pointer}
+.exo-project-category{display:block;margin-top:80px;color:#b4e4bf;font:10px var(--mono);letter-spacing:1px}
+.exo-project-description h2{font:650 clamp(39px,3.8vw,65px)/1.05 var(--sans);letter-spacing:-2.3px;margin:15px 0 22px}
+.exo-project-description p{font-size:14px;color:#aebfb1;line-height:1.8}
+.exo-project-credit{display:grid;grid-template-columns:110px 1fr;gap:12px;padding:25px 0;border-top:1px solid #45584c;border-bottom:1px solid #45584c;margin:38px 0;font-size:11px}
+.exo-project-credit span{font:10px var(--mono);color:#91ab98}
+.exo-project-credit strong{font-weight:600;color:#e2eddf}
+.exo-project-actions{display:flex;flex-wrap:wrap;gap:10px}
+.exo-project-actions button{border:1px solid #aecfb3;background:#c3e9c9;color:#16251b;padding:14px;border-radius:3px;font-size:11px;font-weight:720;cursor:pointer}
+.exo-project-actions button+button{background:transparent;color:#c3e9c9}
+.exo-project-description>small{display:block;margin-top:25px;line-height:1.65;color:#809a8d}
+body.exo-project-open{overflow:hidden}
+.exo-social-page,.exo-profile-page{background:#0b1214;min-height:78vh}
+.exo-social-page .exo-social-root,.exo-profile-page .dp-root{max-width:1600px;margin:auto}
+.exo-profile-page.dp-root{max-width:none}
+@media(max-width:1100px){
+ .topbar .nav-link{font-size:11px}
+ .topbar .header-team{display:none}
+ #catalog-section .asset-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .exo-project-panel{grid-template-columns:1fr 1fr}
+ .exo-project-large-photo{min-height:490px}
+}
+@media(max-width:780px){
+ .topbar{gap:0}
+ .topbar .main-links{gap:2px}
+ .topbar .main-links .nav-link{font-size:11px;padding:0 7px}
+ .exo-market-tabs{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;gap:6px}
+ .exo-market-tabs button{white-space:nowrap;flex:none;padding:11px 13px;font-size:10px}
+ #catalog-section .asset-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:27px 12px}
+ #catalog-section #fabric-store .exfs-hero-copy{padding:36px 20px}
+ #catalog-section #fabric-store .exfs-body{padding:20px 10px 0}
+ .exo-project-panel{display:flex;flex-direction:column;max-height:92dvh}
+ .exo-project-large-photo{min-height:330px;aspect-ratio:1.3}
+ .exo-project-description{padding:24px 22px 35px}
+ .exo-project-category{margin-top:25px}
+ .exo-project-description h2{font-size:43px}
+ .exo-project-credit{margin:24px 0}
+ .exo-project-overlay{padding:15px}
+}
+@media(max-width:430px){
+ .topbar .main-links .nav-link{font-size:10px;padding:0 3px}
+ .topbar .brand small{letter-spacing:.6px}
+ .exo-project-description h2{font-size:34px}
+}
+@media(prefers-reduced-motion:reduce){.asset-photograph img{transition:none}}

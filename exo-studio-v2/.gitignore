@@ -1,0 +1,156 @@
+# Dependencies / build output
+node_modules/
+dist/
+.npm-cache/
+
+# Local QA captures and generated exports
+qa-*.png
+qa-*.jpg
+qa-*.jpeg
+qa-*.json
+qa-*.svg
+replica/screens/
+replica/clone-screens/
+replica/diffs/
+replica/evidence/raw/
+*.blend1
+*.blend2
+
+# Research clones, virtualenvs, build trees and model/data downloads
+research/oss/
+research/venvs/
+research/build/
+research/models/
+research/data/
+research/ppf-local/
+
+# Native build products
+native_backend/bin/
+native_backend/build/
+native_backend/fixtures/*.native-sim.json
+native_backend/output/
+*.a
+*.dylib
+*.so
+*.dll
+*.exe
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Editors / OS
+.DS_Store
+native_app/build/
+native_app/assets/
+native_app/native-preview-screen.png
+.idea/
+.vscode/
+
+# Local environment/secrets
+.env
+.env.*
+!.env.example
+
+# Generated Blender bridge output
+blender_bridge/output/
+blender_bridge/fixtures/*.ppf.json
+native_backend/runtime/
+
+# Third-party runtime/download staging
+research/downloads/
+research/runtime/
+
+# Proprietary vendor SDK download, installed bridge binaries, and local requests
+integrations/clo_sdk/vendor/
+integrations/clo_sdk/build/
+
+# Local Qt SDK installations, Python environments, CMake build trees and
+# generated desktop bundles (never vendor downloaded toolchains into Git).
+native_cpp/.qt-*/
+native_cpp/.qt*/
+native_cpp/build*/
+native_cpp/.cache/
+native_cpp/*.app/
+native_cpp/*.dSYM/
+native_cpp/Testing/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+
+# Runtime logs, local model data, reference media, and video render outputs.
+logs/
+*.log
+aqtinstall.log
+research/oss-runtime/
+research/oss/
+references/
+promo/
+native_app/backups/
+native_app/qa/
+native_app/*.app/
+
+# Proprietary/restricted CLO and third-party avatar media are local-only.
+# A CC0 MakeHuman sample and its license notice may remain in the repo.
+public/avatars/clo-thomas*
+public/avatars/opensew/*.glb
+public/avatars/guides/clo-thomas*
+public/avatars/guides/theo*
+public/avatars/guides/nora*
+blender_bridge/probe_thomas*
+blender_bridge/*thomas*
+
+# Generated media and machine-specific data, regardless of output directory.
+*.mp4
+*.mov
+*.m4v
+*.avi
+*.wav
+*.aiff
+*.aif
+*.dSYM/
+*.xcarchive/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.sqlite
+*.sqlite3
+*.db
+*.bak
+*.tmp
+*.swp
+*.swo
+*.pid
+*.sock
+
+# Keep local API keys, credential exports and signing identity outside Git.
+*.pem
+*.p12
+*.pfx
+*.key
+id_rsa*
+id_ed25519*
+*_credentials.json
+*secrets*.json
+*.mobileprovision
+
+# EXO Sample 3D deliberately distributes its user-approved, GitHub-size
+# V16 showcase. Keep other intermediate/master MP4 files ignored.
+!media/exo-sample-3d-v16-showcase.mp4
+
+# Local native UI visual QA screenshots
+native_app/*.png
+native_app/*.jpg
+native_app/qa/*.png
+native_app/qa/*.jpg
+
+# Generated local upstream PPF demo (80 MB of recorded native mesh frames).
+# Regenerate using scripts/prepare-zozo-reference-dress.mjs from locally
+# installed original GitHub reference assets and the independently audited run.
+public/references/zozo-dress/
+
+# V2 local ignored dependency symlinks
+node_modules
+native_cpp/build-cmake

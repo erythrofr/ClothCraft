@@ -1,0 +1,16 @@
+labels: [ideas]
+body:
+  - type: markdown
+    attributes:
+      value: "Use discussions for architecture/design ideas before opening a scoped issue. Do not upload proprietary designs or private assets."
+  - type: textarea
+    id: overview
+    attributes:
+      label: What are you proposing?
+      description: Describe the workflow problem and the expected improvement.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: References and testable acceptance criteria

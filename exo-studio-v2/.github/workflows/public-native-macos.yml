@@ -1,0 +1,42 @@
+name: Public macOS native build
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  macos-native:
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      INCLUDE_PRIVATE_THOMAS: '0'
+      INCLUDE_PREPARED_SOLVES: '0'
+      VITE_PUBLIC_DISTRIBUTION: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install and verify public source
+        run: |
+          npm ci
+          node scripts/check-public-release.mjs
+          npm run build
+      - name: Build standalone arm64 app from GPL-cleared files
+        run: bash native_app/build.sh arm64
+      - name: Verify signed bundle and restricted assets absent
+        shell: bash
+        run: |
+          set -euo pipefail
+          app=native_app/build/arm64/GarmentStudioNative.app
+          test -s "$app/Contents/MacOS/GarmentStudioNative"
+          test -s "$app/Contents/Resources/web/index.html"
+          codesign --verify --deep --strict "$app"
+          if find "$app" -iname '*thomas*' -print -quit | grep -q .; then
+            echo 'Private Thomas avatar present in public binary' >&2
+            exit 1
+          fi
+          echo 'Public arm64 native bundle verified'
+      # Artifacts are intentionally not automatically published while licenses and notarization remain pending.

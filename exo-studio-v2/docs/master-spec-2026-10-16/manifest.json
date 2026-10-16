@@ -1,0 +1,754 @@
+{
+  "date": "2026-10-16",
+  "toolbar": 70,
+  "native": 11,
+  "inspect": 9,
+  "unavailable": 50,
+  "fabrics": 400,
+  "epics": 45,
+  "integrations": 15,
+  "annexes": 11,
+  "specifications": [
+    [
+      "00",
+      "Executive contract and present-state truth"
+    ],
+    [
+      "01",
+      "Dependency-critical implementation order"
+    ],
+    [
+      "02",
+      "System boundaries and canonical dependency graph"
+    ],
+    [
+      "EVIDENCE-01",
+      "Latest known validation gaps and confidence boundaries"
+    ],
+    [
+      "ARCH-001",
+      "Canonical garment document"
+    ],
+    [
+      "ARCH-002",
+      "Typed command engine and undo"
+    ],
+    [
+      "ARCH-003",
+      "2D planar geometry kernel"
+    ],
+    [
+      "ARCH-004",
+      "2D drawing and selection"
+    ],
+    [
+      "ARCH-005",
+      "2D drafting constructions"
+    ],
+    [
+      "ARCH-006",
+      "Notches and seam allowance CAD"
+    ],
+    [
+      "ARCH-007",
+      "Linked 2D to 3D correspondence"
+    ],
+    [
+      "ARCH-008",
+      "Sewing graph and partial seams"
+    ],
+    [
+      "ARCH-009",
+      "Complex construction and hardware"
+    ],
+    [
+      "ARCH-010",
+      "3D garment editing tools"
+    ],
+    [
+      "ARCH-011",
+      "Avatar geometry and measurement"
+    ],
+    [
+      "ARCH-012",
+      "Animation timeline"
+    ],
+    [
+      "ARCH-013",
+      "Interactive VBD and XPBD preview"
+    ],
+    [
+      "ARCH-014",
+      "PPF contact batch acceptance"
+    ],
+    [
+      "ARCH-015",
+      "Simulation numerical reliability"
+    ],
+    [
+      "ARCH-016",
+      "Physical fabric model"
+    ],
+    [
+      "ARCH-017",
+      "Physical fabric acquisition"
+    ],
+    [
+      "ARCH-018",
+      "PBR textile optical pipeline"
+    ],
+    [
+      "ARCH-019",
+      "400 fabric catalog engineering"
+    ],
+    [
+      "ARCH-020",
+      "Fabric optical finishes and washes"
+    ],
+    [
+      "ARCH-021",
+      "Fabric browser and property editing"
+    ],
+    [
+      "ARCH-022",
+      "Avatar/garment fit interpretation"
+    ],
+    [
+      "ARCH-023",
+      "POM and measurement tools"
+    ],
+    [
+      "ARCH-024",
+      "Grading and multi-size"
+    ],
+    [
+      "ARCH-025",
+      "DXF and industrial CAD interchange"
+    ],
+    [
+      "ARCH-026",
+      "Markers and cutting layout"
+    ],
+    [
+      "ARCH-027",
+      "Factory BOM and cost"
+    ],
+    [
+      "ARCH-028",
+      "Technical pack production"
+    ],
+    [
+      "ARCH-029",
+      "Project save, migration and recovery"
+    ],
+    [
+      "ARCH-030",
+      "Desktop app shell and Qt strategy"
+    ],
+    [
+      "ARCH-031",
+      "Typed automation and scripting"
+    ],
+    [
+      "ARCH-032",
+      "Rendering and visual studio"
+    ],
+    [
+      "ARCH-033",
+      "Asset library and local ownership"
+    ],
+    [
+      "ARCH-034",
+      "Open-source packaging and CI"
+    ],
+    [
+      "ARCH-035",
+      "Community and pattern marketplace"
+    ],
+    [
+      "ARCH-036",
+      "Interactive web tech packs"
+    ],
+    [
+      "ARCH-037",
+      "Spatial showroom and projection"
+    ],
+    [
+      "ARCH-038",
+      "Security/privacy and permissions"
+    ],
+    [
+      "ARCH-039",
+      "Performance budgets and telemetry"
+    ],
+    [
+      "ARCH-040",
+      "Accessibility and localization"
+    ],
+    [
+      "ARCH-041",
+      "Tool-bar and property parity reference"
+    ],
+    [
+      "ARCH-042",
+      "Context-aware Property Editor"
+    ],
+    [
+      "ARCH-043",
+      "Material calibration regression"
+    ],
+    [
+      "ARCH-044",
+      "Cross-backend numerical parity"
+    ],
+    [
+      "ARCH-045",
+      "Engineering release gating"
+    ],
+    [
+      "EXT-001",
+      "Interchange format matrix"
+    ],
+    [
+      "EXT-002",
+      "Regression fixture repository"
+    ],
+    [
+      "EXT-003",
+      "Cloth solver benchmark protocol"
+    ],
+    [
+      "EXT-004",
+      "Deployment update architecture"
+    ],
+    [
+      "EXT-005",
+      "Typography and design quality"
+    ],
+    [
+      "EXT-006",
+      "Manufacturing traceability"
+    ],
+    [
+      "EXT-007",
+      "Fabric inspection laboratory"
+    ],
+    [
+      "EXT-008",
+      "Finish masking studio"
+    ],
+    [
+      "EXT-009",
+      "CLO version change monitoring"
+    ],
+    [
+      "EXT-010",
+      "Backend isolation and diagnostics"
+    ],
+    [
+      "EXT-011",
+      "Asset licensing and provenance"
+    ],
+    [
+      "EXT-012",
+      "Automated tool functional matrix"
+    ],
+    [
+      "EXT-013",
+      "Context property exhaustive matrix"
+    ],
+    [
+      "EXT-014",
+      "Look and rendering ownership"
+    ],
+    [
+      "EXT-015",
+      "Development operation and observability"
+    ],
+    [
+      "TOOL-001",
+      "Simulate"
+    ],
+    [
+      "TOOL-002",
+      "Select/Move"
+    ],
+    [
+      "TOOL-003",
+      "Select Mesh (Brush)"
+    ],
+    [
+      "TOOL-004",
+      "Edit Styleline"
+    ],
+    [
+      "TOOL-005",
+      "Edit Sewing"
+    ],
+    [
+      "TOOL-006",
+      "Segment Sewing"
+    ],
+    [
+      "TOOL-007",
+      "Free Sewing"
+    ],
+    [
+      "TOOL-008",
+      "Auto Sewing"
+    ],
+    [
+      "TOOL-009",
+      "Edit Tack"
+    ],
+    [
+      "TOOL-010",
+      "Tack"
+    ],
+    [
+      "TOOL-011",
+      "Fold Arrangement"
+    ],
+    [
+      "TOOL-012",
+      "Fold 3D Garment"
+    ],
+    [
+      "TOOL-013",
+      "Reset 2D Arrangement (All)"
+    ],
+    [
+      "TOOL-014",
+      "Reset 3D Arrangement (All)"
+    ],
+    [
+      "TOOL-015",
+      "Re-drape 3D Arrangement"
+    ],
+    [
+      "TOOL-016",
+      "Hi-Res Garment"
+    ],
+    [
+      "TOOL-017",
+      "Edit Measure (Avatar)"
+    ],
+    [
+      "TOOL-018",
+      "Basic Tape Measure (Avatar)"
+    ],
+    [
+      "TOOL-019",
+      "Edit Measure (Garment)"
+    ],
+    [
+      "TOOL-020",
+      "Linear Measure (Garment)"
+    ],
+    [
+      "TOOL-021",
+      "Play Motion"
+    ],
+    [
+      "TOOL-022",
+      "Edit Line (3D Pattern)"
+    ],
+    [
+      "TOOL-023",
+      "Line (3D Pattern)"
+    ],
+    [
+      "TOOL-024",
+      "3D Base Pen"
+    ],
+    [
+      "TOOL-025",
+      "Edit 3D Pen (Avatar)"
+    ],
+    [
+      "TOOL-026",
+      "3D Pen (Avatar)"
+    ],
+    [
+      "TOOL-027",
+      "Edit Texture (3D)"
+    ],
+    [
+      "TOOL-028",
+      "Transform Graphic"
+    ],
+    [
+      "TOOL-029",
+      "Graphic (3D Pattern)"
+    ],
+    [
+      "TOOL-030",
+      "Select/Move Button"
+    ],
+    [
+      "TOOL-031",
+      "Button"
+    ],
+    [
+      "TOOL-032",
+      "Fasten Button"
+    ],
+    [
+      "TOOL-033",
+      "Zipper"
+    ],
+    [
+      "TOOL-034",
+      "Edit Piping"
+    ],
+    [
+      "TOOL-035",
+      "Piping"
+    ],
+    [
+      "TOOL-036",
+      "Select Binding"
+    ],
+    [
+      "TOOL-037",
+      "Binding"
+    ],
+    [
+      "TOOL-038",
+      "Press"
+    ],
+    [
+      "TOOL-039",
+      "Transform Pattern"
+    ],
+    [
+      "TOOL-040",
+      "Edit Pattern"
+    ],
+    [
+      "TOOL-041",
+      "Fullness (Point)"
+    ],
+    [
+      "TOOL-042",
+      "Polygon"
+    ],
+    [
+      "TOOL-043",
+      "Internal Polygon/Line"
+    ],
+    [
+      "TOOL-044",
+      "Base Polygon"
+    ],
+    [
+      "TOOL-045",
+      "Trace"
+    ],
+    [
+      "TOOL-046",
+      "Notch"
+    ],
+    [
+      "TOOL-047",
+      "Seam Allowance"
+    ],
+    [
+      "TOOL-048",
+      "Walk Pattern"
+    ],
+    [
+      "TOOL-049",
+      "Edit Point of Measure"
+    ],
+    [
+      "TOOL-050",
+      "Point of Measure"
+    ],
+    [
+      "TOOL-051",
+      "Edit Annotation"
+    ],
+    [
+      "TOOL-052",
+      "Pattern Annotation"
+    ],
+    [
+      "TOOL-053",
+      "Pleats"
+    ],
+    [
+      "TOOL-054",
+      "Edit Grading"
+    ],
+    [
+      "TOOL-055",
+      "Auto Grading"
+    ],
+    [
+      "TOOL-056",
+      "Edit Sewing"
+    ],
+    [
+      "TOOL-057",
+      "Segment Sewing"
+    ],
+    [
+      "TOOL-058",
+      "Free Sewing"
+    ],
+    [
+      "TOOL-059",
+      "Check Sewing Length"
+    ],
+    [
+      "TOOL-060",
+      "Steam"
+    ],
+    [
+      "TOOL-061",
+      "Seam Taping"
+    ],
+    [
+      "TOOL-062",
+      "Edit Texture (2D)"
+    ],
+    [
+      "TOOL-063",
+      "Transform Graphic"
+    ],
+    [
+      "TOOL-064",
+      "Graphic (2D Pattern)"
+    ],
+    [
+      "TOOL-065",
+      "Edit Topstitch"
+    ],
+    [
+      "TOOL-066",
+      "Segment Topstitch"
+    ],
+    [
+      "TOOL-067",
+      "Edit Puckering"
+    ],
+    [
+      "TOOL-068",
+      "Segment Puckering"
+    ],
+    [
+      "TOOL-069",
+      "Set Sublayer"
+    ],
+    [
+      "TOOL-070",
+      "Fill"
+    ],
+    [
+      "FAB-001",
+      "Fabrics 001\u2013010"
+    ],
+    [
+      "FAB-002",
+      "Fabrics 011\u2013020"
+    ],
+    [
+      "FAB-003",
+      "Fabrics 021\u2013030"
+    ],
+    [
+      "FAB-004",
+      "Fabrics 031\u2013040"
+    ],
+    [
+      "FAB-005",
+      "Fabrics 041\u2013050"
+    ],
+    [
+      "FAB-006",
+      "Fabrics 051\u2013060"
+    ],
+    [
+      "FAB-007",
+      "Fabrics 061\u2013070"
+    ],
+    [
+      "FAB-008",
+      "Fabrics 071\u2013080"
+    ],
+    [
+      "FAB-009",
+      "Fabrics 081\u2013090"
+    ],
+    [
+      "FAB-010",
+      "Fabrics 091\u2013100"
+    ],
+    [
+      "FAB-011",
+      "Fabrics 101\u2013110"
+    ],
+    [
+      "FAB-012",
+      "Fabrics 111\u2013120"
+    ],
+    [
+      "FAB-013",
+      "Fabrics 121\u2013130"
+    ],
+    [
+      "FAB-014",
+      "Fabrics 131\u2013140"
+    ],
+    [
+      "FAB-015",
+      "Fabrics 141\u2013150"
+    ],
+    [
+      "FAB-016",
+      "Fabrics 151\u2013160"
+    ],
+    [
+      "FAB-017",
+      "Fabrics 161\u2013170"
+    ],
+    [
+      "FAB-018",
+      "Fabrics 171\u2013180"
+    ],
+    [
+      "FAB-019",
+      "Fabrics 181\u2013190"
+    ],
+    [
+      "FAB-020",
+      "Fabrics 191\u2013200"
+    ],
+    [
+      "FAB-021",
+      "Fabrics 201\u2013210"
+    ],
+    [
+      "FAB-022",
+      "Fabrics 211\u2013220"
+    ],
+    [
+      "FAB-023",
+      "Fabrics 221\u2013230"
+    ],
+    [
+      "FAB-024",
+      "Fabrics 231\u2013240"
+    ],
+    [
+      "FAB-025",
+      "Fabrics 241\u2013250"
+    ],
+    [
+      "FAB-026",
+      "Fabrics 251\u2013260"
+    ],
+    [
+      "FAB-027",
+      "Fabrics 261\u2013270"
+    ],
+    [
+      "FAB-028",
+      "Fabrics 271\u2013280"
+    ],
+    [
+      "FAB-029",
+      "Fabrics 281\u2013290"
+    ],
+    [
+      "FAB-030",
+      "Fabrics 291\u2013300"
+    ],
+    [
+      "FAB-031",
+      "Fabrics 301\u2013310"
+    ],
+    [
+      "FAB-032",
+      "Fabrics 311\u2013320"
+    ],
+    [
+      "FAB-033",
+      "Fabrics 321\u2013330"
+    ],
+    [
+      "FAB-034",
+      "Fabrics 331\u2013340"
+    ],
+    [
+      "FAB-035",
+      "Fabrics 341\u2013350"
+    ],
+    [
+      "FAB-036",
+      "Fabrics 351\u2013360"
+    ],
+    [
+      "FAB-037",
+      "Fabrics 361\u2013370"
+    ],
+    [
+      "FAB-038",
+      "Fabrics 371\u2013380"
+    ],
+    [
+      "FAB-039",
+      "Fabrics 381\u2013390"
+    ],
+    [
+      "FAB-040",
+      "Fabrics 391\u2013400"
+    ],
+    [
+      "QA-01",
+      "Execution matrix and hard numerical release gates"
+    ],
+    [
+      "QA-02",
+      "Official CLO research and compatibility boundaries"
+    ]
+  ],
+  "htmlBytes": 911626,
+  "markdownBytes": 266729,
+  "sourceEvidence": [
+    "EXO_MASTER_ROADMAP.md",
+    "EXO_ARCHITECTURE.md",
+    "EXO_DATA_MODEL.md",
+    "GARMENT_STUDIO_COMPLETE_CLO3D_PARITY_MASTER_PLAN_2026-10-13.md",
+    "CLO3D_NON_SIMULATION_FULL_BUILD_AUDIT_2026-10-13.md",
+    "CLO7_LIVE_TOOLBAR_AUDIT_20261016.md",
+    "EXO_CLO7_NATIVE_TOOL_SUPPORT_AUDIT.md",
+    "CLO3D_PROPERTY_EDITOR_DEEP_AUDIT_20261016.md",
+    "CLO7_LIVE_PROPERTY_EDITOR_AUDIT_20261016.md",
+    "EXO_V2_PROPERTY_EDITOR_CONTEXT_EDIT_AUDIT_20261016.md",
+    "EXO_CLO7_BUTTON_FUNCTIONAL_LOOP_20261016.md",
+    "EXO_400_FABRIC_LIBRARY_AND_WASH_SYSTEM.md",
+    "FABRIC_PHYSICS_AND_CLO_RESEARCH_2026-10-16.md",
+    "PPF_ACTUAL_GARMENT_FIT_DEEP_AUDIT_2026-10-14.md",
+    "EXO_VALIDATION_TEST_PLAN.md",
+    "CLO_EXPORT_PRODUCTION_PARITY_2026-10-15.md",
+    "EXO_ECOSYSTEM_MASTER_IMPLEMENTATION_PROGRAM_2026-10-16.md",
+    "EXO_INTERACTIVE_WEB_TECHPACK_PLANNING_2026-10-16.md"
+  ],
+  "officialReferenceURLs": [
+    "docs/CLO7_LIVE_TOOLBAR_AUDIT_20261016.md",
+    "https://support.clo3d.com/hc/en-us/articles/115000565548--Mode-Emulator",
+    "https://support.clo3d.com/hc/en-us/articles/360047317454-Set-Fabric-Materials",
+    "https://support.clo3d.com/hc/en-us/articles/115000493067-2D-Pattern-DXF-Import-Export",
+    "https://support.clo3d.com/hc/en-us/articles/115015578947-Add-Apply-Grading",
+    "https://support.clo3d.com/hc/en-us/articles/59635504938777-2D-Pattern-Information",
+    "https://support.clo3d.com/hc/en-us/articles/115012227227-Particle-Distance",
+    "https://support.clo3d.com/hc/en-us/articles/115012380148-Edit-Sewing",
+    "https://support.clo3d.com/hc/en-us/articles/360025716814-Edit-2D-POM",
+    "https://support.clo3d.com/hc/en-us/articles/33852438561049-PBR-Map-Generator-ver-2024-1",
+    "https://support.clo3d.com/hc/en-us/articles/115015714428-2D-Seam-Allowance",
+    "https://support.clo3d.com/hc/en-us/articles/58043228154393-Grading-Review-2D",
+    "docs/reports/EXO_400_LICENSED_SCAN_REGISTRY.json"
+  ]
+}

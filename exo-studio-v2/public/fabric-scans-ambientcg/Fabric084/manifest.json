@@ -1,0 +1,39 @@
+{
+  "id": "Fabric084",
+  "source": "ambientCG",
+  "name": "Fabric 084",
+  "license": "CC0-1.0",
+  "assetUrl": "https://ambientcg.com/a/Fabric084",
+  "authors": "ambientCG",
+  "categoryTags": [
+    "084",
+    "84",
+    "blue",
+    "fabric",
+    "fabric084",
+    "fur",
+    "microfiber",
+    "soft"
+  ],
+  "scanWidthCm": 30,
+  "scanHeightCm": 30,
+  "physicalScaleStatus": "provider-cm-dimensions",
+  "maps": {
+    "color": {
+      "src": "/fabric-scans-ambientcg/Fabric084/color.jpg",
+      "sha256": "100668a6ef1ef1e1c5a55dd82b82edc725fa6b2aa0d9a5581fe05a842ea9e99c",
+      "resolution": "1k"
+    },
+    "normal": {
+      "src": "/fabric-scans-ambientcg/Fabric084/normal.jpg",
+      "sha256": "75782b2f9f5599b8188df018aa7dcf5e431e886a79631765d41e7e03aecff7d5",
+      "resolution": "1k"
+    },
+    "roughness": {
+      "src": "/fabric-scans-ambientcg/Fabric084/roughness.jpg",
+      "sha256": "3b1d1f5862c78c771a2db39c1460c5ba84fb034a139d899bf4956a5c640793d9",
+      "resolution": "1k"
+    }
+  },
+  "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+}

@@ -1,0 +1,226 @@
+.pattern-editor-shell {background:#c5c6c8;border-left:1px solid #88898b;}
+.pattern-editor-shell .pattern-canvas {background:#c6c7c9;}
+.pattern-editor-shell .pattern-fill {fill:#f4f4f3;fill-opacity:.94;}
+.pattern-editor-shell .pattern-piece.selected .pattern-fill {fill:#f4f4f3;fill-opacity:.94;filter:none;}
+.pattern-editor-shell .pattern-edge {stroke:#3e91b5;stroke-width:.95;}
+.pattern-editor-shell .pattern-selection-box {stroke:#8a8b8d;stroke-width:1.05;}
+.pattern-editor-shell .draft-avatar-guide {opacity:.22;}
+.pattern-editor-shell .draft-avatar-contour {fill:#78797c;stroke:none;}
+.pattern-editor-shell .draft-center-vertical {stroke:#626368;stroke-width:.75;stroke-opacity:.65;}
+.pattern-editor-shell .draft-center-horizontal {stroke:#838487;stroke-width:.5;stroke-opacity:.4;}
+.pattern-editor-shell .draft-origin-dot {fill:#8e8f94;stroke:none;}
+.pattern-editor-shell .grainline {stroke:#656668;stroke-width:.65;stroke-dasharray:2.5 2;}
+.pattern-editor-shell .pattern-notch line,.pattern-editor-shell .pattern-notch.matched line {stroke:#e1292f;stroke-width:1.5;}
+.pattern-editor-shell .clo-bodice-drafting-guides .bodice-center-guide {stroke:#797b80;stroke-width:.58;stroke-dasharray:2.4 1.65;vector-effect:non-scaling-stroke;}
+.pattern-editor-shell .clo-bodice-drafting-guides .bodice-chest-guide {stroke:#b23a44;stroke-width:.55;stroke-dasharray:1.5 1.9;vector-effect:non-scaling-stroke;}
+.pattern-editor-shell .clo-bodice-drafting-guides circle {fill:#d23742;stroke:#fff;stroke-width:.35;}
+.pattern-editor-shell .clo-bodice-drafting-guides path {fill:none;stroke:#bc2937;stroke-width:.65;vector-effect:non-scaling-stroke;}
+.pattern-editor-shell .pattern-node {fill:#fdfdfd;stroke:#3b515d;stroke-width:1.35;vector-effect:non-scaling-stroke;paint-order:stroke fill;}
+.pattern-editor-shell .pattern-node.selected-point {fill:#fff6c2;stroke:#394347;stroke-width:1.55;}
+.pattern-editor-shell .pattern-node.editable {fill:#fff127;stroke:#252525;stroke-width:1.85;}
+.pattern-editor-shell .clo-pom-station line {stroke-width:.8;stroke-dasharray:2.4 1.6;vector-effect:non-scaling-stroke;}
+.pattern-editor-shell .clo-pom-station.bodice-chest-guide line {stroke:#c33640;}
+.pattern-editor-shell .clo-pom-station.bodice-stomach-guide line {stroke:#b94b3f;}
+.pattern-editor-shell .clo-pom-station circle {fill:#de3941;stroke:#fff;stroke-width:.8;vector-effect:non-scaling-stroke;}
+.pattern-editor-shell .clo-pom-station path {fill:none;stroke:#b72b32;stroke-width:1.1;vector-effect:non-scaling-stroke;}
+.pattern-editor-shell .clo-pom-measurement-label {fill:#a33337;stroke:#f4f4f3;stroke-width:.35;paint-order:stroke fill;font-size:2.4px;font-weight:750;letter-spacing:.02em;}
+.pattern-editor-shell .canvas-scale {color:#4e5155;text-shadow:0 1px 1px #fff;}
+.clo-pattern-context-menu {position:absolute;z-index:100;display:flex;flex-direction:column;width:205px;max-height:min(440px,80vh);overflow:auto;padding:5px;border:1px solid #6e7175;border-radius:4px;background:#eeeef0;box-shadow:0 11px 31px #0006;}
+.clo-pattern-context-menu strong {font-size:10px;color:#404246;padding:8px;border-bottom:1px solid #c2c3c5;margin-bottom:3px;}
+.clo-pattern-context-menu button {flex-shrink:0;width:100%;padding:6px 9px;text-align:left;background:transparent;border:0;border-radius:2px;color:#303238;font-size:11px;cursor:pointer;}
+.clo-pattern-context-menu button:hover,.clo-pattern-context-menu button:focus-visible {background:#c6d8ed;color:#1d293e;}
+.draft-audit-scroll{overflow-y:auto;padding:7px;display:flex;flex-direction:column;gap:3px}
+.draft-audit-scroll>strong{margin:9px 5px 4px;font-size:10px;letter-spacing:.04em;text-transform:uppercase}
+.draft-audit-scroll>button{display:flex;flex-direction:column;align-items:stretch;gap:3px;padding:7px;text-align:left;border:1px solid transparent;border-radius:3px;background:#e2e4e6;color:#303238;cursor:pointer}
+.draft-audit-scroll>button:hover,.draft-audit-scroll>button.selected{border-color:#5985a8;background:#d2e2ee}
+.draft-audit-scroll>button span:last-child{font-variant-numeric:tabular-nums;color:#565a60;font-size:10px}
+.draft-audit-scroll>button.draft-seam-error{border-left:3px solid #b93c3c}
+.draft-audit-scroll>button.draft-seam-warning{border-left:3px solid #b38c31}
+.draft-audit-scroll>p{font-size:10px;line-height:1.5;color:#60636a;margin:7px 5px}
+.pattern-editor-shell .pattern-edge.draft-selected-edge{stroke:#d78513;stroke-width:2.2;vector-effect:non-scaling-stroke}
+.draft-edge-inspector{position:absolute;z-index:72;left:9px;bottom:38px;width:min(320px,calc(100% - 18px));border:1px solid #878b90;border-radius:5px;background:#f1f2f3;color:#303238;box-shadow:0 10px 28px #0004;padding:11px;font-size:11px}
+.draft-edge-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
+.draft-edge-title button{font-size:19px;border:0;background:transparent;cursor:pointer}
+.draft-edge-metrics{display:grid;grid-template-columns:1fr auto;gap:7px 12px;padding:8px 0;border-top:1px solid #c8cbce;border-bottom:1px solid #c8cbce;font-variant-numeric:tabular-nums}
+.draft-edge-metrics strong{text-align:right;font-size:11px}
+.draft-edge-edit{display:grid;grid-template-columns:1fr 74px 52px;align-items:center;gap:6px;margin-top:10px}
+.draft-edge-edit input{width:100%;min-width:0;padding:5px;border:1px solid #9a9fa5;border-radius:3px;font-variant-numeric:tabular-nums;background:#fff;color:#27292c}
+.draft-edge-edit button{padding:6px 4px;border:0;border-radius:3px;background:#334b63;color:#fff;cursor:pointer}
+.draft-edge-edit button:disabled{opacity:.45;cursor:not-allowed}
+.draft-edge-inspector small{display:block;font-size:10px;line-height:1.5;color:#60636a;margin-top:10px}
+.pattern-editor-shell .pattern-node.precision-active-point{fill:#ffca2b;stroke:#131c27;stroke-width:2.4;filter:drop-shadow(0 0 2px #0007)}
+.precision-point-inspector{width:min(335px,calc(100% - 18px));}
+.precision-point-hint{margin:0 0 8px;color:#575c66;font-size:10px;line-height:1.4}
+.precision-mode-select{display:flex;gap:4px;margin-bottom:8px}
+.precision-mode-select button{flex:1;padding:7px 5px;background:#e1e4e8;border:1px solid #b6bcc5;border-radius:3px;cursor:pointer;font-size:10px;color:#343941}
+.precision-mode-select button.active{background:#344d64;border-color:#344d64;color:white;font-weight:700}
+.precision-point-form{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.precision-point-form label{display:flex;flex-direction:column;gap:4px;color:#4f535b;font-size:10px;font-weight:700}
+.precision-point-form input{width:100%;padding:7px 6px;border-radius:3px;border:1px solid #989da5;background:#fff;color:#282b30;font-variant-numeric:tabular-nums}
+.precision-point-form>button{grid-column:1/-1;background:#344d64;color:#fff;border:0;border-radius:3px;padding:8px;cursor:pointer}
+.precision-point-form>button:disabled{opacity:.5;cursor:not-allowed}
+.precision-construction-operation{grid-column:1/-1}
+.precision-point-form select{background:white;color:#24282d;padding:6px;border:1px solid #a1a6ac;border-radius:3px;min-width:0;max-width:100%}
+.precision-construction-tip{grid-column:1/-1;font-size:10px;color:#5e626b;line-height:1.5}
+.precision-point-error{background:#ffe7e1;color:#a02f20;padding:7px;border-radius:3px;font-size:10px}
+.precision-curve-inspector{width:min(345px,calc(100% - 18px));}
+.precision-curve-inspector .draft-edge-metrics{margin:8px 0;}
+.precision-curve-inspector .precision-mode-select{margin-top:9px;}
+.precision-curve-straighten{width:100%;margin-top:7px;padding:7px;border:1px solid #a4a8ae;background:#e8e9eb;color:#3a404a;border-radius:3px;cursor:pointer;}
+.precision-curve-straighten:disabled{opacity:.5;cursor:not-allowed;}
+
+/* Measurement QA and precision point/edge/curve controls are regular
+   docked Property Editor content, not floating 2D canvas overlays. */
+.clo-pattern-properties-host[hidden]{display:none!important}
+.clo-pattern-properties-host{flex:0 0 auto;min-width:0}
+.clo-2d-docked-tools{display:flex;flex-direction:column;gap:5px;padding:7px 9px 9px;min-width:0;color:#e7e9ed;border-bottom:1px solid #46494d}
+.clo-docked-precision-heading{font-size:10px;letter-spacing:.06em;font-weight:750;color:#c3ccd5;padding:5px 3px 2px}
+.clo-2d-docked-tools .draft-edge-inspector{position:static;inset:auto;z-index:auto;flex:0 0 auto;width:100%;max-width:100%;max-height:none;box-sizing:border-box;overflow:visible;margin:0;padding:10px;border:1px solid #555b63;border-radius:3px;background:#34373b;box-shadow:none;color:#eceef1}
+.clo-2d-docked-tools .draft-edge-title{margin-bottom:5px}
+.clo-2d-docked-tools .draft-edge-title strong{color:#e7ecf2}
+.clo-2d-docked-tools .draft-edge-title button{color:#d9e2e9}
+.clo-2d-docked-tools .draft-edge-metrics{border-color:#59616a;grid-template-columns:minmax(0,1fr) auto}
+.clo-2d-docked-tools .draft-edge-metrics strong{color:#f5f5f6}
+.clo-2d-docked-tools .draft-edge-inspector small,
+.clo-2d-docked-tools .precision-point-hint{color:#c1c9d0}
+.clo-2d-docked-tools .draft-edge-edit{grid-template-columns:minmax(0,1fr) 74px 51px}
+.clo-2d-docked-tools .draft-edge-edit label{font-size:10px;line-height:1.35}
+.clo-2d-docked-tools .precision-mode-select button{border-color:#676d75;background:#474b51;color:#eff0f2}
+.clo-2d-docked-tools .precision-mode-select button.active{background:#607f98;border-color:#7298af;color:#fff}
+.clo-2d-docked-tools .precision-point-form label{color:#d2d9df}
+.clo-2d-docked-tools .precision-construction-tip{color:#c3cbd2}
+.clo-2d-docked-tools .precision-point-form>button{background:#4b7898}
+.clo-2d-docked-tools .precision-point-form input,
+.clo-2d-docked-tools .precision-point-form select{box-sizing:border-box;color:#272a30}
+.clo-2d-docked-tools .precision-curve-straighten{background:#444b51;color:#e6ebee;border-color:#616971}
+.clo-2d-docked-audit{border-top:1px solid #4b5055;margin-top:2px;min-width:0}
+.clo-2d-docked-audit>summary{padding:9px 3px;cursor:pointer;font-size:10px;font-weight:700;color:#d7e0e8;list-style-position:inside}
+.clo-2d-docked-audit[open]>summary{border-bottom:1px solid #4c535b}
+.clo-2d-docked-audit .draft-audit-scroll{padding:5px 0 9px;max-height:none;overflow:visible}
+.clo-2d-docked-audit .draft-audit-scroll>strong{color:#d3dce5}
+.clo-2d-docked-audit .draft-audit-scroll>button{background:#34383d;border:1px solid #4c5259;color:#f1f3f5}
+.clo-2d-docked-audit .draft-audit-scroll>button:hover,.clo-2d-docked-audit .draft-audit-scroll>button.selected{background:#3e5365;border-color:#779cb7}
+.clo-2d-docked-audit .draft-audit-scroll>button span:last-child,.clo-2d-docked-audit .draft-audit-scroll>p{color:#c8d0d7}
+.desktop-workspace .pattern-editor-shell .workspace-head {
+  /* The actual CLO7 2D reference has a slim viewport titlebar, not a
+     ribbon-height floating caption. Keep the 3D titlebar unchanged. */
+  height: 27px;
+  padding: 0 9px;
+  backdrop-filter: none;
+}
+.desktop-workspace .pattern-editor-shell .workspace-head strong {font-size:10px}
+.desktop-workspace .pattern-editor-shell .workspace-head span,
+.desktop-workspace .pattern-editor-shell .workspace-hint {font-size:8px}
+.desktop-workspace .pattern-editor-shell .workspace-head > div:first-child strong {
+  position:absolute;
+  left:50%;
+  transform:translateX(-50%);
+  white-space:nowrap;
+  letter-spacing:.02em;
+  font-weight:650;
+  color:#f1f1f2;
+}
+.desktop-workspace .pattern-editor-shell .workspace-head > div:first-child span {
+  font-size:8px;
+  letter-spacing:.02em;
+}
+.desktop-workspace .pattern-editor-shell .workspace-hint {
+  /* The right rail and tooltips carry the active actions. Retain this
+     guidance for assistive technologies without crowding CLO's narrow
+     centred 2D titlebar. */
+  position:absolute;
+  width:1px;
+  height:1px;
+  padding:0;
+  margin:-1px;
+  overflow:hidden;
+  clip-path:inset(50%);
+  white-space:nowrap;
+}
+
+/* Based on the locally captured CLO Academic Male T-shirt 2D workspace:
+   a small vertical utility strip on the left and continuous twin tool rails
+   on the right. No large floating two-column tool box obscuring the board.
+   Existing real tool actions and accessible hover/focus flyouts are retained. */
+.pattern-editor-shell .clo-corner-toolkit-2d {
+  top: 34px;
+  left: 8px;
+  display: grid;
+  grid-template-columns: 29px;
+  gap: 1px;
+  padding: 2px;
+  border-color: #696b6c;
+  border-radius: 3px;
+  background: rgba(41,43,46,.91);
+  box-shadow: 0 2px 5px #0003;
+  backdrop-filter: none;
+}
+.pattern-editor-shell .clo-corner-toolkit-2d .clo-corner-tool-group > button {
+  min-width: 29px;
+  width: 29px;
+  height: 29px;
+  padding: 3px;
+  background: #424548;
+  color: #d6dadd;
+  border-radius: 2px;
+}
+.pattern-editor-shell .clo-corner-toolkit-2d .clo-corner-tool-group > button.active {
+  border-color: #5b8da3;
+  background: #344950;
+  color: #83d9f2;
+}
+.pattern-editor-shell .clo-corner-toolkit-2d .clo-corner-tool-group > button .cad-tool-icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* The default all-tools view already contains two complete drafting/sewing
+   columns. Do not waste another 77px above those tools on redundant mode
+   switchers. Focused mode retains the workflow buttons as before; the
+   always-visible top Workspace selector provides mode switching in All. */
+.clo-right-tool-palette.all-tools .clo-palette-workflows {display:none}
+
+/* CLO-inspired 2D snapping preferences live in the existing Property Editor,
+   not in an obstructive drawing popup. All dimensions are in centimeters. */
+.clo-2d-docked-tools .clo-draft-snap-settings{
+  display:flex; flex-direction:column; gap:7px; padding:3px 1px 9px;
+  border-bottom:1px solid #4c5156; color:#e2e4e7; font-size:10px;
+}
+.clo-draft-snap-settings .clo-docked-precision-heading{font-size:9px;letter-spacing:.08em}
+.clo-draft-snap-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.clo-draft-snap-row label,.clo-draft-grid-size{display:flex;align-items:center;gap:5px;cursor:pointer}
+.clo-draft-snap-row input{accent-color:#64bbe5;cursor:pointer}
+.clo-draft-grid-size{justify-content:space-between}
+.clo-draft-grid-size select{font:inherit;color:#f2f3f5;background:#393e44;border:1px solid #626c76;border-radius:2px;padding:3px 5px}
+.clo-draft-grid-size select:disabled{opacity:.42;cursor:not-allowed}
+.clo-draft-snap-settings small{font-size:9px;color:#aeb9c4;line-height:1.4}
+.draft-snap-guide{stroke:#24b2e9;stroke-width:.8;fill:none;vector-effect:non-scaling-stroke;filter:drop-shadow(0 0 2px #fff)}
+.draft-snap-guide circle{fill:#ffffffac;stroke:#13a0cf;stroke-width:.9}
+.draft-snap-guide[data-snap-kind="grid"]{stroke:#5a77dc}
+.clo-2d-docked-tools .clo-draft-split-settings {
+  display:flex; flex-direction:column; gap:8px; padding:5px 1px 11px;
+  border-bottom:1px solid #4b5056; color:#e3e7ec; font-size:10px;
+}
+.clo-draft-split-settings .precision-mode-select {margin:0}
+.clo-draft-split-form {display:flex;flex-direction:column;gap:8px}
+.clo-draft-split-form label {display:flex;flex-direction:column;gap:4px;color:#c7d1db}
+.clo-draft-split-form input,.clo-draft-split-form select {
+  padding:6px 7px;min-width:0;max-width:100%;box-sizing:border-box;
+  color:#f5f7fa;background:#393e44;border:1px solid #626a73;border-radius:2px;
+  font-size:11px;font-variant-numeric:tabular-nums;
+}
+.clo-draft-split-form input:focus-visible,.clo-draft-split-form select:focus-visible {outline:2px solid #6bb9de}
+.clo-draft-split-length {color:#c2d0dc;font-variant-numeric:tabular-nums}
+.clo-draft-split-form > button {
+  border:1px solid #5d93ac;background:#3a667d;border-radius:3px;
+  padding:8px 6px;color:#fff;font-size:11px;cursor:pointer;
+}
+.clo-draft-split-form > button:disabled{cursor:not-allowed;opacity:.4}
+.clo-draft-split-form small{font-size:9px;line-height:1.45;color:#aeb9c4}
+.clo-2d-docked-tools .clo-draft-unfold-button {
+  width:100%;margin:10px 0 3px;padding:8px 6px;font-size:10px;
+  color:#e6eff6;background:#424d56;border:1px solid #667887;
+  border-radius:3px;cursor:pointer;
+}
+.clo-2d-docked-tools .clo-draft-unfold-button:hover:not(:disabled){background:#526779;border-color:#8cb3cf}
+.clo-2d-docked-tools .clo-draft-unfold-button:disabled{opacity:.42;cursor:not-allowed}

@@ -1,0 +1,648 @@
+{
+  "id": "project-501-on-body-fit-w32-l32",
+  "name": "501-Style Straight Denim / Avatar Fit W32 L32",
+  "version": 21,
+  "revision": 1,
+  "updatedAt": "2000-01-01T00:00:00.000Z",
+  "units": "cm",
+  "pieces": [
+    {
+      "id": "pants-left-front",
+      "name": "Left Front Straight Denim Front Leg",
+      "points": [
+        {
+          "x": -20,
+          "y": 107
+        },
+        {
+          "x": -23,
+          "y": 80
+        },
+        {
+          "x": -20.2,
+          "y": 0
+        },
+        {
+          "x": -0.2,
+          "y": 0
+        },
+        {
+          "x": 0.8,
+          "y": 70
+        },
+        {
+          "x": 5.4,
+          "y": 80
+        },
+        {
+          "x": 0,
+          "y": 107
+        }
+      ],
+      "layout2d": {
+        "x": 64,
+        "y": 91
+      },
+      "arrangement3d": {
+        "x": -0.15,
+        "y": 0.02,
+        "z": 0.14,
+        "wrap": "left-leg-front",
+        "flip": false
+      },
+      "simulationResolution": 1.9,
+      "grainAngleDeg": 0,
+      "notches": [
+        {
+          "id": "pants-left-front-knee",
+          "edgeIndex": 1,
+          "t": 0.48,
+          "type": "single",
+          "depthCm": 0.5
+        }
+      ],
+      "topstitches": [
+        {
+          "id": "pants-left-front-hem",
+          "edgeIndex": 2,
+          "offsetCm": 2.2,
+          "rows": 2,
+          "rowGapCm": 0.45,
+          "stitchLengthMm": 3.2,
+          "color": "#9a8b70"
+        }
+      ],
+      "bindings": [],
+      "graphics": [],
+      "zippers": [],
+      "buttons": [],
+      "buttonholes": [],
+      "internalLines": [
+        {
+          "id": "pants-left-front-pocket-mouth-reference",
+          "type": "construction",
+          "a": {
+            "x": -19.1,
+            "y": 103
+          },
+          "b": {
+            "x": -6.4,
+            "y": 97
+          }
+        },
+        {
+          "id": "pants-left-front-watch-pocket-outline",
+          "type": "construction",
+          "a": {
+            "x": -11,
+            "y": 102
+          },
+          "b": {
+            "x": -7,
+            "y": 95
+          }
+        }
+      ],
+      "pins": [],
+      "seamAllowance": 1.2,
+      "fabricId": "main",
+      "locked": false,
+      "frozen3d": false,
+      "active3d": true
+    },
+    {
+      "id": "pants-left-back",
+      "name": "Left Back Straight Denim Back Leg",
+      "points": [
+        {
+          "x": -21,
+          "y": 107
+        },
+        {
+          "x": -24.3,
+          "y": 80
+        },
+        {
+          "x": -20.5,
+          "y": 0
+        },
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": 1.3,
+          "y": 70
+        },
+        {
+          "x": 5.9,
+          "y": 80
+        },
+        {
+          "x": 0,
+          "y": 107
+        }
+      ],
+      "layout2d": {
+        "x": 126,
+        "y": 91
+      },
+      "arrangement3d": {
+        "x": -0.15,
+        "y": 0.02,
+        "z": -0.14,
+        "wrap": "left-leg-back",
+        "flip": false
+      },
+      "simulationResolution": 1.9,
+      "grainAngleDeg": 0,
+      "notches": [
+        {
+          "id": "pants-left-back-knee",
+          "edgeIndex": 1,
+          "t": 0.48,
+          "type": "double",
+          "depthCm": 0.5
+        }
+      ],
+      "topstitches": [
+        {
+          "id": "pants-left-back-hem",
+          "edgeIndex": 2,
+          "offsetCm": 2.2,
+          "rows": 2,
+          "rowGapCm": 0.45,
+          "stitchLengthMm": 3.2,
+          "color": "#9a8b70"
+        }
+      ],
+      "bindings": [],
+      "graphics": [],
+      "zippers": [],
+      "buttons": [],
+      "buttonholes": [],
+      "internalLines": [
+        {
+          "id": "pants-left-back-yoke-seam-reference",
+          "type": "construction",
+          "a": {
+            "x": -20,
+            "y": 94.5
+          },
+          "b": {
+            "x": 0,
+            "y": 95.5
+          }
+        },
+        {
+          "id": "pants-left-back-back-pocket-diagonal-reference",
+          "type": "construction",
+          "a": {
+            "x": -18.1,
+            "y": 90
+          },
+          "b": {
+            "x": -4.4,
+            "y": 87
+          }
+        }
+      ],
+      "pins": [],
+      "seamAllowance": 1.2,
+      "fabricId": "main",
+      "locked": false,
+      "frozen3d": false,
+      "active3d": true
+    },
+    {
+      "id": "pants-right-front",
+      "name": "Right Front Straight Denim Front Leg",
+      "points": [
+        {
+          "x": -20,
+          "y": 107
+        },
+        {
+          "x": -23,
+          "y": 80
+        },
+        {
+          "x": -20.2,
+          "y": 0
+        },
+        {
+          "x": -0.2,
+          "y": 0
+        },
+        {
+          "x": 0.8,
+          "y": 70
+        },
+        {
+          "x": 5.4,
+          "y": 80
+        },
+        {
+          "x": 0,
+          "y": 107
+        }
+      ],
+      "layout2d": {
+        "x": 214,
+        "y": 91
+      },
+      "arrangement3d": {
+        "x": 0.15,
+        "y": 0.02,
+        "z": 0.14,
+        "wrap": "right-leg-front",
+        "flip": true
+      },
+      "simulationResolution": 1.9,
+      "grainAngleDeg": 0,
+      "notches": [
+        {
+          "id": "pants-right-front-knee",
+          "edgeIndex": 1,
+          "t": 0.48,
+          "type": "single",
+          "depthCm": 0.5
+        }
+      ],
+      "topstitches": [
+        {
+          "id": "pants-right-front-hem",
+          "edgeIndex": 2,
+          "offsetCm": 2.2,
+          "rows": 2,
+          "rowGapCm": 0.45,
+          "stitchLengthMm": 3.2,
+          "color": "#9a8b70"
+        }
+      ],
+      "bindings": [],
+      "graphics": [],
+      "zippers": [],
+      "buttons": [],
+      "buttonholes": [],
+      "internalLines": [
+        {
+          "id": "pants-right-front-pocket-mouth-reference",
+          "type": "construction",
+          "a": {
+            "x": -19.1,
+            "y": 103
+          },
+          "b": {
+            "x": -6.4,
+            "y": 97
+          }
+        },
+        {
+          "id": "pants-right-front-watch-pocket-outline",
+          "type": "construction",
+          "a": {
+            "x": -11,
+            "y": 102
+          },
+          "b": {
+            "x": -7,
+            "y": 95
+          }
+        }
+      ],
+      "pins": [],
+      "seamAllowance": 1.2,
+      "fabricId": "main",
+      "locked": false,
+      "frozen3d": false,
+      "active3d": true
+    },
+    {
+      "id": "pants-right-back",
+      "name": "Right Back Straight Denim Back Leg",
+      "points": [
+        {
+          "x": -21,
+          "y": 107
+        },
+        {
+          "x": -24.3,
+          "y": 80
+        },
+        {
+          "x": -20.5,
+          "y": 0
+        },
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": 1.3,
+          "y": 70
+        },
+        {
+          "x": 5.9,
+          "y": 80
+        },
+        {
+          "x": 0,
+          "y": 107
+        }
+      ],
+      "layout2d": {
+        "x": 276,
+        "y": 91
+      },
+      "arrangement3d": {
+        "x": 0.15,
+        "y": 0.02,
+        "z": -0.14,
+        "wrap": "right-leg-back",
+        "flip": true
+      },
+      "simulationResolution": 1.9,
+      "grainAngleDeg": 0,
+      "notches": [
+        {
+          "id": "pants-right-back-knee",
+          "edgeIndex": 1,
+          "t": 0.48,
+          "type": "double",
+          "depthCm": 0.5
+        }
+      ],
+      "topstitches": [
+        {
+          "id": "pants-right-back-hem",
+          "edgeIndex": 2,
+          "offsetCm": 2.2,
+          "rows": 2,
+          "rowGapCm": 0.45,
+          "stitchLengthMm": 3.2,
+          "color": "#9a8b70"
+        }
+      ],
+      "bindings": [],
+      "graphics": [],
+      "zippers": [],
+      "buttons": [],
+      "buttonholes": [],
+      "internalLines": [
+        {
+          "id": "pants-right-back-yoke-seam-reference",
+          "type": "construction",
+          "a": {
+            "x": -20,
+            "y": 94.5
+          },
+          "b": {
+            "x": 0,
+            "y": 95.5
+          }
+        },
+        {
+          "id": "pants-right-back-back-pocket-diagonal-reference",
+          "type": "construction",
+          "a": {
+            "x": -18.1,
+            "y": 90
+          },
+          "b": {
+            "x": -4.4,
+            "y": 87
+          }
+        }
+      ],
+      "pins": [],
+      "seamAllowance": 1.2,
+      "fabricId": "main",
+      "locked": false,
+      "frozen3d": false,
+      "active3d": true
+    }
+  ],
+  "seams": [
+    {
+      "id": "pants-left-outseam-upper",
+      "name": "Left outseam upper",
+      "a": {
+        "pieceId": "pants-left-front",
+        "edgeIndex": 0
+      },
+      "b": {
+        "pieceId": "pants-left-back",
+        "edgeIndex": 0
+      },
+      "junctionScale": 0.92
+    },
+    {
+      "id": "pants-left-outseam-lower",
+      "name": "Left outseam lower",
+      "a": {
+        "pieceId": "pants-left-front",
+        "edgeIndex": 1
+      },
+      "b": {
+        "pieceId": "pants-left-back",
+        "edgeIndex": 1
+      },
+      "junctionScale": 0.92
+    },
+    {
+      "id": "pants-left-inseam-lower",
+      "name": "Left inseam lower",
+      "a": {
+        "pieceId": "pants-left-front",
+        "edgeIndex": 3
+      },
+      "b": {
+        "pieceId": "pants-left-back",
+        "edgeIndex": 3
+      },
+      "junctionScale": 0.92
+    },
+    {
+      "id": "pants-left-inseam-upper",
+      "name": "Left inseam upper",
+      "a": {
+        "pieceId": "pants-left-front",
+        "edgeIndex": 4
+      },
+      "b": {
+        "pieceId": "pants-left-back",
+        "edgeIndex": 4
+      },
+      "junctionScale": 0.92
+    },
+    {
+      "id": "pants-right-outseam-upper",
+      "name": "Right outseam upper",
+      "a": {
+        "pieceId": "pants-right-front",
+        "edgeIndex": 0
+      },
+      "b": {
+        "pieceId": "pants-right-back",
+        "edgeIndex": 0
+      },
+      "junctionScale": 0.92
+    },
+    {
+      "id": "pants-right-outseam-lower",
+      "name": "Right outseam lower",
+      "a": {
+        "pieceId": "pants-right-front",
+        "edgeIndex": 1
+      },
+      "b": {
+        "pieceId": "pants-right-back",
+        "edgeIndex": 1
+      },
+      "junctionScale": 0.92
+    },
+    {
+      "id": "pants-right-inseam-lower",
+      "name": "Right inseam lower",
+      "a": {
+        "pieceId": "pants-right-front",
+        "edgeIndex": 3
+      },
+      "b": {
+        "pieceId": "pants-right-back",
+        "edgeIndex": 3
+      },
+      "junctionScale": 0.92
+    },
+    {
+      "id": "pants-right-inseam-upper",
+      "name": "Right inseam upper",
+      "a": {
+        "pieceId": "pants-right-front",
+        "edgeIndex": 4
+      },
+      "b": {
+        "pieceId": "pants-right-back",
+        "edgeIndex": 4
+      },
+      "junctionScale": 0.92
+    },
+    {
+      "id": "pants-front-rise",
+      "name": "Center front rise",
+      "a": {
+        "pieceId": "pants-left-front",
+        "edgeIndex": 5
+      },
+      "b": {
+        "pieceId": "pants-right-front",
+        "edgeIndex": 5
+      },
+      "junctionScale": 0.92
+    },
+    {
+      "id": "pants-back-rise",
+      "name": "Center back rise",
+      "a": {
+        "pieceId": "pants-left-back",
+        "edgeIndex": 5
+      },
+      "b": {
+        "pieceId": "pants-right-back",
+        "edgeIndex": 5
+      },
+      "junctionScale": 0.92
+    }
+  ],
+  "fasteners": [],
+  "customMeasurements": [],
+  "fabrics": {
+    "main": {
+      "id": "main",
+      "name": "Rigid Indigo Denim / 13.5 oz",
+      "color": "#283f5f",
+      "gsm": 458,
+      "stretchWarp": 0.012,
+      "stretchWeft": 0.016,
+      "shrinkWarp": 0,
+      "shrinkWeft": 0,
+      "bend": 0.85,
+      "damping": 0.978,
+      "friction": 0.45,
+      "thickness": 0.0029,
+      "roughness": 0.74,
+      "metalness": 0,
+      "sheen": 0.08,
+      "sheenRoughness": 0.86,
+      "normalStrength": 1.15
+    }
+  },
+  "avatar": {
+    "name": "Base Mens 180",
+    "model": "makehuman-base",
+    "heightCm": 180,
+    "chestCm": 96,
+    "waistCm": 78,
+    "hipCm": 94,
+    "shoulderWidthCm": 46,
+    "neckCm": 38,
+    "bicepCm": 32,
+    "armAngleDeg": 6,
+    "visibility": 0.82
+  },
+  "grading": {
+    "baseSize": "M",
+    "sizes": [
+      "XS",
+      "S",
+      "M",
+      "L",
+      "XL",
+      "XXL"
+    ],
+    "widthPerSizeCm": 2.4,
+    "lengthPerSizeCm": 1.5
+  },
+  "markerSettings": {
+    "fabricWidthCm": 150,
+    "gapCm": 1.5
+  },
+  "simulation": {
+    "backendId": "browser-pbd",
+    "nativeQuality": "balanced",
+    "nativeClothModel": "distance",
+    "nativeBendingModel": "isometric-xpbd",
+    "gravity": 9.81,
+    "stiffness": 0.92,
+    "seamStiffness": 0.96,
+    "autoFitTacks": true,
+    "iterations": 7,
+    "substeps": 2,
+    "resolution": 1,
+    "curveSegments": 2,
+    "collisionMargin": 0.012,
+    "collisions": true,
+    "selfCollision": true,
+    "selfCollisionMargin": 0.002,
+    "visualWrapAssist": false,
+    "wind": {
+      "enabled": false,
+      "speed": 4,
+      "directionDeg": 0,
+      "turbulence": 0.18,
+      "response": 0.025
+    }
+  },
+  "templateId": "jeans-501-fit",
+  "description": "501-inspired rigid-denim four-panel drape prototype, on-body fit; yokes, five pockets and fly are recorded as construction details but not simulated as independently sewn layers here.",
+  "referenceMeasurements": {
+    "size": "W32 L32",
+    "intendedWaistCm": 82,
+    "hemTargetCm": 40.64,
+    "kneeTargetCm": 44.45,
+    "inseamTargetCm": 81.28,
+    "frontRiseTargetCm": 28.575,
+    "disclaimer": "On-body 501-style engineering prototype; not Levi factory pattern."
+  }
+}

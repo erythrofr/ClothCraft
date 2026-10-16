@@ -1,0 +1,34 @@
+{
+  "id": "Fabric066",
+  "source": "ambientCG",
+  "name": "Fabric 066",
+  "license": "CC0-1.0",
+  "assetUrl": "https://ambientcg.com/a/Fabric066",
+  "authors": "ambientCG",
+  "categoryTags": [
+    "66",
+    "fabric",
+    "rough"
+  ],
+  "scanWidthCm": 40,
+  "scanHeightCm": 40,
+  "physicalScaleStatus": "provider-cm-dimensions",
+  "maps": {
+    "color": {
+      "src": "/fabric-scans-ambientcg/Fabric066/color.jpg",
+      "sha256": "e8d2fc74a7a7e8710986e35fc723771783745fc37a91ff1bd995465c0fe61690",
+      "resolution": "1k"
+    },
+    "normal": {
+      "src": "/fabric-scans-ambientcg/Fabric066/normal.jpg",
+      "sha256": "447c95581c84a7a1d2efb622faf331be72307f54c62995338e5cd60dcf7f3645",
+      "resolution": "1k"
+    },
+    "roughness": {
+      "src": "/fabric-scans-ambientcg/Fabric066/roughness.jpg",
+      "sha256": "9c7724412af052e6260d5fe35e7f3a98b0732d7d594361e8ca3590c34e2e995a",
+      "resolution": "1k"
+    }
+  },
+  "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+}
