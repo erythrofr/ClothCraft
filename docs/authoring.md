@@ -49,7 +49,13 @@ The **Pieces** browser also selects a panel in both views. **Simulation** contai
 
 ## Save and reproduce
 
-**Export** writes template JSON, fitting-project JSON, OBJ, preview SVG and fiber guides in the launch output directory, replacing its fixed filenames. Bézier controls and 2D layout survive JSON round trips; SVG outlines and sewing previews follow the sampled curves. SVG remains a preview, not a calibrated sewing print.
+**Export** writes template JSON, fitting-project JSON, OBJ, an annotated SVG preview, a physically dimensioned SVG outline, and fiber guides in the launch output directory, replacing its fixed filenames. Bézier controls and 2D layout survive JSON round trips; SVG outlines and sewing previews follow the sampled curves. The original `patterns.svg` remains a **non-scaled preview**; `patterns-print.svg` is the separately named physical-size export described below.
+
+### Untiled millimetre SVG (CPU pattern bake)
+
+The CPU export command `cargo run --locked --no-default-features --bin cloth-template -- bake template.json --output output/pattern-bake` now creates **both** `patterns.svg` (the original visual preview) and `patterns-print.svg` (metric sewing outlines). The new SVG sets physical `width` and `height` in **mm** and uses matching millimetre units in its SVG `viewBox`. One SVG user unit therefore represents one millimetre when printed at **actual size / 100%**. A 100 mm calibration ruler is included: measure it on paper or in the destination application before relying on the outline. Sampled Bézier contours, holes and internal construction lines retain their material coordinates; the panels are stacked on one potentially oversized sheet, irrespective of their 2D presentation layout.
+
+This is a deliberately narrow export slice, **not a production print layout**: it does not add seam allowances or notches, tiling, page-size adaptation, nesting, labels for every sewn edge, grain annotations, DXF apparel interchange, a calibrated cutting outline, or PDF output. A printer or design application may silently scale an oversized sheet to fit, so print at 100% and check the 100 mm ruler; use a plotter or explicitly configured paper size if necessary. It does not change the garment, drape, project JSON schema or the original preview SVG. Validation: `cargo test --locked --no-default-features -j 2 --test pattern_print_svg -- --test-threads=2` verifies physical units, straight/curved and holed contours, internal lines, invalid dimensions, and the normal artifact bake. No GPU is required.
 
 Reopen with `scripts/start-atelier.ps1 -ProjectPath output/atelier/fitting-project.json`. The fitting project currently stores a resolved avatar path; relink it when moving to another machine. A file picker, portable bundle and autosave remain planned.
 
