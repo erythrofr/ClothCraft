@@ -28,7 +28,7 @@ enum Command {
     Validate {
         template: PathBuf,
     },
-    /// Produce rest OBJ, annotated 2D SVG and continuum fiber frames.
+    /// Produce rest OBJ, preview and measured SVG outlines, and fiber frames.
     Bake {
         template: PathBuf,
         #[arg(long, default_value = "output/template-bake")]

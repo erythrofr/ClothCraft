@@ -98,3 +98,20 @@ fn invalid_geometry_must_not_generate_apparently_scaled_artwork() {
     template.panels[0].pattern.height = -0.2;
     assert!(export::print_pattern_svg(&template).is_err());
 }
+
+#[test]
+fn normal_cpu_artifact_bake_keeps_preview_and_adds_physical_svg() {
+    let template = GarmentTemplate::two_panel_demo();
+    let compiled = template.compile().unwrap();
+    let folder = tempfile::tempdir().expect("temporary CPU export folder");
+    export::write_artifacts(&template, &compiled, &compiled.initial_state, folder.path())
+        .expect("CPU artifact export");
+    let preview = std::fs::read_to_string(folder.path().join("patterns.svg")).unwrap();
+    let physical = std::fs::read_to_string(folder.path().join("patterns-print.svg")).unwrap();
+    assert!(preview.contains("not a print-to-scale sewing pattern"));
+    assert!(physical.contains("width=\"440.000mm\""));
+    assert!(physical.contains("100 mm calibration ruler"));
+    assert_ne!(preview, physical);
+    assert!(folder.path().join("cloth.obj").is_file());
+    assert!(folder.path().join("template.json").is_file());
+}

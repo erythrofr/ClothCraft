@@ -298,6 +298,10 @@ pub fn write_artifacts(
     fs::write(path.join("cloth.obj"), obj(garment, state))?;
     fs::write(path.join("patterns.svg"), pattern_svg(template))?;
     fs::write(
+        path.join("patterns-print.svg"),
+        print_pattern_svg(template)?,
+    )?;
+    fs::write(
         path.join("grain-guides.obj"),
         grain_guides_obj(template, garment, state)?,
     )?;
