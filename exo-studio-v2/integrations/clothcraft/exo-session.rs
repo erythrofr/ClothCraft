@@ -19,6 +19,9 @@ fn command(v:&Value)->Result<Command,String>{
  "RemovePoint"=>Command::RemovePoint{panel:f!("panel"),point:f!("point")},
  "CurvePoint"=>Command::CurvePoint{panel:f!("panel"),anchor:f!("anchor"),curved:f!("curved")},
  "TargetLength"=>Command::TargetLength{panel:f!("panel"),edge:f!("edge"),target_m:f!("target_m")},
+ "Notch"=>Command::Notch{panel:f!("panel"),edge:f!("edge"),t:f!("t"),depth_m:f!("depth_m")},
+ "RemoveNotch"=>Command::RemoveNotch{panel:f!("panel"),edge:f!("edge"),t:f!("t")},
+ "SeamAllowance"=>Command::SeamAllowance{panel:f!("panel"),edge:f!("edge"),width_m:f!("width_m")},
  "BoardTransform"=>Command::BoardTransform{panel:f!("panel"),origin:f!("origin"),rotation_degrees:f!("rotation_degrees")},
  "Place"=>Command::Place{panel:f!("panel"),placement:f!("placement")},
  "Duplicate"=>Command::Duplicate{panel:f!("panel")},
@@ -31,6 +34,8 @@ fn command(v:&Value)->Result<Command,String>{
  "InternalLine"=>Command::InternalLine{panel:f!("panel"),points:f!("points"),tangents:field(v,"tangents").unwrap_or_default()},
  "RemoveLine"=>Command::RemoveLine{panel:f!("panel"),line:f!("line")},
  "Ruffle"=>Command::Ruffle{panel:f!("panel"),line:f!("line"),width:f!("width"),ratio:f!("ratio")},
+ "Annotation"=>Command::Annotation{panel:f!("panel"),id:field(v,"id").unwrap_or(None),text:f!("text"),position:f!("position")},
+ "RemoveAnnotation"=>Command::RemoveAnnotation{panel:f!("panel"),id:f!("id")},
  _=>return Err(format!("Unsupported authoring command {op}")),
  })
 }
@@ -94,12 +99,16 @@ impl Session {
      if value.trim().is_empty() || value.chars().count()>120 || value.chars().any(|c|c.is_control()) {
        return Err("Name must contain 1–120 printable characters".into())
      }
-     match target.as_str(){
-       "panel"=>self.project.template.panels.iter_mut().find(|p|p.id==id).ok_or("Panel not found")?.name=value,
-       "fabric"=>self.project.template.fabrics.iter_mut().find(|f|f.id==id).ok_or("Fabric not found")?.name=value,
+     let mut template=self.project.template.clone();
+     let previous=match target.as_str(){
+       "panel"=>{let item=template.panels.iter_mut().find(|p|p.id==id).ok_or("Panel not found")?;std::mem::replace(&mut item.name,value.clone())},
+       "fabric"=>{let item=template.fabrics.iter_mut().find(|f|f.id==id).ok_or("Fabric not found")?;std::mem::replace(&mut item.name,value.clone())},
        _=>return Err("Property target must be panel or fabric".into())
      };
-     self.revision+=1;
+     if previous!=value {
+       self.history.record(self.project.template.clone());
+       self.project.template=template;self.revision+=1;
+     }
    },
    // Annotate a selected contour's target dimension without invoking
    // authoring::TargetLength, which actually reshapes the contour and can
@@ -110,11 +119,62 @@ impl Session {
      let edge=field::<String>(v,"edge")?;
      let length=field::<f64>(v,"target_m")?;
      if !length.is_finite() || !(0.0001..=10.0).contains(&length){return Err("Invalid target line length".into())}
-     let p=self.project.template.panels.iter_mut().find(|p|p.id==panel).ok_or("Panel not found")?;
+     let mut template=self.project.template.clone();
+     let p=template.panels.iter_mut().find(|p|p.id==panel).ok_or("Panel not found")?;
      let polygon=p.polygon.as_mut().ok_or("Panel has no editable named edges")?;
      if !polygon.edges.iter().any(|id|id==&edge){return Err("Named boundary not found".into())}
-     polygon.target_lengths.insert(edge,length);
-     self.revision+=1;
+     if polygon.target_lengths.get(&edge).copied()!=Some(length) {
+       polygon.target_lengths.insert(edge,length);
+       self.history.record(self.project.template.clone());
+       self.project.template=template;self.revision+=1;
+     }
+   },
+   // Transactional, solver-backed edit of an existing sewing relationship.
+   // Unlike simply drawing seam guides, this changes the compiled native
+   // correspondence/orientation, easing and coupling coefficient. A failed
+   // compile changes neither the document nor its undo history.
+   "edit-seam"=>{
+     let id=field::<String>(v,"seam")?;
+     let reverse=field::<bool>(v,"reverse")?;
+     let ease=field::<bool>(v,"ease")?;
+     let stiffness=field::<f64>(v,"stiffness")?;
+     if !stiffness.is_finite() || !(1_000.0..=1_000_000.0).contains(&stiffness) {
+       return Err("Seam stiffness must be 1,000–1,000,000 N/m²".into())
+     }
+     let mut template=self.project.template.clone();
+     let seam=template.seams.iter_mut().find(|s|s.id==id).ok_or("Sewing relationship not found")?;
+     if seam.reverse_b!=reverse || seam.allow_ease!=ease || (seam.stiffness-stiffness).abs()>1e-9 {
+       seam.reverse_b=reverse;seam.allow_ease=ease;seam.stiffness=stiffness;
+       let garment=template.compile()?;
+       self.history.record(self.project.template.clone());
+       self.apply_edit(authoring::Edit{
+         template,garment,selected:None,reset_simulation:true,new_point:None
+       });
+     }
+   },
+   // Trace a complete straight-edged 2D contour as a NEW, independent native
+   // pattern. Reject shapes we cannot reproduce exactly (curves and holes).
+   // Rust Polygon validates topology and compiles before history is recorded.
+   "trace-contour"=>{
+     let source=field::<String>(v,"panel")?;
+     let original=self.project.template.panels.iter().find(|p|p.id==source).ok_or("Trace source panel not found")?;
+     let polygon=original.polygon.as_ref().ok_or("Trace requires an editable polygon contour")?;
+     if !polygon.curves.is_empty() || !polygon.holes.is_empty() {
+       return Err("Trace currently supports straight outer contours without holes; edit curves or holes before tracing".into())
+     }
+     let edit=authoring::apply(&self.project.template,Command::Polygon{
+       points:polygon.points.clone(),tangents:Vec::new(),
+       meshing:polygon.meshing.clone().unwrap_or_default(),fabric:original.fabric.clone(),replace:false
+     })?;
+     self.history.record(self.project.template.clone());self.apply_edit(edit);
+   },
+   "edit-batch"=>{
+    let commands=v["commands"].as_array().ok_or("Missing commands")?;
+    if commands.is_empty()||commands.len()>256{return Err("Batch requires 1 to 256 commands".into())}
+    let mut template=self.project.template.clone();let mut final_edit=None;
+    for item in commands {if item["kind"]!="BoardTransform"{return Err("Only BoardTransform is supported in a layout batch".into())}let edit=authoring::apply(&template,command(item)?)?;template=edit.template.clone();final_edit=Some(edit);}
+    // No document or history mutation until every edit has validated.
+    self.history.record(self.project.template.clone());self.apply_edit(final_edit.unwrap());
    },
    "edit"=>{let edit=authoring::apply(&self.project.template,command(&v["command"])?)?;self.history.record(self.project.template.clone());self.apply_edit(edit);},
    "undo"|"redo"=>{let edit=self.history.restore(&self.project.template,op=="redo")?;self.apply_edit(edit);},

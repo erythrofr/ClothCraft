@@ -1,4 +1,9 @@
-export const DEFAULT_NATIVE_SERVICE_URL = 'http://127.0.0.1:5191'
+// The signed EXO desktop frontend shares a loopback bridge with its native
+// Rust session at 5385. Standalone Garment Studio development retains 5191.
+export const DEFAULT_NATIVE_SERVICE_URL =
+  typeof window !== 'undefined' && window.location.port === '5386'
+    ? 'http://127.0.0.1:5385'
+    : 'http://127.0.0.1:5191'
 
 function baseUrl() {
   return String(globalThis.GARMENT_STUDIO_NATIVE_URL || DEFAULT_NATIVE_SERVICE_URL).replace(/\/$/, '')

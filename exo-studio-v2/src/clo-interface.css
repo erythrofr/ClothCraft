@@ -814,7 +814,8 @@
 /* Compact native CAD chrome: menus and project tools occupy one bar rather
    than stacking a large seven-workspace ribbon above the drawing surface. */
 .app-shell,.desktop-workspace .app-shell {
-  grid-template-rows: 35px 35px minmax(0,1fr) 41px;
+  grid-template-rows: 35px minmax(0,1fr) 41px;
+  position: relative;
 }
 .clo-mac-menu {
   padding:0 6px;
@@ -861,6 +862,25 @@
 .project-meta span {font-size:9px;}
 .project-strip .command-bar {height:25px;}
 .project-strip .command-bar input {font-size:10px;}
+/* ARAI is an opt-in floating conversation, rather than a permanent second
+   toolbar taking valuable height away from the pattern and cloth viewports. */
+.clo-arai-launch {display:inline-flex;align-items:center;gap:5px;justify-content:center;min-width:61px;}
+.clo-arai-launch.active {color:#e7f5ff;background:#344452;border-color:#738696;}
+.clo-arai-popover {position:absolute;z-index:180;top:39px;right:14px;width:min(440px,calc(100vw - 28px));display:flex;flex-direction:column;gap:12px;padding:14px;border:1px solid #424d57;border-radius:12px;background:#20252c;color:#e9edf2;box-shadow:0 22px 75px #000b;}
+.clo-arai-header,.clo-arai-header > div {display:flex;align-items:center;gap:9px;}
+.clo-arai-header {justify-content:space-between;}
+.clo-arai-header strong {font-size:13px;letter-spacing:.09em;}
+.clo-arai-header span {font-size:9px;letter-spacing:.08em;color:#9babb8;}
+.clo-arai-header > button {width:27px;height:27px;line-height:1;border:1px solid #404950;border-radius:6px;background:#303943;color:#d7e2eb;cursor:pointer;font-size:22px;}
+.clo-arai-conversation {display:flex;flex-direction:column;gap:9px;min-height:90px;max-height:38vh;overflow-y:auto;padding:7px 1px;}
+.clo-arai-message {max-width:94%;padding:11px 12px;border-radius:9px;border:1px solid #364450;background:#28313a;}
+.clo-arai-message.user {align-self:flex-end;background:#344454;}
+.clo-arai-message small {font-size:9px;font-weight:750;letter-spacing:.08em;color:#a7c9e2;}
+.clo-arai-message p {margin:6px 0 0;font-size:12px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;}
+.clo-arai-popover .command-bar {margin:0;width:100%;height:38px;grid-template-columns:30px minmax(0,1fr) 56px;background:#171d23;border-color:#495665;}
+.clo-arai-popover .command-bar input {font-size:11px;}
+.clo-arai-popover .command-bar button {font-size:9px;cursor:pointer;}
+.clo-arai-hint {margin:0;color:#a4adb7;font-size:10px;line-height:1.4;}
 .pattern-editor-shell .draft-avatar-guide {
   opacity:.27;
   pointer-events:none;
@@ -938,15 +958,26 @@
 .clo-left-3d-column:nth-child(2){border-right:0;border-left:1px solid #45484c;}
 .tool-rail .clo-left-3d-column button,
 .desktop-workspace .tool-rail .clo-left-3d-column button {
-  width:30px;height:32px;flex-shrink:0;padding:0;display:grid;place-items:center;
+  position:relative;width:30px;height:32px;flex-shrink:0;padding:0;display:grid;place-items:center;
   border:1px solid transparent;border-radius:2px;color:#bec0c4;background:#303135;
 }
 .tool-rail .clo-left-3d-column button:hover:not(:disabled){background:#42464d;border-color:#5e646b;color:#fff;}
 .tool-rail .clo-left-3d-column button.active{background:#344857;border-color:#587e9a;color:#5cc9f7;}
 .tool-rail .clo-left-3d-column button:disabled{opacity:.3;cursor:not-allowed;}
+.tool-rail .clo-left-3d-column button[data-clo-group-end="true"]{margin-bottom:9px;}
+.tool-rail .clo-left-3d-column button[data-clo-group-end="true"]::before{
+  content:"";position:absolute;left:7px;right:7px;bottom:-6px;height:1px;
+  background:#4a5058;pointer-events:none;
+}
+.tool-rail .clo-left-3d-column button:focus-visible{
+  outline:2px solid #a3dcf5;outline-offset:1px;z-index:2;
+}
+@media (max-height:760px){
+  .tool-rail > .clo-left-3d-double-bars{max-height:calc(100dvh - 175px);overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#525e68 transparent;}
+}
 
-/* Daily workspace: show only real working tools by default. The full CLO
-   reference inventory is opt-in and never impersonates an implemented tool. */
+/* Reference positions retain CLO's original independent two-column ordering.
+   Disabled tools show their descriptive native availability tooltip. */
 .tool-rail > .clo-reference-mode-toggle {
   grid-column:1 / -1;
   width:100%;
@@ -980,6 +1011,26 @@
 }
 .clo-left-3d-column button.clo-placeholder-tool,
 .clo-reference-column button.clo-placeholder-tool {opacity:.3;filter:grayscale(1);}
+.clo-left-3d-column button.clo-tool-inquire[data-clo-slot] {
+  position:relative;
+  color:#87929e;
+  background:#26292d;
+  border:1px solid #333940;
+}
+.clo-left-3d-column button.clo-tool-inquire[data-clo-slot]:hover,
+.clo-left-3d-column button.clo-inspect-tool[data-clo-slot]:hover {
+  color:#d8e2ed;
+  border-color:#7193a9;
+  background:#34404a;
+}
+.clo-left-3d-column button.clo-inspect-tool[data-clo-slot] {
+  color:#c4c2ae;
+  border:1px solid #575548;
+  background:#33322c;
+}
+.clo-left-3d-column button[data-clo-implementation="unavailable"]::after {
+  content:none;
+}
 .clo-tool-palette-label .clo-palette-mode-text {
   flex:1 1 0;
   width:auto;
@@ -1128,3 +1179,9 @@
 .clo-object-select {display:flex;align-items:center;gap:8px;flex:1;min-width:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;padding:5px 2px}
 .clo-object-mini-action {display:flex;align-items:center;justify-content:center;flex:0 0 25px;height:25px;border-radius:4px}
 .clo-object-mini-action:hover,.clo-object-mini-action:focus-visible {background:#455366;color:#fff}
+/* The additional Trim tab scrolls inside the inspector on narrow displays. */
+.clo-inspector .clo-object-tabs {display:flex;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;min-width:0}
+.clo-inspector .clo-object-tabs button {flex:1 0 27px;min-width:27px}
+.exo-pattern-import-bar{padding:8px 8px 11px;display:grid;gap:6px;border-bottom:1px solid #282e34}
+.exo-pattern-import-bar>.wide-action{margin:0;min-height:34px;font-size:10px}
+.exo-pattern-import-bar>span{color:#9ca9b6;font-size:10px;line-height:1.45}

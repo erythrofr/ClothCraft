@@ -88,12 +88,15 @@ export function createFabricSurface(fabric,grainDegrees=0) {
     if(colorChannel){
       const graded=tintLicensedFabricScan(loaded.image,{
         color:photo.color, wash:photo.wash,
-      },{width:Math.min(768,loaded.image?.naturalWidth||1024),height:Math.min(768,loaded.image?.naturalHeight||1024)})
+      },{width:Math.min(1024,loaded.image?.naturalWidth||1024),height:Math.min(1024,loaded.image?.naturalHeight||1024)})
       if(graded){
        loaded.image=graded;loaded.needsUpdate=true
-       // Avoid multiplying the manufactured colour twice. If a canvas is
-       // unavailable, leave the original dyed material tint in place.
+       // Retargeted scan already contains the dye and must not be tinted twice.
        material.color.set('#ffffff')
+      }else{
+       // A raw photographic scan must not inherit the washed procedural
+       // fallback's white material tint when canvas access is unavailable.
+       material.color.set(photo.color||a.color||'#b8b4ab')
       }
       material.map=loaded
     }else if(key==='normalMap'){
@@ -103,7 +106,7 @@ export function createFabricSurface(fabric,grainDegrees=0) {
       const graded=balanceScannedRoughness(loaded.image,{
         name:preset.name,
         texture:photo,
-      },{width:Math.min(768,loaded.image?.naturalWidth||1024),height:Math.min(768,loaded.image?.naturalHeight||1024)})
+      },{width:Math.min(1024,loaded.image?.naturalWidth||1024),height:Math.min(1024,loaded.image?.naturalHeight||1024)})
       if(graded){loaded.image=graded;loaded.needsUpdate=true}
       material.roughnessMap=loaded
     }
@@ -113,7 +116,12 @@ export function createFabricSurface(fabric,grainDegrees=0) {
    texture.repeat.set(repeat.x,repeat.y)
    texture.colorSpace=colorChannel?THREE.SRGBColorSpace:THREE.NoColorSpace
    texture.anisotropy=8
-   texture.needsUpdate=true
+   texture.minFilter=THREE.LinearMipmapLinearFilter
+   texture.magFilter=THREE.LinearFilter
+   // TextureLoader performs the first needsUpdate when the image is decoded.
+   // Forcing it here, while texture.image is still undefined, repeatedly
+   // logged 'Texture marked for update but no image data found' in the native
+   // garment viewport. The procedural DataTexture remains the fallback.
    owned.push(texture)
   }
   load(photo.src,'map',true)

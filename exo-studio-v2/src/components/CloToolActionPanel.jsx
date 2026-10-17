@@ -16,7 +16,7 @@ const relatedWorkspace=slot=>{
  * A disabled CLO-equivalent is NOT secretly mapped to a different operation.
  * The inspector opens on click to reveal current command availability, native
  * preconditions, and a working related EXO workspace (not feature parity). */
-export default function CloToolActionPanel({selected,onClose,onRun,onNavigate}) {
+export default function CloToolActionPanel({selected,onClose,onRun,onNavigate,onCreateDraft,draftAvailable=false}) {
  if(!selected)return null
  const {slot,dimension,status,reason}=selected
  const isNative=status==='native'
@@ -36,6 +36,10 @@ export default function CloToolActionPanel({selected,onClose,onRun,onNavigate}) 
    <p>{reason||'This CLO command has not yet been implemented in EXO. Its reference position is preserved for future native functionality.'}</p>
    {isNative&&<button type="button" className="exo-clo-tool-run" onClick={onRun}>
      Run {slot.label}
+   </button>}
+   {draftAvailable&&<button type="button" className="exo-clo-tool-run"
+     data-exo-draft-hardware="true" onClick={()=>onCreateDraft?.(slot)}>
+     Add EXO draft construction (saved, undoable)
    </button>}
    <button type="button" className="exo-clo-tool-workspace" onClick={()=>onNavigate(workspace)}>
      Open EXO {workspace} workspace <ExternalLink size={13}/>

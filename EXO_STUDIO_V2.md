@@ -1,5 +1,27 @@
 # EXO ClothCraft Studio V2 — full source in the ClothCraft fork
 
+## October 17, 2026 update submitted for review
+
+The separate `contribution/exo-studio-v2-updates-20261017` branch brings the
+EXO Studio V2 snapshot forward to the current source from
+[`mikristian/exo-sample-3d`](https://github.com/mikristian/exo-sample-3d/tree/feature/studio-v2-clo-visuals)
+(`a3d3b16`). This includes the current 2D/3D garment and fabric previews,
+Object Browser contextual property editors for draft buttons, buttonholes,
+zippers, topstitches and puckering, toolbar dispatch/capability reporting,
+hardware and stage scene assets, and the Graphic panel's editable **Nike swoosh
+SVG demonstration**. The Nike logo is a third-party trademark used only to
+show placement; it is not endorsed or authorized commercial Nike merchandise.
+
+The original ClothCraft Rust desktop app, solver, root manifest and previous
+upstream pattern-marking PR remain separate. No CLO3D parity or physical hardware,
+zipper contact or puckering physics is claimed. Only committed source and
+necessary preview/example assets from the EXO feature branch were synchronized;
+machine-local data and the proprietary Thomas avatar were excluded. This is a
+large **optional, separate application** to review and potentially split, not a
+replacement for upstream ClothCraft's existing editor. Previously bundled
+generated screenshots/build artifacts in this historical branch are evidence,
+not new functionality and should be pruned by maintainers before integration.
+
 This branch is an **additive full-source snapshot** of the user's current EXO ClothCraft Studio V2 work, rather than just the smaller JSON-lines Rust session adapter contribution. The original `erythrofr/ClothCraft` Rust application remains in the root of this fork; `exo-studio-v2/` is a separate first-party React/Three.js application and native-service workspace. This deliberately avoids silently replacing upstream ClothCraft's editor, physics, tests, files and history.
 
 ## What is included

@@ -1,7 +1,10 @@
+import {vertexExtensions} from '../core/clothcraftStrainView.js'
 import {createFabricSurface} from '../core/clothcraftFabricSurface.js'
+import {attachGarmentGraphics} from '../core/nativeGarmentGraphics.js'
 import React, {useEffect, useRef, useState} from 'react'
 import ClothCraftCornerTools from './ClothCraftCornerTools.jsx'
 import * as THREE from 'three'
+import {createStageEnvironment} from '../core/createStageEnvironment.js'
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js'
 import {TransformControls} from 'three/addons/controls/TransformControls.js'
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js'
@@ -45,15 +48,26 @@ const material = (color, options = {}) => new THREE.MeshStandardMaterial({
   color, side: THREE.DoubleSide, roughness: .82, metalness: .025, ...options,
 })
 const buildIndexedMesh = (positions, triangles, color, uv = null) => {
-  const indices = [...new Set(triangles.flat().filter(i => Number.isInteger(i) && finiteVec(positions?.[i])))]
+  // Native snapshots may contain uninitialized or collapsed solver triangles.
+  // They cannot contribute visible cloth and poison normal calculations.
+  const validTriangles = (Array.isArray(triangles) ? triangles : []).filter(tri => {
+    if (!Array.isArray(tri) || tri.length !== 3 || !tri.every(i => Number.isInteger(i) && finiteVec(positions?.[i]))) return false
+    if (new Set(tri).size !== 3) return false
+    const a = v3(positions[tri[0]]), b = v3(positions[tri[1]]), c = v3(positions[tri[2]])
+    return b.sub(a).cross(c.sub(a)).lengthSq() > 1e-18
+  })
+  const indices = [...new Set(validTriangles.flat())]
   const remap = new Map(indices.map((value, index) => [value, index]))
-  const validTriangles = triangles.filter(tri => tri.length === 3 && tri.every(index => remap.has(index)))
   const geometry = new THREE.BufferGeometry()
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(indices.flatMap(index => positions[index]), 3))
-  if(uv) geometry.setAttribute('uv', new THREE.Float32BufferAttribute(indices.flatMap(index => uv[index] || [0,0]),2))
+  if (uv) geometry.setAttribute('uv', new THREE.Float32BufferAttribute(indices.flatMap(index =>
+    Array.isArray(uv[index]) && uv[index].length >= 2 && uv[index].slice(0, 2).every(Number.isFinite)
+      ? uv[index].slice(0, 2) : [0, 0]), 2))
   geometry.userData.nativeVertices=indices
   geometry.setIndex(validTriangles.flatMap(tri => tri.map(index => remap.get(index))))
   if (validTriangles.length) geometry.computeVertexNormals()
+  geometry.computeBoundingBox()
+  geometry.computeBoundingSphere()
   return new THREE.Mesh(geometry, material(color))
 }
 const line = (a, b, color, opacity = 1) => {
@@ -70,10 +84,11 @@ const line = (a, b, color, opacity = 1) => {
  */
 export default function ClothCraftSceneV2({
   snapshot, active, selected, mode = 'edit', onPick, onHover, onPlace,
+  graphics = [],
   onChangeMode = () => {}, toolsDisabled = false,
-  showAvatar = true, showSeams = true, wireframe = false,
+  showAvatar = true, showSeams = true, wireframe = false, analysisMode = 'surface',
   showBoundingBox = false, showContactDots = true, spread = 0,
-  onStretchDrag, onStretchStart, onStretchCancel, environmentPreset = 'studio', showFloor = true,
+  onStretchDrag, onStretchStart, onStretchCancel, environmentPreset = 'studio', stageId = 'none', showFloor = true,
   onContextMenuRequest, onCanvasActivate,
 }) {
   const host = useRef(null)
@@ -81,7 +96,7 @@ export default function ClothCraftSceneV2({
   const [grabRefresh, setGrabRefresh] = useState(0)
   const propsRef = useRef({})
   propsRef.current = {snapshot, active, selected, mode, onPick, onHover, onPlace, showAvatar,
-    showSeams, wireframe, showBoundingBox, showContactDots, spread, onStretchDrag, onStretchStart, onStretchCancel, environmentPreset, showFloor,
+    showSeams, wireframe, showBoundingBox, showContactDots, spread, onStretchDrag, onStretchStart, onStretchCancel, environmentPreset, stageId, showFloor,
     onContextMenuRequest, onCanvasActivate}
 
   useEffect(() => {
@@ -163,7 +178,8 @@ export default function ClothCraftSceneV2({
     const seams = new THREE.Group()
     const dots = new THREE.Group()
     const boxes = new THREE.Group()
-    scene.add(cloth, avatar, boundaries, seams, dots, boxes)
+    const brushMarks = new THREE.Group()
+    scene.add(cloth, avatar, boundaries, seams, dots, boxes, brushMarks)
 
     const pivot = new THREE.Object3D()
     scene.add(pivot)
@@ -192,12 +208,92 @@ export default function ClothCraftSceneV2({
     ray.params.Line.threshold = .012
     const pointer = new THREE.Vector2()
     const state = {scene, camera, renderer, controls, cloth, avatar, boundaries, seams, dots, boxes,
-      floor, grid, ambient, key, fill, studioBackdrop,
+      floor, grid, ambient, key, fill, studioBackdrop, brushMarks,
       pivot, transform, ray, pointer, panelMeshes: new Map(), panelOffsets: new Map(),
       down: null, dragging: false, nativeStart: null, handleStart: null, requestId: null,
       sceneSnapshot: null, rings, ringDrag:null, ringEnabled:false, stretchGrab:null,
-      stretchCommitPending:false, pendingGrabSnapshot:false}
+      stretchCommitPending:false, pendingGrabSnapshot:false, meshBrushActive:false,
+      brushVertices:new Set(), brushDrag:null}
     sceneRef.current = state
+    const updateBrushMarks = () => {
+      replaceChildren(brushMarks)
+      const points=[]
+      for (const mesh of state.panelMeshes.values()) {
+        const indices=mesh.geometry.userData.nativeVertices || []
+        const position=mesh.geometry.getAttribute('position')
+        mesh.updateWorldMatrix(true,false)
+        for(let i=0;i<indices.length;i++)if(state.brushVertices.has(indices[i]))
+          points.push(...new THREE.Vector3().fromBufferAttribute(position,i).applyMatrix4(mesh.matrixWorld).toArray())
+      }
+      if(points.length){
+        const geometry=new THREE.BufferGeometry()
+        geometry.setAttribute('position',new THREE.Float32BufferAttribute(points,3))
+        brushMarks.add(new THREE.Points(geometry,new THREE.PointsMaterial({color:'#ffcb41',size:9,sizeAttenuation:false,depthTest:false,depthWrite:false})))
+      }
+      renderer.domElement.dataset.meshBrushSelectedCount=String(state.brushVertices.size)
+      renderer.domElement.dataset.meshBrushHighlightedCount=String(points.length/3)
+      renderer.domElement.dataset.meshBrushSelectedIndices=JSON.stringify([...state.brushVertices].sort((a,b)=>a-b))
+    }
+    state.updateBrushMarks=updateBrushMarks
+    const applyBrush = event => {
+      const rect=renderer.domElement.getBoundingClientRect()
+      pointer.set(((event.clientX-rect.left)/rect.width)*2-1,-((event.clientY-rect.top)/rect.height)*2+1)
+      ray.setFromCamera(pointer,camera)
+      const contact=ray.intersectObjects(cloth.children,false)[0]
+      if(!contact)return
+      const point=contact.point
+      // Fixed pixel brush size translates into metres at the hit depth, so zoom
+      // changes its world-space radius rather than making it unusably tiny.
+      const distance=camera.position.distanceTo(point)
+      const radius=2*distance*Math.tan(THREE.MathUtils.degToRad(camera.fov)/2)*22/Math.max(1,rect.height)
+      const removing=event.altKey
+      for(const mesh of state.panelMeshes.values()){
+        const attr=mesh.geometry.getAttribute('position')
+        const native=mesh.geometry.userData.nativeVertices||[]
+        mesh.updateWorldMatrix(true,false)
+        for(let i=0;i<native.length;i++){
+          const position=new THREE.Vector3().fromBufferAttribute(attr,i).applyMatrix4(mesh.matrixWorld)
+          if(position.distanceTo(point)<=radius){
+            if(removing)state.brushVertices.delete(native[i])
+            else state.brushVertices.add(native[i])
+          }
+        }
+      }
+      renderer.domElement.dataset.meshBrushRadiusMetres=String(radius)
+      renderer.domElement.dataset.meshBrushHitPanel=String(contact.object.userData.panel)
+      updateBrushMarks()
+    }
+    const setBrushActive=(active,clear=false)=>{
+      state.meshBrushActive=Boolean(active)
+      renderer.domElement.dataset.meshBrushActive=String(state.meshBrushActive)
+      renderer.domElement.style.cursor=state.meshBrushActive?'crosshair':''
+      if(!state.meshBrushActive){
+        if(state.brushDrag!==null&&renderer.domElement.hasPointerCapture(state.brushDrag))
+          renderer.domElement.releasePointerCapture(state.brushDrag)
+        state.brushDrag=null
+        controls.enabled=true
+      }
+      if(clear){state.brushVertices.clear();updateBrushMarks()}
+    }
+    state.setBrushActive=setBrushActive
+    const activateBrush=event=>{
+      const active=event.type==='exo-clothcraft-3d-tool'
+        ?event.detail?.tool==='mesh-brush':Boolean(event.detail?.active)
+      setBrushActive(active,Boolean(event.detail?.clear)||!active)
+    }
+    const clearBrush=event=>{
+      if(event.key==='Escape'&&state.meshBrushActive){
+        state.brushVertices.clear();updateBrushMarks()
+        if(state.brushDrag!==null&&renderer.domElement.hasPointerCapture(state.brushDrag))
+          renderer.domElement.releasePointerCapture(state.brushDrag)
+        state.brushDrag=null;controls.enabled=true
+      }
+    }
+    window.addEventListener('exo-clothcraft-mesh-brush',activateBrush)
+    window.addEventListener('exo-clothcraft-3d-tool',activateBrush)
+    window.addEventListener('keydown',clearBrush,true)
+    renderer.domElement.dataset.meshBrushActive='false'
+    updateBrushMarks()
     const transformMode = () => ['move3d','rotate3d','transform'].includes(propsRef.current.mode)
     const hideGizmo = () => {
       state.ringEnabled = false
@@ -263,7 +359,10 @@ export default function ClothCraftSceneV2({
           .add(pose.meshPosition).sub(pose.center).applyQuaternion(spin).add(pose.center).add(translation).sub(pose.meshPosition)
         attr.setXYZ(i,value.x,value.y,value.z)
       }
-      attr.needsUpdate=true;pose.mesh.geometry.computeVertexNormals()
+      attr.needsUpdate=true
+      pose.mesh.geometry.computeVertexNormals()
+      pose.mesh.geometry.computeBoundingBox()
+      pose.mesh.geometry.computeBoundingSphere()
       const moved=point=>point.clone().sub(pose.center).applyQuaternion(spin).add(pose.center).add(translation)
       for(const group of [state.seams,state.boundaries]){
         for(const guide of group.children){
@@ -276,6 +375,7 @@ export default function ClothCraftSceneV2({
             positions.setXYZ(index,next.x,next.y,next.z)
           })
           positions.needsUpdate=true
+          guide.geometry.computeBoundingSphere()
         }
       }
       for(const cloud of state.dots.children){
@@ -308,6 +408,12 @@ export default function ClothCraftSceneV2({
       ray.setFromCamera(pointer, camera)
       const edge = ray.intersectObjects(boundaries.children, false).find(item => item.object.userData?.edge)
       const surface = ray.intersectObjects(cloth.children, false)[0]
+      const body = propsRef.current.showAvatar && avatar.visible
+        ? ray.intersectObjects(avatar.children,false)[0] : null
+      // A visible fitting body is selectable wherever cloth does not occlude
+      // it. This also prevents clicking through the body to fabric behind it.
+      if(body && (!surface || body.distance<surface.distance-.003) &&
+        (!edge || body.distance<edge.distance-.003)) return {avatar:true}
       return edge && (!surface || edge.distance < surface.distance + .018)
         ? edge.object.userData : surface?.object.userData || null
     }
@@ -340,8 +446,19 @@ export default function ClothCraftSceneV2({
     const pointerDown = event => {
       propsRef.current.onCanvasActivate?.()
       if (event.button !== 0) return
+      if(state.meshBrushActive){
+        state.brushDrag=event.pointerId
+        controls.enabled=false
+        renderer.domElement.setPointerCapture(event.pointerId)
+        applyBrush(event)
+        event.preventDefault();event.stopImmediatePropagation()
+        return
+      }
       if (state.stretchCommitPending) {event.preventDefault();return}
-      const axis=transformMode()?ringHit(event):null
+      // The 3D placement ring remains available in both Move and Rotate;
+      // translating with the gizmo and rotating by its circular handle can
+      // be combined without switching toolbar modes.
+      const axis=['move3d','rotate3d'].includes(propsRef.current.mode)?ringHit(event):null
       if(axis&&propsRef.current.selected?.panel){
         const pose=startPose(propsRef.current.selected.panel)
         if(pose){
@@ -395,6 +512,10 @@ export default function ClothCraftSceneV2({
       }
     }
     const pointerMove = event => {
+      if(state.meshBrushActive){
+        if(state.brushDrag===event.pointerId&&event.buttons===1)applyBrush(event)
+        return
+      }
       if(state.ringDrag){
         const drag=state.ringDrag,next=angleAt(event)
         let delta=next-drag.previous
@@ -432,6 +553,7 @@ export default function ClothCraftSceneV2({
               attr.setXYZ(index,p.x,p.y,p.z)
             }
             attr.needsUpdate=true
+            guide.geometry.computeBoundingSphere()
           }
           for(const boundary of state.boundaries.children){
             if(boundary.userData.panel!==state.move.id)continue
@@ -441,6 +563,7 @@ export default function ClothCraftSceneV2({
               attr.setXYZ(index,next.x,next.y,next.z)
             })
             attr.needsUpdate=true
+            boundary.geometry.computeBoundingSphere()
           }
           const dummy=new THREE.Object3D()
           for(const cloud of state.dots.children){
@@ -463,6 +586,11 @@ export default function ClothCraftSceneV2({
       }
     }
     const pointerUp = event => {
+      if(state.brushDrag===event.pointerId){
+        state.brushDrag=null;controls.enabled=true
+        if(renderer.domElement.hasPointerCapture(event.pointerId))renderer.domElement.releasePointerCapture(event.pointerId)
+        return
+      }
       if (state.stretchGrab) {
         const wasClick=state.down && Math.hypot(event.clientX-state.down.x,event.clientY-state.down.y)<5
         const picked=state.down?.hit
@@ -479,6 +607,7 @@ export default function ClothCraftSceneV2({
         if(renderer.domElement.hasPointerCapture(event.pointerId))renderer.domElement.releasePointerCapture(event.pointerId)
         return
       }
+      const movedPanel = Boolean(state.move)
       if (state.move) {
         const movement=state.move.last.clone().sub(state.move.start)
         const p=state.move.placement
@@ -490,7 +619,7 @@ export default function ClothCraftSceneV2({
         controls.enabled=true
         if (renderer.domElement.hasPointerCapture(event.pointerId))renderer.domElement.releasePointerCapture(event.pointerId)
       }
-      if (state.down && !state.dragging && Math.hypot(event.clientX - state.down.x, event.clientY - state.down.y) < 5)
+      if (state.down && !movedPanel && event.type!=='pointercancel' && !state.dragging && Math.hypot(event.clientX - state.down.x, event.clientY - state.down.y) < 5)
         propsRef.current.onPick?.(hit(event))
       state.down = null
       state.stretchPlane = null
@@ -563,6 +692,9 @@ export default function ClothCraftSceneV2({
     render()
     return () => {
       cancelAnimationFrame(state.requestId)
+      window.removeEventListener('exo-clothcraft-mesh-brush',activateBrush)
+      window.removeEventListener('exo-clothcraft-3d-tool',activateBrush)
+      window.removeEventListener('keydown',clearBrush,true)
       observer.disconnect()
       renderer.domElement.removeEventListener('pointerdown', pointerDown, true)
       renderer.domElement.removeEventListener('pointermove', pointerMove)
@@ -579,7 +711,13 @@ export default function ClothCraftSceneV2({
       transform.dispose()
       controls.dispose()
       replaceChildren(cloth); replaceChildren(avatar); replaceChildren(boundaries)
-      replaceChildren(seams); replaceChildren(dots); replaceChildren(boxes)
+      replaceChildren(seams); replaceChildren(dots); replaceChildren(boxes); replaceChildren(brushMarks)
+      if(state.stageGroup){
+        state.stageGroup.userData.disposed = true
+        scene.remove(state.stageGroup)
+        disposeTree(state.stageGroup)
+        state.stageGroup = null
+      }
       disposeTree(rings)
       scene.environment = null
       studioEnvironment.dispose()
@@ -599,11 +737,18 @@ export default function ClothCraftSceneV2({
     }
   }, [])
 
+  // A native 3D mode change can originate from keyboard shortcuts, the
+  // embedded quick bar, or a context menu instead of a CLO A/B slot. Release
+  // mesh-brush pointer capture in every case when leaving the edit viewport.
+  useEffect(() => {
+    if (mode !== 'edit') sceneRef.current?.setBrushActive?.(false, true)
+  }, [mode])
+
   useEffect(() => {
     const state = sceneRef.current
     if (!state) return
-    state.floor.visible = showFloor
-    state.grid.visible = showFloor
+    state.floor.visible = showFloor && stageId === 'none'
+    state.grid.visible = showFloor && stageId === 'none'
     const lighting = {
       studio: {hemi:1.85,key:2.6,rim:.85},
       softbox: {hemi:2.35,key:2.15,rim:.62},
@@ -615,7 +760,44 @@ export default function ClothCraftSceneV2({
     state.fill.intensity = lighting.rim
     state.renderer.domElement.dataset.studioLightingPreset = environmentPreset
     state.renderer.domElement.dataset.studioFloorVisible = String(showFloor)
-  }, [environmentPreset, showFloor])
+  }, [environmentPreset, stageId, showFloor])
+
+  // EXO's stage is purely presentation geometry. A switch does not re-create
+  // the native Rust garment snapshot, contacts, or editor selection.
+  useEffect(() => {
+    const state = sceneRef.current
+    if (!state) return
+    const previous = state.stageGroup
+    if(previous){
+      previous.userData.disposed = true
+      state.scene.remove(previous)
+      disposeTree(previous)
+      state.stageGroup = null
+    }
+    const canvas = state.renderer.domElement
+    canvas.dataset.stageId = stageId || 'none'
+    canvas.dataset.stageMeshCount = '0'
+    canvas.dataset.stageStatus = stageId === 'none' ? 'none' : 'loading'
+    if(!stageId || stageId === 'none') return
+    const update = group => {
+      if(state.stageGroup !== group || group.userData.disposed || !canvas.isConnected)return
+      let count = 0
+      group.traverse(item => {if(item.isMesh && item.geometry?.getAttribute('position')?.count > 0)count++})
+      canvas.dataset.stageMeshCount = String(count)
+      canvas.dataset.stageStatus = group.userData.loadError ? 'error' : count > 0 ? 'ready' : 'empty'
+    }
+    const group = createStageEnvironment(THREE,stageId,update)
+    state.stageGroup = group
+    state.scene.add(group)
+    update(group)
+    return () => {
+      if(state.stageGroup!==group)return
+      group.userData.disposed = true
+      state.scene.remove(group)
+      disposeTree(group)
+      state.stageGroup = null
+    }
+  },[stageId])
 
   useEffect(() => {
     const state = sceneRef.current
@@ -632,13 +814,26 @@ export default function ClothCraftSceneV2({
     const world = snapshot.positions || []
     const panels = snapshot.panels || []
     const templatePanels = snapshot.template?.panels || []
+    let renderedGraphics=0
+    const strains=analysisMode==='strain'?vertexExtensions(snapshot):null
+    state.renderer.domElement.dataset.analysisMode=analysisMode
     const offsetMagnitude = typeof spread === 'number' && Number.isFinite(spread) ? Math.max(0, spread) : (spread ? .3 : 0)
     panels.forEach((panel, index) => {
       const piece = templatePanels.find(item => item.id === panel.id)
-      const triangleRange = Array.isArray(panel.triangles) ? snapshot.triangles.slice(panel.triangles[0], panel.triangles[1]) : []
+      const triangleRange = Array.isArray(panel.triangles) && Array.isArray(snapshot.triangles)
+        ? snapshot.triangles.slice(panel.triangles[0], panel.triangles[1]) : []
       const panelMesh = buildIndexedMesh(world, triangleRange, COLORS[index % COLORS.length], snapshot.uv)
       panelMesh.material.dispose()
       panelMesh.material = createFabricSurface(snapshot.template?.fabrics?.find(f=>f.id===piece?.fabric),piece?.grain_degrees||0)
+      if(strains){
+        const colors=panelMesh.geometry.userData.nativeVertices.flatMap(i=>{
+          const color=new THREE.Color().setHSL((1-Math.min(1,Math.max(0,strains[i])/.25))*.66,1,.5)
+          return [color.r,color.g,color.b]
+        })
+        panelMesh.geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3))
+        panelMesh.material.dispose()
+        panelMesh.material=new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide})
+      }
       const offset = new THREE.Vector3()
       if (offsetMagnitude) {
         const angle = (index / Math.max(1, panels.length)) * 2 * Math.PI
@@ -646,6 +841,11 @@ export default function ClothCraftSceneV2({
       }
       panelMesh.position.copy(offset)
       panelMesh.userData = {panel: panel.id}
+      const graphicsForPanel=graphics.filter(graphic=>graphic.panel===panel.id&&graphic.visible!==false)
+      if(graphicsForPanel.length){
+        attachGarmentGraphics(panelMesh,graphicsForPanel)
+        renderedGraphics+=graphicsForPanel.length
+      }
       panelMesh.material.wireframe = wireframe
       panelMesh.castShadow = true
       panelMesh.receiveShadow = true
@@ -664,6 +864,7 @@ export default function ClothCraftSceneV2({
       }
       if (!piece) return
     })
+    state.renderer.domElement.dataset.garmentGraphicCount=String(renderedGraphics)
     // Keep precisely the Rust guide endpoints, with clear, unlit marks that
     // remain legible against the garment even at grazing camera angles.
     const dotGeometry = new THREE.SphereGeometry(.008, 8, 6)
@@ -726,7 +927,10 @@ export default function ClothCraftSceneV2({
     state.renderer.domElement.dataset.nativeGrabActive=String(Boolean(snapshot.grabActive))
     state.renderer.domElement.dataset.simulationTime=String(snapshot.time)
     state.sceneSnapshot = snapshot
-  }, [snapshot, spread, grabRefresh])
+    const valid=new Set(world.map((vertex,index)=>finiteVec(vertex)?index:null).filter(index=>index!==null))
+    for(const index of state.brushVertices)if(!valid.has(index))state.brushVertices.delete(index)
+    state.updateBrushMarks?.()
+  }, [snapshot, spread, grabRefresh, analysisMode, graphics])
 
   useEffect(() => {
     const state = sceneRef.current
@@ -742,7 +946,7 @@ export default function ClothCraftSceneV2({
     for (const [id, mesh] of state.panelMeshes) {
       const hover = active?.panel === id
       // Preserve the fabric surface during linked selection; emissive supplies the highlight.
-      mesh.material.emissive.set(hover ? '#5a3111' : '#000000')
+      mesh.material.emissive?.set(hover ? '#5a3111' : '#000000')
       mesh.material.emissiveIntensity = hover ? .24 : 0
     }
     for (const boundary of state.boundaries.children) {
@@ -760,11 +964,11 @@ export default function ClothCraftSceneV2({
       const bounds = new THREE.Box3().setFromObject(state.panelMeshes.get(currentPanel))
       bounds.getCenter(state.pivot.position)
       state.pivot.rotation.set(0, 0, 0)
-      state.transform.setMode('translate')
+      state.transform.setMode(mode === 'rotate3d' ? 'rotate' : 'translate')
       state.transform.attach(state.pivot)
       state.transform.visible = true
       state.transform.enabled = true
-      state.ringEnabled=true
+      state.ringEnabled=['move3d','rotate3d'].includes(mode)
     } else if (!state.dragging&&!state.ringDrag&&!state.move) {
       state.ringEnabled=false
       state.rings.visible=false
@@ -777,10 +981,45 @@ export default function ClothCraftSceneV2({
       state.renderer.domElement.dataset.gizmoVisible='false'
     }
   }, [snapshot, active?.panel, active?.edge, selected?.panel, mode, showAvatar,
-    showSeams, wireframe, showBoundingBox, showContactDots, spread])
+    showSeams, wireframe, showBoundingBox, showContactDots, spread, analysisMode])
 
   useEffect(()=>{if(mode!=='stretch3d')sceneRef.current?.cancelStretch?.()},[mode])
 
+  // A03 operates in native edit mode. A subsequent viewport mode change must
+  // release the brush even when a caller omitted the explicit tool event.
+  useEffect(()=>{
+    if(mode!=='edit')sceneRef.current?.setBrushActive?.(false,true)
+  },[mode])
+
+  useEffect(()=>{
+    const receive=event=>{
+      if(event.type==='exo-clothcraft-command' && event.detail!=='fit-camera')return
+      const state=sceneRef.current;if(!state)return
+      const box=new THREE.Box3()
+      // Visible Rust meshes include the authored spread and live panel transforms.
+      // Camera fit should follow what the artist actually sees in this viewport.
+      state.cloth.updateWorldMatrix(true,true)
+      for(const mesh of state.panelMeshes.values())box.expandByObject(mesh)
+      if(box.isEmpty())for(const p of propsRef.current.snapshot?.positions||[])if(finiteVec(p))box.expandByPoint(v3(p))
+      if(box.isEmpty())return
+      const center=box.getCenter(new THREE.Vector3()),size=box.getSize(new THREE.Vector3())
+      const vertical=THREE.MathUtils.degToRad(state.camera.fov)/2
+      const horizontal=Math.atan(Math.tan(vertical)*state.camera.aspect)
+      const distance=(Math.max(size.y/(2*Math.tan(vertical)),size.x/(2*Math.tan(horizontal)))+size.z/2)*1.35
+      const direction=state.camera.position.clone().sub(state.controls.target).normalize()
+      if(direction.lengthSq()<1e-8)direction.set(0,0,1)
+      state.controls.target.copy(center);state.camera.position.copy(center).addScaledVector(direction,Math.max(.15,distance))
+      state.camera.lookAt(center)
+      state.controls.update()
+      state.renderer.domElement.dataset.cameraFitCount=String(1+Number(state.renderer.domElement.dataset.cameraFitCount||0))
+    }
+    window.addEventListener('exo-clothcraft-command',receive)
+    window.addEventListener('exo-clothcraft-fit-camera',receive)
+    return()=>{
+      window.removeEventListener('exo-clothcraft-command',receive)
+      window.removeEventListener('exo-clothcraft-fit-camera',receive)
+    }
+  },[])
   const view = position => {
     const state = sceneRef.current
     if (!state) return
@@ -791,6 +1030,7 @@ export default function ClothCraftSceneV2({
     state.controls.update()
   }
   return <div ref={host} className="cc-scene" aria-label="EXO 3D garment scene: Rust geometry, interactive transform gizmo and sewing guides">
+    {analysisMode==='strain'&&<div data-strain-legend="true" style={{position:'absolute',bottom:12,left:12,zIndex:3,background:'#fff',color:'#263746',padding:8,fontSize:11}}>Principal extension · blue 0% → red 25%+ · not stress/pressure</div>}
     <ClothCraftCornerTools dimension="3d" mode={mode} onChangeMode={onChangeMode} disabled={toolsDisabled}/>
     <div className="cc-v2-orientation" role="group" aria-label="3D viewport orientation widget"
       style={{left:'auto',right:12,top:12,padding:3,background:'rgba(231,238,242,.94)'}}>

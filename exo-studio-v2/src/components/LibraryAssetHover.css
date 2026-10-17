@@ -1,0 +1,65 @@
+.exo-library-asset-hover{position:fixed;z-index:99998;width:min(400px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow:hidden;display:flex;flex-direction:column;border:1px solid #656d76;border-radius:12px;background:#111416;color:#eef1f4;box-shadow:0 22px 65px #000c;pointer-events:none;contain:layout paint}
+.exo-library-asset-hover--garment{width:min(760px,calc(100vw - 24px));border-color:#4e565e;background:#0f1113;box-shadow:0 28px 88px #000e}
+.exo-library-asset-hover--fabric{width:min(740px,calc(100vw - 24px));border-color:#525e68;background:#111416;box-shadow:0 30px 90px #000e}
+.exo-library-asset-hover--fabric .exo-library-asset-hover-media{height:min(420px,57vh);flex:0 0 min(420px,57vh);min-height:230px;background:#131619}
+.exo-library-asset-hover--fabric .exo-library-asset-hover-information{padding:13px 18px;gap:5px}
+.exo-library-asset-hover--fabric .exo-library-asset-hover-information dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 16px;margin:3px 0}
+.exo-library-asset-hover--garment .exo-library-asset-hover-media{height:min(470px,65vh);flex:0 1 min(470px,65vh);min-height:240px;background:#0f1113}
+.exo-library-asset-hover--garment .exo-library-asset-hover-information{gap:4px;padding:12px 18px 14px;background:#111416}
+.exo-library-asset-hover--garment .exo-library-asset-hover-information>strong{font-size:16px}
+.exo-library-asset-hover--garment .exo-library-asset-hover-information>p{font-size:10px}
+.exo-library-asset-hover--garment .exo-library-asset-hover-information dl{display:none}
+.exo-library-asset-hover--garment .exo-library-asset-hover-information>small{font-size:9px;line-height:1.35}
+.exo-library-asset-hover-media{height:280px;min-height:100px;flex:0 1 280px;background:linear-gradient(135deg,#1d232b,#0f1013);display:grid;place-items:center;overflow:hidden}
+.exo-library-asset-hover-media canvas,.exo-library-asset-hover-media img,.exo-library-asset-hover-media svg{display:block;width:100%;height:100%;object-fit:contain}
+.exo-library-asset-hover-media img{object-fit:cover}
+.exo-library-asset-hover-information{padding:15px;display:flex;flex-direction:column;gap:7px;min-height:0;overflow-y:auto}
+.exo-library-asset-hover-eyebrow{font-size:9px;letter-spacing:.11em;color:#96abbc}
+.exo-library-asset-hover-information>strong{font-size:17px;line-height:1.25;font-weight:650}
+.exo-library-asset-hover-information>p{font-size:11px;line-height:1.5;color:#b9c4cd;margin:0}
+.exo-library-asset-hover-information dl{display:flex;flex-direction:column;gap:5px;margin:5px 0}
+.exo-library-asset-hover-information dl>div{display:flex;justify-content:space-between;gap:12px;padding-top:6px;border-top:1px solid #32383e;font-size:10px;line-height:1.4}
+.exo-library-asset-hover-information dt{color:#a9b4c0;flex:0 0 75px}
+.exo-library-asset-hover-information dd{margin:0;text-align:right;overflow-wrap:anywhere}
+.exo-library-asset-hover-information>small{font-size:10px;line-height:1.4;color:#a5b2bf}
+.exo-library-asset-hover-unavailable{font-size:12px;color:#aab5bf}
+.exo-library-template-preview{width:100%;height:100%;display:grid;place-items:center;padding:20px 26px;background:radial-gradient(ellipse at 50% 10%,#434b52 0%,#22262b 55%,#121417 100%)}
+.exo-library-template-preview--curved{padding:0;background:#101214}
+.exo-library-template-preview>.garment-silhouette{width:auto;height:100%;max-width:92%;filter:drop-shadow(0 16px 18px #0009)}
+.exo-library-template-preview>.clo-pattern-library-preview{width:100%;height:100%;max-height:198px;box-shadow:0 12px 30px #000a;border:1px solid #4b5157}
+.exo-hanger-library-tile{overflow:hidden!important;padding:0!important;min-height:74px}
+.exo-hanger-library-tile>.library-3d-preview{width:100%;height:100%;min-height:74px}
+.asset-template[aria-pressed="true"]{outline:1px solid #91b0c6;outline-offset:-1px}
+@media(max-height:630px){.exo-library-asset-hover-media{height:155px;flex-basis:155px}.exo-library-asset-hover-information{padding:10px}}
+@media(max-height:630px){.exo-library-asset-hover--garment .exo-library-asset-hover-media{height:min(320px,65vh);flex-basis:min(320px,65vh);min-height:170px}}
+@media(max-height:630px){.exo-library-asset-hover--fabric .exo-library-asset-hover-media{height:52vh;flex-basis:52vh;min-height:130px}}
+@media(max-width:640px){.exo-library-asset-hover--fabric .exo-library-asset-hover-media{height:min(350px,48vh);flex-basis:min(350px,48vh);min-height:165px}.exo-library-asset-hover--fabric .exo-library-asset-hover-information dl{grid-template-columns:1fr}}
+@media(max-width:640px){.exo-library-asset-hover--fabric{left:12px!important;right:12px!important;top:12px!important;width:auto;max-width:calc(100vw - 24px)}.exo-library-asset-hover--fabric .exo-fabric-hover-dual{gap:8px;padding:9px;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.exo-library-asset-hover--fabric .exo-library-asset-hover-information{padding:11px 13px}}
+@media(max-width:640px){.exo-library-asset-hover--garment .exo-library-asset-hover-media{height:min(370px,58vh);flex-basis:min(370px,58vh);min-height:215px}.exo-library-asset-hover--garment .exo-library-asset-hover-information{padding:10px 12px}}
+/* A narrow viewport places the preview over the library itself. Allow pointer
+   navigation through the card while keeping the garment controls operable. */
+.exo-garment-mini-switches,.exo-garment-mini-switches button{pointer-events:auto}
+.exo-library-asset-hover--garment button{pointer-events:auto}
+.exo-library-preview-touch-hint{display:none}
+@media(pointer:coarse){
+  .garment-tile .exo-library-preview-touch-hint{
+    display:block;
+    align-self:center;
+    flex:0 0 auto;
+    margin:3px auto 1px;
+    padding:7px 9px;
+    min-height:28px;
+    max-width:100%;
+    border:1px solid #7c858b;
+    border-radius:4px;
+    background:#20272b;
+    color:#eef2f3;
+    font-family:inherit;
+    font-size:9px;
+    font-weight:650;
+    line-height:1.3;
+    letter-spacing:.055em;
+    white-space:nowrap;
+  }
+  .exo-library-asset-hover--garment{touch-action:pan-y}
+}

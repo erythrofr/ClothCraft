@@ -10,6 +10,26 @@ export function createWorkspace(outputRoot) {
  let liveGrab=null
  const saveFile=path.join(outputRoot,'workspace','fitting-project.json')
  const metadataFile=saveFile+'.properties.json'
+ let avatarModel='makehuman-base'
+ const avatarPathFor=model=>{
+  if(model==='makehuman-base'){
+   const upstream=path.join(paths().upstream,'assets/makehuman/mannequin.obj')
+   const source=fs.existsSync(upstream)?upstream:process.env.EXO_CLOTHCRAFT_AVATAR_MAKEHUMAN_OBJ
+   if(!source||!fs.existsSync(source))throw new Error('MakeHuman collision avatar is missing')
+   return source
+  }
+  if(model==='clo-thomas'){
+   const source=process.env.EXO_CLOTHCRAFT_AVATAR_THOMAS_OBJ
+   if(!source||!fs.existsSync(source))throw new Error('CLO Thomas collision avatar is not installed in native V2')
+   return source
+  }
+  throw new Error(`Native V2 has no collision body for ${model}`)
+ }
+ try{
+  const saved=JSON.parse(fs.readFileSync(saveFile,'utf8'))
+  const thomas=process.env.EXO_CLOTHCRAFT_AVATAR_THOMAS_OBJ
+  if(thomas&&path.resolve(saved.avatar_path||'')===path.resolve(thomas))avatarModel='clo-thomas'
+ }catch{}
  let propertyMetadata=null
  const fingerprint=template=>createHash('sha256').update(JSON.stringify({
   template:template?.name||'',panels:(template?.panels||[]).map(p=>p.id).sort(),
@@ -24,7 +44,7 @@ export function createWorkspace(outputRoot) {
  }
  const publish=result=>{
   if(result?.ok&&result.data?.template&&propertyMetadata){
-   return {...result,data:{...result.data,propertyMetadata:{panels:propertyMetadata.panels,fabrics:propertyMetadata.fabrics}}}
+   return {...result,data:{...result.data,avatarModel,propertyMetadata:{panels:propertyMetadata.panels,fabrics:propertyMetadata.fabrics}}}
   }
   return result
  }
@@ -39,7 +59,7 @@ export function createWorkspace(outputRoot) {
   if(child)return
   const config=paths(), bin=process.env.EXO_CLOTHCRAFT_SESSION_BIN||path.join(config.upstream,'target/debug/exo-session')
   if(!fs.existsSync(bin))throw new Error('ClothCraft workspace executable not built')
-  child=spawn(bin,[path.join(config.upstream,'assets/makehuman/mannequin.obj'),saveFile+'.native',...(process.env.EXO_CLOTHCRAFT_GPU==='1'?['--gpu']:[])],{cwd:config.upstream,stdio:['pipe','pipe','pipe']})
+  child=spawn(bin,[avatarPathFor(avatarModel),saveFile+'.native',...(process.env.EXO_CLOTHCRAFT_GPU==='1'?['--gpu']:[])],{cwd:config.upstream,stdio:['pipe','pipe','pipe']})
   const proc=child
   const fail=e=>{if(child!==proc)return;child=null;loaded=false;if(pending){clearTimeout(pending.timer);pending.reject(e);pending=null}}
   child.on('error',fail);child.on('exit',()=>fail(new Error('ClothCraft worker stopped. Reopen the saved workspace.')))
@@ -148,6 +168,35 @@ export function createWorkspace(outputRoot) {
   busy=true
   try{
    start()
+   if(data.op==='select-avatar'){
+    const nextModel=data.model
+    // Validate before touching the active Rust process or saved project.
+    avatarPathFor(nextModel)
+    if(nextModel===avatarModel)return {ok:true,data:{...current,avatarModel}}
+    const savedResult=await save()
+    if(!savedResult.ok)throw new Error(savedResult.error||'Could not preserve the current garment before avatar change')
+    const previousProject=JSON.parse(fs.readFileSync(saveFile,'utf8'))
+    const previousModel=avatarModel
+    const restart=async(model,project)=>{
+     const previous=child;child=null;previous?.kill()
+     avatarModel=model;loaded=false;start()
+     return rpc({op:'open',project,avatar:true})
+    }
+    try{
+     // Keep authored patterns, seams and materials. A different collision
+     // body requires a fresh solver state; the saved pose can be recovered.
+     const opened=await restart(nextModel,{...previousProject,state:null,mesh_signature:null})
+     if(!opened.ok)throw new Error(opened.error||'Avatar mesh could not be loaded')
+     const result=remember(opened);loaded=true;runError=null;stepsSinceSave=0
+     await save()
+     return {...result,data:{...result.data,avatarModel}}
+    }catch(error){
+     const restored=await restart(previousModel,previousProject)
+     if(!restored.ok)throw new Error(`Avatar change failed (${error.message}); previous garment also could not reopen: ${restored.error}`)
+     remember(restored);loaded=true
+     return {ok:false,error:`Could not render ${nextModel}: ${error.message}. Previous garment restored.`,data:current}
+    }
+   }
    if(!loaded||data.op==='open'){
     liveGrab=null
     // Load the *actual current collider* on every new garment/session. The
@@ -189,9 +238,9 @@ export function createWorkspace(outputRoot) {
    if(result.ok){
     // A successful reset or edit establishes a new valid solver state.
     // Do not keep reporting an older OGC intersection after recovery.
-    if(['reset','edit','undo','redo','pull-panel','pose-panel','step','line-spec','set-property'].includes(data.op))runError=null
+    if(['reset','edit','edit-batch','undo','redo','pull-panel','pose-panel','step','line-spec','set-property'].includes(data.op))runError=null
     stepsSinceSave+=data.op==='step'?Number(data.steps||1):0
-    if(['edit','undo','redo','reset','pull-panel','pose-panel','line-spec','set-property'].includes(data.op)||stepsSinceSave>=30)await save()
+    if(['edit','edit-batch','undo','redo','reset','pull-panel','pose-panel','line-spec','set-property'].includes(data.op)||stepsSinceSave>=30)await save()
    }
    if(runError&&data.op==='snapshot')return{ok:false,error:runError,data:{...current,avatar:data.avatar?current.avatar:null,running:false}}
    return result

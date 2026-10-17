@@ -5,11 +5,11 @@ import './ClothCraftCornerTools.css'
 // Reuse Garment Studio's real CAD widget/icon system. Map only the commands
 // available in the Rust-linked ClothCraft canvas to working V2 interactions.
 const MODE_BY_TOOL = {
-  '2d': {select:'edit',point:'edit',curve:'edit',sew:'sew',internal:'line'},
+  '2d': {select:'edit',point:'edit',split:'edit',curve:'edit',polygon:'pen',measure:'edit',sew:'sew',internal:'line',notch:'edit',allowance:'edit'},
   '3d': {orbit:'edit',transform:'move3d',move:'move3d',rotate:'rotate3d',hand:'stretch3d'},
 }
 const ACTIVE_TOOL = {
-  '2d': {edit:'select',sew:'sew',line:'internal',pen:'select'},
+  '2d': {edit:'select',sew:'sew',line:'internal',pen:'polygon'},
   '3d': {edit:'orbit',move3d:'move',rotate3d:'rotate',stretch3d:'hand'},
 }
 

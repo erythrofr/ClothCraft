@@ -4,6 +4,7 @@ import CloObjectPropertyFields from './CloObjectPropertyFields.jsx'
 import CloEditableIdentity from './CloEditableIdentity.jsx'
 import {resolveCloDraftTarget} from '../core/cloPropertyCommands.js'
 import {CLO_LENGTH_UNITS,fromCentimetres,toCentimetresValue,formatPropertyLength} from '../core/cloPropertyUnits.js'
+import {getHardwarePreset} from '../data/hardwarePresets.js'
 import './CloPropertyEditorAccordion.css'
 
 // Mirror the grouping of CLO's context-sensitive pattern Property Editor.
@@ -24,9 +25,11 @@ export const CLO_PROPERTY_GROUPS = [
 // every pattern. CLO's Fabric asset and a fabric assigned to a pattern have
 // different editors; the same is true of topstitch and hardware instances.
 const CONTEXT_GROUPS={
-  fabric:[['information','Information'],['material','Material'],['physical','Physical Property'],['miscellaneous','Miscellaneous']],
+  fabric:[['information','Information'],['material','Material'],['physical','Physical Property'],['fabric','Fabric Library & Texture'],['miscellaneous','Miscellaneous']],
   sewing:[['information','Information'],['sewing','Sewing'],['miscellaneous','Miscellaneous']],
-  button:[['information','Information'],['button','Button'],['position','2D Placement'],['miscellaneous','Miscellaneous']],
+  button:[['information','Information'],['button','Button Style & Dimensions'],['button-material','Material · Basic Parameters & Reflection'],['position','2D Placement'],['miscellaneous','Miscellaneous']],
+  zipper:[['information','Information'],['zipper-style','Zipper Style'],['zipper-mechanics','Fastening & Sliders'],['zipper-extension','Start & End Extension'],['zipper-specification','Chain, Tape & Dimensions'],['zipper-material','Component Materials & Reflection'],['miscellaneous','Miscellaneous']],
+  hardware:[['information','Information'],['hardware','Shape & Specifications'],['hardware-material','Material · Basic Parameters & Reflection'],['construction','Construction & Placement']],
   buttonhole:[['information','Information'],['buttonhole','Buttonhole'],['position','2D Placement'],['miscellaneous','Miscellaneous']],
   topstitch:[['information','Information'],['topstitch','Stitch'],['miscellaneous','Miscellaneous']],
   graphic:[['information','Information'],['graphic','Graphic'],['position','2D Placement'],['miscellaneous','Miscellaneous']],
@@ -52,9 +55,14 @@ function Readout({label,value}) {
 
 export default function CloPropertyEditorAccordion({
   activeSection,selectedPiece,project,fabric,clothcraftHybrid,clothcraftLive,
-  selectedArea,onSwitchSection,onShowFabric,onSimulate,onReset,onSetLineTarget,objectTab='Scene',draftLineSelection,objectSelection,onPropertyEdit,onNativePropertyEdit,onSelectNativeSeam,
+  selectedArea,onSwitchSection,onShowFabric,onSimulate,onReset,onSetLineTarget,objectTab='Scene',draftLineSelection,objectSelection,onPropertyEdit,onNativePropertyEdit,onSelectNativeSeam,onPlaceHardwarePreset,onPairZipperToSeam,
   children,
 }) {
+  const accessoryKinds=['button','buttonhole','zipper','topstitch','puckering']
+  const accessoryTab=accessoryKinds.includes(String(objectTab).toLowerCase())
+    ? String(objectTab).toLowerCase():null
+  const selectedDraftAccessory=objectSelection?.source==='draft' &&
+    accessoryKinds.includes(String(objectSelection.type).toLowerCase())
   const selection=clothcraftHybrid?clothcraftLive?.selection:null
   const nativeLine=clothcraftHybrid?(selection?.kind==='line'?selection:null):draftLineSelection
   const nativeSewing=selection?.kind==='sewing'?selection:null
@@ -64,20 +72,26 @@ export default function CloPropertyEditorAccordion({
     ? (objectSelection.type==='fabric'
       ?clothcraftLive?.fabricRefs?.find(f=>f.id===objectSelection.id)||objectSelection
       :clothcraftLive?.panelRefs?.find(p=>p.id===objectSelection.id)||objectSelection)
-    :null
-  const selectedObjectKind=clothcraftHybrid
+    :clothcraftHybrid&&activeSection==='Fabric'&&objectTab==='Fabric'
+      ?clothcraftLive?.fabricRefs?.[0]||null:null
+  const selectedObjectKind=objectSelection?.source==='library'?'hardware':selectedDraftAccessory
+    ?String(objectSelection.type).toLowerCase():clothcraftHybrid && accessoryTab && !objectSelection
+      ?accessoryTab:clothcraftHybrid
     ? nativeObject?.type?.toLowerCase() || (objectTab==='Fabric'&&activeSection==='Fabric'?'none'
       : nativeLine?'line':nativeSewing?'sewing':nativePattern?'pattern':'none')
     : (objectSelection?.type==='Scene'&&objectSelection?.pieceId?'pattern':objectSelection?.type?.toLowerCase())
+      ||(accessoryTab && !objectSelection ? accessoryTab :null)
       ||(selectedPiece&&objectTab==='Scene'?'pattern':'none')
   const visibleGroups=selectedObjectKind==='none'?[]:CONTEXT_GROUPS[selectedObjectKind] || (selectedObjectKind==='pattern'||selectedObjectKind==='line'||selectedObjectKind==='project'
       ? CLO_PROPERTY_GROUPS
       : CLO_PROPERTY_GROUPS.filter(([id])=>['information','miscellaneous'].includes(id)))
-  const draftSelection=!clothcraftHybrid?(objectSelection?.type==='Scene'&&objectSelection.pieceId
+  const draftSelection=(!clothcraftHybrid||selectedDraftAccessory)?(objectSelection?.type==='Scene'&&objectSelection.pieceId
     ? {...objectSelection,type:'pattern'}
     : objectSelection|| (selectedPiece ? {type:'pattern',id:selectedPiece.id,pieceId:selectedPiece.id,name:selectedPiece.name}:null)):null
   const draftObject=resolveCloDraftTarget(project,draftSelection)
-  const propertySubject=nativeObject?.name||
+  const hardwarePreset=getHardwarePreset(objectSelection?.source==='library'?objectSelection.id:draftObject?.hardwarePresetId)
+  const propertySubject=(selectedDraftAccessory?objectSelection.name:null)||(objectSelection?.source==='library'?objectSelection.name:null)||nativeObject?.name||
+    (accessoryTab && !objectSelection ? `Choose a ${objectTab.toLowerCase()} · EXO draft`:null)||
     (clothcraftHybrid?(selection?.panelName||'Select a pattern or fabric')
       :(draftObject?.name||objectSelection?.name||selectedPiece?.name||'Select an object'))
   const identityKind=selectedObjectKind==='fabric'?'Fabric':selectedObjectKind==='pattern'?'Pattern Piece':
@@ -125,18 +139,23 @@ export default function CloPropertyEditorAccordion({
     // CLO changes its Property Editor schema with the selection, not merely
     // with the top-level workspace tab. Never reuse stale expanded pattern
     // controls for a newly selected Fabric (or vice versa).
-    if(selectedObjectKind==='fabric')setOpen(['information','material','physical'])
+    if(selectedObjectKind==='fabric')setOpen(['information','material','physical','fabric'])
     else if(selectedObjectKind==='pattern')setOpen(['information'])
     else if(selectedObjectKind==='line')setOpen(['information','selected-line'])
+    else if(selectedObjectKind==='button')setOpen(['information','button','button-material','position'])
+    else if(selectedObjectKind==='zipper')setOpen(['information','zipper-style','zipper-mechanics','zipper-extension','zipper-specification','zipper-material'])
+    else if(selectedObjectKind==='hardware')setOpen(['information','hardware','hardware-material','construction'])
+    else if(selectedObjectKind==='topstitch'||selectedObjectKind==='puckering'||selectedObjectKind==='buttonhole')
+      setOpen(['information',selectedObjectKind,...(selectedObjectKind==='buttonhole'?['position']:[])])
     else if(selectedObjectKind==='none')setOpen(['information'])
     else setOpen(['information'])
-  },[selectedObjectKind,identityId])
+  },[selectedObjectKind,identityId,objectTab])
   useEffect(()=>{
     if(nativeLine)setOpen(previous=>previous.includes('selected-line')?previous:[...previous,'selected-line'])
   },[nativeLine?.panelId,nativeLine?.edgeId])
   useEffect(()=>{
     if(!objectSelection)return
-    const relevant={fabric:'material',button:'button',buttonhole:'buttonhole',topstitch:'topstitch',graphic:'graphic',grading:'grading',pom:'pom',puckering:'puckering'}[selectedObjectKind]
+    const relevant={fabric:'material',button:'button',zipper:'zipper-mechanics',hardware:'hardware',buttonhole:'buttonhole',topstitch:'topstitch',graphic:'graphic',grading:'grading',pom:'pom',puckering:'puckering'}[selectedObjectKind]
     if(relevant)setOpen(previous=>previous.includes(relevant)?previous:[...previous,relevant])
   },[objectSelection?.id,selectedObjectKind])
   const selectedSeams=selectedPiece
@@ -170,13 +189,15 @@ export default function CloPropertyEditorAccordion({
           {nativePattern&&selectedObjectKind==='pattern'&&<><Readout label="2D Perimeter" value={length(nativePattern.length2DCm)}/><Readout label="3D Perimeter" value={length(nativePattern.length3DCm)}/><Readout label="Boundary Count" value={nativePattern.edgeCount}/></>}
           {draftObject&&<CloObjectPropertyFields group="information" selection={draftSelection} project={project}
             onEdit={onPropertyEdit} omitFields={['name','itemNo']}/>}
+          {hardwarePreset&&<><Readout label="Style" value={hardwarePreset.name}/><Readout label="Category" value={hardwarePreset.kind}/><Readout label="Finish" value={hardwarePreset.finish}/></>}
           {selectedObjectKind==='fabric'&&clothcraftHybrid&&['construction','supplier','owner'].map(field=>
             <CloEditableIdentity key={field} field={field}
               label={field==='construction'?'Construction':field==='supplier'?'Supplier':'Owner'}
               value={nativeObject?.[field]||''}
               kind="fabric" objectId={identityId||'none'} editable={Boolean(identityId)}
               onCommit={commitIdentity}/>)}
-          {clothcraftHybrid&&<p className="clo-pe-note">Native records are edited in ClothCraft; EXO draft values are not substituted. Object Type is structural and cannot be changed with a text edit.</p>}
+          {clothcraftHybrid&&selectedDraftAccessory&&<p className="clo-pe-note">EXO draft construction annotation. These appearance properties are saved with the EXO draft; buttons, zippers and puckering do not create physical hardware or puckering forces in the live Rust cloth solver.</p>}
+          {clothcraftHybrid&&!selectedDraftAccessory&&<p className="clo-pe-note">Native records are edited in ClothCraft; EXO draft values are not substituted. Object Type is structural and cannot be changed with a text edit.</p>}
         </>
       case 'selected-line':
         return <>
@@ -285,6 +306,77 @@ export default function CloPropertyEditorAccordion({
           </div>
           <p className="clo-pe-note">Color, roughness, metalness and sheen edit real EXO appearance values. CLO's per-face texture maps, displacement and opacity require additional renderer support; those controls are not falsely enabled.</p>
         </>
+      case 'button-material':
+        return <>
+          {draftObject&&<CloObjectPropertyFields group="button-material" selection={draftSelection} project={project} onEdit={onPropertyEdit}/>}
+          <Readout label="Material Type" value={hardwarePreset?.material||'Custom'}/>
+          <Readout label="Surface" value={hardwarePreset?.finish||'Custom PBR'}/>
+          <p className="clo-pe-note">These values drive the button's 3D appearance. Reflection intensity changes environment reflection and roughness determines highlight spread.</p>
+        </>
+      case 'zipper-style':
+        return <>
+          {draftObject&&<CloObjectPropertyFields group="zipper-style" selection={draftSelection} project={project} onEdit={onPropertyEdit}/>}
+          <Readout label="Construction" value={hardwarePreset?.zipperType||draftObject?.type||'coil'}/>
+          <Readout label="Closure" value={hardwarePreset?.separating?'Separating':'Closed end'}/>
+          <Readout label="Components" value="Tape · chain/teeth · slider · puller · end stops"/>
+        </>
+      case 'zipper-mechanics': {
+        const candidates=(project.seams||[]).filter(seam=>['normal','zipper',undefined].includes(seam.type)&&[seam.a,seam.b].some(edge=>edge?.pieceId===draftSelection?.pieceId&&edge.edgeIndex===draftObject?.edgeIndex))
+        const linked=(project.seams||[]).find(seam=>seam.id===draftObject?.pairedSeamId)
+        const primaryClosed=Math.max(0,Math.min(1,Number(draftObject?.sliderFraction??1)))
+        const oppositeOpen=draftObject?.twoWay?Math.max(0,Math.min(1,Number(draftObject.bottomSliderFraction??0))):0
+        const middleClosed=Math.max(0,primaryClosed-oppositeOpen)
+        return <>
+          {draftObject&&<CloObjectPropertyFields group="zipper-mechanics" selection={draftSelection} project={project} onEdit={onPropertyEdit}/>}
+          {draftObject&&<label className="clo-pe-zipper-slider"><span>{draftObject.twoWay?'Primary slider · closes from selected opening end':'Drag Zipper Pull'}</span><input type="range" aria-label="Drag Zipper Pull" min="0" max="100" step="1" value={Math.round(primaryClosed*100)} onChange={event=>onPropertyEdit?.(draftSelection,'sliderFraction',Number(event.target.value)/100)}/><strong>{Math.round(primaryClosed*100)}% primary closed</strong></label>}
+          {draftObject?.twoWay&&<label className="clo-pe-zipper-slider"><span>Secondary slider · opens from opposite end</span><input type="range" aria-label="Drag Bottom Zipper Pull" min="0" max="100" step="1" value={Math.round(oppositeOpen*100)} onChange={event=>onPropertyEdit?.(draftSelection,'bottomSliderFraction',Number(event.target.value)/100)}/><strong>{Math.round(oppositeOpen*100)}% opposite end open</strong></label>}
+          {draftObject?.twoWay&&<div className="clo-pe-zipper-closure" aria-label="Two-way zipper locked chain"><span>Chain engaged</span><strong>{draftObject.fastened===false?0:Math.round(middleClosed*100)}%</strong><div className="clo-pe-zipper-closure-bar"><span style={{width:`${draftObject.fastened===false?0:middleClosed*100}%`}}/></div></div>}
+          {draftObject&&<label className="clo-pe-zipper-seam"><span>Sewn Edge Pair</span><select aria-label="Pair zipper with sewn edge" value={linked?.id||''} onChange={event=>onPairZipperToSeam?.(draftSelection.pieceId,draftSelection.itemId,event.target.value)}><option value="">Unpaired (visual hardware only)</option>{candidates.map(seam=><option key={seam.id} value={seam.id}>{seam.name||seam.id}</option>)}</select></label>}
+          <p className="clo-pe-note">{linked?`Connected to ${linked.name||linked.id}. ${draftObject?.twoWay?'Both sliders update the EXO draft seam’s independently open ends.':'The slider updates the EXO draft seam opening.'} Full rigid slider collisions and physical tooth interlock are not in the native Rust solver.`:'Create or select a sewing relationship between matching garment edges to enable draft cloth closure. A single-edge zipper remains visual.'}</p>
+        </>
+      }
+      case 'zipper-extension':
+        return <>
+          {draftObject&&<CloObjectPropertyFields group="zipper-extension" selection={draftSelection} project={project} onEdit={onPropertyEdit}/>}
+          <p className="clo-pe-note">Start and end distances extend their respective rendered zipper terminals along the garment edge direction. Legacy zippers without a Start Extension setting continue to use End Extension for both ends until customized.</p>
+        </>
+      case 'zipper-specification':
+        return <>
+          {draftObject&&<CloObjectPropertyFields group="zipper-specification" selection={draftSelection} project={project} onEdit={onPropertyEdit}/>}
+          <Readout label="Supplier gauge" value={hardwarePreset?.sizeCode||'Illustrative'}/>
+          <Readout label="Slider reference length" value={`${hardwarePreset?.dimensionsMm?.sliderLength??'—'} mm`}/>
+          <p className="clo-pe-note">Component dimensions are visual millimetre values; select a sewn edge pair to couple the Draft cloth opening.</p>
+        </>
+      case 'zipper-material':
+        return <>
+          {draftObject&&<CloObjectPropertyFields group="zipper-material" selection={draftSelection} project={project} onEdit={onPropertyEdit}/>}
+          <Readout label="Tape Fabric" value={hardwarePreset?.material||'Custom'}/>
+          <p className="clo-pe-note">Separate chain, tape, slider, puller and stopper colors are rendered using PBR values. Per-component texture maps and measured physical textile behavior remain future renderer and solver work.</p>
+        </>
+      case 'hardware':
+        return <>
+          <Readout label="Mount" value={hardwarePreset?.mount||hardwarePreset?.zipperType||hardwarePreset?.kind||'—'}/>
+          {Object.entries(hardwarePreset?.dimensionsMm||{}).map(([key,value])=><Readout key={key} label={key.replace(/([A-Z])/g,' $1').replace(/^./,letter=>letter.toUpperCase())} value={`${value} mm`}/>)}
+          {hardwarePreset?.holes!=null&&<Readout label="Sewing Holes" value={hardwarePreset.holes}/>}
+          {hardwarePreset?.components&&<Readout label="Components" value={hardwarePreset.components.join(', ')}/>}
+        </>
+      case 'hardware-material':
+        return <>
+          <Readout label="Base Material" value={hardwarePreset?.material||'—'}/>
+          <Readout label="Finish" value={hardwarePreset?.finish||'—'}/>
+          <div className="clo-pe-fabric"><span style={{background:hardwarePreset?.pbr.baseColor||'#888888'}}/><strong>Base Color</strong><small>{hardwarePreset?.pbr.baseColor||'—'}</small></div>
+          <Readout label="Metalness" value={hardwarePreset?.pbr.metalness?.toFixed(2)||'—'}/>
+          <Readout label="Roughness" value={hardwarePreset?.pbr.roughness?.toFixed(2)||'—'}/>
+          <p className="clo-pe-note">Library reference values; place a supported style on a draft pattern to edit its individual optical and size parameters.</p>
+        </>
+      case 'construction':
+        return <>
+          <p className="clo-pe-note">{hardwarePreset?.construction||'No construction instructions available.'}</p>
+          <Readout label="Measurement Status" value={hardwarePreset?.measurementStatus||'—'}/>
+          {['button','buttonhole','zipper'].includes(hardwarePreset?.kind)&&<button type="button" className="clo-pe-action" disabled={clothcraftHybrid||!selectedPiece} onClick={()=>onPlaceHardwarePreset?.(hardwarePreset.id)}>PLACE {hardwarePreset.kind.toUpperCase()} ON SELECTED PATTERN</button>}
+          {clothcraftHybrid&&<p className="clo-pe-note">Library reference only in native mode; draft button hardware is not installed into the Rust garment.</p>}
+          {!['button','buttonhole','zipper'].includes(hardwarePreset?.kind)&&<p className="clo-pe-note">Detailed placement and physical attachment for this hardware family are in development.</p>}
+        </>
       case 'physical':
         return <>
           {draftObject&&<CloObjectPropertyFields group="physical" selection={draftSelection} project={project} onEdit={onPropertyEdit}/>}
@@ -331,7 +423,7 @@ export default function CloPropertyEditorAccordion({
         const pom=project.customMeasurements?.find((m,i)=>String(m.id??i)===String(objectSelection?.id))
         return <><Readout label="Measurement" value={pom?.name||'—'}/><Readout label="Draft Value" value={typeof pom?.valueCm==='number'?`${pom.valueCm.toFixed(2)} cm`:'Not independently measured'}/><p className="clo-pe-note">See Production for traced 2D/3D POM construction and size grading. Unmapped 3D length is never copied from the 2D value.</p></>
       }
-      case 'puckering':return <p className="clo-pe-note">Puckering patterns and seam-tension physics are not wired to the native solver yet; no simulated value is implied.</p>
+      case 'puckering':return draftObject?<CloObjectPropertyFields group="puckering" selection={draftSelection} project={project} onEdit={onPropertyEdit}/>:<p className="clo-pe-note">Select or add an EXO draft puckering annotation in Object Browser to edit its visible construction specifications. The native Rust solver does not currently implement fabric puckering forces.</p>
       default:return null
     }
   }
@@ -343,7 +435,7 @@ export default function CloPropertyEditorAccordion({
         {CLO_LENGTH_UNITS.map(unit=><option key={unit} value={unit}>{unit}</option>)}
       </select>
     </label>
-    {clothcraftHybrid&&activeSection==='Sewing'&&clothcraftLive?.seamRefs?.length>0&&
+    {clothcraftHybrid&&activeSection==='Sewing'&&!accessoryTab&&!selectedDraftAccessory&&clothcraftLive?.seamRefs?.length>0&&
       <label className="clo-pe-native-seam-picker">Sewing Relationship
         <select aria-label="Select native sewing relationship" value={nativeSewing?.seamId||''}
           onChange={event=>onSelectNativeSeam?.(event.target.value)}>

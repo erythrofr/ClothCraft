@@ -1,12 +1,15 @@
 const KEY = 'exo.community.social.v1';
+const PROFILE_KEY = 'exo-community-designer-profiles-v1';
+const creatorSlug = value => String(value||'').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+function followedCreators(){try {const data=JSON.parse(localStorage.getItem(PROFILE_KEY)||'{}');return new Set(Object.entries(data).filter(([,v])=>v && v.following).map(([key])=>key));}catch{return new Set();}}
 const forumCategories = ['All', 'Garment construction', 'Fabrics', 'Pattern drafting', 'Production', '3D scenes', 'Avatar fit'];
 const starterThreads = [
-  {id:'s1',category:'Garment construction',title:'How are you building structure into cropped jackets?',body:'Sharing construction experiments: lightweight interfacing, shaped facings, and strategic seam placement. What has worked for your samples?',author:'EXO Studio',time:'Community prompt',votes:14,replies:[{id:'r1',author:'Pattern Lab',body:'Test the facing and hem balance on a half scale toile first.'}]},
-  {id:'s2',category:'Fabrics',title:'Fabric library: what material tests matter most?',body:'Comparing stretch recovery, drape, weight, and surface texture when digitizing samples.',author:'Materials Lab',time:'Community prompt',votes:9,replies:[]},
-  {id:'s3',category:'Pattern drafting',title:'Drafting articulated sleeves for a moto silhouette',body:'Where do you place the elbow shaping seam when you want volume without excess bulk?',author:'Pattern Lab',time:'Community prompt',votes:21,replies:[]},
-  {id:'s4',category:'Production',title:'Preparing a useful sample review sheet',body:'Which measurements, photos and tolerances should accompany factory feedback?',author:'EXO Studio',time:'Community prompt',votes:7,replies:[]},
-  {id:'s5',category:'3D scenes',title:'Lighting black technical fabrics in a studio scene',body:'Looking for references and approaches that preserve texture in dark garment renders.',author:'Scene Lab',time:'Community prompt',votes:17,replies:[]},
-  {id:'s6',category:'Avatar fit',title:'Avatar fit checks across size ranges',body:'What are the most useful pressure, ease, and motion checks for early digital fittings?',author:'Fit Lab',time:'Community prompt',votes:11,replies:[]}
+  {id:'s1',category:'Garment construction',title:'How are you building structure into cropped jackets?',body:'Sharing construction experiments: lightweight interfacing, shaped facings, and strategic seam placement. What has worked for your samples?',author:'EXO Studio',time:'Community prompt',votes:0,replies:[{id:'r1',author:'Pattern Lab',body:'Test the facing and hem balance on a half scale toile first.'}]},
+  {id:'s2',category:'Fabrics',title:'Fabric library: what material tests matter most?',body:'Comparing stretch recovery, drape, weight, and surface texture when digitizing samples.',author:'Materials Lab',time:'Community prompt',votes:0,replies:[]},
+  {id:'s3',category:'Pattern drafting',title:'Drafting articulated sleeves for a moto silhouette',body:'Where do you place the elbow shaping seam when you want volume without excess bulk?',author:'Pattern Lab',time:'Community prompt',votes:0,replies:[]},
+  {id:'s4',category:'Production',title:'Preparing a useful sample review sheet',body:'Which measurements, photos and tolerances should accompany factory feedback?',author:'EXO Studio',time:'Community prompt',votes:0,replies:[]},
+  {id:'s5',category:'3D scenes',title:'Lighting black technical fabrics in a studio scene',body:'Looking for references and approaches that preserve texture in dark garment renders.',author:'Scene Lab',time:'Community prompt',votes:0,replies:[]},
+  {id:'s6',category:'Avatar fit',title:'Avatar fit checks across size ranges',body:'What are the most useful pressure, ease, and motion checks for early digital fittings?',author:'Fit Lab',time:'Community prompt',votes:0,replies:[]}
 ];
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const initials = value => String(value || 'EXO').split(/\s+/).slice(0,2).map(x=>x[0]?.toUpperCase()||'').join('');
@@ -31,7 +34,7 @@ const icon = (name) => ({
  share:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V3m0 0L7 8m5-5 5 5M5 14v6h14v-6"/></svg>',
  arrow:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 14 0m-6-6 6 6-6 6"/></svg>'
 }[name]||'');
-const normalize = projects => (Array.isArray(projects)?projects:[]).filter(p=>p&&typeof p==='object').map((p,i)=>({...p,id:String(p.id ?? i),title:String(p.title||'Untitled study'),creator:String(p.creator||'EXO Creator'),description:String(p.description||''),category:String(p.category||'Project'),image:safeImage(p.image),alt:String(p.alt||p.title||'Project image')}));
+const normalize = projects => (Array.isArray(projects)?projects:[]).filter(p=>p&&typeof p==='object').map((p,i)=>({...p,id:String(p.id ?? i),title:String(p.title||'Untitled study'),creator:String(p.creator||'EXO Creator'),description:String(p.description||''),category:String(p.category||'Project'),handle:String(p.handle||creatorSlug(p.creator||'EXO Creator')),image:safeImage(p.image),alt:String(p.alt||p.title||'Project image')}));
 function avatar(name) {return '<span class="exo-social-avatar" aria-hidden="true">'+escapeHTML(initials(name))+'</span>';}
 function emptyVisual(){return '<div class="exo-social-image-fallback"><span>EXO / COMMUNITY</span><strong>PROJECT STUDY</strong></div>';}
 function img(project){return project.image?'<img src="'+attr(project.image)+'" alt="'+attr(project.alt)+'" loading="lazy" decoding="async">':emptyVisual();}
@@ -40,22 +43,30 @@ function actionButton(action,id,kind,label,pressed) {return '<button type="butto
 function projectTile(p) {return '<button type="button" class="exo-social-mosaic-tile" data-action="open" data-id="'+attr(p.id)+'" aria-label="View '+attr(p.title)+'">'+img(p)+'<span class="exo-social-mosaic-shade"><span>'+escapeHTML(p.category)+'</span><strong>'+escapeHTML(p.title)+'</strong><small>by '+escapeHTML(p.creator)+'</small></span></button>';}
 function post(p,state,expanded) {
  const comments=Array.isArray(state.comments[p.id])?state.comments[p.id]:[];
- return '<article class="exo-social-post"><div class="exo-social-post-header"><button type="button" class="exo-social-author" data-action="profile" data-id="'+attr(p.id)+'">'+avatar(p.creator)+'<span><strong>'+escapeHTML(p.creator)+'</strong><small>'+escapeHTML(p.category)+' · Community project</small></span></button><span class="exo-social-post-index">EXO / '+escapeHTML(p.id.slice(0,8).toUpperCase())+'</span></div><button type="button" class="exo-social-post-image" data-action="open" data-id="'+attr(p.id)+'" aria-label="Open '+attr(p.title)+'">'+img(p)+'</button><div class="exo-social-post-body"><div class="exo-social-actions"><div>'+actionButton('like',p.id,'heart','Like '+p.title,!!state.likes[p.id])+actionButton('comments',p.id,'comment','Toggle comments for '+p.title,expanded)+actionButton('share',p.id,'share','Share '+p.title,false)+'</div>'+actionButton('save',p.id,'bookmark','Save '+p.title,!!state.saves[p.id])+'</div><div class="exo-social-caption"><strong>'+escapeHTML(p.title)+'</strong><p>'+escapeHTML(p.description||'An EXO community design study.')+'</p></div><button type="button" class="exo-social-comment-count" data-action="comments" data-id="'+attr(p.id)+'">'+(comments.length?'View '+comments.length+' local comment'+(comments.length===1?'':'s'):'Start a conversation')+'</button>'+(expanded?'<section class="exo-social-comments" aria-label="Comments for '+attr(p.title)+'"><p class="exo-social-local-note">Comments are saved in this browser for demo purposes.</p>'+comments.map(c=>'<p class="exo-social-comment"><strong>'+escapeHTML(c.author||'You')+'</strong> '+escapeHTML(c.body)+'</p>').join('')+'<form class="exo-social-comment-form" data-id="'+attr(p.id)+'"><label class="exo-social-sr" for="exo-comment-'+attr(p.id)+'">Write a comment</label><input id="exo-comment-'+attr(p.id)+'" name="comment" maxlength="450" placeholder="Add a thoughtful comment…" required><button type="submit">Post</button></form></section>':'')+'</div></article>';
+ const handle='@'+p.handle.replace(/^@/,'');
+ return '<article class="exo-social-post" data-project-id="'+attr(p.id)+'"><div class="exo-social-post-header"><button type="button" class="exo-social-author" data-action="profile" data-id="'+attr(p.id)+'">'+avatar(p.creator)+'<span><strong>'+escapeHTML(handle)+'</strong><small>'+escapeHTML(p.creator)+' · '+escapeHTML(p.category)+'</small></span></button><button type="button" class="exo-social-view-profile" data-action="profile" data-id="'+attr(p.id)+'">View profile ↗</button></div><button type="button" class="exo-social-post-image" data-action="open" data-id="'+attr(p.id)+'" aria-label="Open '+attr(p.title)+'">'+img(p)+'</button><div class="exo-social-post-body"><div class="exo-social-actions"><div>'+actionButton('like',p.id,'heart','Like '+p.title,!!state.likes[p.id])+actionButton('comments',p.id,'comment','Toggle comments for '+p.title,expanded)+actionButton('share',p.id,'share','Share '+p.title,false)+'</div>'+actionButton('save',p.id,'bookmark','Save '+p.title,!!state.saves[p.id])+'</div><div class="exo-social-caption"><strong>'+escapeHTML(p.title)+'</strong><p><button type="button" class="exo-social-caption-author" data-action="profile" data-id="'+attr(p.id)+'">'+escapeHTML(handle)+'</button> '+escapeHTML(p.description||'An EXO community design study.')+'</p><button type="button" class="exo-social-tag" data-filter="'+attr(p.category)+'">#'+escapeHTML(p.category.toLowerCase().replace(/\s+/g,''))+'</button></div><button type="button" class="exo-social-comment-count" data-action="comments" data-id="'+attr(p.id)+'">'+(comments.length?'View '+comments.length+' local comment'+(comments.length===1?'':'s'):'Add a comment')+'</button>'+(expanded?'<section class="exo-social-comments" aria-label="Comments for '+attr(p.title)+'"><p class="exo-social-local-note">Comments stay in this browser (demo).</p>'+comments.map(c=>'<p class="exo-social-comment"><strong>'+escapeHTML(c.author||'You')+'</strong> '+escapeHTML(c.body)+'</p>').join('')+'<form class="exo-social-comment-form" data-id="'+attr(p.id)+'"><label class="exo-social-sr" for="exo-comment-'+attr(p.id)+'">Write a comment</label><input id="exo-comment-'+attr(p.id)+'" name="comment" maxlength="450" placeholder="Add a comment…" required><button type="submit">Post</button></form></section>':'')+'</div></article>';
 }
 export function mountExplorePage(container,{projects=[],onOpenProject=()=>{},onProfile=()=>{}}={}) {
  if (!container) return ()=>{};
  const items=normalize(projects);
  const state=load();
- let filter='All',view='discover',expanded='',notice='';
+ let filter='All',view='for-you',expanded='',notice='';
  const categories=['All',...new Set(items.map(p=>p.category))];
- function filtered(){return filter==='All'?items:items.filter(p=>p.category===filter);}
+ function filtered(){
+   const category=filter==='All'?items:items.filter(p=>p.category===filter);
+   if(view!=='following')return category;
+   const followed=followedCreators();
+   return category.filter(p=>followed.has(creatorSlug(p.creator)) || followed.has(creatorSlug(p.handle)));
+ }
  function render(){
    const selected=filtered();
-   container.innerHTML='<section class="exo-social-root exo-explore">'+commonHeader('THE CREATIVE NETWORK','Explore','Objects, materials, and ideas from the EXO creative community.')+
-   '<div class="exo-social-explore-toolbar"><nav class="exo-social-tabs" aria-label="Explore view"><button data-view="discover" class="'+(view==='discover'?'is-selected':'')+'" aria-pressed="'+(view==='discover')+'">Discover</button><button data-view="feed" class="'+(view==='feed'?'is-selected':'')+'" aria-pressed="'+(view==='feed')+'">Following / Feed</button></nav><span>'+selected.length+' PROJECT'+(selected.length===1?'':'S')+'</span></div>'+
+   const tabs=[['for-you','For You'],['following','Following'],['grid','Explore grid']];
+   container.innerHTML='<section class="exo-social-root exo-explore">'+commonHeader('EXO / COMMUNITY','For You','A visual journal of work from the creative community.')+
+   '<div class="exo-social-explore-toolbar"><nav class="exo-social-tabs" aria-label="Explore view">'+tabs.map(([key,label])=>'<button type="button" data-view="'+key+'" class="'+(view===key?'is-selected':'')+'" aria-pressed="'+(view===key)+'">'+label+'</button>').join('')+'</nav><span>'+selected.length+' PROJECT'+(selected.length===1?'':'S')+'</span></div>'+
    '<div class="exo-social-filters" role="group" aria-label="Filter project category">'+categories.map(c=>'<button type="button" data-filter="'+attr(c)+'" class="'+(c===filter?'is-selected':'')+'" aria-pressed="'+(c===filter)+'">'+escapeHTML(c)+'</button>').join('')+'</div>'+
-   (selected.length?(view==='discover'?'<div class="exo-social-mosaic">'+selected.map(projectTile).join('')+'</div><div class="exo-social-section-divider"><span>IN THE FEED</span><span>STORIES FROM THE STUDIO</span></div>':'')+'<div class="exo-social-feed">'+selected.map(p=>post(p,state,expanded===p.id)).join('')+'</div>':'<div class="exo-social-empty">No projects in this category yet. Try another filter.</div>')+
-   '<p class="exo-social-status" role="status" aria-live="polite">'+escapeHTML(notice)+'</p></section>';
+   (selected.length?(view==='grid'?'<div class="exo-social-mosaic">'+selected.map(projectTile).join('')+'</div>':'<div class="exo-social-feed-layout"><div class="exo-social-feed">'+selected.map(p=>post(p,state,expanded===p.id)).join('')+'</div><aside class="exo-social-feed-aside" aria-label="Community journal"><div class="exo-social-aside-heading"><span>EXO / JOURNAL</span><span>01 — '+String(selected.length).padStart(2,'0')+'</span></div><h2>Ideas in progress.</h2><p>Explore the processes, materials and details shaping each study.</p><div class="exo-social-aside-rule"></div><span class="exo-social-aside-label">FEATURED MAKERS · DEMO</span>'+[...new Map(selected.map(p=>[creatorSlug(p.creator),p])).values()].slice(0,4).map(p=>'<button type="button" class="exo-social-aside-maker" data-action="profile" data-id="'+attr(p.id)+'">'+avatar(p.creator)+'<span><strong>'+escapeHTML(p.creator)+'</strong><small>'+escapeHTML(p.category)+'</small></span>'+icon('arrow')+'</button>').join('')+'<div class="exo-social-aside-rule"></div><p class="exo-social-aside-foot">Every interaction is saved in this browser. This is an EXO concept community, not a live social network.</p></aside></div>'):
+   '<div class="exo-social-empty">'+(view==='following'?'No followed creator projects yet. Open a creator profile and select Follow to build your feed.':'No projects in this category yet. Try another filter.')+'</div>')+
+   '<p class="exo-social-status" role="status" aria-live="polite">'+escapeHTML(notice)+'</p><p class="exo-social-feed-disclaimer">Prototype feed · likes, saves, follows and comments are stored only in this browser.</p></section>';
  }
  function click(e){
    const button=e.target.closest('button');
@@ -68,13 +79,23 @@ export function mountExplorePage(container,{projects=[],onOpenProject=()=>{},onP
    if(action==='open'&&p){onOpenProject(p);return;}
    if(action==='profile'&&p){onProfile(p.creator,p);return;}
    if(action==='like'||action==='save'){const key=action==='like'?'likes':'saves';state[key][id]=!state[key][id];save(state);notice=action==='save'?(state.saves[id]?'Saved to this browser.':'Removed from saved projects.') : '';render();return;}
-   if(action==='comments'){expanded=expanded===id?'':id;notice='';render();return;}
-   if(action==='share'&&p){const shareUrl=typeof location!=='undefined'?location.href.split('#')[0]+'#project-'+encodeURIComponent(id):'EXO '+p.title;const shareText=p.title+' — '+shareUrl;const fallback=()=>{notice='Sharing is unavailable here. Project: '+p.title;render();};if(typeof navigator!=='undefined'&&navigator.clipboard?.writeText){navigator.clipboard.writeText(shareText).then(()=>{notice='Project link copied to clipboard.';render();}).catch(fallback);}else fallback();}
+   if(action==='comments'){expanded=expanded===id?'':id;notice='';render();if(expanded)container.querySelector('.exo-social-comment-form[data-id="'+CSS.escape(id)+'"] input')?.focus();return;}
+   if(action==='share'&&p){
+     const shareUrl=typeof location!=='undefined'?location.href.split('#')[0]+'#project-'+encodeURIComponent(id):'EXO '+p.title;
+     const shareText=p.title+' — '+shareUrl;
+     const success=()=>{notice='Project link copied to clipboard.';render();};
+     const fallback=()=>{notice='Copy this project link: '+shareUrl;render();};
+     if(typeof navigator!=='undefined'&&navigator.share){navigator.share({title:p.title,url:shareUrl}).then(()=>{notice='Project shared.';render();}).catch(error=>{if(error?.name!=='AbortError')fallback();});}
+     else if(typeof navigator!=='undefined'&&navigator.clipboard?.writeText){navigator.clipboard.writeText(shareText).then(success).catch(fallback);}
+     else fallback();
+   }
  }
  function submit(e){const form=e.target.closest('.exo-social-comment-form');if(!form)return;e.preventDefault();const id=form.dataset.id,body=(new FormData(form).get('comment')||'').toString().trim().slice(0,450);if(!body)return;(state.comments[id]??=[]).push({id:uid(),author:'You',body});save(state);expanded=id;render();}
- container.addEventListener('click',click);container.addEventListener('submit',submit);render();
- return ()=>{container.removeEventListener('click',click);container.removeEventListener('submit',submit);};
+ function syncFollow(){if(view==='following')render();}
+ container.addEventListener('click',click);container.addEventListener('submit',submit);window.addEventListener('storage',syncFollow);render();
+ return ()=>{container.removeEventListener('click',click);container.removeEventListener('submit',submit);window.removeEventListener('storage',syncFollow);};
 }
+
 function threadCard(t,state,open) {
  const replies=[...(Array.isArray(t.replies)?t.replies:[]),...(Array.isArray(state.replies[t.id])?state.replies[t.id]:[])];
  const score=Number(t.votes||0)+(state.votes[t.id]?1:0);

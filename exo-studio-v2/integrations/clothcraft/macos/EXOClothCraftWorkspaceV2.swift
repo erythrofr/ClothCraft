@@ -115,8 +115,15 @@ final class EXOClothCraftApp: NSObject, NSApplicationDelegate, WKNavigationDeleg
         let template = clothCraft.appendingPathComponent("target/debug/cloth-template")
         let fitting = clothCraft.appendingPathComponent("target/debug/cloth-fit")
         let native = resources.appendingPathComponent("native_cpp/build-cmake/garment_cad_cli")
+        // Keep this list in sync with the server's local imports. An earlier
+        // V2 bundle omitted agent-api.mjs; the window opened but its project
+        // service crashed with ERR_MODULE_NOT_FOUND before a garment loaded.
         for required in [node, template, fitting, native,
-                         resources.appendingPathComponent("web/index.html")] {
+                         resources.appendingPathComponent("web/index.html"),
+                         scripts.appendingPathComponent("static.mjs"),
+                         scripts.appendingPathComponent("server.mjs"),
+                         scripts.appendingPathComponent("workspace.mjs"),
+                         scripts.appendingPathComponent("agent-api.mjs")] {
             if !FileManager.default.fileExists(atPath: required.path) {
                 throw NSError(domain: "EXO", code: 2,
                               userInfo: [NSLocalizedDescriptionKey: "Missing bundled resource: \(required.lastPathComponent)"])
@@ -150,6 +157,7 @@ final class EXOClothCraftApp: NSObject, NSApplicationDelegate, WKNavigationDeleg
             environment["EXO_NATIVE_CLI"] = native.path
             environment["EXO_CLOTHCRAFT_OUTPUT_DIR"] = outputsDir.path
             environment["EXO_CLOTHCRAFT_GPU"] = "1"
+            environment["EXO_CLOTHCRAFT_AVATAR_THOMAS_OBJ"] = resources.appendingPathComponent("collision-avatars/thomas-body.obj").path
             environment["EXO_CLOTHCRAFT_AVATAR_MAKEHUMAN_OBJ"] = resources.appendingPathComponent("collision-avatars/makehuman-body.obj").path
             extra.forEach { environment[$0.key] = $0.value }
             p.environment = environment

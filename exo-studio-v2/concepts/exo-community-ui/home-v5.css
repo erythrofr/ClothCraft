@@ -1,0 +1,108 @@
+/* Edition five: photo-first black portfolio home, no decorative gradients. */
+body,.website,#site-content,.exo-home-revamp{background:#050505!important}
+.prototype-ribbon,.topbar{background:#060606!important}
+.exo-home-revamp .exh-landing.exh-infinite-landing{background:#050505!important;padding:0 10px}
+.exo-home-revamp .exh-kickerline,.exo-home-revamp .exh-infinite-heading{display:none!important}
+.exo-home-revamp .exh-gallery-shell{width:100%;max-width:none;margin:0 auto;border:0;padding:0}
+.exo-home-revamp .exh-gallery-meta{display:none!important}
+.exo-home-revamp .exh-gallery-horizon{background:none!important;filter:none!important}
+.exo-home-revamp .exh-gallery-shell .exh-hero-visual.exh-infinite-visual{
+ height:clamp(610px,56vw,830px)!important;
+ background:#050505!important;margin:0!important;
+}
+.exo-home-revamp .exh-carousel-card{
+ width:clamp(400px,42vw,640px)!important;
+ border:1px solid #ffffff5c!important;
+ background:#141414!important;
+ box-shadow:0 18px 52px #000b!important;
+ border-radius:2px!important;
+}
+.exo-home-revamp .exh-carousel-card[aria-current=true]{border-color:#eee!important;box-shadow:0 22px 58px #000d,0 0 0 1px #ffffff44!important}
+.exo-home-revamp .exh-carousel-card img{filter:none!important}
+.exo-home-revamp .exh-carousel-card[data-category="Garments"] img{background:#232323}
+.exo-home-revamp .exh-carousel-gradient{background:linear-gradient(0deg,#000a,transparent 35%)!important}
+.exo-home-revamp .exh-carousel-caption strong{font-size:clamp(22px,2.25vw,35px);font-weight:600}
+.exo-home-revamp .exh-gallery-foot{border-color:#333;padding:20px max(20px,3vw) 21px;background:#050505}
+.exo-home-revamp .exh-gallery-current h2{color:#f4f4f4}
+.exo-home-revamp .exh-gallery-current>span,.exo-home-revamp .exh-gallery-navigation #exh-counter{color:#bbb}
+.exo-home-revamp .exh-gallery-navigation #exh-open-project{background:#f1f1f1;border-color:#f1f1f1;color:#121212}
+.exo-home-revamp .exh-gallery-navigation #exh-open-project:hover{background:#d9d9d9}
+.exo-home-revamp .exh-gallery-arrow{height:65px;width:65px;border-color:#fff9;background:#050505de;color:#fff}
+.exo-home-revamp .exh-gallery-arrow:hover{background:#ededed;color:#000;border-color:#fff}
+.exo-home-revamp .exh-infinite-landing .exh-under-hero{display:none}
+.exo-home-revamp .exh-curators{
+ max-width:1900px;padding:69px clamp(12px,3.5vw,60px) 83px;
+ background:#050505;
+}
+.exo-home-revamp .exh-section-meta{border-color:#292929;color:#aaa}
+.exo-home-revamp .exh-section-meta>span:last-child{color:#777}
+.exo-home-revamp .exh-section-heading{margin:14px 0 26px}
+.exo-home-revamp .exh-section-heading h2{font-size:clamp(39px,4vw,65px);color:#f1f1f1;margin-top:8px}
+.exo-home-revamp .exh-section-heading h2 em{color:#eee}
+.exo-home-revamp .exh-eyebrow{color:#999}
+.exo-home-revamp .exh-section-heading button{border-color:#555;color:#ddd}
+.exo-home-revamp .exh-curator-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.exo-home-revamp .exh-curator-tile button{height:auto;display:block;position:relative}
+.exo-home-revamp .exh-curator-image,.exo-home-revamp .exh-curator-tile:first-child .exh-curator-image{aspect-ratio:1!important;height:auto;border:0;border-radius:0;background:#181818}
+.exo-home-revamp .exh-curator-image img{filter:none}
+.exo-home-revamp .exh-curator-hover{z-index:2;background:#f5f5f5;color:#111;right:14px;bottom:14px}
+.exo-home-revamp .exh-curator-overlay{position:absolute;display:flex;flex-direction:column;justify-content:flex-end;inset:0;padding:18px;pointer-events:none;background:linear-gradient(0deg,#000b,transparent 46%);color:#fff;gap:5px;transition:background .25s ease}
+.exo-home-revamp .exh-curator-overlay strong{font:600 clamp(15px,1.4vw,22px)/1.12 var(--sans);color:#fff;letter-spacing:-.5px;margin:0}
+.exo-home-revamp .exh-curator-overlay small{color:#ddd;font:9px var(--mono);letter-spacing:.5px}
+.exo-home-revamp .exh-curator-tile button:hover .exh-curator-image img{transform:scale(1.07)}
+#catalog-section{background:#050505!important}
+#catalog-section .section-overline,#catalog-section .heading-line{border-color:#272727}
+#catalog-section .exo-market-tabs button{border-color:#333;background:#111;color:#c0c0c0}
+#catalog-section .exo-market-tabs button[aria-pressed=true]{background:#eee;color:#101010;border-color:#eee}
+#catalog-section .exo-market-tabs button:hover:not([aria-pressed=true]){border-color:#888;background:#222}
+#catalog-section .asset-grid .asset-card{background:#0a0a0a}
+#catalog-section .asset-grid .asset-art{background:#191919}
+#catalog-section .asset-photograph{background:#101010}
+#catalog-section .asset-photograph img{filter:none}
+#catalog-section .asset-card:hover .asset-photograph img{filter:none}
+#catalog-section #fabric-store .exo-store{background:#050505}
+.exo-home-revamp .exh-shop-intro,.exo-home-revamp .exh-marquee-band{display:none!important}
+#site-content>.feature-banner{display:none}
+@media(max-width:1100px){
+ .exo-home-revamp .exh-gallery-shell .exh-hero-visual.exh-infinite-visual{height:clamp(540px,65vw,710px)!important}
+ .exo-home-revamp .exh-carousel-card{width:clamp(390px,53vw,560px)!important}
+ .exo-home-revamp .exh-curator-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:780px){
+ .exo-home-revamp .exh-landing.exh-infinite-landing{padding:0 4px}
+ .exo-home-revamp .exh-gallery-shell .exh-hero-visual.exh-infinite-visual{height:clamp(425px,100vw,620px)!important}
+ .exo-home-revamp .exh-carousel-card{width:min(86vw,475px)!important}
+ .exo-home-revamp .exh-gallery-arrow{height:44px;width:44px}
+ .exo-home-revamp .exh-gallery-foot{padding:16px 15px 20px}
+ .exo-home-revamp .exh-curators{padding:47px 13px 55px}
+ .exo-home-revamp .exh-curator-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .exo-home-revamp .exh-curator-overlay{padding:12px}
+ .exo-home-revamp .exh-curator-overlay strong{font-size:14px}
+ .exo-home-revamp .exh-curator-overlay small{font-size:8px}
+ .exo-home-revamp .exh-section-heading h2{font-size:39px}
+}
+@media(max-width:470px){
+ .exo-home-revamp .exh-carousel-card{width:87vw!important}
+ .exo-home-revamp .exh-gallery-shell .exh-hero-visual.exh-infinite-visual{height:400px!important}
+ .exo-home-revamp .exh-gallery-current{max-width:100%}
+ .exo-home-revamp .exh-gallery-current p{max-width:300px}
+}
+/* Fabric records appear in the same All marketplace grid as garments, scenes,
+   trims and avatars, with the complete 400-record browser behind Fabrics. */
+.market-fabric-photo{position:absolute;inset:0;display:block;overflow:hidden;background:radial-gradient(ellipse at 35% 24%,#c5c5c51a,transparent 55%),#121212}
+.market-fabric-sample{position:absolute;inset:9% 7% 15%;background-color:var(--market-fabric-color);background-image:repeating-linear-gradient(139deg,#ffffff38 0 1px,#00000035 1px 3px,#ffffff16 3px 6px),repeating-linear-gradient(46deg,transparent 0 4px,#00000028 5px 6px);background-size:13px 13px;transform:rotate(-4deg) scale(1.05);box-shadow:15px 24px 40px #0009,inset 13px 0 15px #ffffff18}
+.market-fabric-label{position:absolute;left:13px;bottom:13px;color:#fff;font:700 18px var(--sans);text-shadow:0 1px 8px #000a;display:grid;gap:5px}
+.market-fabric-label small{font:9px var(--mono);color:#f0f0f0}
+.exo-catalog-more{display:block;margin:30px auto 8px;padding:17px 28px;background:#eee;color:#151515;font:650 11px var(--sans);border:0;cursor:pointer;border-radius:2px}
+.exo-catalog-more:hover{background:#bbb}
+.exo-catalog-more[hidden]{display:none}
+#ar-studio[hidden]{display:none!important}
+#ar-studio{background:#050505;padding:65px clamp(14px,4vw,68px) 95px;border-top:1px solid #303030}
+#ar-studio .exo-ar{max-width:1550px;margin:0 auto}
+.topbar .main-links{gap:clamp(3px,.6vw,14px)}
+@media(max-width:780px){#ar-studio{padding:42px 14px 62px}.topbar .main-links .nav-link{padding-inline:4px}}
+@media(max-width:780px){
+ .topbar .main-links{display:flex!important;flex:0 0 100%;width:100%;justify-content:flex-start!important;gap:16px!important;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:none;padding:0 13px!important}
+ .topbar .main-links::-webkit-scrollbar{display:none}
+ .topbar .main-links .nav-link{flex:none!important;white-space:nowrap!important;min-width:max-content!important;padding:0 6px!important;font-size:11px!important;scroll-snap-align:start}
+}

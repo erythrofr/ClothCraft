@@ -1161,9 +1161,89 @@ button:disabled {
   background: #20252a;
 }
 
+.exo-fabric-realism-collection {
+  display: grid;
+  gap: 7px;
+  margin: 9px 0;
+}
+.exo-fabric-realism-collection > button {
+  display: grid;
+  grid-template-columns: 60px minmax(0,1fr);
+  align-items: center;
+  gap: 11px;
+  text-align: left;
+  min-height: 76px;
+  padding: 6px;
+  color: #e8ebeb;
+  background: #17191c;
+  border: 1px solid #373b40;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.exo-fabric-realism-collection > button.is-selected {
+  border-color: #e1eaed;
+  background: #252b2f;
+}
+.exo-fabric-realism-collection > button:hover {border-color:#9aa8b2;}
+.exo-fabric-realism-collection img {
+  width: 60px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 3px;
+}
+.exo-fabric-realism-collection button span {min-width:0;display:flex;flex-direction:column;gap:4px;}
+.exo-fabric-realism-collection strong {font-size:11px;line-height:1.25;}
+.exo-fabric-realism-collection small {font-size:9px;color:#bec6ca;line-height:1.35;}
+.exo-fabric-realism-collection em {font-size:8px;font-style:normal;color:#a4b9c7;}
+
+.fabric-material-preview-tools {
+  display: grid;
+  grid-template-columns: repeat(3,minmax(0,1fr));
+  gap: 5px;
+  padding: 8px;
+  background: #0c0e10;
+}
+.fabric-material-preview-tools button {
+  border: 1px solid #35393c;
+  border-radius: 4px;
+  background: #1d2124;
+  color: #afb7bd;
+  font-size: 10px;
+  padding: 8px 4px;
+  cursor: pointer;
+}
+.fabric-material-preview-tools button[aria-pressed="true"] {
+  background: #dddfe1;
+  color: #14181b;
+  border-color: #dddfe1;
+}
+.fabric-material-preview-controls {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  background: #121518;
+}
+.fabric-material-preview-controls label {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  gap: 5px;
+  color: #c9d2d9;
+  font-size: 10px;
+}
+.fabric-material-preview-controls output {font-variant-numeric: tabular-nums;color:#9dabba;}
+.fabric-material-preview-controls input {grid-column:1 / -1;width:100%;accent-color:#dfebf1;}
+.fabric-material-preview-note {
+  margin: 0;
+  padding: 10px;
+  background: #0d1013;
+  color: #a8b6c0;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
 .fabric-material-preview-canvas {
   position: relative;
-  height: clamp(116px, 16vh, 172px);
+  height: clamp(210px, 30vh, 290px);
   display: grid;
   place-items: center;
   overflow: hidden;

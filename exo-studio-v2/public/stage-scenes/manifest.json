@@ -1,0 +1,215 @@
+{
+  "schemaVersion": 1,
+  "stages": [
+    {
+      "id": "R01",
+      "file": "/stage-scenes/R01.glb",
+      "bytes": 528852,
+      "meshes": 38,
+      "polygons": 4988,
+      "materials": 5,
+      "lights": 4,
+      "status": "ready",
+      "source": "docs/research/clo-connect-community/blender-scenes/EXO_STAGE_R01.blend",
+      "provenance": "EXO original Blender scene"
+    },
+    {
+      "id": "R02",
+      "file": "/stage-scenes/R02.glb",
+      "bytes": 1306176,
+      "meshes": 96,
+      "polygons": 6344,
+      "materials": 9,
+      "lights": 4,
+      "status": "ready",
+      "source": "docs/stage-refined-blender-sources/EXO_STAGE_R02_REFINED.blend",
+      "provenance": "Refined derivative of EXO original Blender scene; texture images embedded"
+    },
+    {
+      "id": "R03",
+      "file": "/stage-scenes/R03.glb",
+      "bytes": 1160792,
+      "meshes": 130,
+      "polygons": 780,
+      "materials": 11,
+      "lights": 4,
+      "status": "ready",
+      "source": "docs/stage-refined-blender-sources/EXO_STAGE_R03_MIRROR_RUNWAY.blend",
+      "provenance": "Self-authored mirror runway architectural revision of EXO refined R03 source"
+    },
+    {
+      "id": "R04",
+      "file": "/stage-scenes/R04.glb",
+      "bytes": 454792,
+      "meshes": 45,
+      "polygons": 4910,
+      "materials": 5,
+      "lights": 4,
+      "status": "ready",
+      "source": "docs/research/clo-connect-community/blender-scenes/EXO_STAGE_R04.blend",
+      "provenance": "EXO original Blender scene"
+    },
+    {
+      "id": "R05",
+      "file": "/stage-scenes/R05.glb",
+      "bytes": 442228,
+      "meshes": 37,
+      "polygons": 4862,
+      "materials": 5,
+      "lights": 4,
+      "status": "ready",
+      "source": "docs/research/clo-connect-community/blender-scenes/EXO_STAGE_R05.blend",
+      "provenance": "EXO original Blender scene"
+    },
+    {
+      "id": "S01",
+      "file": "/stage-scenes/S01.glb",
+      "bytes": 1406120,
+      "meshes": 350,
+      "polygons": 3732,
+      "materials": 17,
+      "lights": 4,
+      "status": "ready",
+      "source": "docs/stage-refined-blender-sources/EXO_STAGE_S01_REFINED.blend",
+      "provenance": "EXO-authored S01 refined showroom pass; source original retained"
+    },
+    {
+      "id": "S02",
+      "status": "unavailable",
+      "error": "insufficient geometry: 7 meshes, 42 polygons",
+      "source": "docs/research/clo-connect-community/blender-scenes/EXO_STAGE_S02.blend"
+    },
+    {
+      "id": "S03",
+      "status": "unavailable",
+      "error": "insufficient geometry: 7 meshes, 42 polygons",
+      "source": "docs/research/clo-connect-community/blender-scenes/EXO_STAGE_S03.blend"
+    },
+    {
+      "id": "S04",
+      "status": "unavailable",
+      "error": "insufficient geometry: 8 meshes, 48 polygons",
+      "source": "docs/research/clo-connect-community/blender-scenes/EXO_STAGE_S04.blend"
+    },
+    {
+      "id": "S05",
+      "file": "/stage-scenes/S05.glb",
+      "bytes": 173844,
+      "meshes": 17,
+      "polygons": 102,
+      "materials": 4,
+      "lights": 4,
+      "status": "ready",
+      "source": "docs/research/clo-connect-community/blender-scenes/EXO_STAGE_S05.blend",
+      "provenance": "EXO original Blender scene"
+    },
+    {
+      "id": "S06",
+      "file": "/stage-scenes/S06.glb",
+      "bytes": 173860,
+      "meshes": 17,
+      "polygons": 102,
+      "materials": 4,
+      "lights": 4,
+      "status": "ready",
+      "source": "docs/research/clo-connect-community/blender-scenes/EXO_STAGE_S06.blend",
+      "provenance": "EXO original Blender scene"
+    },
+    {
+      "id": "S07",
+      "file": "/stage-scenes/S07.glb",
+      "bytes": 105520,
+      "meshes": 10,
+      "polygons": 60,
+      "materials": 3,
+      "lights": 4,
+      "status": "ready",
+      "source": "docs/research/clo-connect-community/blender-scenes/EXO_STAGE_S07.blend",
+      "provenance": "EXO original Blender scene"
+    },
+    {
+      "id": "S08",
+      "file": "/stage-scenes/S08.glb",
+      "bytes": 125568,
+      "meshes": 12,
+      "polygons": 72,
+      "materials": 4,
+      "lights": 4,
+      "status": "ready",
+      "source": "docs/research/clo-connect-community/blender-scenes/EXO_STAGE_S08.blend",
+      "provenance": "EXO original Blender scene"
+    },
+    {
+      "id": "S09",
+      "file": "/stage-scenes/S09.glb",
+      "bytes": 469504,
+      "meshes": 22,
+      "polygons": 3210,
+      "materials": 4,
+      "lights": 4,
+      "status": "ready",
+      "source": "docs/research/clo-connect-community/blender-scenes/EXO_STAGE_S09.blend",
+      "provenance": "EXO original Blender scene"
+    },
+    {
+      "id": "S10",
+      "file": "/stage-scenes/S10.glb",
+      "bytes": 1154132,
+      "meshes": 65,
+      "polygons": 3468,
+      "materials": 10,
+      "lights": 4,
+      "status": "ready",
+      "source": "docs/stage-refined-blender-sources/EXO_STAGE_S10_REFINED.blend",
+      "provenance": "Refined derivative of EXO original Blender scene; texture images embedded"
+    },
+    {
+      "id": "S11",
+      "file": "/stage-scenes/S11.glb",
+      "bytes": 173848,
+      "meshes": 17,
+      "polygons": 102,
+      "materials": 4,
+      "lights": 4,
+      "status": "ready",
+      "source": "docs/research/clo-connect-community/blender-scenes/EXO_STAGE_S11.blend",
+      "provenance": "EXO original Blender scene"
+    },
+    {
+      "id": "S12",
+      "file": "/stage-scenes/S12.glb",
+      "bytes": 51496,
+      "meshes": 9,
+      "polygons": 54,
+      "materials": 3,
+      "lights": 4,
+      "status": "ready",
+      "source": "docs/research/clo-connect-community/blender-scenes/EXO_STAGE_S12.blend",
+      "provenance": "EXO original Blender scene"
+    },
+    {
+      "id": "S13",
+      "status": "unavailable",
+      "error": "insufficient geometry: 8 meshes, 48 polygons",
+      "source": "docs/research/clo-connect-community/blender-scenes/EXO_STAGE_S13.blend"
+    },
+    {
+      "id": "S14",
+      "file": "/stage-scenes/S14.glb",
+      "bytes": 153808,
+      "meshes": 15,
+      "polygons": 90,
+      "materials": 3,
+      "lights": 4,
+      "status": "ready",
+      "source": "docs/research/clo-connect-community/blender-scenes/EXO_STAGE_S14.blend",
+      "provenance": "EXO original Blender scene"
+    },
+    {
+      "id": "S15",
+      "status": "unavailable",
+      "error": "insufficient geometry: 8 meshes, 48 polygons",
+      "source": "docs/research/clo-connect-community/blender-scenes/EXO_STAGE_S15.blend"
+    }
+  ]
+}

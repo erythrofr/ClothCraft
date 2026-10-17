@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import CadToolIcon from './CadToolIcon.jsx'
+import {getHardwarePreset} from '../data/hardwarePresets.js'
 import './ObjectBrowserHierarchy.css'
 import {
   ChevronDown, ChevronRight, CircleDot, Cloud, Folder, Grid2X2,
@@ -13,14 +14,14 @@ export { CLO_MENUS } from '../core/cloMenus.js'
 export const OBJECT_TABS = [
   { id: 'Fabric', icon: Shirt },
   { id: 'Graphic', icon: Image }, { id: 'Button', icon: CircleDot },
-  { id: 'Buttonhole', icon: StretchHorizontal }, { id: 'Topstitch', icon: MoreHorizontal },
+  { id: 'Buttonhole', icon: StretchHorizontal }, { id: 'Zipper', icon: StretchHorizontal }, { id: 'Trim', icon: StretchHorizontal }, { id: 'Topstitch', icon: MoreHorizontal },
   { id: 'Puckering', icon: SlidersHorizontal },
   { id: 'Grading', icon: Grid2X2 }, { id: 'POM', icon: List },
 ]
 const OBJECT_TAB_ART = {
   Scene:'scene', Fabric:'fabric', Graphic:'graphics', Button:'buttons',
   Buttonhole:'buttonholes', Topstitch:'topstitch', Puckering:'puckering',
-  Trim:'trim', Grading:'grading', POM:'pom',
+  Trim:'trim', Zipper:'trim', Grading:'grading', POM:'pom',
 }
 const OBJECT_CATEGORY_ART = {
   '2D Pattern':'pattern-properties',
@@ -32,7 +33,7 @@ const OBJECT_CATEGORY_ART = {
 
 export const OBJECT_HIERARCHY = [
   {title:'2D Pattern', children:[['Pattern Pieces','Pattern','Scene'],['Internal Lines','Pattern','Scene'],['Grading & Measurements','Production','POM']]},
-  {title:'Sewing', children:[['Sewing Relationships','Sewing','Scene'],['Buttons','Sewing','Button'],['Buttonholes','Sewing','Buttonhole'],['Topstitch','Sewing','Topstitch']]},
+  {title:'Sewing', children:[['Sewing Relationships','Sewing','Scene'],['Buttons','Sewing','Button'],['Buttonholes','Sewing','Buttonhole'],['Zippers','Sewing','Zipper'],['Topstitch','Sewing','Topstitch']]},
   {title:'3D Form', children:[['Arrangement','Pattern','Scene'],['Avatar','Avatar','Scene'],['Simulation & Fit','Fit','Scene']]},
   {title:'Material', children:[['Fabric Editor','Fabric','Fabric'],['Graphics & Texture','Fabric','Graphic'],['Trims','Sewing','Trim']]},
   {title:'Environment', children:[['Studio Lighting','Render','Scene'],['Render Settings','Render','Scene']]},
@@ -56,48 +57,72 @@ export function GarmentSilhouette({ type = 'tee' }) {
 }
 
 export function LibraryChrome({ category, setCategory, search, setSearch, thumbnails, setThumbnails, children }) {
+  const chooseCategory = (next) => { if (next !== category) setSearch(''); setCategory(next) }
   return <>
     <div className="clo-library-top"><strong>Library</strong><div className="clo-library-top-icons" aria-label="Library quick categories">
-      <button className={category === 'Garment' ? 'active' : ''} aria-label="Browse garments" aria-pressed={category === 'Garment'} title="Garment library" onClick={() => setCategory('Garment')}><Star size={16}/></button>
-      <button className={category === 'Avatar' ? 'active' : ''} aria-label="Browse avatars" aria-pressed={category === 'Avatar'} title="Avatar library" onClick={() => setCategory('Avatar')}><Cloud size={16}/></button>
-      <button className={category === 'Fabric' ? 'active' : ''} aria-label="Browse fabrics" aria-pressed={category === 'Fabric'} title="Fabric library" onClick={() => setCategory('Fabric')}><Shirt size={16}/></button>
+      <button className={category === 'Garment' ? 'active' : ''} aria-label="Browse garments" aria-pressed={category === 'Garment'} title="Garment library" onClick={() => chooseCategory('Garment')}><Star size={16}/></button>
+      <button className={category === 'Avatar' ? 'active' : ''} aria-label="Browse avatars" aria-pressed={category === 'Avatar'} title="Avatar library" onClick={() => chooseCategory('Avatar')}><Cloud size={16}/></button>
+      <button className={category === 'Fabric' ? 'active' : ''} aria-label="Browse fabrics" aria-pressed={category === 'Fabric'} title="Fabric library" onClick={() => chooseCategory('Fabric')}><Shirt size={16}/></button>
       <span className="clo-library-icon-spacer"/>
       <span className="clo-library-scope">LOCAL</span>
     </div></div>
     <div className="clo-library-categories" role="navigation" aria-label="Library categories">
-      {libraryCategories.map((item) => <button key={item} aria-current={category === item ? 'page' : undefined} className={category === item ? 'active' : ''} onClick={() => setCategory(item)}><ChevronRight size={12}/><Folder size={13}/><span>{item}</span></button>)}
+      {libraryCategories.map((item) => <button key={item} aria-current={category === item ? 'page' : undefined} className={category === item ? 'active' : ''} onClick={() => chooseCategory(item)}><ChevronRight size={12}/><Folder size={13}/><span>{item}</span></button>)}
     </div>
     <div className="clo-library-search"><Search size={14}/><input aria-label="Search library" value={search} onChange={event => setSearch(event.target.value)} placeholder="Search assets…"/>{search && <button aria-label="Clear asset search" title="Clear search" onClick={() => setSearch('')}>×</button>}<button aria-label={thumbnails ? 'Switch to list view' : 'Switch to thumbnail view'} title={thumbnails ? 'List view' : 'Thumbnail view'} onClick={() => setThumbnails(value => !value)}>{thumbnails ? <List size={15}/> : <Grid2X2 size={15}/>}</button></div>
     <div className={`asset-library-content ${thumbnails ? 'thumbnail-mode' : 'list-mode'}`}><span className="asset-section-heading"><Folder size={12}/> {category.toUpperCase()} <ChevronDown size={11}/></span>{children}</div>
   </>
 }
 
-export function ObjectBrowser({ tab, setTab, project, setSelectedPieceId, setSelectedFabricId, onApplyFabric, setActiveSection, selectedPieceId, selectedFabricId, onAddFabric, onAddPattern, onTogglePieceProperty, onSelectedObjectChange,
-  nativeMode=false,nativePanelRefs=[],nativeFabricRefs=[],nativeSelectedObject,onNativePanelSelect,onNativeFabricSelect }) {
+export function ObjectBrowser({ tab, setTab, project, setSelectedPieceId, setSelectedFabricId, onApplyFabric, setActiveSection, selectedPieceId, selectedFabricId, selectedObject, selectedHardwarePreset, onAddFabric, onAddPattern, onTogglePieceProperty, onSelectedObjectChange,
+  nativeMode=false,nativePanelRefs=[],nativeFabricRefs=[],nativeSelectedObject,onNativePanelSelect,onNativeFabricSelect,onCreateObject,onRemoveObject }) {
   const [objectSearch, setObjectSearch] = useState('')
   const [categoryMenuOpen,setCategoryMenuOpen]=useState(false)
   const [categoryExpanded,setCategoryExpanded]=useState('2D Pattern')
   const fabrics = nativeMode ? nativeFabricRefs.map(f=>[f.id,f]) : Object.entries(project.fabrics || {})
   const allPieces = nativeMode?nativePanelRefs:(project.pieces || [])
+  const draftPieces = project.pieces || []
   const sceneItems = [{ id: 'avatar', name: nativeMode?'Native avatar':project.avatar?.name || 'Avatar', icon: UserRound, type:'avatar', action: () => setActiveSection('Avatar') },
     ...allPieces.map(piece => ({ id: piece.id, name: piece.name, icon: Shirt, type:'pattern',pieceId:piece.id,
       action: () => {if(nativeMode)onNativePanelSelect?.(piece.id);else setSelectedPieceId(piece.id);setActiveSection('Pattern')} }))]
+  const pieceObjectRows = (collection, type, Icon, label) => draftPieces.flatMap(piece =>
+    (piece[collection] || []).map((item, index) => ({
+      id: `${piece.id}:${collection}:${item.id ?? index}`,
+      pieceId: piece.id,
+      itemId: item.id ?? index,
+      name: `${getHardwarePreset(item.hardwarePresetId)?.name || item.name || label} · ${piece.name} ${index + 1}`,
+      color: item.teethColor || item.color,
+      icon: Icon,
+      type,
+      collection,
+      action: () => { setSelectedPieceId(piece.id); setActiveSection('Sewing') },
+    })))
   const getRows = () => {
     if (tab === 'Scene') return sceneItems
     if (tab === 'Fabric') return fabrics.map(([id, item]) => ({
       id,name:item.name||id,color:item.color||item.appearance?.color,icon:Shirt,type:'fabric',
       action:()=>{if(nativeMode)onNativeFabricSelect?.(id);else setSelectedFabricId(id);setActiveSection('Fabric')}}))
-    if(nativeMode)return []
-    if (tab === 'Graphic') return allPieces.flatMap(piece => (piece.graphics || []).map((item,i) => ({ id: item.id??`${piece.id}-graphic-${i}`,pieceId:piece.id,itemId:item.id??i, name: `${piece.name} · Graphic`, icon: Image, action: () => { setSelectedPieceId(piece.id); setActiveSection('Fabric') } })))
-    if (tab === 'Button' || tab === 'Buttonhole') return allPieces.flatMap(piece => (piece[tab === 'Button' ? 'buttons' : 'buttonholes'] || []).map((item, i) => ({ id: `${piece.id}-${item.id ?? i}`,pieceId:piece.id,itemId:item.id??i, name: `${piece.name} · ${tab} ${i + 1}`, icon: CircleDot, action: () => { setSelectedPieceId(piece.id); setActiveSection('Sewing') } })))
-    if (tab === 'Topstitch') return allPieces.flatMap(piece => (piece.topstitches || []).map((item, i) => ({ id: `${piece.id}-${item.id ?? i}`,pieceId:piece.id,itemId:item.id??i, name: `${piece.name} · Topstitch ${i + 1}`, icon: MoreHorizontal, action: () => { setSelectedPieceId(piece.id); setActiveSection('Sewing') } })))
-    if (tab === 'Trim') return [...(project.fasteners || []).map((item, i) => ({ id: `fastener-${i}`, name: item.name || `Fastener ${i + 1}`, icon: CircleDot, action: () => setActiveSection('Sewing') })), ...allPieces.flatMap(piece => (piece.zippers || []).map((item, i) => ({ id: `${piece.id}-zip-${i}`, name: `${piece.name} · Zipper`, icon: StretchHorizontal, action: () => { setSelectedPieceId(piece.id); setActiveSection('Sewing') } })))]
+    if (tab === 'Graphic') return draftPieces.flatMap(piece => (piece.graphics || []).map((item,i) => ({ id: item.id??`${piece.id}-graphic-${i}`,pieceId:piece.id,itemId:item.id??i, name: `${piece.name} · Graphic`, icon: Image, action: () => { setSelectedPieceId(piece.id); setActiveSection('Fabric') } })))
+    if (tab === 'Button') return pieceObjectRows('buttons', 'button', CircleDot, 'Button')
+    if (tab === 'Buttonhole') return pieceObjectRows('buttonholes', 'buttonhole', StretchHorizontal, 'Buttonhole')
+    if (tab === 'Topstitch') return pieceObjectRows('topstitches', 'topstitch', MoreHorizontal, 'Topstitch')
+    if (tab === 'Puckering') return [
+      ...pieceObjectRows('puckerings', 'puckering', SlidersHorizontal, 'Puckering'),
+      ...(project.puckerings || []).map((item, index) => ({id:`project:puckerings:${item.id ?? index}`,itemId:item.id ?? index,name:item.name || `Puckering ${index + 1}`,icon:SlidersHorizontal,type:'puckering',collection:'puckerings',action:()=>setActiveSection('Sewing')})),
+    ]
+    if (tab === 'Zipper' || tab === 'Trim') return [
+      ...(tab==='Trim'?(project.fasteners||[]).map((item,i)=>({id:`fastener-${i}`,name:item.name||`Fastener ${i+1}`,icon:CircleDot,type:'trim',action:()=>setActiveSection('Sewing')})):[]),
+      ...pieceObjectRows('zippers', 'zipper', StretchHorizontal, 'Zipper'),
+    ]
     if (tab === 'Grading') return (project.grading?.sizes || []).map((name) => ({ id: name, name: `Size ${name}`, icon: Grid2X2, action: () => setActiveSection('Production') }))
     if (tab === 'POM') return (project.customMeasurements || []).map((measurement, i) => ({ id: measurement.id || i, name: measurement.name || `POM ${i + 1}`, icon: List, action: () => setActiveSection('Production') }))
     return []
   }
   const rows = getRows()
   const filteredRows = rows.filter(row => row.name.toLowerCase().includes(objectSearch.trim().toLowerCase()))
+  const selectedRow = rows.find(row => row.id === selectedObject?.id)
+  const creatableTabs = ['Button','Buttonhole','Zipper','Topstitch','Puckering']
+  const draftAnnotationTabs = ['Graphic','Button','Buttonhole','Zipper','Trim','Topstitch','Puckering','Grading','POM']
   return <section className="clo-object-browser" aria-label="Object Browser">
     <div className="clo-panel-header"><strong>Object Browser</strong><span>{categoryMenuOpen ? `${OBJECT_HIERARCHY.length} GROUPS` : `${rows.length} ITEMS`}</span></div>
     <div className="clo-object-tabs" role="tablist" aria-label="Object Browser types">
@@ -108,7 +133,7 @@ export function ObjectBrowser({ tab, setTab, project, setSelectedPieceId, setSel
         onClick={()=>setCategoryMenuOpen(value=>!value)}><BulletListIcon/></button>
       {OBJECT_TABS.map(({id}) => <button key={id} type="button" role="tab" aria-label={id} aria-selected={!categoryMenuOpen && tab === id} title={id} className={!categoryMenuOpen && tab === id ? 'active' : ''} onClick={() => {
         setTab(id);setCategoryMenuOpen(false);onSelectedObjectChange?.(null)
-        const workspace={Fabric:'Fabric',Graphic:'Fabric',Button:'Sewing',Buttonhole:'Sewing',Topstitch:'Sewing',Puckering:'Sewing',Grading:'Production',POM:'Production'}[id]
+        const workspace={Fabric:'Fabric',Graphic:'Fabric',Button:'Sewing',Buttonhole:'Sewing',Zipper:'Sewing',Trim:'Sewing',Topstitch:'Sewing',Puckering:'Sewing',Grading:'Production',POM:'Production'}[id]
         if(workspace)setActiveSection(workspace)
       }}><CadToolIcon id={OBJECT_TAB_ART[id]} size={21}/><span>{id}</span></button>)}
     </div>
@@ -121,7 +146,7 @@ export function ObjectBrowser({ tab, setTab, project, setSelectedPieceId, setSel
       </div>)}
       </nav>
     </> : <>
-    <div className="clo-object-actions"><span>{tab === 'Fabric' ? nativeMode?'SELECT NATIVE FABRIC TO EDIT':'SELECT A SWATCH TO INSPECT · APPLY IN FABRIC EDITOR' : tab === 'Scene' ? nativeMode?'RUST 3D / 2D GARMENT':'3D / 2D Scene' : tab} · {rows.length} {rows.length === 1 ? 'item' : 'items'}</span>{!nativeMode&&['Fabric','Scene'].includes(tab) && <button onClick={() => tab === 'Fabric' ? onAddFabric() : onAddPattern()}>+ Add {tab === 'Fabric' ? 'fabric' : 'pattern'}</button>}</div>
+    <div className="clo-object-actions"><span>{tab === 'Fabric' ? nativeMode?'SELECT NATIVE FABRIC TO EDIT':'SELECT A SWATCH TO INSPECT · APPLY IN FABRIC EDITOR' : tab === 'Scene' ? nativeMode?'RUST 3D / 2D GARMENT':'3D / 2D Scene' : `${nativeMode && draftAnnotationTabs.includes(tab) ? 'EXO DRAFT · ' : ''}${tab}`} · {rows.length} {rows.length === 1 ? 'item' : 'items'}</span>{!nativeMode&&['Fabric','Scene'].includes(tab) && <button onClick={() => tab === 'Fabric' ? onAddFabric?.() : onAddPattern?.()}>+ Add {tab === 'Fabric' ? 'fabric' : 'pattern'}</button>}{creatableTabs.includes(tab) && onCreateObject && <button type="button" onClick={()=>onCreateObject(tab,selectedPieceId)}>+ Add {tab.toLowerCase()}</button>}{selectedRow?.collection && onRemoveObject && <button type="button" aria-label={`Remove ${selectedRow.name}`} onClick={()=>onRemoveObject({type:selectedRow.type,collection:selectedRow.collection,pieceId:selectedRow.pieceId,itemId:selectedRow.itemId,id:selectedRow.id})}>Remove</button>}</div>
     {tab === 'Fabric' && fabrics.length > 0 && (() => {
       const item = nativeMode
         ? nativeFabricRefs.find(f=>f.id===nativeSelectedObject?.id)||fabrics[0][1]
@@ -133,14 +158,18 @@ export function ObjectBrowser({ tab, setTab, project, setSelectedPieceId, setSel
           <><span>{item.gsm ?? '—'} GSM · {(Number(item.thickness || .002) * 1000).toFixed(1)} mm</span><span>Warp {Math.round((item.stretchWarp || 0) * 100)}% · Weft {Math.round((item.stretchWeft || 0) * 100)}%</span></>}</div>
       </div>
     })()}
+    {selectedHardwarePreset&&<div className="clo-fabric-preview" aria-label="Selected hardware preview">
+      <div className="clo-fabric-preview-tile" style={{background:'#242629',borderRadius:'5px',overflow:'hidden'}}><img src={`/hardware-thumbnails/${selectedHardwarePreset.id}.png`} loading="lazy" decoding="async" alt={`${selectedHardwarePreset.name} rendered 3D hardware preview`} style={{width:'100%',height:'100%',objectFit:'cover'}}/></div>
+      <div className="clo-fabric-preview-details"><strong>{selectedHardwarePreset.name}</strong><span>{selectedHardwarePreset.material} · {selectedHardwarePreset.finish}</span><span>Style parameters below · {selectedHardwarePreset.kind}</span></div>
+    </div>}
     <div className="clo-object-search"><Search size={13}/><input aria-label="Search Object Browser" placeholder="Filter objects…" value={objectSearch} onChange={event => setObjectSearch(event.target.value)}/>{objectSearch && <button type="button" aria-label="Clear object search" onClick={() => setObjectSearch('')}>×</button>}</div>
     <div className="clo-object-list" role="list">
-      {filteredRows.length ? filteredRows.map(({ id, name, icon: Icon, color, action, pieceId, itemId, type }) => {
+      {filteredRows.length ? filteredRows.map(({ id, name, icon: Icon, color, action, pieceId, itemId, type, collection }) => {
         const piece = !nativeMode && tab === 'Scene' ? allPieces.find(item => item.id === id) : null
-        const current=nativeMode?nativeSelectedObject?.id===id:(id === selectedPieceId || id === selectedFabricId)
+        const current=selectedObject?.id===id || (nativeMode && !draftAnnotationTabs.includes(tab) ? nativeSelectedObject?.id===id : id === selectedPieceId || id === selectedFabricId)
         return <div key={id} role="listitem" className={`clo-object-row ${current ? 'selected' : ''}`}>
           {piece ? <button type="button" className="clo-object-mini-action" aria-label={`${piece.visible3d === false ? 'Show' : 'Hide'} ${name} in 3D`} title="Toggle 3D visibility" onClick={() => onTogglePieceProperty?.(id, 'visible3d')} >{piece.visible3d === false ? <EyeOff size={13}/> : <Eye size={13}/>}</button> : <span className="clo-row-visible" aria-hidden="true">✓</span>}
-          <button type="button" className="clo-object-select" aria-current={current?'true':undefined} onClick={()=>{onSelectedObjectChange?.({source:nativeMode?'native':'draft',type:type||tab,id,name,pieceId,itemId});action?.()}}>{color ? <span className="clo-material-swatch" style={{background:color}}/> : <Icon size={16}/>}<span className="clo-object-row-name">{name}</span></button>
+          <button type="button" className="clo-object-select" aria-current={current?'true':undefined} onClick={()=>{action?.();onSelectedObjectChange?.({source:nativeMode && !draftAnnotationTabs.includes(tab)?'native':'draft',type:type||tab,id,name,pieceId,itemId,collection})}}>{color ? <span className="clo-material-swatch" style={{background:color}}/> : <Icon size={16}/>}<span className="clo-object-row-name">{name}</span></button>
           {piece ? <button type="button" className="clo-object-mini-action" aria-label={`${piece.locked ? 'Unlock' : 'Lock'} ${name}`} title="Toggle pattern editing lock" onClick={() => onTogglePieceProperty?.(id, 'locked')}>{piece.locked ? <Lock size={13}/> : <Unlock size={13}/>}</button> : <MoreHorizontal size={13}/>}
         </div>
       }) : <div className="clo-object-empty">{objectSearch ? 'No matching objects.' : `No ${tab.toLowerCase()} objects in the project yet.`}</div>}

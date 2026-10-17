@@ -93,7 +93,7 @@ try{
  const fabricRow=page.locator('.clo-object-list .clo-object-select').filter({hasText:snapshot.template.fabrics[0].name}).first()
  console.log('QA stage: select native fabric')
  await fabricRow.click()
- assert.deepEqual(await headings(),['Information','Material','Physical Property','Miscellaneous'])
+ assert.deepEqual(await headings(),['Information','Material','Physical Property','Fabric Library & Texture','Miscellaneous'])
  assert.equal(await identity('name').inputValue(),snapshot.template.fabrics[0].name)
  assert.equal(await identity('type').inputValue(),'Fabric')
  const fabricName='EXO Native Fabric QA'

@@ -40,6 +40,8 @@ try{
  const page=await browser.newPage({viewport:{width:1700,height:1080}}),errors=[]
  page.on('pageerror',e=>errors.push(e.message))
  await page.goto(ui+'/?desktop=1&engine=clothcraft',{waitUntil:'domcontentloaded'})
+ await page.locator('.cc-board [data-panel]').first().waitFor({timeout:45000})
+ await page.locator('.cc-board [data-panel]').first().dispatchEvent('click')
  const accordion=page.getByRole('list',{name:'Property Editor sections'})
  // The UI is a div with an ARIA label; assert directly to avoid list semantics.
  const list=page.locator('.clo-property-panel .clo-pe-list')
@@ -92,7 +94,7 @@ try{
  await page.getByRole('tablist',{name:'Object Browser types'}).getByRole('tab',{name:'Fabric',exact:true}).click()
  await page.locator('.clo-object-list .clo-object-select').first().click()
  const fabricHeadings=await list.locator('.clo-pe-trigger span').allInnerTexts()
- assert.deepEqual(fabricHeadings,['Information','Material','Physical Property','Miscellaneous'])
+ assert.deepEqual(fabricHeadings,['Information','Material','Physical Property','Fabric Library & Texture','Miscellaneous'])
  if(await list.getByRole('button',{name:'Material',exact:true}).getAttribute('aria-expanded')!=='true')
   await list.getByRole('button',{name:'Material',exact:true}).click()
  assert.equal(await list.getByRole('region',{name:'Material properties'}).locator('[data-property-field="color"]').count(),0,'Native Rust fabric must not silently edit an unrelated EXO draft swatch')

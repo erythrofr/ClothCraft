@@ -9,6 +9,36 @@ export function getBounds(points) {
     width:maxX - minX, height:maxY - minY}
 }
 
+/** Only complete, finite triangles can contribute to a filled SVG cut region. */
+export function trianglePath(triangles, coordinates) {
+  return (triangles || []).map(triangle => {
+    if (!Array.isArray(triangle) || triangle.length !== 3) return ''
+    const vertices = triangle.map(index => coordinates?.[index])
+    if (vertices.some(p => !Array.isArray(p) || p.length < 2 ||
+      !Number.isFinite(p[0]) || !Number.isFinite(p[1]))) return ''
+    const [a,b,c] = vertices
+    const area = (b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0])
+    if (Math.abs(area) < 1e-12) return ''
+    return `M${a[0]},${a[1]}L${b[0]},${b[1]}L${c[0]},${c[1]}Z`
+  }).join('')
+}
+
+/** Preserve gaps in incomplete boundary data so invisible bridges cannot be clicked. */
+export function boundarySegments(indices, coordinates) {
+  const runs = []
+  let run = []
+  const finish = () => { if (run.length >= 2) runs.push(run); run = [] }
+  for (const index of indices || []) {
+    const point = coordinates?.[index]
+    if (!Array.isArray(point) || point.length < 2 ||
+      !Number.isFinite(point[0]) || !Number.isFinite(point[1])) {
+      finish()
+    } else run.push(point)
+  }
+  finish()
+  return runs
+}
+
 /**
  * Registration landmarks for a *visual* front-view avatar guide. Both pattern
  * and body coordinates are metres; no pattern placement or simulation state is

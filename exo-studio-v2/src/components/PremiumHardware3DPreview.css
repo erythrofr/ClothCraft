@@ -1,0 +1,7 @@
+.exo-premium-hardware-3d{position:relative;width:100%;height:100%;min-height:245px;background:radial-gradient(ellipse at 50% 35%,#303740,#101318 76%);overflow:hidden}
+.exo-premium-hardware-3d>img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:1;transition:opacity .18s ease;pointer-events:none}
+.exo-premium-hardware-3d>img.is-hidden{opacity:0}
+.exo-premium-hardware-3d-canvas{position:absolute;inset:0}
+.exo-premium-hardware-3d-canvas canvas{display:block;width:100%;height:100%;cursor:grab;touch-action:pan-y;pointer-events:auto}
+.exo-premium-hardware-3d-canvas canvas:active{cursor:grabbing}
+.exo-premium-hardware-3d>span{position:absolute;bottom:9px;left:10px;color:#aebbc8;letter-spacing:.09em;font:9px/1.3 system-ui,sans-serif;pointer-events:none}

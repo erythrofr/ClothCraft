@@ -31,7 +31,8 @@ async function ready(url){
  }
  throw Error('Timeout waiting for '+url)
 }
-const base='http://127.0.0.1:5455',ui='http://127.0.0.1:5456'
+const installedWeb=process.argv.includes('--installed-web')
+const base='http://127.0.0.1:5455',ui=installedWeb?'http://127.0.0.1:5386':'http://127.0.0.1:5456'
 async function snapshot(){
  const r=await fetch(base+'/workspace',{method:'POST',headers:{'Content-Type':'application/json'},body:'{"op":"snapshot"}'})
  const v=await r.json()
@@ -44,7 +45,7 @@ try{
   EXO_CLOTHCRAFT_PORT:'5455',EXO_CLOTHCRAFT_OUTPUT_DIR:output,
   EXO_CLOTHCRAFT_REPO:path.join(root,'research/oss/clothcraft'),
   EXO_CLOTHCRAFT_SESSION_BIN:rust,EXO_CLOTHCRAFT_GPU:'0'})
- start(path.join(root,'node_modules/.bin/vite'),['--host','127.0.0.1','--port','5456','--strictPort'],
+ if(!installedWeb)start(path.join(root,'node_modules/.bin/vite'),['--host','127.0.0.1','--port','5456','--strictPort'],
   {VITE_CLOTHCRAFT_BRIDGE_URL:base})
  await Promise.all([ready(base+'/health'),ready(ui)])
  browser=await chromium.launch({headless:true,
@@ -59,6 +60,11 @@ try{
   const headers={...route.request().headers()};delete headers.origin;
   const response=await route.fetch({url:base+'/workspace',headers});
   await route.fulfill({response,headers:{...response.headers(),'access-control-allow-origin':ui}})
+ })
+ // The signed V2 bundle stays untouched. Its browser requests use this
+ // disposable Rust session while the user's installed service remains idle.
+ if(installedWeb)await p.route('http://127.0.0.1:5385/**',async route=>{
+  await route.continue({url:route.request().url().replace('http://127.0.0.1:5385',base)})
  })
  await p.goto(ui+'/?desktop=1&engine=clothcraft',{waitUntil:'domcontentloaded'})
  await p.locator('.cc-board [data-panel]').first().waitFor({timeout:50000})
@@ -81,11 +87,16 @@ try{
  const before=await snapshot()
  assert.equal(await canvas.getAttribute('data-avatar-color'),'#555b64')
  assert(Number(await canvas.getAttribute('data-gizmo-ring-radius'))>10,'Move orb must be present')
- await p.mouse.move(gx+18,gy+22);await p.mouse.down();await p.mouse.move(gx+498,gy+22,{steps:12});await p.mouse.up()
+ await p.mouse.move(gx+18,gy+22);await p.mouse.down();await p.mouse.move(gx+498,gy+22,{steps:12})
+ assert.equal(await canvas.getAttribute('data-gizmo-visible'),'true','Move orb must remain visible throughout fabric dragging')
+ assert(Number(await canvas.getAttribute('data-gizmo-ring-radius'))>10,'Move circle must remain sized during fabric dragging')
+ await p.mouse.up()
  for(let i=0;i<100;i++){if(actions.some(a=>a.op==='pose-panel'&&a.translation_delta?.some(n=>Math.abs(n)>.01)))break;await sleep(100)}
  const pose=actions.filter(a=>a.op==='pose-panel'&&a.translation_delta?.some(n=>Math.abs(n)>.01)).at(-1)
  assert(pose,'Dragging Move must submit rigid native pose, not cloth brush')
  await sleep(500);const moved=await snapshot()
+ await p.waitForFunction(()=>document.querySelector('.cc-scene canvas')?.dataset.gizmoVisible==='true',null,{timeout:12000})
+ assert(Number(await canvas.getAttribute('data-gizmo-ring-radius'))>10,'Move circle must return after the native pose commit and scene refresh')
  assert.equal(moved.time,before.time,'Move stays paused')
  assert.deepEqual(moved.uv,before.uv,'Move cannot stretch rest patterns')
  assert.deepEqual(moved.template.seams,before.template.seams)
@@ -111,7 +122,7 @@ try{
  assert.equal(await canvas.getAttribute('data-gizmo-ring-radius'),null,'Click-off must remove selection orb')
  assert.deepEqual(errors,[])
  await p.screenshot({path:path.join(output,'move-grey-deselected.png')})
- console.log(JSON.stringify({passed:true,checks:['grey avatar','Move orb visible','rigid off-body panel drag','other panels and rest UV unchanged','Move orb rotation','SIM resumes moved panel and enters Fabric Hand','Hand resimulates moved panel without orb','Move pauses physics','click-off deselects'],output},null,2))
+ console.log(JSON.stringify({passed:true,checks:['grey avatar','Move orb visible','Move orb persists during drag and after native pose commit','rigid off-body panel drag','other panels and rest UV unchanged','Move orb rotation','SIM resumes moved panel and enters Fabric Hand','Hand resimulates moved panel without orb','Move pauses physics','click-off deselects'],output},null,2))
 }finally{
  await browser?.close().catch(()=>{})
  for(const p of processes)try{process.kill(-p.pid,'SIGTERM')}catch{}

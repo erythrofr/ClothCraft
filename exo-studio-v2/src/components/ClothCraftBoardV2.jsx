@@ -2,7 +2,7 @@ import {presetForFabric} from "../core/clothcraftFabrics.js"
 import React, {useEffect, useId, useMemo, useRef, useState} from 'react'
 import ClothCraftCornerTools from './ClothCraftCornerTools.jsx'
 import ClothCraftStudioSilhouette from './ClothCraftStudioSilhouette.jsx'
-import {getBounds, frontAvatarRegistration, horizontalPatternSpans, verticalPatternSpans, previewPoint, rotatedLayoutAroundCenter} from '../core/clothcraft2dGeometry.js'
+import {getBounds, frontAvatarRegistration, horizontalPatternSpans, verticalPatternSpans, previewPoint, rotatedLayoutAroundCenter, trianglePath, boundarySegments} from '../core/clothcraft2dGeometry.js'
 
 const COLORS = ['#527e91', '#d29465', '#7a9e79', '#a889b2', '#c3ab5d', '#76a5a4']
 const SEAM_COLORS = ['#eb775e', '#55aecd', '#dbb44c', '#8dc575', '#a98cd9', '#dd91b9']
@@ -149,7 +149,7 @@ function SelectionMarquee2D({points, panel, onStart, disabled}) {
 export default function ClothCraftBoardV2({
   s, active, selection, pick = () => {}, hover = () => {}, edit = () => {},
   mode = 'edit', busy = false, onPolygon = () => {},
-  onChangeMode = () => {}, onContextMenuRequest = () => {},
+  onChangeMode = () => {}, onContextMenuRequest = () => {}, onAvatarPick = () => {},
   showMeasurements = true, showSilhouette = true, showSeamDots = true, showAvatar = true,
 }) {
   const svg = useRef(null), drag = useRef(null), [view, setView] = useState(INITIAL_VIEW), [draft, setDraft] = useState([])
@@ -161,7 +161,7 @@ export default function ClothCraftBoardV2({
   useEffect(() => {
     const receiveTool = event => {
       const tool = event?.detail?.tool
-      const modes = {select:'edit',point:'edit',curve:'edit',sew:'sew',internal:'line',line:'line',measure:'edit'}
+      const modes = {select:'edit',point:'edit',curve:'edit',split:'edit',notch:'edit',allowance:'edit',annotation:'edit',editAnnotation:'edit',sew:'sew',internal:'line',line:'line',polygon:'pen',measure:'edit'}
       if (!Object.hasOwn(modes,tool)) return
       setTool2d(tool)
       setDraft([])
@@ -285,6 +285,18 @@ export default function ClothCraftBoardV2({
     const q = p.matrixTransform(matrix.inverse())
     return [q.x-offset[0], q.y-offset[1]]
   }
+  const createAnnotation = (e, panel, range) => {
+    if (busy || mode !== 'edit' || tool2d !== 'annotation') return false
+    const xy = point(e)
+    if (!xy) return true
+    e.stopPropagation()
+    const radians = (panel.layout_rotation_degrees || 0) * Math.PI / 180
+    const dx = xy[0] - range.layout[0], dy = xy[1] - range.layout[1]
+    const position = [dx * Math.cos(radians) + dy * Math.sin(radians), -dx * Math.sin(radians) + dy * Math.cos(radians)]
+    const text = window.prompt('Pattern annotation text')
+    if (text?.trim()) { pick({panel:panel.id}); void edit({kind:'Annotation',panel:panel.id,text:text.trim(),position}) }
+    return true
+  }
   const start = (e, panel, anchor, kind='move', handle=null) => {
     if (busy || ['sew', 'pen', 'line'].includes(mode) || e.button !== 0) return
     if (anchor === undefined && !transform2d) {
@@ -391,6 +403,77 @@ export default function ClothCraftBoardV2({
   }
   const isDrawing = mode === 'pen' || mode === 'line'
   const measuring = mode === 'edit' && tool2d === 'measure'
+  const splitBoundary = (e,panel,edge,indices) => {
+    if(busy || mode!=='edit' || tool2d!=='split')return false
+    const p=point(e);if(!p)return true
+    let total=0,best=Infinity,at=0
+    for(let k=1;k<indices.length;k++){
+      const a=boardUV[indices[k-1]],b=boardUV[indices[k]]
+      if(!a||!b)continue
+      const dx=b[0]-a[0],dy=b[1]-a[1],length=Math.hypot(dx,dy)
+      if(!length)continue
+      const t=Math.max(0,Math.min(1,((p[0]-a[0])*dx+(p[1]-a[1])*dy)/(length*length)))
+      const distance=Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dy)
+      if(distance<best){best=distance;at=total+t*length}total+=length
+    }
+    if(total>0.0002){
+      pick({panel:panel.id,edge})
+      void edit({kind:'SplitBoundary',panel:panel.id,edge,at_m:Math.max(.0001,Math.min(total-.0001,at))})
+    }
+    return true
+  }
+  // The same sampled material-space boundary used by the Rust compiled mesh
+  // determines the notch's fractional arclength, irrespective of 2D zoom.
+  // The native authoring layer validates all dimensions and records history.
+  const editConstructionEdge = (e,panel,edge,indices) => {
+    if(busy||mode!=='edit'||!['notch','allowance'].includes(tool2d))return false
+    if(tool2d==='allowance'){
+      void edit({kind:'SeamAllowance',panel:panel.id,edge,width_m:e.altKey?0:0.01})
+      pick({panel:panel.id,edge})
+      return true
+    }
+    const p=point(e)
+    if(!p)return true
+    let total=0,best=Infinity,at=0
+    for(let k=1;k<indices.length;k++){
+      const a=boardUV[indices[k-1]],b=boardUV[indices[k]]
+      if(!a||!b)continue
+      const dx=b[0]-a[0],dy=b[1]-a[1],length=Math.hypot(dx,dy)
+      if(length<1e-9)continue
+      const t=Math.max(0,Math.min(1,((p[0]-a[0])*dx+(p[1]-a[1])*dy)/(length*length)))
+      const d=Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dy)
+      if(d<best){best=d;at=total+t*length}
+      total+=length
+    }
+    if(total>.002){
+      const t=Math.max(.002,Math.min(.998,at/total))
+      if(e.altKey){
+        // Removal addresses the original saved fractional arclength exactly.
+        // Never pass a fresh imprecise click fraction to Rust's strict match.
+        const nearest=(panel.polygon?.notches?.[edge]||[]).reduce((closest,item)=>
+          !closest||Math.abs(item.t-t)<Math.abs(closest.t-t)?item:closest,null)
+        if(nearest&&Math.abs(nearest.t-t)<.05)
+          void edit({kind:'RemoveNotch',panel:panel.id,edge,t:nearest.t})
+      }else void edit({kind:'Notch',panel:panel.id,edge,t,depth_m:.006})
+      pick({panel:panel.id,edge})
+    }
+    return true
+  }
+  const boundaryMark = (indices,t) => {
+    const path=indices.map(i=>boardUV[i]).filter(Boolean)
+    const segments=path.slice(1).map((to,i)=>({a:path[i],b:to,d:Math.hypot(to[0]-path[i][0],to[1]-path[i][1])}))
+    const total=segments.reduce((sum,s)=>sum+s.d,0)
+    let at=Math.max(0,Math.min(1,t))*total
+    for(const segment of segments){
+      if(at<=segment.d||segment===segments.at(-1)){
+        if(segment.d<1e-10)return null
+        const dx=(segment.b[0]-segment.a[0])/segment.d,dy=(segment.b[1]-segment.a[1])/segment.d
+        return {p:[segment.a[0]+dx*at,segment.a[1]+dy*at],normal:[dy,-dx]}
+      }
+      at-=segment.d
+    }
+    return null
+  }
   const markCanvas = e => {
     if (busy || e.button !== 0 || (!isDrawing && !measuring)) return
     const p = point(e)
@@ -404,23 +487,29 @@ export default function ClothCraftBoardV2({
   }
   return <div className="cc-board" style={{position: 'relative', background: '#c6c7c9'}}>
     <ClothCraftCornerTools dimension="2d" mode={mode} activeTool={tool2d} onChangeMode={onChangeMode}
-      onChangeTool={setTool2d} disabled={busy}/>
-    <div role="group" aria-label="2D board view controls" style={{position:'absolute',top:8,right:10,zIndex:3,display:'flex',gap:3,alignItems:'center',border:'1px solid #c2ccce',borderRadius:7,padding:3,background:'rgba(241,244,244,.94)',boxShadow:'0 2px 6px #00000012'}}>
-      <span style={{fontSize:10,fontWeight:700,color:'#61757b',padding:'0 7px'}}>2D</span>
-      {['FRONT','GRID'].map(preset=><button key={preset} type="button" aria-pressed={viewPreset===preset} onClick={()=>setViewPreset(preset)} style={{fontSize:10,letterSpacing:'.06em',fontWeight:700,border:'none',borderRadius:4,padding:'5px 9px',cursor:'pointer',color:viewPreset===preset?'#fff':'#566970',background:viewPreset===preset?'#50656d':'transparent'}}>{preset}</button>)}
+      onChangeTool={name => {setTool2d(name);setDraft([]);setTape([])}} disabled={busy}/>
+    <div className="cc-v2-orientation cc-v2-board-orientation" role="group" aria-label="2D board view controls">
+      <strong title="Metric 2D drawing orientation">2D</strong>
+      <button type="button" aria-label="Front" title="Front drafting view" aria-pressed={viewPreset==='FRONT'} className={viewPreset==='FRONT'?'active':''} onClick={()=>setViewPreset('FRONT')}>FR</button>
+      <button type="button" aria-label="Grid" title="Neutral grid drafting view" aria-pressed={viewPreset==='GRID'} className={viewPreset==='GRID'?'active':''} onClick={()=>setViewPreset('GRID')}>GR</button>
+      <span className="cc-board-orientation-divider" aria-hidden="true"/>
+      <button type="button" aria-label="Frame all" title="Frame all patterns and full avatar" onClick={() => focus()}>F</button>
+      <button type="button" aria-label="Focus selected" title="Focus selected pattern" onClick={() => focus(true)}>S</button>
+      <button type="button" aria-label="Center axis" title="Center on the 2D front axis" onClick={() => setView(v=>[-v[2]/2,avatarAnchorY-v[3]/2,v[2],v[3]])}>C</button>
     </div>
-    <div className="cc-canvas-tools" style={{top:44,left:'auto',right:10}}>
-      <button type="button" onClick={() => focus()}>Frame all</button>
-      <button type="button" onClick={() => focus(true)}>Focus selected</button>
-      <button type="button" onClick={() => setView(v=>[-v[2]/2,avatarAnchorY-v[3]/2,v[2],v[3]])}>Center axis</button>
+    <div className="cc-canvas-tools cc-board-context-tools" style={{top:47,left:'auto',right:10}}>
       {isDrawing && <>
         <button type="button" disabled={busy || draft.length < (mode === 'line' ? 2 : 3)} onClick={() => {onPolygon(draft); setDraft([])}}>{mode === 'line' ? 'Create internal line' : 'Close pattern'} ({draft.length})</button>
         <button type="button" onClick={() => setDraft([])}>Cancel</button>
       </>}
+      {tool2d==='curve' && mode==='edit' && <span style={{fontSize:11}}>Click a point to curve; Option-click to straighten. Drag the curve handles.</span>}
+      {tool2d==='split' && mode==='edit' && <span style={{fontSize:11}}>Click an edge to insert a pattern point.</span>}
+      {tool2d==='notch' && mode==='edit' && <span style={{fontSize:11}}>NOTCH · Click a pattern boundary to add a 6 mm cutting marker. Option-click a marker to remove it.</span>}
+      {tool2d==='allowance' && mode==='edit' && <span style={{fontSize:11}}>SEAM ALLOWANCE · Click a boundary for a 10 mm cutting guide. Option-click to clear. Stitch edge and physics stay unchanged.</span>}
       {measuring && <button type="button" disabled={!tape.length} onClick={()=>setTape([])}>Clear tape</button>}
     </div>
     <svg ref={svg} viewBox={view.join(' ')} preserveAspectRatio="xMidYMid meet" style={{background: '#c6c7c9'}}
-      aria-label="Metric 2D pattern board with linked sewing and measurements"
+      aria-label="Metric 2D pattern board with linked sewing and measurements" data-native-tool={tool2d}
       onPointerDownCapture={markCanvas}
       onClickCapture={e => {if (!busy && (isDrawing || measuring)) e.stopPropagation()}}
       onPointerMove={move} onPointerUp={up} onPointerCancel={() => {drag.current = null;setPreview(null)}}
@@ -458,44 +547,103 @@ export default function ClothCraftBoardV2({
       <g pointerEvents="none" fontSize=".022" fill="#6c8188">
         <text x=".02" y=".745">X</text><text x=".015" y=".805">Y</text>
       </g>
-      {avatarVisible && s?.avatar?.triangles?.length > 0 && <g pointerEvents="none" opacity=".66" transform={`translate(${avatarAnchorX} ${avatarAnchorY})`} aria-label="Centered front avatar silhouette"
+      {avatarVisible && s?.avatar?.triangles?.length > 0 && <g opacity=".66" transform={`translate(${avatarAnchorX} ${avatarAnchorY})`} aria-label="Centered front avatar silhouette"
         data-registered-shoulder-y={originalAlignment.current?.shoulderY} data-avatar-anchor-x={avatarAnchorX} data-avatar-anchor-y={avatarAnchorY}>
-        <ClothCraftStudioSilhouette avatar={s.avatar}/>
+        <ClothCraftStudioSilhouette avatar={s.avatar}
+          onPick={!busy&&!['pen','line','sew'].includes(mode)?onAvatarPick:undefined}/>
       </g>}
       <g transform={`translate(${offset[0]} ${offset[1]})`}>
       {panels.map(({panel, range, color, points}, panelIndex) => {
         const selected = selection !== undefined ? selection?.panel === panel.id : active?.panel === panel.id
         const currentPreview=preview?.panelId===panel.id ? preview : null
         const livePoints=points.map(p=>previewPoint(p,currentPreview))
-        const shapePath=(s.triangles || []).slice(...range.triangles).map(tri =>
-          'M' + tri.map(index => boardUV[index]?.join(',')).filter(Boolean).join('L') + 'Z').join('')
+        const shapePath=trianglePath((s.triangles || []).slice(...range.triangles),boardUV)
         const clipId=`${uid}-pattern-${panelIndex}`
         const label=previewPoint(range.layout,currentPreview)
         return <g key={panel.id} onPointerEnter={() => hover({panel: panel.id})} onPointerLeave={() => hover(null)}>
           <defs><clipPath id={clipId}><path d={shapePath}/></clipPath></defs>
+          {/* Neutral drafting paper stays white regardless of 3D fabric tint. */}
           <path data-panel={panel.id} d={shapePath}
-            fill={presetForFabric(s.template.fabrics.find(f=>f.id===panel.fabric))?.appearance.color || "#f4f4f3"} fillOpacity={1}
+            fill="#f7f8f7" fillOpacity={1}
             style={{cursor:busy?'default':transform2d?'move':'default'}}
-            onPointerDown={e => start(e, panel)}
-            onClick={e => {e.stopPropagation(); pick({panel: panel.id})}}/>
+            onPointerDown={e => {if (tool2d === 'annotation') e.stopPropagation(); else start(e, panel)}}
+            onClick={e => {if (!createAnnotation(e,panel,range)) {e.stopPropagation(); pick({panel: panel.id})}}}/>
+          {(panel.polygon?.annotations || []).map(note => {
+            const [x,y]=transform(panel,range,note.position)
+            const [tx,ty]=previewPoint([x,y],currentPreview)
+            return <g key={note.id} data-pattern-annotation={`${panel.id}:${note.id}`}
+              onPointerDown={e=>e.stopPropagation()}
+              onClick={e=>{
+                e.stopPropagation()
+                if(busy)return
+                pick({panel:panel.id})
+                if(e.altKey){void edit({kind:'RemoveAnnotation',panel:panel.id,id:note.id});return}
+                if(tool2d!=='editAnnotation'&&tool2d!=='annotation')return
+                const text=window.prompt('Edit annotation (Alt-click to delete)',note.text)
+                if(text!==null&&text.trim())void edit({kind:'Annotation',panel:panel.id,id:note.id,text:text.trim(),position:note.position})
+              }} style={{cursor:tool2d==='annotation'||tool2d==='editAnnotation'?'text':'pointer'}}>
+              <rect x={tx-.009} y={ty-.026} width={Math.max(.06,note.text.length*.009)} height=".038" rx=".005" fill="#fffaf0" stroke="#916e3f" strokeWidth=".0015"/>
+              <text x={tx} y={ty} fontSize=".018" fill="#5c4023" pointerEvents="none">{note.text}</text>
+            </g>
+          })}
           {selected && transform2d && <SelectionMarquee2D
             points={livePoints} panel={panel} onStart={start} disabled={busy}/>}
-          {Object.entries(range.boundaries || {}).map(([edge, indices]) => <polyline key={edge} data-edge={`${panel.id}:${edge}`}
-            points={indices.map(i => boardUV[i]?.join(',')).filter(Boolean).join(' ')}
-            fill="none" stroke={selected && active.edge === edge ? '#ef6339' : selected ? '#d79e2d' : '#374e57'}
-            strokeWidth={selected && active.edge === edge ? '.009' : selected ? '.0047' : '.003'}
-            style={{cursor: 'crosshair'}}
-            onPointerDown={e => e.stopPropagation()}
-            onPointerEnter={e => {e.stopPropagation(); hover({panel: panel.id, edge})}}
-            onClick={e => {e.stopPropagation(); pick({panel: panel.id, edge})}}/>)}
+          {Object.entries(range.boundaries || {}).map(([edge, indices]) => {
+            const paths=boundarySegments(indices,boardUV).map(points=>points.map(p=>p.join(',')).join(' '))
+            const selectedEdge=selected && active?.edge === edge
+            const edgeClick=e => {
+              e.stopPropagation()
+              if(!editConstructionEdge(e,panel,edge,indices)&&!splitBoundary(e,panel,edge,indices))pick({panel:panel.id,edge})
+            }
+            return <g key={edge}>
+              {paths.map((path,i)=><polyline key={i} points={path} fill="none" pointerEvents="none"
+                stroke={selectedEdge ? '#ef6339' : selected ? '#d79e2d' : '#374e57'}
+                strokeWidth={selectedEdge ? '.009' : selected ? '.0047' : '.003'}/>)}
+              {paths.map((path,i)=><polyline key={i} data-edge={`${panel.id}:${edge}`} data-2d-edge-hit={`${panel.id}:${edge}`}
+                points={path} fill="none" stroke="transparent"
+                strokeWidth={Math.max(.016,view[2]*.012)} pointerEvents="stroke"
+                style={{cursor:busy?'default':tool2d==='split'?'copy':tool2d==='allowance'||tool2d==='notch'?'crosshair':'pointer'}}
+                onPointerDown={e => e.stopPropagation()}
+                onPointerEnter={e => {e.stopPropagation();hover({panel:panel.id,edge})}}
+                onClick={edgeClick}/>)}
+            </g>
+          })}
+          {Object.entries(panel.polygon?.notches||{}).flatMap(([edge,marks])=>{
+            const indices=range.boundaries?.[edge]||[]
+            return marks.map((mark,index)=>{
+              const location=boundaryMark(indices,mark.t)
+              if(!location)return null
+              return <line key={`notch:${edge}:${index}`} data-native-notch={`${panel.id}:${edge}`}
+                x1={location.p[0]} y1={location.p[1]}
+                x2={location.p[0]+location.normal[0]*mark.depth_m}
+                y2={location.p[1]+location.normal[1]*mark.depth_m}
+                stroke="#a74f18" strokeWidth=".005" strokeLinecap="round"
+                pointerEvents="none"/>
+            })
+          })}
+          {Object.entries(panel.polygon?.seam_allowances||{}).flatMap(([edge,width])=>{
+            const indices=range.boundaries?.[edge]||[]
+            const path=indices.map(i=>boardUV[i]).filter(Boolean)
+            if(!Number.isFinite(width)||width<=0||path.length<2)return []
+            const guide=path.map((p,i)=>{
+              const a=path[Math.max(0,i-1)],b=path[Math.min(path.length-1,i+1)]
+              const dx=b[0]-a[0],dy=b[1]-a[1],length=Math.hypot(dx,dy)||1
+              return [p[0]+dy/length*width,p[1]-dx/length*width]
+            })
+            return [<polyline key={`allowance:${edge}`} data-native-allowance={`${panel.id}:${edge}`}
+              points={guide.map(p=>p.join(',')).join(' ')}
+              fill="none" stroke="#c27831" strokeWidth=".0025" strokeDasharray=".014 .01"
+              pointerEvents="none"/>]
+          })}
           <text x={label[0]} y={label[1] - .035} fontSize=".027" fill="#34454a" pointerEvents="none">{panel.name}</text>
           {showMeasurements && <Dimensions points={livePoints} selected={selected}
             panel={panel} boundaries={range.boundaries} uv={boardUV} clipId={clipId} preview={currentPreview}/>}
-          {selected && mode === 'edit' && tool2d === 'point' && panel.polygon?.points?.map((uv, n) => {
+          {selected && mode === 'edit' && ['point','curve'].includes(tool2d) && panel.polygon?.points?.map((uv, n) => {
             const p = previewPoint(transform(panel, range, uv),currentPreview)
             return <circle key={n} data-control-point="vertex" data-panel-id={panel.id} cx={p[0]} cy={p[1]} r=".0105"
               fill={active?.anchor===n ? POINT_COLORS.selectedVertex : POINT_COLORS.vertex}
-              stroke={POINT_COLORS.outline} strokeWidth=".0025" onPointerDown={e => start(e, panel, n)}/>
+              stroke={POINT_COLORS.outline} strokeWidth=".0025"
+              onPointerDown={e => {if(tool2d==='curve'){e.stopPropagation();e.preventDefault();if(!busy)void edit({kind:'CurvePoint',panel:panel.id,anchor:n,curved:!e.altKey})}else start(e,panel,n)}}/>
           })}
           {selected && mode === 'edit' && tool2d === 'curve' && Object.entries(panel.polygon?.curves || {}).flatMap(([edge, controls]) => controls.map((uv, index) => {
             const p = previewPoint(transform(panel, range, uv),currentPreview)

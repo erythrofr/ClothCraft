@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { chromium } from '../../music-empire-game/node_modules/playwright-core/index.mjs'
 import { FABRIC_PRESETS } from '../src/data/defaultProject.js'
+import { groupApparelPresets } from '../src/data/apparelMaterialExpansion.js'
 
 // Bounded UI verification against an existing Vite app. Use a dedicated tee
 // autosave slot and one headless browser, closed on every exit.
@@ -53,21 +54,25 @@ if (!process.exitCode) {
     await layout.selectOption('materials')
     await page.getByRole('button',{name:'Browse fabrics'}).click()
     const search=page.getByRole('textbox',{name:'Search library'})
-    const tiles=page.locator('.asset-library-content button.asset-template.garment-tile[title^="Create "]')
+    const tiles=page.locator('.exo-fabric-entry-main')
     await search.fill('')
     const allCount=await tiles.count()
     assert.equal(allCount,400,`Rendered fabric catalog has ${allCount} presets, expected 400`)
     for(const term of ['denim','cotton','leather','ripstop']){
       await search.fill(term)
-      const expected=presetEntries.filter(([,p])=>p.name.toLowerCase().includes(term)).length
+      const expected=groupApparelPresets(FABRIC_PRESETS)
+        .flatMap(([group,entries])=>entries.filter(([,p])=>
+          `${p.name} ${group} ${p.texture?.scanSource||''}`.toLowerCase().includes(term))).length
       assert.equal(await tiles.count(),expected,`Search mismatch for ${term}`)
       assert.ok(expected>0,`Catalog search has no ${term} fabric`)
     }
     await search.fill('Rigid Denim')
     assert.ok(await tiles.count()>=1)
-    const rigidDenim=tiles.filter({has:page.locator('.asset-template-label', {hasText:/^\+ Rigid Denim$/})})
+    const rigidDenim=page.locator('.exo-fabric-entry-main[data-fabric-preset="denim"]')
     assert.equal(await rigidDenim.count(),1)
     await rigidDenim.click()
+    await page.getByRole('button',{name:'Add to project and apply'}).click()
+    await page.locator('.clo-object-row .clo-object-select').filter({hasText:'Rigid Denim'}).first().click()
     await page.locator('.panel-section').filter({has:page.getByText('Physical fabric',{exact:true})}).first().waitFor({state:'visible'})
     const cloReferenceDetails=page.locator('details[aria-label="CLO7 style fabric detailed property comparison"]')
     await cloReferenceDetails.waitFor({state:'visible'})

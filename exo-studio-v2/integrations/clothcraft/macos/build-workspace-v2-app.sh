@@ -39,20 +39,17 @@ if [[ -d "$EXO_DESKTOP_DEST" ]]; then
   done < <(ps -axo pid=,command=)
   sleep 1
 fi
-if [[ -x "$ROOT/research/runtime/clothcraft-rust-toolchain/cargo/bin/cargo" ]]; then
-  export CARGO_HOME="${CARGO_HOME:-$ROOT/research/runtime/clothcraft-rust-toolchain/cargo}"
-  export RUSTUP_HOME="${RUSTUP_HOME:-$ROOT/research/runtime/clothcraft-rust-toolchain/rustup}"
-  export PATH="$CARGO_HOME/bin:$PATH"
+export CARGO_HOME="$ROOT/research/runtime/clothcraft-rust-toolchain/cargo"
+export RUSTUP_HOME="$ROOT/research/runtime/clothcraft-rust-toolchain/rustup"
+export PATH="$CARGO_HOME/bin:/usr/local/bin:$PATH"
+if [[ -e research/oss/clothcraft/src/bin/exo-session.rs ]] && \
+   ! cmp -s integrations/clothcraft/exo-session.rs research/oss/clothcraft/src/bin/exo-session.rs; then
+  echo 'Refusing to overwrite different local Rust session work in the ClothCraft checkout.' >&2
+  echo 'Review src/bin/exo-session.rs and integrations/clothcraft/exo-session.rs before packaging.' >&2
+  exit 1
 fi
-SOURCE="${EXO_CLOTHCRAFT_REPO:-$ROOT/research/oss/clothcraft}"
-if [[ ! -f "$SOURCE/Cargo.toml" && -f "$ROOT/../Cargo.toml" ]]; then SOURCE="$ROOT/.."; fi
-test -f "$SOURCE/Cargo.toml" || { echo 'ClothCraft source missing' >&2; exit 1; }
-if [[ ! -e "$SOURCE/src/bin/exo-session.rs" ]]; then
-  echo 'EXO session bridge is missing in ClothCraft source; use the fork integration branch.' >&2; exit 1
-fi
-(cd "$SOURCE" && cargo build --locked -j 2 --bins)
-export EXO_CLOTHCRAFT_REPO="$SOURCE"
-export EXO_INCLUDE_PERSONAL_AVATARS="${EXO_INCLUDE_PERSONAL_AVATARS:-0}"
+cp integrations/clothcraft/exo-session.rs research/oss/clothcraft/src/bin/exo-session.rs
+(cd research/oss/clothcraft && cargo build --locked -j 2 --bin exo-session)
 export EXO_DESKTOP_SWIFT_SOURCE=integrations/clothcraft/macos/EXOClothCraftWorkspaceV2.swift
 export EXO_BUILD_BRIDGE_URL=http://127.0.0.1:5385
 bash integrations/clothcraft/macos/build.sh

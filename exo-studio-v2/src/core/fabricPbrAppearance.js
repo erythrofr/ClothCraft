@@ -16,6 +16,21 @@ const licensedScan=texture=>Boolean(
   /^\/(?:fabric-scans|fabric-scans-ambientcg)\//.test(texture.roughnessSrc||'')
 )
 
+/** Both scan and procedural channels use the same physical swatch UV extent. */
+export function fabricSwatchRepeatDimensions(texture={}){
+ const safe=value=>value!==null&&value!==undefined&&value!==''&&Number.isFinite(Number(value))&&Number(value)>0?Math.max(.5,Number(value)):20
+ return {repeatWidthCm:safe(texture?.repeatWidthCm),repeatHeightCm:safe(texture?.repeatHeightCm)}
+}
+export function fabricSwatchMapRepeats(texture={},swatchCm=270){
+ const {repeatWidthCm,repeatHeightCm}=fabricSwatchRepeatDimensions(texture)
+ return [swatchCm/repeatWidthCm,swatchCm/repeatHeightCm]
+}
+/** Procedural yarn maps already repeat once per tile within their source scan-sized UV. */
+export function fabricProceduralSwatchRepeats(tileCm,swatchCm=270){
+ const safe=Number.isFinite(Number(tileCm))&&Number(tileCm)>0?Number(tileCm):3
+ return [swatchCm/safe,swatchCm/safe]
+}
+
 export function roughnessVariationStrength(fabric={}) {
  const name=String(fabric.name||'').toLowerCase()
  const family=String(fabric.surfaceFamily||'').toLowerCase()
@@ -30,8 +45,10 @@ export function roughnessVariationStrength(fabric={}) {
 /** Pure per-pixel neutralization; g is the source map's linear roughness. */
 export function balanceRoughnessByte(g,mean,contrast=.45) {
  const relative=(bound(g,0,255)-bound(mean,0,255))/255
- const neutral=1 + relative*bound(contrast,0,1.5)
- return Math.round(255*bound(neutral,.78,1))
+ // Leave headroom on both sides of the mean. Previous neutral=1 clipped
+ // every brighter-than-average yarn to white, discarding half the relief.
+ const neutral=.90 + relative*bound(contrast,0,1.5)
+ return Math.round(255*bound(neutral,.70,1))
 }
 
 /** True iff a licensed scan has a documented roughness source to balance. */

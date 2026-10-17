@@ -14,9 +14,6 @@ const outputDefault = path.join(root, 'integrations/clothcraft/output')
 export function paths(env = process.env) {
   const candidates = [
     env.EXO_CLOTHCRAFT_REPO,
-    // When EXO Studio V2 lives inside a ClothCraft fork, use the checkout's
-    // existing native Rust engine rather than demanding another nested clone.
-    path.resolve(root, '..'),
     path.join(root, 'research/oss/clothcraft'),
     path.resolve(root, '../garment-studio/research/oss/clothcraft-contrib-review'),
   ].filter(Boolean)
@@ -26,17 +23,14 @@ export function paths(env = process.env) {
   const rustFit = env.EXO_CLOTHCRAFT_FIT_BIN || (upstream && path.join(upstream, `target/debug/cloth-fit${exe}`))
   const localToolchain = path.join(root, 'research/runtime/clothcraft-rust-toolchain')
   const localCargo = path.join(localToolchain, 'cargo/bin/cargo')
-  const installedCargo = path.join(env.HOME || '', '.cargo/bin/cargo')
-  const rustEnv = { ...env }
-  // The original EXO checkout optionally carries an isolated Rust toolchain.
-  // Fork installations should retain the user's installed cargo/rustup.
-  if (fs.existsSync(localCargo)) {
-    rustEnv.CARGO_HOME = env.CARGO_HOME || path.join(localToolchain, 'cargo')
-    rustEnv.RUSTUP_HOME = env.RUSTUP_HOME || path.join(localToolchain, 'rustup')
-    rustEnv.PATH = `${path.dirname(localCargo)}${path.delimiter}${env.PATH || ''}`
+  const rustEnv = {
+    ...env,
+    CARGO_HOME: env.CARGO_HOME || path.join(localToolchain, 'cargo'),
+    RUSTUP_HOME: env.RUSTUP_HOME || path.join(localToolchain, 'rustup'),
   }
+  rustEnv.PATH = `${path.dirname(localCargo)}${path.delimiter}${env.PATH || ''}`
   return { upstream, cli, rustTemplate, rustFit,
-    cargo: env.EXO_CARGO || (fs.existsSync(localCargo) ? localCargo : fs.existsSync(installedCargo) ? installedCargo : 'cargo'), rustEnv }
+    cargo: env.EXO_CARGO || (fs.existsSync(localCargo) ? localCargo : 'cargo'), rustEnv }
 }
 
 function parse(argv) {

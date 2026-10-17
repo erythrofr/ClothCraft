@@ -806,6 +806,24 @@ function pairEdgeParticles(aIndices, bIndices, pieceA, pieceB, reverseOverride =
   return pairs
 }
 
+// Seam progress always follows endpoint A's authored start -> end order.
+// Two-ended opening takes precedence when either field is supplied; legacy
+// openFraction/openFrom semantics remain untouched for older projects.
+function zipperStationIsOpen(seam, progress) {
+  if (seam.openStartFraction != null || seam.openEndFraction != null) {
+    const fraction = (value) => Number.isFinite(Number(value))
+      ? THREE.MathUtils.clamp(Number(value), 0, 1)
+      : 0
+    const start = fraction(seam.openStartFraction ?? 0)
+    const end = fraction(seam.openEndFraction ?? 0)
+    return start + end >= 1 || progress <= start && start > 0 || progress >= 1 - end && end > 0
+  }
+  const openFraction = Math.max(0, Math.min(1, Number(seam.openFraction ?? 0)))
+  if (openFraction >= 0.999) return true
+  if (openFraction <= 0) return false
+  return seam.openFrom === 'start' ? progress <= openFraction : progress >= 1 - openFraction
+}
+
 // Microscopic/partial CLO-style stitching must be attached to the original
 // cutline position, not snapped to the nearest simulation vertex. Snapping a
 // 0.2 mm segment onto a 10 mm mesh can miss the seam entirely or attach it
@@ -1478,6 +1496,7 @@ export function buildSimulation(project, { optimizeMesh = false } = {}) {
     const seamType = seam.type || 'normal'
     if (seam.useExactCorrespondence === true || Number.isInteger(seam.sourceCloSeamGroup) || project.simulation?.adaptiveCutlineMeshing === true) {
       for (const sample of buildVirtualSeamSamples(seam, pieceA, pieceB)) {
+        if (seamType === 'zipper' && zipperStationIsOpen(seam, sample.progress)) continue
         const constraint = {
           type: 'seam-virtual',
           a: sample.sourceParticles.reduce((best, item, index) => sample.sourceWeights[index] > best.weight ? { particle: item, weight: sample.sourceWeights[index] } : best, { particle: sample.sourceParticles[0], weight: -1 }).particle,
@@ -1523,14 +1542,7 @@ export function buildSimulation(project, { optimizeMesh = false } = {}) {
     for (let pairIndex = 0; pairIndex < pairedParticles.length; pairIndex += 1) {
       const [aIndex, bIndex] = pairedParticles[pairIndex]
       if (seamType === 'zipper' && pairedParticles.length > 1) {
-        const openFraction = Math.max(0, Math.min(1, Number(seam.openFraction ?? 0)))
-        if (openFraction >= 0.999) continue
-        if (openFraction > 0) {
-          const progress = pairIndex / (pairedParticles.length - 1)
-          const opensFromStart = seam.openFrom === 'start'
-          const inOpenSection = opensFromStart ? progress <= openFraction : progress >= 1 - openFraction
-          if (inOpenSection) continue
-        }
+        if (zipperStationIsOpen(seam, pairIndex / (pairedParticles.length - 1))) continue
       }
       const closureRest = seamType === 'zipper' ? 0.003 : 0.008
       const closureStiffness = seamType === 'zipper'

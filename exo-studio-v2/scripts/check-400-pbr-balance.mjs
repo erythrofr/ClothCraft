@@ -18,12 +18,15 @@ for (const item of all) {
  const colored=regradeScannedPixel([181,194,169],.72,[53,76,105])
  assert.ok(colored.every(channel=>channel>=0&&channel<=255))
  const steps=[0,63,127,191,255].map(value=>balanceRoughnessByte(value,128,strength))
- assert.ok(steps.every((x,index)=>x>=198&&x<=255&&(index===0||x>=steps[index-1])),
+ // The scan rebalancer reserves 10% headroom around a neutral .90
+ // multiplier to preserve bright and dark yarn relief. Its documented
+ // lower clamp is .70, not the historic all-white 1.00 baseline.
+ assert.ok(steps.every((x,index)=>x>=178&&x<=255&&(index===0||x>=steps[index-1])),
   `Roughness baseline must be bounded/monotone for ${item.name}`)
 }
-assert.equal(balanceRoughnessByte(123,123,.5),255,
- 'Locally uniform roughness must not shift a material slider')
-assert.equal(balanceRoughnessByte(Number.NaN,Number.NaN,Infinity),255,
+assert.equal(balanceRoughnessByte(123,123,.5),230,
+ 'Locally uniform roughness must stay at the declared .90 scan-neutral baseline')
+assert.equal(balanceRoughnessByte(Number.NaN,Number.NaN,Infinity),230,
  'Invalid image pixels should not propagate invalid shader inputs')
 assert.equal(shouldBalanceFabricRoughness({texture:{
  scanAssetId:'fake',license:'proprietary',

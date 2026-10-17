@@ -75,3 +75,11 @@
 .clo-inspector .clo-pe-material-faces button:disabled{opacity:.55;cursor:not-allowed;}
 .clo-inspector .clo-pe-unit-selection {display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 10px;border-bottom:1px solid #414c55;color:#9caeb9;font-size:10px;}
 .clo-inspector .clo-pe-unit-selection select {background:#1e282e;color:#d8eaf3;border:1px solid #465c6c;border-radius:2px;font-size:10px;min-height:22px;padding:1px 6px;}
+.clo-inspector .clo-pe-zipper-slider,.clo-inspector .clo-pe-zipper-seam{display:flex;flex-direction:column;gap:6px;padding:10px 0;color:#b8cbd6;font-size:10px}
+.clo-inspector .clo-pe-zipper-slider input{width:100%;accent-color:#75c9eb;cursor:pointer}
+.clo-inspector .clo-pe-zipper-slider strong{align-self:flex-end;color:#d4eaf5;font-weight:600}
+.clo-inspector .clo-pe-zipper-seam select{width:100%;min-width:0;min-height:29px;background:#20272e;border:1px solid #526775;color:#ebf2f6;padding:4px;font-size:10px}
+.clo-inspector .clo-pe-zipper-closure{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:8px 0;color:#b4c5cf;font-size:10px}
+.clo-inspector .clo-pe-zipper-closure strong{margin-left:auto;color:#d5ecf8}
+.clo-inspector .clo-pe-zipper-closure-bar{width:100%;height:5px;background:#333f48;border-radius:999px;overflow:hidden}
+.clo-inspector .clo-pe-zipper-closure-bar>span{display:block;height:100%;background:#81bccf;transition:width .1s ease}

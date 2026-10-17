@@ -148,4 +148,21 @@
 .cc-v2-orientation button{padding:5px 7px!important;font-size:9px!important;letter-spacing:.03em;font-weight:650;border:1px solid transparent!important;background:transparent!important;color:#3d5869!important}
 .cc-v2-orientation button:hover{background:#9bb7c6!important;color:white!important}
 .cc-v2-orientation button:focus-visible{outline:2px solid #47768b}
+.cc-v2-board-orientation{left:auto;right:12px;top:11px;gap:2px;padding:3px;box-shadow:0 2px 8px #172e4220}
+.cc-v2-board-orientation button{min-width:24px;padding:4px 5px!important;line-height:1.25!important}
+.cc-v2-board-orientation button.active{background:#506b78!important;color:#fff!important}
+.cc-board-orientation-divider{width:1px;height:15px;background:#acb9be;margin:0 2px}
+.cc-rust-embedded .cc-board-context-tools{max-width:min(370px,calc(100% - 60px));display:flex;flex-wrap:wrap;justify-content:flex-end;gap:3px}
+.cc-rust-embedded .cc-board-context-tools:empty{display:none}
 .cc-rust-embedded .cc-embedded-bottom button[title*="Spread"]{background:#afc4ce;border-color:#7c9ead;font-weight:650}
+
+/* Native sewing must be completable from the embedded editor, where the
+   standalone ClothCraft sewing fieldset is not mounted. */
+.cc-rust-embedded .cc-embedded-sew-commit{flex:0 0 auto;display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;padding:7px 10px;border-top:1px solid #9aa3a7;background:#30363a;color:#f0f2f2;font-size:11px}
+.cc-rust-embedded .cc-native-sewing-pair{flex:1 1 270px;line-height:1.35;overflow-wrap:anywhere}
+.cc-rust-embedded .cc-embedded-sew-commit label{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;cursor:pointer}
+.cc-rust-embedded .cc-embedded-sew-commit input{accent-color:#90c7df;cursor:pointer}
+.cc-rust-embedded .cc-embedded-sew-commit button{min-height:30px;font-size:11px;padding:5px 10px;background:#48545a;color:#f5f7f7;border-color:#74848c}
+.cc-rust-embedded .cc-embedded-sew-commit button[data-native-create-seam]{background:#d6e4e9;color:#19303a;border-color:#d6e4e9;font-weight:700}
+.cc-rust-embedded .cc-embedded-sew-commit button:disabled{opacity:.45}
+@media(max-width:740px){.cc-rust-embedded .cc-embedded-sew-commit{gap:6px;padding:8px}.cc-rust-embedded .cc-native-sewing-pair{flex-basis:100%}}

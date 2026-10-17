@@ -71,6 +71,8 @@ try{
  const gx=rect.x+g.x,gy=rect.y+g.y
  async function waitRunning(want){for(let i=0;i<100;i++){const s=await snapshot();if(Boolean(s.running)===want&&!s.busy)return s;await sleep(100)}throw Error('Running state did not become '+want)}
  async function advancing(before){for(let i=0;i<120;i++){const next=await snapshot();if(next.time>before.time)return next;await sleep(200)}throw Error('No native time advance: '+JSON.stringify({before:before.time,current:(await snapshot()).time,errors}))}
+ const expand=p.getByRole('button',{name:'Expand additional EXO tools',exact:true})
+ if(await expand.count())await expand.click()
  const initial=await snapshot()
  await p.getByRole('navigation',{name:'Right workspace tools'}).getByRole('button',{name:'Fabric hand',exact:true}).click()
  await waitRunning(true)

@@ -176,6 +176,42 @@ function Artwork({ id }) {
       return <><MiniShirt/><path d="M9 9q-2 3 0 6m3-7q-2 4 0 9m3-8q-2 3 0 6" strokeWidth="1.1"/></>
     case 'orbit':
       return <><path d="m8 8 4-3 4 3-4 3Z M8 8v7l4 3 4-3V8"/><ellipse cx="12" cy="12" rx="10" ry="5.2" transform="rotate(-25 12 12)" strokeDasharray="3 2"/><path d="m19 7 2 1-1.1 2.5" strokeWidth="1.4"/></>
+    // CLO reference-only operations receive their own original glyphs. These
+    // indicate the operation's identity, not support for an unavailable action.
+    case 'fold-arrangement': case 'fold-garment':
+      return <><path d="M3 5h12l6 7-9 8H3Z" fill="currentColor" fillOpacity=".08"/><path d="M15 5 12 12l9 0M12 12l0 8" strokeDasharray={id==='fold-arrangement'?'2 1':undefined}/><path d="m6 9 3 3-3 3"/></>
+    case 'redrape':
+      return <><MiniShirt/><path d="M3 19a9 9 0 0 0 16 0m0 0-4-.5m4 .5-1-4" strokeWidth="1.5"/><path d="M9 11q3 3 6 0" strokeDasharray="2 1"/></>
+    case 'motion':
+      return <><circle cx="10" cy="5" r="2"/><path d="m9 8-3 6 4 3-2 5m2-9 6 2 4 5m-11-8 6-3"/><path d="m18 3 4 4-4 4" strokeWidth="1.5"/></>
+    case 'pen-3d':
+      return <><path d="m3 9 9-5 9 5v9l-9 4-9-4Z" strokeOpacity=".45"/><path d="m5 17 11-11 3 3-11 11-4 1Z" fill="currentColor" fillOpacity=".18"/><path d="m4 21 4-1"/></>
+    case 'graphic-transform':
+      return <><rect x="6" y="6" width="12" height="12" rx="1"/><path d="m9 15 2-3 2 2 2-3"/><path d="M3 8V3h5m8 0h5v5m0 8v5h-5M8 21H3v-5"/></>
+    case 'button-move':
+      return <><circle cx="10" cy="12" r="6"/><circle cx="8" cy="10" r="1" fill="currentColor"/><circle cx="12" cy="14" r="1" fill="currentColor"/><path d="M17 4h5m-2.5-2.5v5M17 19h5m-2.5-2.5v5"/></>
+    case 'zipper':
+      return <><path d="M6 2v20m12-20v20M9 3v13m6-13v13"/><path d="M9 5h6M9 8h6M9 11h6M9 14h6" strokeDasharray="1.5 1"/><rect x="10" y="15" width="4" height="5" rx="1" fill="currentColor" fillOpacity=".35"/></>
+    case 'piping':
+      return <><path d="M3 5c9-4 9 18 18 14" strokeWidth="4" strokeOpacity=".3"/><path d="M3 5c9-4 9 18 18 14" strokeWidth="1.6"/><path d="M5 3 2 7m19 10-3 4"/></>
+    case 'binding':
+      return <><path d="M3 4h18v16H3Z" strokeOpacity=".35"/><path d="M3 4h5v16H3m13-16h5v16h-5" fill="currentColor" fillOpacity=".2"/><path d="M8 4v16m8-16v16" strokeDasharray="2 2"/></>
+    case 'press': case 'steam':
+      return <><path d="M4 16q8-13 16 0v3H4Z"/><path d="M6 21h12"/><path d="M8 3q-3 3 0 6m5-6q-3 3 0 6m5-6q-3 3 0 6" strokeDasharray={id==='steam'?'2 1':undefined}/></>
+    case 'fullness':
+      return <><path d="M3 5h18v14H3Z"/><path d="M8 6v12m8-12v12" strokeDasharray="2 1"/><path d="m5 12 3-3 3 3m2 0 3 3 3-3"/></>
+    case 'trace':
+      return <><Pattern/><path d="m8 7 9-1 2 10-7 2" strokeDasharray="2 2" strokeWidth="2"/></>
+    case 'seam-allowance':
+      return <><Pattern/><path d="M2 7 5 2l14-1 4 18-5 4H2" strokeDasharray="2 1.5" strokeWidth="1"/></>
+    case 'walk-pattern':
+      return <><path d="M3 19q2-15 15-15"/><path d="M6 19q2-12 12-12" strokeDasharray="2 2"/><path d="m14 3 4 1-1 4M5 15l-2 4 4 1"/></>
+    case 'seam-taping':
+      return <><path d="M3 3h8v18H3Zm10 0h8v18h-8Z" strokeOpacity=".55"/><path d="M11 3h2v18h-2Z" fill="currentColor" fillOpacity=".45"/><path d="M12 4v16" strokeDasharray="1 2"/></>
+    case 'sublayer':
+      return <><path d="m3 7 9-5 9 5-9 5Zm0 5 9 5 9-5M3 17l9 5 9-5"/><path d="M12 12v5" strokeDasharray="1 1"/></>
+    case 'fill-pattern':
+      return <><Pattern/><path d="m8 13 4 4 9-10" strokeWidth="2"/><path d="M6 8h9" strokeDasharray="1 2"/></>
     default:
       return <><Cursor/></>
   }

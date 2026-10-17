@@ -1,0 +1,501 @@
+{
+  "scope": "EXO ClothCraft Studio V2",
+  "date": "2026-10-17",
+  "counts": {
+    "native": 19,
+    "inspect": 7,
+    "unavailable": 44
+  },
+  "tools": [
+    {
+      "id": "3d:A01",
+      "label": "Simulate",
+      "icon": "simulate",
+      "status": "native",
+      "action": "simulation.toggle"
+    },
+    {
+      "id": "3d:A02",
+      "label": "Select/Move",
+      "icon": "select-3d",
+      "status": "native",
+      "action": "viewport3d.selectMove"
+    },
+    {
+      "id": "3d:A03",
+      "label": "Select Mesh (Brush)",
+      "icon": "wireframe",
+      "status": "native",
+      "action": "viewport3d.meshBrushSelect"
+    },
+    {
+      "id": "3d:A04",
+      "label": "Edit Styleline",
+      "icon": "curve",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "3d:A05",
+      "label": "Edit Sewing",
+      "icon": "seam-links",
+      "status": "native",
+      "action": "sewing.editExisting"
+    },
+    {
+      "id": "3d:A06",
+      "label": "Segment Sewing",
+      "icon": "seam-links",
+      "status": "native",
+      "action": "sewing.freeSew"
+    },
+    {
+      "id": "3d:A07",
+      "label": "Free Sewing",
+      "icon": "sew",
+      "status": "native",
+      "action": "sewing.freeSew"
+    },
+    {
+      "id": "3d:A08",
+      "label": "Auto Sewing",
+      "icon": "sew",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "3d:A09",
+      "label": "Edit Tack",
+      "icon": "pin",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "3d:A10",
+      "label": "Tack",
+      "icon": "pin",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "3d:A11",
+      "label": "Fold Arrangement",
+      "icon": "avatar",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "3d:A12",
+      "label": "Fold 3D Garment",
+      "icon": "avatar",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "3d:A13",
+      "label": "Reset 2D Arrangement (All)",
+      "icon": "mirror",
+      "status": "native",
+      "action": "arrangement.reset2d"
+    },
+    {
+      "id": "3d:A14",
+      "label": "Reset 3D Arrangement (All)",
+      "icon": "avatar",
+      "status": "native",
+      "action": "arrangement.reset3d"
+    },
+    {
+      "id": "3d:A15",
+      "label": "Re-drape 3D Arrangement",
+      "icon": "simulate",
+      "status": "native",
+      "action": "simulation.redrape"
+    },
+    {
+      "id": "3d:A16",
+      "label": "Hi-Res Garment",
+      "icon": "wireframe",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "3d:A17",
+      "label": "Edit Measure (Avatar)",
+      "icon": "measure",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "3d:A18",
+      "label": "Basic Tape Measure (Avatar)",
+      "icon": "measure",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "3d:A19",
+      "label": "Edit Measure (Garment)",
+      "icon": "measure",
+      "status": "inspect",
+      "action": "dimensions.show"
+    },
+    {
+      "id": "3d:A20",
+      "label": "Linear Measure (Garment)",
+      "icon": "measure",
+      "status": "inspect",
+      "action": "dimensions.show"
+    },
+    {
+      "id": "3d:B01",
+      "label": "Play Motion",
+      "icon": "avatar",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "3d:B02",
+      "label": "Edit Line (3D Pattern)",
+      "icon": "curve",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "3d:B03",
+      "label": "Line (3D Pattern)",
+      "icon": "internal",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "3d:B04",
+      "label": "3D Base Pen",
+      "icon": "points",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "3d:B05",
+      "label": "Edit 3D Pen (Avatar)",
+      "icon": "points",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "3d:B06",
+      "label": "3D Pen (Avatar)",
+      "icon": "points",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "3d:B07",
+      "label": "Edit Texture (3D)",
+      "icon": "material",
+      "status": "inspect",
+      "action": "fabric.inspectProperties"
+    },
+    {
+      "id": "3d:B08",
+      "label": "Transform Graphic",
+      "icon": "graphics",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "3d:B09",
+      "label": "Graphic (3D Pattern)",
+      "icon": "graphics",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "3d:B10",
+      "label": "Select/Move Button",
+      "icon": "buttons",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "3d:B11",
+      "label": "Button",
+      "icon": "buttons",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "3d:B12",
+      "label": "Fasten Button",
+      "icon": "fastener",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "3d:B13",
+      "label": "Zipper",
+      "icon": "trim",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "3d:B14",
+      "label": "Edit Piping",
+      "icon": "seam-weld",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "3d:B15",
+      "label": "Piping",
+      "icon": "seam-weld",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "3d:B16",
+      "label": "Select Binding",
+      "icon": "seam-weld",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "3d:B17",
+      "label": "Binding",
+      "icon": "seam-weld",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "3d:B18",
+      "label": "Press",
+      "icon": "fabric",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "2d:A01",
+      "label": "Transform Pattern",
+      "icon": "select-2d",
+      "status": "native",
+      "action": "pattern2d.selectTransform"
+    },
+    {
+      "id": "2d:A02",
+      "label": "Edit Pattern",
+      "icon": "points",
+      "status": "native",
+      "action": "pattern2d.editPoints"
+    },
+    {
+      "id": "2d:A03",
+      "label": "Fullness (Point)",
+      "icon": "points",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "2d:A04",
+      "label": "Polygon",
+      "icon": "polygon-tool",
+      "status": "native",
+      "action": "pattern2d.drawPolygon"
+    },
+    {
+      "id": "2d:A05",
+      "label": "Internal Polygon/Line",
+      "icon": "internal",
+      "status": "native",
+      "action": "pattern2d.drawInternalLine"
+    },
+    {
+      "id": "2d:A06",
+      "label": "Base Polygon",
+      "icon": "polygon-tool",
+      "status": "native",
+      "action": "pattern2d.basePolygon"
+    },
+    {
+      "id": "2d:A07",
+      "label": "Trace",
+      "icon": "select-2d",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "2d:A08",
+      "label": "Notch",
+      "icon": "notch",
+      "status": "native",
+      "action": "pattern2d.placeNotch"
+    },
+    {
+      "id": "2d:A09",
+      "label": "Seam Allowance",
+      "icon": "internal",
+      "status": "native",
+      "action": "pattern2d.setSeamAllowanceGuide"
+    },
+    {
+      "id": "2d:A10",
+      "label": "Walk Pattern",
+      "icon": "measure",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "2d:A11",
+      "label": "Edit Point of Measure",
+      "icon": "pom",
+      "status": "inspect",
+      "action": "dimensions.measureTemporary"
+    },
+    {
+      "id": "2d:A12",
+      "label": "Point of Measure",
+      "icon": "pom",
+      "status": "inspect",
+      "action": "dimensions.measureTemporary"
+    },
+    {
+      "id": "2d:A13",
+      "label": "Edit Annotation",
+      "icon": "pattern-properties",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "2d:A14",
+      "label": "Pattern Annotation",
+      "icon": "pattern-properties",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "2d:A15",
+      "label": "Pleats",
+      "icon": "grading",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "2d:A16",
+      "label": "Edit Grading",
+      "icon": "grading",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "2d:A17",
+      "label": "Auto Grading",
+      "icon": "grading",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "2d:B01",
+      "label": "Edit Sewing",
+      "icon": "seam-links",
+      "status": "native",
+      "action": "sewing.editExisting"
+    },
+    {
+      "id": "2d:B02",
+      "label": "Segment Sewing",
+      "icon": "sew",
+      "status": "native",
+      "action": "sewing.freeSew"
+    },
+    {
+      "id": "2d:B03",
+      "label": "Free Sewing",
+      "icon": "sew",
+      "status": "native",
+      "action": "sewing.freeSew"
+    },
+    {
+      "id": "2d:B04",
+      "label": "Check Sewing Length",
+      "icon": "measure",
+      "status": "inspect",
+      "action": "sewing.inspectSeams"
+    },
+    {
+      "id": "2d:B05",
+      "label": "Steam",
+      "icon": "fabric",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "2d:B06",
+      "label": "Seam Taping",
+      "icon": "sew",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "2d:B07",
+      "label": "Edit Texture (2D)",
+      "icon": "material",
+      "status": "inspect",
+      "action": "fabric.inspectProperties"
+    },
+    {
+      "id": "2d:B08",
+      "label": "Transform Graphic",
+      "icon": "graphics",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "2d:B09",
+      "label": "Graphic (2D Pattern)",
+      "icon": "graphics",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "2d:B10",
+      "label": "Edit Topstitch",
+      "icon": "topstitch",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "2d:B11",
+      "label": "Segment Topstitch",
+      "icon": "topstitch",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "2d:B12",
+      "label": "Edit Puckering",
+      "icon": "fabric",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "2d:B13",
+      "label": "Segment Puckering",
+      "icon": "fabric",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "2d:B14",
+      "label": "Set Sublayer",
+      "icon": "grading",
+      "status": "unavailable",
+      "action": null
+    },
+    {
+      "id": "2d:B15",
+      "label": "Fill",
+      "icon": "fabric",
+      "status": "unavailable",
+      "action": null
+    }
+  ]
+}
