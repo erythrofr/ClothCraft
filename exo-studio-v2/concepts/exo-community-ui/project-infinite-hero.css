@@ -1,0 +1,110 @@
+/* EXO PROJECT WHEEL
+ * Continuous composited circular 3D movement adapted from our local Mason
+ * Terra gallery-stack, orbit and seamless horizontal archive explorations.
+ * Large real project photographs are the hero. No additional runtime.
+ */
+.exh-infinite-landing{overflow:hidden;padding:0 clamp(16px,3.4vw,70px);background:radial-gradient(ellipse at 49% 51%,#182923 0%,#101c1c 47%,#0a1114 90%)}
+.exh-infinite-heading{display:flex;justify-content:space-between;align-items:flex-end;gap:60px;max-width:1640px;margin:0 auto;padding:54px 8px 18px}
+.exh-infinite-heading>div:first-child{max-width:900px}
+.exh-infinite-heading h1{font:650 clamp(59px,6.6vw,110px)/.99 var(--sans);letter-spacing:-.064em;margin:23px 0 0}
+.exh-infinite-heading h1 em{font:italic 400 .96em var(--serif);color:#bbe4c4;letter-spacing:-.055em}
+.exh-infinite-intro{max-width:390px;padding-bottom:5px}
+.exh-infinite-intro p{color:#a5b9ad;font:400 13px/1.8 var(--sans);margin:0 0 17px}
+.exh-infinite-intro .exh-hero-buttons{gap:10px;margin:0}
+.exh-infinite-intro .exh-hero-buttons button{min-height:44px;font-size:10px}
+.exh-infinite-intro .exh-hero-buttons button span{margin-left:5px}
+.exh-gallery-shell{width:100%;max-width:1740px;margin:17px auto 8px;position:relative;border-top:1px solid #56695c}
+.exh-gallery-meta{position:relative;z-index:4;display:flex;justify-content:space-between;align-items:center;gap:25px;padding:17px 10px 0;color:#97b3a4;font:10px var(--mono);letter-spacing:.9px}
+.exh-gallery-meta i{width:7px;height:7px;display:inline-block;border-radius:50%;background:#c1ebc9;margin-right:10px;box-shadow:0 0 15px #beedbf8e}
+.exh-gallery-meta span:last-child{color:#7f9a90}
+.exh-gallery-shell .exh-hero-visual.exh-infinite-visual{position:relative;border:0;border-radius:0;margin:0;width:100%;height:clamp(455px,43vw,625px);max-height:none;min-height:0;aspect-ratio:auto;overflow:visible;background:transparent;isolation:isolate;perspective:1500px;touch-action:pan-y;cursor:grab;user-select:none}
+.exh-gallery-shell .exh-infinite-visual:active{cursor:grabbing}
+.exh-gallery-horizon{position:absolute;inset:5% 0 7%;pointer-events:none;background:radial-gradient(ellipse at center,#8fbd9854,transparent 35%),linear-gradient(90deg,transparent,#8bb8970b,transparent);filter:blur(28px)}
+.exh-carousel-cards{position:absolute;inset:0;transform-style:preserve-3d;pointer-events:none}
+.exh-carousel-card{position:absolute;top:49%;left:50%;width:clamp(280px,30.5vw,435px);aspect-ratio:1;overflow:hidden;border:1px solid #d4e2cc77;background:#22342c;padding:0;box-shadow:0 24px 64px #0009,0 5px 20px #0c1a1861;display:block;pointer-events:auto;cursor:pointer;will-change:transform,opacity;backface-visibility:hidden;transform-style:preserve-3d;transition:border-color .22s ease,box-shadow .28s ease;border-radius:4px;text-align:left}
+.exh-carousel-card[aria-current=true]{border-color:#c4efd1;box-shadow:0 35px 90px #0009,0 0 0 1px #d2f4df99,0 0 90px #c1eac026}
+.exh-carousel-card:focus-visible{outline:3px solid #d6ffd4;outline-offset:5px}
+.exh-carousel-card img{display:block;width:100%;height:100%;object-fit:cover;object-position:center;filter:saturate(.87) contrast(1.045);transition:filter .28s ease,transform .5s ease;pointer-events:none}
+.exh-carousel-card[data-category="Garments"] img{object-fit:contain;background:#343b3d}
+.exh-carousel-card[aria-current=true] img{filter:saturate(1.06)}
+.exh-carousel-card:hover img{transform:scale(1.055);filter:saturate(1.07)}
+.exh-carousel-gradient{position:absolute;inset:0;background:linear-gradient(180deg,#07130f82,transparent 25%,transparent 46%,#071512dd 97%);pointer-events:none}
+.exh-carousel-label{position:absolute;top:19px;left:19px;right:19px;font:10px var(--mono);letter-spacing:.9px;color:#e9faed;text-shadow:0 2px 12px #000a;pointer-events:none}
+.exh-carousel-caption{position:absolute;bottom:18px;left:20px;right:20px;display:flex;flex-direction:column;gap:7px;color:#fff;pointer-events:none;text-shadow:0 2px 15px #000c}
+.exh-carousel-caption strong{font:650 clamp(19px,2vw,28px)/1.05 var(--sans);letter-spacing:-.055em}
+.exh-carousel-caption small{font:10px var(--mono);letter-spacing:.45px;color:#c9e9d0}
+.exh-gallery-arrow{position:absolute;top:49%;z-index:1200;transform:translateY(-50%);width:62px;height:62px;border:1px solid #c4e6c59c;border-radius:50%;background:#101e1aeb;color:#f1ffec;display:grid;place-items:center;cursor:pointer;box-shadow:0 9px 28px #0008;transition:transform .22s ease,background .22s ease,border .22s ease}
+.exh-gallery-arrow span{font-size:27px;font-weight:300}
+.exh-gallery-arrow:hover{background:#bedfc4;color:#0d2317;border-color:#e0ffe9;transform:translateY(-50%) scale(1.09)}
+.exh-gallery-left{left:clamp(2px,1.3vw,18px)}
+.exh-gallery-right{right:clamp(2px,1.3vw,18px)}
+.exh-gallery-foot{position:relative;z-index:2;display:flex;justify-content:space-between;align-items:center;gap:40px;border-top:1px solid #536759;padding:24px 9px 30px}
+.exh-gallery-current{display:flex;align-items:start;gap:24px;max-width:760px}
+.exh-gallery-current>span{flex:none;margin-top:5px;color:#bce0c2;font:9px var(--mono);letter-spacing:.7px}
+.exh-gallery-current h2{color:#f2f8ea;font:650 22px/1.1 var(--sans);letter-spacing:-.7px;margin:0 0 5px}
+.exh-gallery-current p{font:12px/1.5 var(--sans);color:#93afa1;margin:0;max-width:450px}
+.exh-gallery-navigation{display:flex;align-items:center;gap:18px;flex:none}
+.exh-gallery-navigation .exh-progress-track{width:155px;max-width:155px;flex:none}
+.exh-gallery-navigation .exh-progress-track button{height:24px;min-width:4px;cursor:pointer}
+.exh-gallery-navigation .exh-progress-track button span{height:3px;background:#57745f}
+.exh-gallery-navigation .exh-progress-track button[aria-current=true] span{height:4px;background:#cbebce}
+.exh-gallery-navigation #exh-counter{color:#d4e8d6;font:10px var(--mono);letter-spacing:1px;white-space:nowrap}
+.exh-gallery-navigation #exh-open-project{white-space:nowrap;padding:13px 18px;min-height:43px;background:#bfebc7;border:1px solid #bfebc7;border-radius:2px;color:#122418;font:700 10px var(--mono);letter-spacing:.3px;cursor:pointer}
+.exh-gallery-navigation #exh-open-project:hover{background:#e7ffdf}
+.exh-infinite-landing .exh-under-hero{border-color:#344b3c}
+.exo-home-revamp.exh-gallery-paused .exh-gallery-meta i{opacity:.65}
+@media(max-width:1100px){
+ .exh-infinite-heading{gap:32px;padding-top:46px}
+ .exh-infinite-heading h1{font-size:clamp(58px,6.8vw,83px)}
+ .exh-infinite-intro{max-width:320px}
+ .exh-carousel-card{width:clamp(274px,38vw,400px)}
+ .exh-gallery-shell .exh-hero-visual.exh-infinite-visual{height:525px}
+ .exh-gallery-current{gap:13px}
+ .exh-gallery-navigation{gap:9px}
+ .exh-gallery-navigation .exh-progress-track{width:110px}
+}
+@media(max-width:780px){
+ .exh-infinite-landing{padding:0 14px}
+ .exh-infinite-heading{display:block;padding:39px 7px 0}
+ .exh-infinite-heading h1{font-size:clamp(51px,8.8vw,72px);letter-spacing:-.057em;margin-top:16px}
+ .exh-infinite-intro{max-width:630px;margin-top:19px}
+ .exh-infinite-intro p{font-size:12px;line-height:1.6}
+ .exh-gallery-meta{padding:15px 3px 0;font-size:9px}
+ .exh-gallery-meta span:last-child{display:none}
+ .exh-gallery-shell{margin-top:32px}
+ .exh-gallery-shell .exh-hero-visual.exh-infinite-visual{height:460px;margin:0;width:100%}
+ .exh-carousel-card{width:min(69vw,330px)}
+ .exh-carousel-caption strong{font-size:19px}
+ .exh-carousel-label{top:12px;left:13px;font-size:8px}
+ .exh-carousel-caption{left:14px;right:14px;bottom:14px}
+ .exh-carousel-caption small{font-size:9px}
+ .exh-gallery-arrow{height:45px;width:45px}
+ .exh-gallery-arrow span{font-size:22px}
+ .exh-gallery-left{left:-6px}.exh-gallery-right{right:-6px}
+ .exh-gallery-foot{flex-wrap:wrap;align-items:start;gap:18px;padding:19px 3px 21px}
+ .exh-gallery-current{width:100%}
+ .exh-gallery-current h2{font-size:19px}
+ .exh-gallery-current p{font-size:11px}
+ .exh-gallery-navigation{width:100%;justify-content:space-between}
+ .exh-gallery-navigation .exh-progress-track{width:40%;max-width:230px}
+ .exh-gallery-navigation #exh-open-project{padding:10px 12px;min-height:40px;font-size:9px}
+}
+@media(max-width:450px){
+ .exh-infinite-heading{padding-top:32px}
+ .exh-infinite-heading h1{font-size:clamp(47px,11.7vw,57px)}
+ .exh-infinite-intro{margin-top:15px}
+ .exh-infinite-intro .exh-hero-buttons{gap:7px}
+ .exh-infinite-intro .exh-hero-buttons button{font-size:9px;padding:9px 11px;min-height:41px}
+ .exh-gallery-shell .exh-hero-visual.exh-infinite-visual{height:370px}
+ .exh-carousel-card{width:68vw}
+ .exh-gallery-arrow{height:42px;width:42px}
+ .exh-gallery-current>span{display:none}
+ .exh-gallery-navigation{gap:8px}
+ .exh-gallery-navigation .exh-progress-track{max-width:105px}
+ .exh-gallery-navigation #exh-counter{font-size:8px}
+ .exh-gallery-navigation #exh-open-project{font-size:8px}
+}
+@media(prefers-reduced-motion:reduce){
+ .exh-carousel-card,.exh-carousel-card img{transition:none!important}
+ .exh-gallery-arrow{transition:none}
+}

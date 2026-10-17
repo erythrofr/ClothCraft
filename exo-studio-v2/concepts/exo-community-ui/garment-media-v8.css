@@ -1,0 +1,224 @@
+/* EXO / GARMENT MEDIA VIII
+   Original development imagery, not fabricated commercial photography.
+   Multi-angle research viewer + premium black marketplace case studies. */
+
+.asset-card:has([data-open="moto"]) .asset-art {
+  background:#030303!important;border:1px solid #363636;
+}
+.asset-card:has([data-open="moto"]) .asset-photograph img{
+  object-fit:contain!important;
+  background:#030303;
+  filter:brightness(1.3) contrast(1.06)!important;
+}
+.asset-card:has([data-open="moto"]) .asset-visual-label {
+  background:#fff;color:#121212;text-shadow:none;
+}
+.asset-card:has([data-open="moto"]) .asset-card-num{
+  background:#101010dd;color:#f6f6f6;
+}
+.asset-card:has([data-open="moto"]) .asset-title-row .asset-title{
+  font-size:clamp(17px,1.3vw,22px)!important;
+}
+.asset-card:has([data-open="moto"]) .asset-description{
+  -webkit-line-clamp:3;
+}
+.asset-card:has([data-open="work-garment-02"]) .asset-photograph img{
+  object-fit:contain!important;
+  background:#36393d;
+}
+
+.exo-project-overlay:has(.expo-project-panel-gallery){padding:clamp(7px,2.5vw,35px)}
+.exo-project-panel.expo-project-panel-gallery{
+  display:grid;
+  width:min(1450px,100%);max-height:95dvh;
+  grid-template-columns:minmax(0,1.25fr) minmax(330px,.75fr);
+  background:#090909!important;border:1px solid #454545!important;
+  box-shadow:0 40px 150px #000e!important;border-radius:0!important;
+  overflow:auto;
+}
+.exo-project-panel .expo-project-media-gallery{
+  min-width:0;min-height:650px;
+  display:grid;grid-template-rows:minmax(0,1fr) auto;
+  background:#070707;
+  overflow:hidden;
+}
+.expo-project-main{
+  position:relative;min-height:490px;
+  isolation:isolate;background:#090909;overflow:hidden;
+}
+.expo-project-main>img{
+  position:absolute;inset:0;display:block;width:100%;height:100%;
+  object-fit:contain;object-position:center;transform:scale(1);
+  filter:none;
+  transition:transform 650ms cubic-bezier(.2,.75,.2,1);
+}
+.exo-project-overlay[data-category="Garments"] .expo-project-main img[src*="moto-concept"]{
+  filter:brightness(1.2) contrast(1.045);
+}
+.expo-project-main.is-zoomed>img{transform:scale(1.55)}
+.expo-project-main .expo-project-source{
+  position:absolute;bottom:20px;left:20px;max-width:calc(100% - 270px);
+  z-index:2;color:#d9d9d9;background:#050505c9;padding:9px 12px;
+  font:650 10px var(--exo-font);letter-spacing:.055em;
+}
+.expo-project-main .expo-project-arrow-controls{
+  position:absolute;right:15px;bottom:19px;z-index:3;
+  display:flex;align-items:center;gap:9px;
+  background:#050505cb;padding:4px 5px;
+}
+.expo-project-main .expo-project-arrow-controls span{
+  position:static;font:620 11px var(--exo-font);
+  color:#dedede;padding:0 5px;letter-spacing:.03em;
+}
+.expo-project-arrow-controls button{
+  width:39px;height:39px;min-width:39px;
+  display:grid;place-items:center;
+  border:1px solid #666;background:#0f0f0f;
+  color:#fff;border-radius:50%;font-size:19px;
+}
+.expo-project-arrow-controls button:hover{
+  border-color:#fff;background:#f5f5f5;color:#080808;
+}
+.expo-project-main .expo-project-zoom{
+  position:absolute;top:16px;left:17px;z-index:3;
+  min-height:39px;
+  border:1px solid #666;background:#111e;
+  color:#fff;padding:0 14px;border-radius:6px;
+  font:650 11px var(--exo-font);letter-spacing:.04em;
+}
+.expo-project-main .expo-project-zoom:hover{
+  background:#f4f4f4;color:#111;border-color:#f4f4f4;
+}
+.expo-project-thumbs{
+  position:relative;
+  display:flex;align-items:stretch;gap:10px;
+  padding:13px clamp(12px,2vw,24px);
+  border-top:1px solid #333;
+  overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;
+  background:#070707;
+}
+.expo-project-thumbs button{
+  display:flex;align-items:center;gap:9px;flex:none;
+  min-height:72px;max-width:175px;
+  padding:5px 11px 5px 5px;
+  color:#aaa;background:#101010;
+  border:1px solid #333;border-radius:3px;
+  text-align:left;
+}
+.expo-project-thumbs button:hover,.expo-project-thumbs button[aria-pressed=true]{
+  border-color:#ededed;color:#fff;background:#1b1b1b;
+}
+.expo-project-thumbs button>img{
+  flex:none;display:block;position:static;
+  width:52px;height:60px;
+  object-fit:contain;background:#212121;
+}
+.expo-project-thumbs button>span{
+  position:static;display:block;
+  font:600 10px/1.2 var(--exo-font);
+  color:inherit;letter-spacing:.01em;
+}
+.expo-project-panel-gallery .exo-project-description{
+  padding:clamp(25px,3.5vw,58px);
+  border-left:1px solid #303030;
+  background:#090909!important;
+}
+.expo-project-panel-gallery .exo-project-top>span{
+  color:#aaa;font:650 11px var(--exo-font);letter-spacing:.04em;
+}
+.expo-project-panel-gallery .exo-project-category{
+  color:#aaa;font:640 11px var(--exo-font);letter-spacing:.09em;
+}
+.expo-project-panel-gallery .exo-project-description h2{
+  font:700 clamp(38px,4vw,67px)/.98 var(--exo-font);
+  letter-spacing:-.075em;color:#fff;margin:24px 0 28px;
+}
+.expo-project-panel-gallery .exo-project-description p{
+  color:#bcbcbc;font:400 14px/1.7 var(--exo-font);
+}
+.expo-project-panel-gallery .exo-project-description>small{
+  color:#888;font:12px/1.6 var(--exo-font);margin-top:20px;
+}
+.expo-project-panel-gallery .exo-project-credit{
+  border-color:#363636;
+}
+.expo-project-panel-gallery .exo-project-credit>span,
+.expo-project-panel-gallery .exo-project-credit>dt{
+  color:#9a9a9a!important;font-family:var(--exo-font)!important;
+}
+.expo-project-panel-gallery .exo-project-credit strong{
+  color:#ededed!important;font-family:var(--exo-font)!important;
+}
+.expo-project-panel-gallery .exo-project-actions button{
+  min-height:46px;border-radius:5px;
+}
+@media(max-width:950px){
+ .exo-project-panel.expo-project-panel-gallery{
+  display:flex;flex-direction:column;max-height:96dvh;
+ }
+ .exo-project-panel .expo-project-media-gallery{
+  display:block;flex:0 0 auto;height:auto;min-height:0;
+  aspect-ratio:auto!important;overflow:visible;
+ }
+ .expo-project-main{height:min(60dvh,560px);min-height:320px}
+ .expo-project-panel-gallery .exo-project-description{
+  flex:0 0 auto;border-left:0;border-top:1px solid #333;padding:28px;
+ }
+ .expo-project-thumbs{min-height:83px}
+}
+@media(max-width:620px){
+ .exo-project-overlay:has(.expo-project-panel-gallery){padding:0}
+ .exo-project-panel.expo-project-panel-gallery{max-height:100dvh;height:100dvh;border:0!important}
+ .expo-project-panel-gallery .exo-project-top button[data-project-close]{
+  position:fixed;top:14px;right:14px;z-index:20;
+  width:44px;height:44px;min-width:44px;min-height:44px;
+  display:grid;place-items:center;background:#141414ee;
+  border:1px solid #757575;border-radius:9px;color:#fff;
+ }
+ .expo-project-main{height:min(47dvh,460px);min-height:270px}
+ .expo-project-main .expo-project-source{
+  font-size:9px;max-width:calc(100% - 20px);bottom:auto;top:64px;left:14px;
+ }
+ .expo-project-main .expo-project-zoom{top:13px;left:14px}
+ .expo-project-main .expo-project-arrow-controls{right:12px;bottom:11px}
+ .expo-project-panel-gallery .exo-project-description{padding:24px 20px 45px}
+ .expo-project-panel-gallery .exo-project-description h2{font-size:38px;line-height:1.04}
+ .expo-project-thumbs{padding:9px;gap:8px}
+ .expo-project-thumbs button{min-height:65px;padding-right:9px}
+ .expo-project-thumbs button>img{width:44px;height:52px}
+ .expo-project-thumbs button>span{font-size:9px}
+}
+@media(prefers-reduced-motion:reduce){
+ .expo-project-main>img{transition:none!important}
+}
+
+/* Garment objects are archived studies: show the entire rendered silhouette. */
+.asset-card:has([data-open="moto"]) .asset-photograph,
+.asset-card:has([data-open="work-garment-02"]) .asset-photograph{
+  background:radial-gradient(ellipse at center,#2a2b2d 0%,#101113 73%,#070708 100%);
+}
+.asset-card:has([data-open="moto"]) .asset-photograph img,
+.asset-card:has([data-open="work-garment-02"]) .asset-photograph img{
+  box-sizing:border-box;padding:clamp(16px,2.5vw,48px);background:transparent!important;
+}
+.exo-project-panel.expo-project-panel-gallery{grid-template-columns:minmax(0,1.48fr) minmax(320px,.65fr);border-color:#303030!important}
+.expo-project-main{background:radial-gradient(ellipse at center,#222 0%,#101010 66%,#060606 100%)}
+.exo-project-overlay[data-category="Garments"] .expo-project-main{background:radial-gradient(ellipse at center,#292a2d 0%,#151618 64%,#080809 100%)}
+.expo-project-main>img{box-sizing:border-box;padding:clamp(30px,5vw,86px)}
+.expo-project-main.is-zoomed>img{transform:scale(1.35)}
+.expo-project-main .expo-project-source{border:1px solid #454545;line-height:1.45;color:#e4e4e4}
+.expo-project-arrow-controls button:focus-visible,.expo-project-zoom:focus-visible,.expo-project-thumbs button:focus-visible{outline:2px solid #fff;outline-offset:3px}
+.expo-project-panel-gallery .exo-project-description{padding:clamp(28px,3.4vw,58px)}
+.expo-project-panel-gallery .exo-project-description h2{font-weight:590;font-size:clamp(38px,3.7vw,64px)}
+.expo-project-thumbs button{max-width:195px;border-radius:0}
+.expo-project-thumbs button>img{background:#242424}
+@media(max-width:950px){
+ .exo-project-panel.expo-project-panel-gallery{display:flex;flex-direction:column}
+ .expo-project-main>img{padding:clamp(25px,5vw,58px)}
+}
+@media(max-width:620px){
+ .expo-project-main>img{padding:30px 14px 48px}
+ .expo-project-main.is-zoomed>img{transform:scale(1.2)}
+ .expo-project-main .expo-project-source{max-width:calc(100% - 28px);font-size:9px}
+ .expo-project-panel-gallery .exo-project-description{padding:26px 20px 45px}
+}

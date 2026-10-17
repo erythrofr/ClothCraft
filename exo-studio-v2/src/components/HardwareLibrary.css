@@ -1,0 +1,36 @@
+.exo-hardware-library{width:100%;min-width:0;display:flex;flex-direction:column;gap:8px;color:#d5d8dc}
+.exo-hardware-library-summary{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:7px 1px 10px;border-bottom:1px solid #43464b;color:#d5e3ed;font-size:11px}
+.exo-hardware-library-summary small{flex:0 0 100%;font-size:10px;color:#99a3ac}
+.exo-hardware-show-all{margin-left:auto;border:1px solid #66727d;background:#222930;color:#e5edf4;border-radius:4px;padding:5px 8px;font-size:10px;cursor:pointer}
+.exo-hardware-show-all:hover,.exo-hardware-show-all:focus-visible{border-color:#b6c8d6;background:#3b4753}
+.exo-hardware-folder{min-width:0;border:1px solid #44494d;border-radius:4px;overflow:hidden;background:#292c30}
+.exo-hardware-folder-toggle{display:flex;align-items:center;gap:8px;width:100%;padding:9px 8px;background:#32373c;border:0;color:#e0e6eb;text-align:left;cursor:pointer}
+.exo-hardware-folder-toggle strong{flex:1;font-size:11px;font-weight:600}
+.exo-hardware-folder-toggle span{font-size:10px;color:#a6b4bd}
+.exo-hardware-folder-items{display:flex;flex-direction:column;gap:2px;padding:4px}
+.exo-hardware-asset{display:flex;align-items:center;gap:8px;width:100%;padding:6px 4px;border:1px solid transparent;border-radius:4px;color:#e4e8ec;text-align:left;background:#292c30;cursor:pointer}
+.exo-hardware-asset:hover,.exo-hardware-asset:focus-visible{background:#35434e;border-color:#6f90a5}
+.exo-hardware-asset.active{background:#29475b;border-color:#74b9e0}
+.exo-hardware-thumb{display:grid;place-items:center;flex:0 0 64px;width:64px;height:64px;overflow:hidden;background:#1b1d21;border:1px solid #454a51;border-radius:5px}
+.exo-hardware-thumb img{display:block;width:100%;height:100%;object-fit:contain;filter:contrast(1.035)}
+.exo-hardware-asset:hover .exo-hardware-thumb{border-color:#8b9aa7}
+.exo-hardware-asset-caption{display:flex;flex-direction:column;min-width:0;gap:3px}
+.exo-hardware-asset-caption strong{font-size:10px;font-weight:600;line-height:1.25;overflow-wrap:anywhere}
+.exo-hardware-asset-caption small{font-size:9px;color:#9faab3;line-height:1.3;overflow-wrap:anywhere}
+.exo-hardware-empty{font-size:10px;line-height:1.5;color:#acb9c2}
+.exo-hardware-hover-preview{position:fixed;z-index:99999;display:flex;flex-direction:column;overflow:hidden;pointer-events:none;background:#14171b;color:#ecf0f3;border:1px solid #626c75;border-radius:11px;box-shadow:0 22px 70px #000c;font-family:inherit}
+.exo-hardware-preview-visual{position:relative;flex:0 1 275px;min-height:135px;overflow:hidden;background:#191c21;display:grid;place-items:center}
+.exo-hardware-preview-visual img{width:100%;height:100%;min-height:0;object-fit:contain;display:block}
+.exo-hardware-preview-visual>span{position:absolute;bottom:10px;left:12px;letter-spacing:1.1px;font-size:9px;color:#aab5c0;background:#111a;padding:5px 7px;border-radius:3px}
+.exo-hardware-preview-details{display:flex;flex-direction:column;gap:7px;padding:14px;min-height:0;overflow-y:auto}
+.exo-hardware-preview-details>strong{font-size:17px;line-height:1.2;font-weight:650}
+.exo-hardware-preview-details>span{font-size:10px;color:#b6c4cf;letter-spacing:.4px}
+.exo-hardware-preview-details dl{display:flex;flex-direction:column;gap:7px;margin:4px 0}
+.exo-hardware-preview-details dl>div{display:flex;justify-content:space-between;gap:12px;border-top:1px solid #33383e;padding-top:7px;font-size:10px;line-height:1.45}
+.exo-hardware-preview-details dt{flex:0 0 74px;color:#aab4bf}
+.exo-hardware-preview-details dd{margin:0;text-align:right;overflow-wrap:anywhere}
+.exo-hardware-pbr-swatch{display:inline-block;vertical-align:middle;width:11px;height:11px;border:1px solid #a8afb7;border-radius:50%;margin-right:6px}
+.exo-hardware-preview-details>small{font-size:10px;color:#a7b0bb;line-height:1.4}
+.exo-hardware-shared-hover-media{width:100%;height:100%;min-height:190px;display:grid;place-items:center;background:#191c21}
+.exo-hardware-shared-hover-media img{display:block;width:100%;height:100%;max-height:340px;object-fit:contain}
+@media(max-height:650px){.exo-hardware-preview-visual{flex-basis:180px}.exo-hardware-preview-details{padding:10px;gap:4px}}

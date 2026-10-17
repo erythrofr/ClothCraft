@@ -1,0 +1,36 @@
+{
+  "id": "Fabric081A",
+  "source": "ambientCG",
+  "name": "Fabric 081 A",
+  "license": "CC0-1.0",
+  "assetUrl": "https://ambientcg.com/a/Fabric081A",
+  "authors": "ambientCG",
+  "categoryTags": [
+    "81",
+    "blue",
+    "fabric",
+    "fine",
+    "woven"
+  ],
+  "scanWidthCm": 20,
+  "scanHeightCm": 20,
+  "physicalScaleStatus": "unknown-illustrative-20cm",
+  "maps": {
+    "color": {
+      "src": "/fabric-scans-ambientcg/Fabric081A/color.jpg",
+      "sha256": "7123771132122a06d7cb315fd1c00a8dabef56963b12721b9a43dee5e9c00b50",
+      "resolution": "1k"
+    },
+    "normal": {
+      "src": "/fabric-scans-ambientcg/Fabric081A/normal.jpg",
+      "sha256": "ea830c4a4a0271c18c067b9aa9a20c7f720b1eecea9c4b7246546ec090245a71",
+      "resolution": "1k"
+    },
+    "roughness": {
+      "src": "/fabric-scans-ambientcg/Fabric081A/roughness.jpg",
+      "sha256": "0e6edb182a5da94e8a6568a0afa2d7ace76fac6798a5e6cd3cdc9ebaaea1f086",
+      "resolution": "1k"
+    }
+  },
+  "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+}

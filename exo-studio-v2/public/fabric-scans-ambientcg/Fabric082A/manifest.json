@@ -1,0 +1,37 @@
+{
+  "id": "Fabric082A",
+  "source": "ambientCG",
+  "name": "Fabric 082 A",
+  "license": "CC0-1.0",
+  "assetUrl": "https://ambientcg.com/a/Fabric082A",
+  "authors": "ambientCG",
+  "categoryTags": [
+    "82",
+    "fabric",
+    "fine",
+    "grey",
+    "smooth",
+    "woven"
+  ],
+  "scanWidthCm": 20,
+  "scanHeightCm": 20,
+  "physicalScaleStatus": "unknown-illustrative-20cm",
+  "maps": {
+    "color": {
+      "src": "/fabric-scans-ambientcg/Fabric082A/color.jpg",
+      "sha256": "014f3fcd3655e5ba01fbaa5eb9fdeb9d1ad9902dcac5471fc1cf16ee2781fa39",
+      "resolution": "1k"
+    },
+    "normal": {
+      "src": "/fabric-scans-ambientcg/Fabric082A/normal.jpg",
+      "sha256": "e8e5aaad31408d450b5fbefdfb444ce5bd817c9d93e7b6889219e6221884374d",
+      "resolution": "1k"
+    },
+    "roughness": {
+      "src": "/fabric-scans-ambientcg/Fabric082A/roughness.jpg",
+      "sha256": "7dfc09a6fce4fec5473d84a481b2dfde4dec407bd6f80e9de38402dea34fd208",
+      "resolution": "1k"
+    }
+  },
+  "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+}

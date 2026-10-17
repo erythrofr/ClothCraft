@@ -1,0 +1,4 @@
+import {createTeeTemplate} from '../src/data/templates.js'
+import {buildSimulation,stepSimulation} from '../src/core/physics.js'
+const configs=[[2,7],[3,7],[4,7],[3,10],[4,10],[3,14],[4,14],[4,14,.004],[4,14,.008]]
+for(const heightCm of [180,200])for(const [substeps,iterations,collisionMargin] of configs){const p=createTeeTemplate();p.avatar.heightCm=heightCm;Object.assign(p.simulation,{substeps,iterations,...(collisionMargin!=null?{collisionMargin}:{})});const s=buildSimulation(p);let transientMax=0;for(let f=0;f<120;f++){stepSimulation(s,p,1/60);transientMax=Math.max(transientMax,s.strain.max)} const seam=s.seamConstraints.reduce((sum,c)=>sum+c.a.position.distanceTo(c.b.position),0)/s.seamConstraints.length;console.log(JSON.stringify({heightCm,substeps,iterations,collisionMargin:collisionMargin??.012,peak:+s.strain.max.toFixed(3),mean:+s.strain.average.toFixed(3),transientMax:+transientMax.toFixed(3),seamGapCm:+(seam*100).toFixed(2)}))}

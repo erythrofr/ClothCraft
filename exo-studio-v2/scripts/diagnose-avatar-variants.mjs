@@ -1,0 +1,4 @@
+import {createTeeTemplate} from '../src/data/templates.js'
+import {buildSimulation,stepSimulation} from '../src/core/physics.js'
+const variants=[['baseline',{}],['noCollisions',{collisions:false}],['noSelfCollision',{selfCollision:false}],['noAutoFitTacks',{autoFitTacks:false}],['moreIterations',{iterations:14}],['substeps4',{substeps:4}],['thinMargin',{collisionMargin:0.004}],['noTacksNoSelf',{autoFitTacks:false,selfCollision:false}]]
+for(const [name,config] of variants){const p=createTeeTemplate();p.avatar.heightCm=160;Object.assign(p.simulation,config);const s=buildSimulation(p);for(let i=0;i<120;i++)stepSimulation(s,p,1/60);const gaps=s.seamConstraints.map(c=>c.a.position.distanceTo(c.b.position));const average=gaps.reduce((a,b)=>a+b,0)/(gaps.length||1);console.log(JSON.stringify({name,peakRatio:+s.strain.max.toFixed(3),meanRatio:+s.strain.average.toFixed(3),meanSeamGapM:+average.toFixed(5)}))}

@@ -1,0 +1,32 @@
+# EXO ClothCraft Studio V2 — Selection-Specific Property Editor & Agent API
+
+**Date:** October 16, 2026 · **Scope:** independently versioned local V2, not original EXO V1. This is a factual checkpoint on completed work, outstanding CLO parity requirements, and tested foundation for later API/SDK/MCP automation.
+
+## Verified current user interface
+
+The Object Browser's horizontal icon tab strip has **exactly nine entries**: the three-bullet in-panel category tab, Fabric, Graphic, Button, Buttonhole, Topstitch, Puckering, Grading and POM. Scene and Trim no longer consume extra toolbar slots; selecting categories can still reach the underlying Scene and Trim workflows. Selecting the Fabric asset *inspects* its material without silently assigning it to the garment; application is explicit in the Fabric Editor. The Object Browser's category view remains a genuine in-panel tab, not a floating dropdown.
+
+The Property Editor switches with context: selected garment panel, named native pattern edge, selected fabric asset, other Object Browser entities, and an edge selected in the original EXO 2D drafting canvas. Pattern/line views retain Information, Selected Line, Simulation Properties, Fabric, Bond, Solidify, Arrange and Miscellaneous accordion groups. A fabric asset shows the relevant Information, Simulation Properties, Fabric, Miscellaneous subset; trim, button, graphics and other category selections show a smaller contextual subset rather than pretending to be the active pattern. The name/type in the Property Editor header follows the selected entity; native 2D/3D clicks override stale Object Browser selection.
+
+### Verified selected-line data
+
+`src/core/clothcraftSelectionMetrics.js` measures the actual selected Rust panel boundary from `snapshot.panels[].boundaries` and the paired flat `snapshot.uv` and live 3D `snapshot.positions`. It returns independent 2D and 3D lengths in centimeters, stretch percent, named boundary, panel ID/name, fabric assignment and matching seam IDs. A whole selected panel reports its total perimeter, not a made-up single line. In the installed app, one actual selected edge showed **2D 21.26 cm, 3D 21.87 cm, stretch +2.89%**. EXO's separate draft PatternEditor passes its actual selected-edge identity and real 2D arc-length to the inspector; its 3D measurement remains unavailable until the draft/solver vertices have a verified mapping.
+
+The Selected Line accordion now has line length, seam links, target 2D length, Elastic and Seam Taping subsection labels. A user may edit a **drafting target line length specification** (centimeters) stored transactionally under the native named `polygon.target_lengths`. This is implemented through new revision-guarded Rust `line-spec` and must not change the sewn or simulated mesh. It is **not** the original authoring `TargetLength` resize command; the latter changes contour geometry and can invalidate sewn seam lengths. All physical Elastic, Seam Taping, tension/fold, Bond/Skive and Solidify constraint controls remain visibly unsupported/read-only because the current Rust solver cannot implement their true CLO behaviors. No fit certification or full CLO parity is claimed.
+
+## Versioned agent automation foundation
+
+The existing bundled localhost-only server mounts a **versioned, typed agent API** at `/agent/v1` using the **same persistent workspace and native Rust revision**, not a second competing solver instance. Its capabilities endpoint provides a machine-readable allowlist: `workspace.status`, `workspace.snapshot`, `simulation.pause`, `simulation.step`, `line.inspect`, `line.setTargetSpecification`. All mutation calls require an exact expected revision to avoid stale agent actions; unsupported commands/unknown panel/unknown edge/invalid units reject with structured errors; writes are validated, serialized and audited. `line.inspect` derives the same real UV/live 3D line paths and lengths. `line.setTargetSpecification` changes only a drafting annotation, not physics. The module is explicitly included in the signed app resources (`integrations/clothcraft/macos/build.sh`); missing packaging would otherwise stop the installed Rust bridge.
+
+This **is an API foundation, not a full SDK or MCP server**. Exposing a tool as an agent action comes only after a stable native command schema, validation, authorization scope, revision handling, serialization, undo or recovery strategy and isolated UI/native tests. The CLI/Rust authoring model already contains some transactions, but do not automatically advertise their existence as exposed or safe API commands.
+
+## Verification and known limitations
+
+- `node integrations/clothcraft/qa-v2-selected-line.mjs`: isolated full browser/native regression for real selected edge 2D/3D lengths, object-context changes, Rust target specification round trip, agent line.inspect and setTargetSpecification, stale revisions and forbidden commands; keeps all other cloth vertices unchanged.
+- `node integrations/clothcraft/qa-v2-object-menu.mjs`: nine exact Object Browser icons in order and category tab navigation.
+- `node integrations/clothcraft/qa-v2-right-inspector.mjs`: context-specific Fabric vs pattern property groups, collapsible accordions and old draft portal.
+- `node integrations/clothcraft/qa-v2-agent-api.mjs`: strict API schema and invalid/unknown/stale/busy/success and no implicit open.
+- `npm run clothcraft:check-v2-pull`: Rust simulated garment manipulation and reset regressions; `npm run check:non-simulation`: original EXO manufacturing/precision drafting regressions; `npm run build`: React/Vite build.
+- Native standalone `EXO ClothCraft Studio V2.app`: bundled Rust + JS local bridge; code signature, ports 5385/5386, agent manifest and browser selection shown running without JS errors. Installed UI screenshot: `screenshots/exo-clothcraft-v2-clo-selected-line-agent-api-20261016.png`.
+
+CLO official articles and selection-by-selection comparison: `docs/CLO3D_PROPERTY_EDITOR_AUDIT_20261016.md`. The local installed CLO app is identified as CLO 7.0.242; a direct screenshot was not obtained (`screencapture` returned a display-access failure). Thus exact installed-version UI nesting or visual pixel parity has not been independently established. Further work is required for native internal-line selection, sewing line objects, buttons, physical Elastic/taping/bonding, and agent-editable full garment controls. **Do not equate visual labels with functional physics.**

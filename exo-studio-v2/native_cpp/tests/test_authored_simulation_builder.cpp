@@ -1,0 +1,3 @@
+#include "authored_simulation_builder.hpp"
+#include <iostream>
+int main(){try{garment::Json input;std::cin>>input;garment::Json results=garment::Json::array();for(const auto& c:input.at("cases")){try{const auto original=c.at("project");auto result=garment::authored_simulation_builder::build(original,c.value("options",garment::Json::object()));if(c.at("project")!=original)throw std::runtime_error("source mutated");results.push_back({{"ok",true},{"result",result}});}catch(const std::exception& e){results.push_back({{"ok",false},{"error",e.what()}});}}std::cout<<results.dump()<<'\n';}catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}}

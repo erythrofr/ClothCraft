@@ -1,0 +1,34 @@
+{
+  "id": "Leather028",
+  "source": "ambientCG",
+  "name": "Leather 028",
+  "license": "CC0-1.0",
+  "assetUrl": "https://ambientcg.com/a/Leather028",
+  "authors": "ambientCG",
+  "categoryTags": [
+    "28",
+    "brown",
+    "leather"
+  ],
+  "scanWidthCm": 45,
+  "scanHeightCm": 45,
+  "physicalScaleStatus": "provider-cm-dimensions",
+  "maps": {
+    "color": {
+      "src": "/fabric-scans-ambientcg/Leather028/color.jpg",
+      "sha256": "7c57d49661aa7da4e34276ce997b152b886417af3945e216b9e7f52eb6862f71",
+      "resolution": "1k"
+    },
+    "normal": {
+      "src": "/fabric-scans-ambientcg/Leather028/normal.jpg",
+      "sha256": "60436c54d7d69c1a3bbd0d5f7f0f70a55bdaec6570c8fbc1a84ee407ed4e08fa",
+      "resolution": "1k"
+    },
+    "roughness": {
+      "src": "/fabric-scans-ambientcg/Leather028/roughness.jpg",
+      "sha256": "ba67af328cdb7186cca82f7d9d260a14d8986230a43764533fae42869323b5ba",
+      "resolution": "1k"
+    }
+  },
+  "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+}

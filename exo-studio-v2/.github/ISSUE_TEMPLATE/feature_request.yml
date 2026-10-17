@@ -1,0 +1,25 @@
+name: Feature request
+description: Propose a garment, production or workflow capability
+title: "[Feature] "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: Apparel workflow need
+      description: What real design/production problem should this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [Pattern CAD, Simulation, Avatar, Blender/3D, Rendering, Production, AI/Automation, Other]
+    validations:
+      required: true

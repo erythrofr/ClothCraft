@@ -1,0 +1,538 @@
+{
+  "id": "501-straight-fit-search",
+  "name": "501-Style Indigo Denim On-Body Fit",
+  "version": 21,
+  "revision": 1,
+  "updatedAt": "2026-10-13T01:22:19.444Z",
+  "units": "cm",
+  "pieces": [
+    {
+      "id": "pants-left-front",
+      "name": "Left Front Leg",
+      "points": [
+        {
+          "x": -23.469863636363634,
+          "y": 107
+        },
+        {
+          "x": -27.320356818181818,
+          "y": 78.11
+        },
+        {
+          "x": -23.4005,
+          "y": 0
+        },
+        {
+          "x": -3.5555000000000003,
+          "y": 0
+        },
+        {
+          "x": -2.506815909090909,
+          "y": 65.20885714285714
+        },
+        {
+          "x": 3.2241108181818188,
+          "y": 75.97
+        },
+        {
+          "x": -1.5885000000000016,
+          "y": 107
+        }
+      ],
+      "layout2d": {
+        "x": 64,
+        "y": 91
+      },
+      "arrangement3d": {
+        "x": -0.15,
+        "y": -0.01,
+        "z": 0.14,
+        "wrap": "left-leg-front",
+        "flip": false
+      },
+      "simulationResolution": 2,
+      "grainAngleDeg": 0,
+      "notches": [
+        {
+          "id": "pants-left-front-knee",
+          "edgeIndex": 1,
+          "t": 0.48,
+          "type": "single",
+          "depthCm": 0.5
+        }
+      ],
+      "topstitches": [
+        {
+          "id": "pants-left-front-hem",
+          "edgeIndex": 2,
+          "offsetCm": 2.2,
+          "rows": 2,
+          "rowGapCm": 0.45,
+          "stitchLengthMm": 3.2,
+          "color": "#9a8b70"
+        }
+      ],
+      "bindings": [],
+      "graphics": [],
+      "zippers": [],
+      "buttons": [],
+      "buttonholes": [],
+      "internalLines": [],
+      "pins": [],
+      "seamAllowance": 1.2,
+      "fabricId": "main",
+      "locked": false,
+      "frozen3d": false,
+      "active3d": true
+    },
+    {
+      "id": "pants-left-back",
+      "name": "Left Back Leg",
+      "points": [
+        {
+          "x": -25.43581818181818,
+          "y": 107
+        },
+        {
+          "x": -29.288427272727272,
+          "y": 78.11
+        },
+        {
+          "x": -24.417,
+          "y": 0
+        },
+        {
+          "x": -3.6270000000000007,
+          "y": 0
+        },
+        {
+          "x": -3.5189694545454557,
+          "y": 66.40114285714286
+        },
+        {
+          "x": 5.06473418181818,
+          "y": 80.25
+        },
+        {
+          "x": -1.651727272727273,
+          "y": 107
+        }
+      ],
+      "layout2d": {
+        "x": 126,
+        "y": 91
+      },
+      "arrangement3d": {
+        "x": -0.15,
+        "y": -0.01,
+        "z": -0.14,
+        "wrap": "left-leg-back",
+        "flip": false
+      },
+      "simulationResolution": 2,
+      "grainAngleDeg": 0,
+      "notches": [
+        {
+          "id": "pants-left-back-knee",
+          "edgeIndex": 1,
+          "t": 0.48,
+          "type": "double",
+          "depthCm": 0.5
+        }
+      ],
+      "topstitches": [
+        {
+          "id": "pants-left-back-hem",
+          "edgeIndex": 2,
+          "offsetCm": 2.2,
+          "rows": 2,
+          "rowGapCm": 0.45,
+          "stitchLengthMm": 3.2,
+          "color": "#9a8b70"
+        }
+      ],
+      "bindings": [],
+      "graphics": [],
+      "zippers": [],
+      "buttons": [],
+      "buttonholes": [],
+      "internalLines": [],
+      "pins": [],
+      "seamAllowance": 1.2,
+      "fabricId": "main",
+      "locked": false,
+      "frozen3d": false,
+      "active3d": true
+    },
+    {
+      "id": "pants-right-front",
+      "name": "Right Front Leg",
+      "points": [
+        {
+          "x": -23.469863636363634,
+          "y": 107
+        },
+        {
+          "x": -27.320356818181818,
+          "y": 78.11
+        },
+        {
+          "x": -23.4005,
+          "y": 0
+        },
+        {
+          "x": -3.5555000000000003,
+          "y": 0
+        },
+        {
+          "x": -2.506815909090909,
+          "y": 65.20885714285714
+        },
+        {
+          "x": 3.2241108181818188,
+          "y": 75.97
+        },
+        {
+          "x": -1.5885000000000016,
+          "y": 107
+        }
+      ],
+      "layout2d": {
+        "x": 214,
+        "y": 91
+      },
+      "arrangement3d": {
+        "x": 0.15,
+        "y": -0.01,
+        "z": 0.14,
+        "wrap": "right-leg-front",
+        "flip": true
+      },
+      "simulationResolution": 2,
+      "grainAngleDeg": 0,
+      "notches": [
+        {
+          "id": "pants-right-front-knee",
+          "edgeIndex": 1,
+          "t": 0.48,
+          "type": "single",
+          "depthCm": 0.5
+        }
+      ],
+      "topstitches": [
+        {
+          "id": "pants-right-front-hem",
+          "edgeIndex": 2,
+          "offsetCm": 2.2,
+          "rows": 2,
+          "rowGapCm": 0.45,
+          "stitchLengthMm": 3.2,
+          "color": "#9a8b70"
+        }
+      ],
+      "bindings": [],
+      "graphics": [],
+      "zippers": [],
+      "buttons": [],
+      "buttonholes": [],
+      "internalLines": [],
+      "pins": [],
+      "seamAllowance": 1.2,
+      "fabricId": "main",
+      "locked": false,
+      "frozen3d": false,
+      "active3d": true
+    },
+    {
+      "id": "pants-right-back",
+      "name": "Right Back Leg",
+      "points": [
+        {
+          "x": -25.43581818181818,
+          "y": 107
+        },
+        {
+          "x": -29.288427272727272,
+          "y": 78.11
+        },
+        {
+          "x": -24.417,
+          "y": 0
+        },
+        {
+          "x": -3.6270000000000007,
+          "y": 0
+        },
+        {
+          "x": -3.5189694545454557,
+          "y": 66.40114285714286
+        },
+        {
+          "x": 5.06473418181818,
+          "y": 80.25
+        },
+        {
+          "x": -1.651727272727273,
+          "y": 107
+        }
+      ],
+      "layout2d": {
+        "x": 276,
+        "y": 91
+      },
+      "arrangement3d": {
+        "x": 0.15,
+        "y": -0.01,
+        "z": -0.14,
+        "wrap": "right-leg-back",
+        "flip": true
+      },
+      "simulationResolution": 2,
+      "grainAngleDeg": 0,
+      "notches": [
+        {
+          "id": "pants-right-back-knee",
+          "edgeIndex": 1,
+          "t": 0.48,
+          "type": "double",
+          "depthCm": 0.5
+        }
+      ],
+      "topstitches": [
+        {
+          "id": "pants-right-back-hem",
+          "edgeIndex": 2,
+          "offsetCm": 2.2,
+          "rows": 2,
+          "rowGapCm": 0.45,
+          "stitchLengthMm": 3.2,
+          "color": "#9a8b70"
+        }
+      ],
+      "bindings": [],
+      "graphics": [],
+      "zippers": [],
+      "buttons": [],
+      "buttonholes": [],
+      "internalLines": [],
+      "pins": [],
+      "seamAllowance": 1.2,
+      "fabricId": "main",
+      "locked": false,
+      "frozen3d": false,
+      "active3d": true
+    }
+  ],
+  "seams": [
+    {
+      "id": "pants-left-outseam-upper",
+      "name": "Left outseam upper",
+      "a": {
+        "pieceId": "pants-left-front",
+        "edgeIndex": 0
+      },
+      "b": {
+        "pieceId": "pants-left-back",
+        "edgeIndex": 0
+      },
+      "junctionScale": 0.92
+    },
+    {
+      "id": "pants-left-outseam-lower",
+      "name": "Left outseam lower",
+      "a": {
+        "pieceId": "pants-left-front",
+        "edgeIndex": 1
+      },
+      "b": {
+        "pieceId": "pants-left-back",
+        "edgeIndex": 1
+      },
+      "junctionScale": 0.92
+    },
+    {
+      "id": "pants-left-inseam-lower",
+      "name": "Left inseam lower",
+      "a": {
+        "pieceId": "pants-left-front",
+        "edgeIndex": 3
+      },
+      "b": {
+        "pieceId": "pants-left-back",
+        "edgeIndex": 3
+      },
+      "junctionScale": 0.92
+    },
+    {
+      "id": "pants-left-inseam-upper",
+      "name": "Left inseam upper",
+      "a": {
+        "pieceId": "pants-left-front",
+        "edgeIndex": 4
+      },
+      "b": {
+        "pieceId": "pants-left-back",
+        "edgeIndex": 4
+      },
+      "junctionScale": 0.92
+    },
+    {
+      "id": "pants-right-outseam-upper",
+      "name": "Right outseam upper",
+      "a": {
+        "pieceId": "pants-right-front",
+        "edgeIndex": 0
+      },
+      "b": {
+        "pieceId": "pants-right-back",
+        "edgeIndex": 0
+      },
+      "junctionScale": 0.92
+    },
+    {
+      "id": "pants-right-outseam-lower",
+      "name": "Right outseam lower",
+      "a": {
+        "pieceId": "pants-right-front",
+        "edgeIndex": 1
+      },
+      "b": {
+        "pieceId": "pants-right-back",
+        "edgeIndex": 1
+      },
+      "junctionScale": 0.92
+    },
+    {
+      "id": "pants-right-inseam-lower",
+      "name": "Right inseam lower",
+      "a": {
+        "pieceId": "pants-right-front",
+        "edgeIndex": 3
+      },
+      "b": {
+        "pieceId": "pants-right-back",
+        "edgeIndex": 3
+      },
+      "junctionScale": 0.92
+    },
+    {
+      "id": "pants-right-inseam-upper",
+      "name": "Right inseam upper",
+      "a": {
+        "pieceId": "pants-right-front",
+        "edgeIndex": 4
+      },
+      "b": {
+        "pieceId": "pants-right-back",
+        "edgeIndex": 4
+      },
+      "junctionScale": 0.92
+    },
+    {
+      "id": "pants-front-rise",
+      "name": "Center front rise",
+      "a": {
+        "pieceId": "pants-left-front",
+        "edgeIndex": 5
+      },
+      "b": {
+        "pieceId": "pants-right-front",
+        "edgeIndex": 5
+      },
+      "junctionScale": 0.92
+    },
+    {
+      "id": "pants-back-rise",
+      "name": "Center back rise",
+      "a": {
+        "pieceId": "pants-left-back",
+        "edgeIndex": 5
+      },
+      "b": {
+        "pieceId": "pants-right-back",
+        "edgeIndex": 5
+      },
+      "junctionScale": 0.92
+    }
+  ],
+  "fasteners": [],
+  "customMeasurements": [],
+  "fabrics": {
+    "main": {
+      "id": "main",
+      "name": "Rigid Indigo Denim 13.5 oz",
+      "color": "#263c5e",
+      "gsm": 458,
+      "stretchWarp": 0.012,
+      "stretchWeft": 0.015,
+      "shrinkWarp": 0,
+      "shrinkWeft": 0,
+      "bend": 0.89,
+      "damping": 0.978,
+      "friction": 0.42,
+      "thickness": 0.0029,
+      "roughness": 0.74,
+      "metalness": 0,
+      "sheen": 0.08,
+      "sheenRoughness": 0.86,
+      "normalStrength": 1.15
+    }
+  },
+  "avatar": {
+    "name": "Base Mens 180",
+    "model": "theo",
+    "heightCm": 180,
+    "chestCm": 96,
+    "waistCm": 78,
+    "hipCm": 94,
+    "shoulderWidthCm": 46,
+    "neckCm": 38,
+    "bicepCm": 32,
+    "armAngleDeg": 6,
+    "visibility": 0.82
+  },
+  "grading": {
+    "baseSize": "M",
+    "sizes": [
+      "XS",
+      "S",
+      "M",
+      "L",
+      "XL",
+      "XXL"
+    ],
+    "widthPerSizeCm": 2.4,
+    "lengthPerSizeCm": 1.5
+  },
+  "markerSettings": {
+    "fabricWidthCm": 150,
+    "gapCm": 1.5
+  },
+  "simulation": {
+    "backendId": "browser-pbd",
+    "nativeQuality": "balanced",
+    "nativeClothModel": "distance",
+    "nativeBendingModel": "isometric-xpbd",
+    "gravity": 9.81,
+    "stiffness": 0.92,
+    "seamStiffness": 0.96,
+    "autoFitTacks": true,
+    "iterations": 7,
+    "substeps": 2,
+    "resolution": 1,
+    "curveSegments": 2,
+    "collisionMargin": 0.012,
+    "collisions": true,
+    "selfCollision": true,
+    "selfCollisionMargin": 0.002,
+    "visualWrapAssist": false,
+    "wind": {
+      "enabled": false,
+      "speed": 4,
+      "directionDeg": 0,
+      "turbulence": 0.18,
+      "response": 0.025
+    }
+  },
+  "templateId": "jeans-501-fit"
+}

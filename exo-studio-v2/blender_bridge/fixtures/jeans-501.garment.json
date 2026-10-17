@@ -1,0 +1,2527 @@
+{
+  "id": "mikristian-501-original-straight-w32l32",
+  "name": "501-Style Straight Jeans W32 L32",
+  "version": 21,
+  "revision": 1,
+  "updatedAt": "2000-01-01T00:00:00.000Z",
+  "units": "cm",
+  "pieces": [
+    {
+      "id": "left-front-leg",
+      "name": "LEFT Front Leg / Jeans",
+      "points": [
+        {
+          "x": 0,
+          "y": 106.4
+        },
+        {
+          "x": -2.1,
+          "y": 94
+        },
+        {
+          "x": -2.5,
+          "y": 73
+        },
+        {
+          "x": -0.7,
+          "y": 40.64
+        },
+        {
+          "x": 0.1,
+          "y": 0
+        },
+        {
+          "x": 19.7,
+          "y": 0
+        },
+        {
+          "x": 20.7,
+          "y": 40.64
+        },
+        {
+          "x": 24.05,
+          "y": 73
+        },
+        {
+          "x": 25.8,
+          "y": 81.3
+        },
+        {
+          "x": 20.25,
+          "y": 86.5
+        },
+        {
+          "x": 20.3,
+          "y": 106.4
+        }
+      ],
+      "curves": {
+        "0": {
+          "cx": -0.5,
+          "cy": 100
+        },
+        "1": {
+          "cx": -2.7,
+          "cy": 84
+        },
+        "6": {
+          "cx": 21.4,
+          "cy": 62
+        },
+        "7": {
+          "cx": 26.7,
+          "cy": 79
+        },
+        "8": {
+          "cx": 20.4,
+          "cy": 81.2
+        }
+      },
+      "layout2d": {
+        "x": 42,
+        "y": 140
+      },
+      "arrangement3d": {
+        "x": -0.155,
+        "y": 0.01,
+        "z": 0.17,
+        "wrap": "left-leg-front",
+        "flip": false
+      },
+      "grainAngleDeg": 0,
+      "simulationResolution": 2,
+      "seamAllowance": 1.2,
+      "edgeSeamAllowances": {
+        "4": 2.6,
+        "10": 1
+      },
+      "fabricId": "main",
+      "active3d": true,
+      "locked": false,
+      "notches": [
+        {
+          "id": "left-front-knee",
+          "edgeIndex": 2,
+          "t": 0.75,
+          "type": "single"
+        },
+        {
+          "id": "left-front-hip",
+          "edgeIndex": 1,
+          "t": 0.65,
+          "type": "single"
+        }
+      ],
+      "topstitches": [
+        {
+          "id": "left-front-inseam",
+          "edgeIndex": 6,
+          "offsetCm": 0.7,
+          "rows": 2,
+          "rowGapCm": 0.42,
+          "stitchLengthMm": 3.2,
+          "color": "#c8a273"
+        },
+        {
+          "id": "left-front-hem",
+          "edgeIndex": 4,
+          "offsetCm": 2,
+          "rows": 2,
+          "rowGapCm": 0.42,
+          "stitchLengthMm": 3.2,
+          "color": "#c8a273"
+        },
+        {
+          "id": "left-front-pocket-rim",
+          "edgeIndex": 0,
+          "offsetCm": 1.1,
+          "rows": 1,
+          "rowGapCm": 0.42,
+          "stitchLengthMm": 3.2,
+          "color": "#c8a273"
+        },
+        {
+          "id": "left-fly-placket",
+          "edgeIndex": 9,
+          "offsetCm": 3.1,
+          "rows": 1,
+          "rowGapCm": 0.42,
+          "stitchLengthMm": 3.2,
+          "color": "#c8a273"
+        }
+      ],
+      "internalLines": [
+        {
+          "id": "left-front-pocket-curve-upper",
+          "type": "construction",
+          "a": {
+            "x": -0.65,
+            "y": 99.4
+          },
+          "b": {
+            "x": 5.9,
+            "y": 94.2
+          }
+        },
+        {
+          "id": "left-front-pocket-curve-lower",
+          "type": "construction",
+          "a": {
+            "x": 5.9,
+            "y": 94.2
+          },
+          "b": {
+            "x": 14.45,
+            "y": 93.7
+          }
+        },
+        {
+          "id": "left-front-pocket-bag-outline",
+          "type": "construction",
+          "a": {
+            "x": 14.45,
+            "y": 93.7
+          },
+          "b": {
+            "x": 16.9,
+            "y": 76.3
+          }
+        },
+        {
+          "id": "left-front-pocket-bag-bottom",
+          "type": "construction",
+          "a": {
+            "x": 16.9,
+            "y": 76.3
+          },
+          "b": {
+            "x": -2.4,
+            "y": 77.8
+          }
+        },
+        {
+          "id": "left-front-rivet-station",
+          "type": "construction",
+          "a": {
+            "x": 14.1,
+            "y": 94.1
+          },
+          "b": {
+            "x": 14.3,
+            "y": 94.4
+          }
+        }
+      ],
+      "graphics": [],
+      "buttons": [],
+      "buttonholes": [],
+      "zippers": [],
+      "bindings": [],
+      "pins": [],
+      "surfaceAttachments": [],
+      "patternRole": "cut"
+    },
+    {
+      "id": "left-back-leg",
+      "name": "LEFT Back Leg / Jeans",
+      "points": [
+        {
+          "x": -1.2,
+          "y": 94
+        },
+        {
+          "x": -3.75,
+          "y": 73
+        },
+        {
+          "x": -1.65,
+          "y": 40.64
+        },
+        {
+          "x": -0.25,
+          "y": 0
+        },
+        {
+          "x": 20.79,
+          "y": 0
+        },
+        {
+          "x": 21.4,
+          "y": 40.64
+        },
+        {
+          "x": 26.75,
+          "y": 73
+        },
+        {
+          "x": 29,
+          "y": 81.3
+        },
+        {
+          "x": 23.8,
+          "y": 87.3
+        },
+        {
+          "x": 23.35,
+          "y": 94
+        }
+      ],
+      "curves": {
+        "0": {
+          "cx": -3.7,
+          "cy": 83
+        },
+        "5": {
+          "cx": 22,
+          "cy": 61
+        },
+        "6": {
+          "cx": 28.54,
+          "cy": 77.8
+        },
+        "7": {
+          "cx": 24,
+          "cy": 81.4
+        }
+      },
+      "layout2d": {
+        "x": 92,
+        "y": 140
+      },
+      "arrangement3d": {
+        "x": -0.155,
+        "y": 0.01,
+        "z": -0.17,
+        "wrap": "left-leg-back",
+        "flip": false
+      },
+      "grainAngleDeg": 0,
+      "simulationResolution": 2,
+      "seamAllowance": 1.2,
+      "edgeSeamAllowances": {
+        "3": 2.6
+      },
+      "fabricId": "main",
+      "active3d": true,
+      "locked": false,
+      "notches": [
+        {
+          "id": "left-back-knee",
+          "edgeIndex": 1,
+          "t": 0.76,
+          "type": "double"
+        },
+        {
+          "id": "left-back-seat",
+          "edgeIndex": 0,
+          "t": 0.54,
+          "type": "double"
+        }
+      ],
+      "topstitches": [
+        {
+          "id": "left-back-inseam",
+          "edgeIndex": 5,
+          "offsetCm": 0.7,
+          "rows": 2,
+          "rowGapCm": 0.42,
+          "stitchLengthMm": 3.2,
+          "color": "#c8a273"
+        },
+        {
+          "id": "left-back-hem",
+          "edgeIndex": 3,
+          "offsetCm": 2,
+          "rows": 2,
+          "rowGapCm": 0.42,
+          "stitchLengthMm": 3.2,
+          "color": "#c8a273"
+        },
+        {
+          "id": "left-back-yoke-line",
+          "edgeIndex": 9,
+          "offsetCm": 0.8,
+          "rows": 2,
+          "rowGapCm": 0.42,
+          "stitchLengthMm": 3.2,
+          "color": "#c8a273"
+        }
+      ],
+      "internalLines": [],
+      "graphics": [],
+      "buttons": [],
+      "buttonholes": [],
+      "zippers": [],
+      "bindings": [],
+      "pins": [],
+      "surfaceAttachments": [],
+      "patternRole": "cut"
+    },
+    {
+      "id": "left-back-yoke",
+      "name": "LEFT Back Yoke",
+      "points": [
+        {
+          "x": 0,
+          "y": 106.4
+        },
+        {
+          "x": 21.6,
+          "y": 108.4
+        },
+        {
+          "x": 23.35,
+          "y": 94
+        },
+        {
+          "x": -1.2,
+          "y": 94
+        }
+      ],
+      "curves": {},
+      "layout2d": {
+        "x": 258,
+        "y": 115
+      },
+      "arrangement3d": {
+        "x": -0.15,
+        "y": 0.94,
+        "z": -0.16,
+        "wrap": "back",
+        "flip": false
+      },
+      "grainAngleDeg": 0,
+      "simulationResolution": 2,
+      "seamAllowance": 1,
+      "edgeSeamAllowances": {},
+      "fabricId": "main",
+      "active3d": true,
+      "locked": false,
+      "notches": [],
+      "topstitches": [
+        {
+          "id": "left-yoke-double",
+          "edgeIndex": 2,
+          "offsetCm": 0.7,
+          "rows": 2,
+          "rowGapCm": 0.42,
+          "stitchLengthMm": 3.2,
+          "color": "#c8a273"
+        }
+      ],
+      "internalLines": [],
+      "graphics": [],
+      "buttons": [],
+      "buttonholes": [],
+      "zippers": [],
+      "bindings": [],
+      "pins": [],
+      "surfaceAttachments": [],
+      "patternRole": "cut"
+    },
+    {
+      "id": "left-back-pocket",
+      "name": "LEFT Back Patch Pocket",
+      "points": [
+        {
+          "x": 0,
+          "y": 15.5
+        },
+        {
+          "x": 14.2,
+          "y": 15.5
+        },
+        {
+          "x": 13.9,
+          "y": 3.3
+        },
+        {
+          "x": 7.05,
+          "y": 0
+        },
+        {
+          "x": 0.15,
+          "y": 3.3
+        }
+      ],
+      "curves": {},
+      "layout2d": {
+        "x": 250,
+        "y": 70
+      },
+      "arrangement3d": {
+        "x": -0.15,
+        "y": 0.83,
+        "z": -0.22,
+        "wrap": "back"
+      },
+      "grainAngleDeg": 0,
+      "simulationResolution": 2,
+      "seamAllowance": 1,
+      "edgeSeamAllowances": {
+        "0": 2
+      },
+      "fabricId": "main",
+      "active3d": false,
+      "locked": false,
+      "notches": [],
+      "topstitches": [
+        {
+          "id": "left-pocket-hem",
+          "edgeIndex": 0,
+          "offsetCm": 1.2,
+          "rows": 2,
+          "rowGapCm": 0.42,
+          "stitchLengthMm": 3.2,
+          "color": "#c8a273"
+        },
+        {
+          "id": "left-pocket-outer",
+          "edgeIndex": 2,
+          "offsetCm": 0.6,
+          "rows": 2,
+          "rowGapCm": 0.42,
+          "stitchLengthMm": 3.2,
+          "color": "#c8a273"
+        },
+        {
+          "id": "left-pocket-bottom",
+          "edgeIndex": 3,
+          "offsetCm": 0.6,
+          "rows": 2,
+          "rowGapCm": 0.42,
+          "stitchLengthMm": 3.2,
+          "color": "#c8a273"
+        }
+      ],
+      "internalLines": [
+        {
+          "id": "left-arcuate-left",
+          "type": "construction",
+          "a": {
+            "x": 1.5,
+            "y": 10.8
+          },
+          "b": {
+            "x": 7.1,
+            "y": 6.4
+          }
+        },
+        {
+          "id": "left-arcuate-right",
+          "type": "construction",
+          "a": {
+            "x": 7.1,
+            "y": 6.4
+          },
+          "b": {
+            "x": 12.6,
+            "y": 10.8
+          }
+        }
+      ],
+      "graphics": [],
+      "buttons": [],
+      "buttonholes": [],
+      "zippers": [],
+      "bindings": [],
+      "pins": [],
+      "surfaceAttachments": [],
+      "patternRole": "cut"
+    },
+    {
+      "id": "left-front-pocket-bag",
+      "name": "LEFT Front Pocket Bag",
+      "points": [
+        {
+          "x": 0,
+          "y": 18
+        },
+        {
+          "x": 15.6,
+          "y": 18
+        },
+        {
+          "x": 17.2,
+          "y": 2.8
+        },
+        {
+          "x": 7.8,
+          "y": 0
+        },
+        {
+          "x": 0,
+          "y": 3
+        }
+      ],
+      "curves": {},
+      "layout2d": {
+        "x": 235,
+        "y": 45
+      },
+      "arrangement3d": {
+        "x": -0.16,
+        "y": 0.93,
+        "z": 0.18
+      },
+      "grainAngleDeg": 0,
+      "simulationResolution": 2,
+      "seamAllowance": 0.8,
+      "edgeSeamAllowances": {},
+      "fabricId": "pocket",
+      "active3d": false,
+      "locked": false,
+      "notches": [],
+      "topstitches": [],
+      "internalLines": [],
+      "graphics": [],
+      "buttons": [],
+      "buttonholes": [],
+      "zippers": [],
+      "bindings": [],
+      "pins": [],
+      "surfaceAttachments": [],
+      "patternRole": "cut"
+    },
+    {
+      "id": "left-front-pocket-facing",
+      "name": "LEFT Pocket Denim Facing",
+      "points": [
+        {
+          "x": 0,
+          "y": 16.6
+        },
+        {
+          "x": 16.4,
+          "y": 16.6
+        },
+        {
+          "x": 17.3,
+          "y": 6
+        },
+        {
+          "x": 0,
+          "y": 6
+        }
+      ],
+      "curves": {},
+      "layout2d": {
+        "x": 234,
+        "y": 21
+      },
+      "arrangement3d": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "grainAngleDeg": 0,
+      "simulationResolution": 2,
+      "seamAllowance": 0.8,
+      "edgeSeamAllowances": {},
+      "fabricId": "main",
+      "active3d": false,
+      "locked": false,
+      "notches": [],
+      "topstitches": [],
+      "internalLines": [],
+      "graphics": [],
+      "buttons": [],
+      "buttonholes": [],
+      "zippers": [],
+      "bindings": [],
+      "pins": [],
+      "surfaceAttachments": [],
+      "patternRole": "cut"
+    },
+    {
+      "id": "left-front-waistband",
+      "name": "LEFT Front Waistband",
+      "points": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": 20.3,
+          "y": 0
+        },
+        {
+          "x": 20.3,
+          "y": 3.6
+        },
+        {
+          "x": 0,
+          "y": 3.6
+        }
+      ],
+      "curves": {},
+      "layout2d": {
+        "x": 40,
+        "y": 20
+      },
+      "arrangement3d": {
+        "x": -0.115,
+        "y": 1.075,
+        "z": 0.1,
+        "wrap": "waist-band"
+      },
+      "grainAngleDeg": 0,
+      "simulationResolution": 2,
+      "seamAllowance": 1,
+      "edgeSeamAllowances": {},
+      "fabricId": "main",
+      "active3d": true,
+      "locked": false,
+      "notches": [],
+      "topstitches": [
+        {
+          "id": "left-wb-upper",
+          "edgeIndex": 2,
+          "offsetCm": 0.6,
+          "rows": 1,
+          "rowGapCm": 0.42,
+          "stitchLengthMm": 3.2,
+          "color": "#c8a273"
+        }
+      ],
+      "internalLines": [],
+      "graphics": [],
+      "buttons": [],
+      "buttonholes": [],
+      "zippers": [],
+      "bindings": [],
+      "pins": [],
+      "surfaceAttachments": [],
+      "patternRole": "cut"
+    },
+    {
+      "id": "left-back-waistband",
+      "name": "LEFT Back Waistband",
+      "points": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": 21.7,
+          "y": 0
+        },
+        {
+          "x": 21.7,
+          "y": 3.6
+        },
+        {
+          "x": 0,
+          "y": 3.6
+        }
+      ],
+      "curves": {},
+      "layout2d": {
+        "x": 88,
+        "y": 20
+      },
+      "arrangement3d": {
+        "x": -0.115,
+        "y": 1.095,
+        "z": -0.1,
+        "wrap": "waist-band"
+      },
+      "grainAngleDeg": 0,
+      "simulationResolution": 2,
+      "seamAllowance": 1,
+      "edgeSeamAllowances": {},
+      "fabricId": "main",
+      "active3d": true,
+      "locked": false,
+      "notches": [],
+      "topstitches": [
+        {
+          "id": "left-back-wb-upper",
+          "edgeIndex": 2,
+          "offsetCm": 0.6,
+          "rows": 1,
+          "rowGapCm": 0.42,
+          "stitchLengthMm": 3.2,
+          "color": "#c8a273"
+        }
+      ],
+      "internalLines": [],
+      "graphics": [],
+      "buttons": [],
+      "buttonholes": [],
+      "zippers": [],
+      "bindings": [],
+      "pins": [],
+      "surfaceAttachments": [],
+      "patternRole": "cut"
+    },
+    {
+      "id": "right-front-leg",
+      "name": "RIGHT Front Leg / Jeans",
+      "points": [
+        {
+          "x": 0,
+          "y": 106.4
+        },
+        {
+          "x": -2.1,
+          "y": 94
+        },
+        {
+          "x": -2.5,
+          "y": 73
+        },
+        {
+          "x": -0.7,
+          "y": 40.64
+        },
+        {
+          "x": 0.1,
+          "y": 0
+        },
+        {
+          "x": 19.7,
+          "y": 0
+        },
+        {
+          "x": 20.7,
+          "y": 40.64
+        },
+        {
+          "x": 24.05,
+          "y": 73
+        },
+        {
+          "x": 25.8,
+          "y": 81.3
+        },
+        {
+          "x": 20.25,
+          "y": 86.5
+        },
+        {
+          "x": 20.3,
+          "y": 106.4
+        }
+      ],
+      "curves": {
+        "0": {
+          "cx": -0.5,
+          "cy": 100
+        },
+        "1": {
+          "cx": -2.7,
+          "cy": 84
+        },
+        "6": {
+          "cx": 21.4,
+          "cy": 62
+        },
+        "7": {
+          "cx": 26.7,
+          "cy": 79
+        },
+        "8": {
+          "cx": 20.4,
+          "cy": 81.2
+        }
+      },
+      "layout2d": {
+        "x": 145,
+        "y": 140
+      },
+      "arrangement3d": {
+        "x": 0.155,
+        "y": 0.01,
+        "z": 0.17,
+        "wrap": "right-leg-front",
+        "flip": true
+      },
+      "grainAngleDeg": 0,
+      "simulationResolution": 2,
+      "seamAllowance": 1.2,
+      "edgeSeamAllowances": {
+        "4": 2.6,
+        "10": 1
+      },
+      "fabricId": "main",
+      "active3d": true,
+      "locked": false,
+      "notches": [
+        {
+          "id": "right-front-knee",
+          "edgeIndex": 2,
+          "t": 0.75,
+          "type": "single"
+        },
+        {
+          "id": "right-front-hip",
+          "edgeIndex": 1,
+          "t": 0.65,
+          "type": "single"
+        }
+      ],
+      "topstitches": [
+        {
+          "id": "right-front-inseam",
+          "edgeIndex": 6,
+          "offsetCm": 0.7,
+          "rows": 2,
+          "rowGapCm": 0.42,
+          "stitchLengthMm": 3.2,
+          "color": "#c8a273"
+        },
+        {
+          "id": "right-front-hem",
+          "edgeIndex": 4,
+          "offsetCm": 2,
+          "rows": 2,
+          "rowGapCm": 0.42,
+          "stitchLengthMm": 3.2,
+          "color": "#c8a273"
+        },
+        {
+          "id": "right-front-pocket-rim",
+          "edgeIndex": 0,
+          "offsetCm": 1.1,
+          "rows": 1,
+          "rowGapCm": 0.42,
+          "stitchLengthMm": 3.2,
+          "color": "#c8a273"
+        },
+        {
+          "id": "right-fly-placket",
+          "edgeIndex": 9,
+          "offsetCm": 3.1,
+          "rows": 1,
+          "rowGapCm": 0.42,
+          "stitchLengthMm": 3.2,
+          "color": "#c8a273"
+        }
+      ],
+      "internalLines": [
+        {
+          "id": "right-front-pocket-curve-upper",
+          "type": "construction",
+          "a": {
+            "x": -0.65,
+            "y": 99.4
+          },
+          "b": {
+            "x": 5.9,
+            "y": 94.2
+          }
+        },
+        {
+          "id": "right-front-pocket-curve-lower",
+          "type": "construction",
+          "a": {
+            "x": 5.9,
+            "y": 94.2
+          },
+          "b": {
+            "x": 14.45,
+            "y": 93.7
+          }
+        },
+        {
+          "id": "right-front-pocket-bag-outline",
+          "type": "construction",
+          "a": {
+            "x": 14.45,
+            "y": 93.7
+          },
+          "b": {
+            "x": 16.9,
+            "y": 76.3
+          }
+        },
+        {
+          "id": "right-front-pocket-bag-bottom",
+          "type": "construction",
+          "a": {
+            "x": 16.9,
+            "y": 76.3
+          },
+          "b": {
+            "x": -2.4,
+            "y": 77.8
+          }
+        },
+        {
+          "id": "right-front-rivet-station",
+          "type": "construction",
+          "a": {
+            "x": 14.1,
+            "y": 94.1
+          },
+          "b": {
+            "x": 14.3,
+            "y": 94.4
+          }
+        }
+      ],
+      "graphics": [],
+      "buttons": [
+        {
+          "id": "top-shank",
+          "x": 19.3,
+          "y": 104,
+          "diameterCm": 1.7,
+          "color": "#b58250"
+        },
+        {
+          "id": "fly-button-0",
+          "x": 18.7,
+          "y": 100,
+          "diameterCm": 1.3,
+          "color": "#b58250"
+        },
+        {
+          "id": "fly-button-1",
+          "x": 18.7,
+          "y": 95,
+          "diameterCm": 1.3,
+          "color": "#b58250"
+        },
+        {
+          "id": "fly-button-2",
+          "x": 18.7,
+          "y": 90,
+          "diameterCm": 1.3,
+          "color": "#b58250"
+        },
+        {
+          "id": "fly-button-3",
+          "x": 18.7,
+          "y": 85,
+          "diameterCm": 1.3,
+          "color": "#b58250"
+        }
+      ],
+      "buttonholes": [],
+      "zippers": [],
+      "bindings": [],
+      "pins": [],
+      "surfaceAttachments": [],
+      "patternRole": "cut"
+    },
+    {
+      "id": "right-back-leg",
+      "name": "RIGHT Back Leg / Jeans",
+      "points": [
+        {
+          "x": -1.2,
+          "y": 94
+        },
+        {
+          "x": -3.75,
+          "y": 73
+        },
+        {
+          "x": -1.65,
+          "y": 40.64
+        },
+        {
+          "x": -0.25,
+          "y": 0
+        },
+        {
+          "x": 20.79,
+          "y": 0
+        },
+        {
+          "x": 21.4,
+          "y": 40.64
+        },
+        {
+          "x": 26.75,
+          "y": 73
+        },
+        {
+          "x": 29,
+          "y": 81.3
+        },
+        {
+          "x": 23.8,
+          "y": 87.3
+        },
+        {
+          "x": 23.35,
+          "y": 94
+        }
+      ],
+      "curves": {
+        "0": {
+          "cx": -3.7,
+          "cy": 83
+        },
+        "5": {
+          "cx": 22,
+          "cy": 61
+        },
+        "6": {
+          "cx": 28.54,
+          "cy": 77.8
+        },
+        "7": {
+          "cx": 24,
+          "cy": 81.4
+        }
+      },
+      "layout2d": {
+        "x": 196,
+        "y": 140
+      },
+      "arrangement3d": {
+        "x": 0.155,
+        "y": 0.01,
+        "z": -0.17,
+        "wrap": "right-leg-back",
+        "flip": true
+      },
+      "grainAngleDeg": 0,
+      "simulationResolution": 2,
+      "seamAllowance": 1.2,
+      "edgeSeamAllowances": {
+        "3": 2.6
+      },
+      "fabricId": "main",
+      "active3d": true,
+      "locked": false,
+      "notches": [
+        {
+          "id": "right-back-knee",
+          "edgeIndex": 1,
+          "t": 0.76,
+          "type": "double"
+        },
+        {
+          "id": "right-back-seat",
+          "edgeIndex": 0,
+          "t": 0.54,
+          "type": "double"
+        }
+      ],
+      "topstitches": [
+        {
+          "id": "right-back-inseam",
+          "edgeIndex": 5,
+          "offsetCm": 0.7,
+          "rows": 2,
+          "rowGapCm": 0.42,
+          "stitchLengthMm": 3.2,
+          "color": "#c8a273"
+        },
+        {
+          "id": "right-back-hem",
+          "edgeIndex": 3,
+          "offsetCm": 2,
+          "rows": 2,
+          "rowGapCm": 0.42,
+          "stitchLengthMm": 3.2,
+          "color": "#c8a273"
+        },
+        {
+          "id": "right-back-yoke-line",
+          "edgeIndex": 9,
+          "offsetCm": 0.8,
+          "rows": 2,
+          "rowGapCm": 0.42,
+          "stitchLengthMm": 3.2,
+          "color": "#c8a273"
+        }
+      ],
+      "internalLines": [],
+      "graphics": [],
+      "buttons": [],
+      "buttonholes": [],
+      "zippers": [],
+      "bindings": [],
+      "pins": [],
+      "surfaceAttachments": [],
+      "patternRole": "cut"
+    },
+    {
+      "id": "right-back-yoke",
+      "name": "RIGHT Back Yoke",
+      "points": [
+        {
+          "x": 0,
+          "y": 106.4
+        },
+        {
+          "x": 21.6,
+          "y": 108.4
+        },
+        {
+          "x": 23.35,
+          "y": 94
+        },
+        {
+          "x": -1.2,
+          "y": 94
+        }
+      ],
+      "curves": {},
+      "layout2d": {
+        "x": 298,
+        "y": 115
+      },
+      "arrangement3d": {
+        "x": 0.15,
+        "y": 0.94,
+        "z": -0.16,
+        "wrap": "back",
+        "flip": true
+      },
+      "grainAngleDeg": 0,
+      "simulationResolution": 2,
+      "seamAllowance": 1,
+      "edgeSeamAllowances": {},
+      "fabricId": "main",
+      "active3d": true,
+      "locked": false,
+      "notches": [],
+      "topstitches": [
+        {
+          "id": "right-yoke-double",
+          "edgeIndex": 2,
+          "offsetCm": 0.7,
+          "rows": 2,
+          "rowGapCm": 0.42,
+          "stitchLengthMm": 3.2,
+          "color": "#c8a273"
+        }
+      ],
+      "internalLines": [],
+      "graphics": [],
+      "buttons": [],
+      "buttonholes": [],
+      "zippers": [],
+      "bindings": [],
+      "pins": [],
+      "surfaceAttachments": [],
+      "patternRole": "cut"
+    },
+    {
+      "id": "right-back-pocket",
+      "name": "RIGHT Back Patch Pocket",
+      "points": [
+        {
+          "x": 0,
+          "y": 15.5
+        },
+        {
+          "x": 14.2,
+          "y": 15.5
+        },
+        {
+          "x": 13.9,
+          "y": 3.3
+        },
+        {
+          "x": 7.05,
+          "y": 0
+        },
+        {
+          "x": 0.15,
+          "y": 3.3
+        }
+      ],
+      "curves": {},
+      "layout2d": {
+        "x": 285,
+        "y": 70
+      },
+      "arrangement3d": {
+        "x": 0.15,
+        "y": 0.83,
+        "z": -0.22,
+        "wrap": "back"
+      },
+      "grainAngleDeg": 0,
+      "simulationResolution": 2,
+      "seamAllowance": 1,
+      "edgeSeamAllowances": {
+        "0": 2
+      },
+      "fabricId": "main",
+      "active3d": false,
+      "locked": false,
+      "notches": [],
+      "topstitches": [
+        {
+          "id": "right-pocket-hem",
+          "edgeIndex": 0,
+          "offsetCm": 1.2,
+          "rows": 2,
+          "rowGapCm": 0.42,
+          "stitchLengthMm": 3.2,
+          "color": "#c8a273"
+        },
+        {
+          "id": "right-pocket-outer",
+          "edgeIndex": 2,
+          "offsetCm": 0.6,
+          "rows": 2,
+          "rowGapCm": 0.42,
+          "stitchLengthMm": 3.2,
+          "color": "#c8a273"
+        },
+        {
+          "id": "right-pocket-bottom",
+          "edgeIndex": 3,
+          "offsetCm": 0.6,
+          "rows": 2,
+          "rowGapCm": 0.42,
+          "stitchLengthMm": 3.2,
+          "color": "#c8a273"
+        }
+      ],
+      "internalLines": [
+        {
+          "id": "right-arcuate-left",
+          "type": "construction",
+          "a": {
+            "x": 1.5,
+            "y": 10.8
+          },
+          "b": {
+            "x": 7.1,
+            "y": 6.4
+          }
+        },
+        {
+          "id": "right-arcuate-right",
+          "type": "construction",
+          "a": {
+            "x": 7.1,
+            "y": 6.4
+          },
+          "b": {
+            "x": 12.6,
+            "y": 10.8
+          }
+        }
+      ],
+      "graphics": [],
+      "buttons": [],
+      "buttonholes": [],
+      "zippers": [],
+      "bindings": [],
+      "pins": [],
+      "surfaceAttachments": [],
+      "patternRole": "cut"
+    },
+    {
+      "id": "right-front-pocket-bag",
+      "name": "RIGHT Front Pocket Bag",
+      "points": [
+        {
+          "x": 0,
+          "y": 18
+        },
+        {
+          "x": 15.6,
+          "y": 18
+        },
+        {
+          "x": 17.2,
+          "y": 2.8
+        },
+        {
+          "x": 7.8,
+          "y": 0
+        },
+        {
+          "x": 0,
+          "y": 3
+        }
+      ],
+      "curves": {},
+      "layout2d": {
+        "x": 278,
+        "y": 45
+      },
+      "arrangement3d": {
+        "x": 0.16,
+        "y": 0.93,
+        "z": 0.18
+      },
+      "grainAngleDeg": 0,
+      "simulationResolution": 2,
+      "seamAllowance": 0.8,
+      "edgeSeamAllowances": {},
+      "fabricId": "pocket",
+      "active3d": false,
+      "locked": false,
+      "notches": [],
+      "topstitches": [],
+      "internalLines": [],
+      "graphics": [],
+      "buttons": [],
+      "buttonholes": [],
+      "zippers": [],
+      "bindings": [],
+      "pins": [],
+      "surfaceAttachments": [],
+      "patternRole": "cut"
+    },
+    {
+      "id": "right-front-pocket-facing",
+      "name": "RIGHT Pocket Denim Facing",
+      "points": [
+        {
+          "x": 0,
+          "y": 16.6
+        },
+        {
+          "x": 16.4,
+          "y": 16.6
+        },
+        {
+          "x": 17.3,
+          "y": 6
+        },
+        {
+          "x": 0,
+          "y": 6
+        }
+      ],
+      "curves": {},
+      "layout2d": {
+        "x": 278,
+        "y": 21
+      },
+      "arrangement3d": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "grainAngleDeg": 0,
+      "simulationResolution": 2,
+      "seamAllowance": 0.8,
+      "edgeSeamAllowances": {},
+      "fabricId": "main",
+      "active3d": false,
+      "locked": false,
+      "notches": [],
+      "topstitches": [],
+      "internalLines": [],
+      "graphics": [],
+      "buttons": [],
+      "buttonholes": [],
+      "zippers": [],
+      "bindings": [],
+      "pins": [],
+      "surfaceAttachments": [],
+      "patternRole": "cut"
+    },
+    {
+      "id": "right-front-waistband",
+      "name": "RIGHT Front Waistband",
+      "points": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": 20.3,
+          "y": 0
+        },
+        {
+          "x": 20.3,
+          "y": 3.6
+        },
+        {
+          "x": 0,
+          "y": 3.6
+        }
+      ],
+      "curves": {},
+      "layout2d": {
+        "x": 148,
+        "y": 20
+      },
+      "arrangement3d": {
+        "x": 0.115,
+        "y": 1.075,
+        "z": 0.1,
+        "wrap": "waist-band"
+      },
+      "grainAngleDeg": 0,
+      "simulationResolution": 2,
+      "seamAllowance": 1,
+      "edgeSeamAllowances": {},
+      "fabricId": "main",
+      "active3d": true,
+      "locked": false,
+      "notches": [],
+      "topstitches": [
+        {
+          "id": "right-wb-upper",
+          "edgeIndex": 2,
+          "offsetCm": 0.6,
+          "rows": 1,
+          "rowGapCm": 0.42,
+          "stitchLengthMm": 3.2,
+          "color": "#c8a273"
+        }
+      ],
+      "internalLines": [],
+      "graphics": [],
+      "buttons": [],
+      "buttonholes": [],
+      "zippers": [],
+      "bindings": [],
+      "pins": [],
+      "surfaceAttachments": [],
+      "patternRole": "cut"
+    },
+    {
+      "id": "right-back-waistband",
+      "name": "RIGHT Back Waistband",
+      "points": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": 21.7,
+          "y": 0
+        },
+        {
+          "x": 21.7,
+          "y": 3.6
+        },
+        {
+          "x": 0,
+          "y": 3.6
+        }
+      ],
+      "curves": {},
+      "layout2d": {
+        "x": 196,
+        "y": 20
+      },
+      "arrangement3d": {
+        "x": 0.115,
+        "y": 1.095,
+        "z": -0.1,
+        "wrap": "waist-band"
+      },
+      "grainAngleDeg": 0,
+      "simulationResolution": 2,
+      "seamAllowance": 1,
+      "edgeSeamAllowances": {},
+      "fabricId": "main",
+      "active3d": true,
+      "locked": false,
+      "notches": [],
+      "topstitches": [
+        {
+          "id": "right-back-wb-upper",
+          "edgeIndex": 2,
+          "offsetCm": 0.6,
+          "rows": 1,
+          "rowGapCm": 0.42,
+          "stitchLengthMm": 3.2,
+          "color": "#c8a273"
+        }
+      ],
+      "internalLines": [],
+      "graphics": [],
+      "buttons": [],
+      "buttonholes": [],
+      "zippers": [],
+      "bindings": [],
+      "pins": [],
+      "surfaceAttachments": [],
+      "patternRole": "cut"
+    },
+    {
+      "id": "coin-pocket",
+      "name": "Watch / Coin Pocket",
+      "points": [
+        {
+          "x": 0,
+          "y": 10
+        },
+        {
+          "x": 8,
+          "y": 10
+        },
+        {
+          "x": 8,
+          "y": 1.1
+        },
+        {
+          "x": 4.7,
+          "y": 0
+        },
+        {
+          "x": 0,
+          "y": 1.1
+        }
+      ],
+      "curves": {},
+      "layout2d": {
+        "x": 340,
+        "y": 60
+      },
+      "arrangement3d": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "grainAngleDeg": 0,
+      "simulationResolution": 2,
+      "seamAllowance": 0.8,
+      "edgeSeamAllowances": {
+        "0": 1.7
+      },
+      "fabricId": "main",
+      "active3d": false,
+      "locked": false,
+      "notches": [],
+      "topstitches": [
+        {
+          "id": "coin-pocket-rim",
+          "edgeIndex": 0,
+          "offsetCm": 0.7,
+          "rows": 2,
+          "rowGapCm": 0.42,
+          "stitchLengthMm": 3.2,
+          "color": "#c8a273"
+        }
+      ],
+      "internalLines": [],
+      "graphics": [],
+      "buttons": [],
+      "buttonholes": [],
+      "zippers": [],
+      "bindings": [],
+      "pins": [],
+      "surfaceAttachments": [],
+      "patternRole": "cut"
+    },
+    {
+      "id": "button-fly-facing",
+      "name": "Button Fly Placket",
+      "points": [
+        {
+          "x": 0,
+          "y": 25.2
+        },
+        {
+          "x": 5.2,
+          "y": 25.2
+        },
+        {
+          "x": 6,
+          "y": 1.5
+        },
+        {
+          "x": 4.8,
+          "y": 0
+        },
+        {
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "curves": {},
+      "layout2d": {
+        "x": 342,
+        "y": 100
+      },
+      "arrangement3d": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "grainAngleDeg": 0,
+      "simulationResolution": 2,
+      "seamAllowance": 1,
+      "edgeSeamAllowances": {},
+      "fabricId": "main",
+      "active3d": false,
+      "locked": false,
+      "notches": [],
+      "topstitches": [],
+      "internalLines": [],
+      "graphics": [],
+      "buttons": [],
+      "buttonholes": [
+        {
+          "id": "fly-bh-0",
+          "x": 2.1,
+          "y": 6.3,
+          "lengthCm": 1.8,
+          "orientationDeg": 0
+        },
+        {
+          "id": "fly-bh-1",
+          "x": 2.1,
+          "y": 11,
+          "lengthCm": 1.8,
+          "orientationDeg": 0
+        },
+        {
+          "id": "fly-bh-2",
+          "x": 2.1,
+          "y": 15.7,
+          "lengthCm": 1.8,
+          "orientationDeg": 0
+        },
+        {
+          "id": "fly-bh-3",
+          "x": 2.1,
+          "y": 20.4,
+          "lengthCm": 1.8,
+          "orientationDeg": 0
+        }
+      ],
+      "zippers": [],
+      "bindings": [],
+      "pins": [],
+      "surfaceAttachments": [],
+      "patternRole": "cut"
+    },
+    {
+      "id": "button-fly-shield",
+      "name": "Button Fly Shield",
+      "points": [
+        {
+          "x": 0,
+          "y": 26
+        },
+        {
+          "x": 7.1,
+          "y": 26
+        },
+        {
+          "x": 7.1,
+          "y": 0
+        },
+        {
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "curves": {},
+      "layout2d": {
+        "x": 355,
+        "y": 100
+      },
+      "arrangement3d": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "grainAngleDeg": 0,
+      "simulationResolution": 2,
+      "seamAllowance": 1,
+      "edgeSeamAllowances": {},
+      "fabricId": "main",
+      "active3d": false,
+      "locked": false,
+      "notches": [],
+      "topstitches": [],
+      "internalLines": [],
+      "graphics": [],
+      "buttons": [],
+      "buttonholes": [],
+      "zippers": [],
+      "bindings": [],
+      "pins": [],
+      "surfaceAttachments": [],
+      "patternRole": "cut"
+    },
+    {
+      "id": "belt-loop-1",
+      "name": "Belt Loop 1",
+      "points": [
+        {
+          "x": 0,
+          "y": 9.4
+        },
+        {
+          "x": 1.4,
+          "y": 9.4
+        },
+        {
+          "x": 1.4,
+          "y": 0
+        },
+        {
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "curves": {},
+      "layout2d": {
+        "x": 392,
+        "y": 35
+      },
+      "arrangement3d": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "grainAngleDeg": 0,
+      "simulationResolution": 2,
+      "seamAllowance": 0.7,
+      "edgeSeamAllowances": {},
+      "fabricId": "main",
+      "active3d": false,
+      "locked": false,
+      "notches": [],
+      "topstitches": [],
+      "internalLines": [],
+      "graphics": [],
+      "buttons": [],
+      "buttonholes": [],
+      "zippers": [],
+      "bindings": [],
+      "pins": [],
+      "surfaceAttachments": [],
+      "patternRole": "cut"
+    },
+    {
+      "id": "belt-loop-2",
+      "name": "Belt Loop 2",
+      "points": [
+        {
+          "x": 0,
+          "y": 9.4
+        },
+        {
+          "x": 1.4,
+          "y": 9.4
+        },
+        {
+          "x": 1.4,
+          "y": 0
+        },
+        {
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "curves": {},
+      "layout2d": {
+        "x": 396,
+        "y": 35
+      },
+      "arrangement3d": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "grainAngleDeg": 0,
+      "simulationResolution": 2,
+      "seamAllowance": 0.7,
+      "edgeSeamAllowances": {},
+      "fabricId": "main",
+      "active3d": false,
+      "locked": false,
+      "notches": [],
+      "topstitches": [],
+      "internalLines": [],
+      "graphics": [],
+      "buttons": [],
+      "buttonholes": [],
+      "zippers": [],
+      "bindings": [],
+      "pins": [],
+      "surfaceAttachments": [],
+      "patternRole": "cut"
+    },
+    {
+      "id": "belt-loop-3",
+      "name": "Belt Loop 3",
+      "points": [
+        {
+          "x": 0,
+          "y": 9.4
+        },
+        {
+          "x": 1.4,
+          "y": 9.4
+        },
+        {
+          "x": 1.4,
+          "y": 0
+        },
+        {
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "curves": {},
+      "layout2d": {
+        "x": 400,
+        "y": 35
+      },
+      "arrangement3d": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "grainAngleDeg": 0,
+      "simulationResolution": 2,
+      "seamAllowance": 0.7,
+      "edgeSeamAllowances": {},
+      "fabricId": "main",
+      "active3d": false,
+      "locked": false,
+      "notches": [],
+      "topstitches": [],
+      "internalLines": [],
+      "graphics": [],
+      "buttons": [],
+      "buttonholes": [],
+      "zippers": [],
+      "bindings": [],
+      "pins": [],
+      "surfaceAttachments": [],
+      "patternRole": "cut"
+    },
+    {
+      "id": "belt-loop-4",
+      "name": "Belt Loop 4",
+      "points": [
+        {
+          "x": 0,
+          "y": 9.4
+        },
+        {
+          "x": 1.4,
+          "y": 9.4
+        },
+        {
+          "x": 1.4,
+          "y": 0
+        },
+        {
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "curves": {},
+      "layout2d": {
+        "x": 404,
+        "y": 35
+      },
+      "arrangement3d": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "grainAngleDeg": 0,
+      "simulationResolution": 2,
+      "seamAllowance": 0.7,
+      "edgeSeamAllowances": {},
+      "fabricId": "main",
+      "active3d": false,
+      "locked": false,
+      "notches": [],
+      "topstitches": [],
+      "internalLines": [],
+      "graphics": [],
+      "buttons": [],
+      "buttonholes": [],
+      "zippers": [],
+      "bindings": [],
+      "pins": [],
+      "surfaceAttachments": [],
+      "patternRole": "cut"
+    },
+    {
+      "id": "belt-loop-5",
+      "name": "Belt Loop 5",
+      "points": [
+        {
+          "x": 0,
+          "y": 9.4
+        },
+        {
+          "x": 1.4,
+          "y": 9.4
+        },
+        {
+          "x": 1.4,
+          "y": 0
+        },
+        {
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "curves": {},
+      "layout2d": {
+        "x": 408,
+        "y": 35
+      },
+      "arrangement3d": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "grainAngleDeg": 0,
+      "simulationResolution": 2,
+      "seamAllowance": 0.7,
+      "edgeSeamAllowances": {},
+      "fabricId": "main",
+      "active3d": false,
+      "locked": false,
+      "notches": [],
+      "topstitches": [],
+      "internalLines": [],
+      "graphics": [],
+      "buttons": [],
+      "buttonholes": [],
+      "zippers": [],
+      "bindings": [],
+      "pins": [],
+      "surfaceAttachments": [],
+      "patternRole": "cut"
+    }
+  ],
+  "seams": [
+    {
+      "id": "left-outseam-yoke",
+      "name": "left outseam yoke",
+      "type": "normal",
+      "a": {
+        "pieceId": "left-front-leg",
+        "edgeIndex": 0
+      },
+      "b": {
+        "pieceId": "left-back-yoke",
+        "edgeIndex": 3
+      },
+      "reverseB": true,
+      "junctionScale": 0.96
+    },
+    {
+      "id": "left-outseam-1",
+      "name": "left outseam 1",
+      "type": "normal",
+      "a": {
+        "pieceId": "left-front-leg",
+        "edgeIndex": 1
+      },
+      "b": {
+        "pieceId": "left-back-leg",
+        "edgeIndex": 0
+      },
+      "reverseB": false,
+      "junctionScale": 0.96
+    },
+    {
+      "id": "left-outseam-2",
+      "name": "left outseam 2",
+      "type": "normal",
+      "a": {
+        "pieceId": "left-front-leg",
+        "edgeIndex": 2
+      },
+      "b": {
+        "pieceId": "left-back-leg",
+        "edgeIndex": 1
+      },
+      "reverseB": false,
+      "junctionScale": 0.96
+    },
+    {
+      "id": "left-outseam-3",
+      "name": "left outseam 3",
+      "type": "normal",
+      "a": {
+        "pieceId": "left-front-leg",
+        "edgeIndex": 3
+      },
+      "b": {
+        "pieceId": "left-back-leg",
+        "edgeIndex": 2
+      },
+      "reverseB": false,
+      "junctionScale": 0.96
+    },
+    {
+      "id": "left-inseam-5",
+      "name": "left inseam 5",
+      "type": "normal",
+      "a": {
+        "pieceId": "left-front-leg",
+        "edgeIndex": 5
+      },
+      "b": {
+        "pieceId": "left-back-leg",
+        "edgeIndex": 4
+      },
+      "reverseB": false,
+      "junctionScale": 0.96
+    },
+    {
+      "id": "left-inseam-6",
+      "name": "left inseam 6",
+      "type": "normal",
+      "a": {
+        "pieceId": "left-front-leg",
+        "edgeIndex": 6
+      },
+      "b": {
+        "pieceId": "left-back-leg",
+        "edgeIndex": 5
+      },
+      "reverseB": false,
+      "junctionScale": 0.96
+    },
+    {
+      "id": "left-inseam-7",
+      "name": "left inseam 7",
+      "type": "normal",
+      "a": {
+        "pieceId": "left-front-leg",
+        "edgeIndex": 7
+      },
+      "b": {
+        "pieceId": "left-back-leg",
+        "edgeIndex": 6
+      },
+      "reverseB": false,
+      "junctionScale": 0.96
+    },
+    {
+      "id": "left-yoke-join",
+      "name": "left yoke join",
+      "type": "normal",
+      "a": {
+        "pieceId": "left-back-leg",
+        "edgeIndex": 9
+      },
+      "b": {
+        "pieceId": "left-back-yoke",
+        "edgeIndex": 2
+      },
+      "reverseB": true,
+      "junctionScale": 0.96
+    },
+    {
+      "id": "left-front-waist",
+      "name": "left front waist",
+      "type": "normal",
+      "a": {
+        "pieceId": "left-front-leg",
+        "edgeIndex": 10
+      },
+      "b": {
+        "pieceId": "left-front-waistband",
+        "edgeIndex": 0
+      },
+      "reverseB": false,
+      "junctionScale": 0.96
+    },
+    {
+      "id": "left-back-waist",
+      "name": "left back waist",
+      "type": "normal",
+      "a": {
+        "pieceId": "left-back-yoke",
+        "edgeIndex": 0
+      },
+      "b": {
+        "pieceId": "left-back-waistband",
+        "edgeIndex": 0
+      },
+      "reverseB": false,
+      "junctionScale": 0.96
+    },
+    {
+      "id": "left-waist-side-join",
+      "name": "left waist side join",
+      "type": "normal",
+      "a": {
+        "pieceId": "left-front-waistband",
+        "edgeIndex": 1
+      },
+      "b": {
+        "pieceId": "left-back-waistband",
+        "edgeIndex": 3
+      },
+      "reverseB": false,
+      "junctionScale": 0.96
+    },
+    {
+      "id": "right-outseam-yoke",
+      "name": "right outseam yoke",
+      "type": "normal",
+      "a": {
+        "pieceId": "right-front-leg",
+        "edgeIndex": 0
+      },
+      "b": {
+        "pieceId": "right-back-yoke",
+        "edgeIndex": 3
+      },
+      "reverseB": true,
+      "junctionScale": 0.96
+    },
+    {
+      "id": "right-outseam-1",
+      "name": "right outseam 1",
+      "type": "normal",
+      "a": {
+        "pieceId": "right-front-leg",
+        "edgeIndex": 1
+      },
+      "b": {
+        "pieceId": "right-back-leg",
+        "edgeIndex": 0
+      },
+      "reverseB": false,
+      "junctionScale": 0.96
+    },
+    {
+      "id": "right-outseam-2",
+      "name": "right outseam 2",
+      "type": "normal",
+      "a": {
+        "pieceId": "right-front-leg",
+        "edgeIndex": 2
+      },
+      "b": {
+        "pieceId": "right-back-leg",
+        "edgeIndex": 1
+      },
+      "reverseB": false,
+      "junctionScale": 0.96
+    },
+    {
+      "id": "right-outseam-3",
+      "name": "right outseam 3",
+      "type": "normal",
+      "a": {
+        "pieceId": "right-front-leg",
+        "edgeIndex": 3
+      },
+      "b": {
+        "pieceId": "right-back-leg",
+        "edgeIndex": 2
+      },
+      "reverseB": false,
+      "junctionScale": 0.96
+    },
+    {
+      "id": "right-inseam-5",
+      "name": "right inseam 5",
+      "type": "normal",
+      "a": {
+        "pieceId": "right-front-leg",
+        "edgeIndex": 5
+      },
+      "b": {
+        "pieceId": "right-back-leg",
+        "edgeIndex": 4
+      },
+      "reverseB": false,
+      "junctionScale": 0.96
+    },
+    {
+      "id": "right-inseam-6",
+      "name": "right inseam 6",
+      "type": "normal",
+      "a": {
+        "pieceId": "right-front-leg",
+        "edgeIndex": 6
+      },
+      "b": {
+        "pieceId": "right-back-leg",
+        "edgeIndex": 5
+      },
+      "reverseB": false,
+      "junctionScale": 0.96
+    },
+    {
+      "id": "right-inseam-7",
+      "name": "right inseam 7",
+      "type": "normal",
+      "a": {
+        "pieceId": "right-front-leg",
+        "edgeIndex": 7
+      },
+      "b": {
+        "pieceId": "right-back-leg",
+        "edgeIndex": 6
+      },
+      "reverseB": false,
+      "junctionScale": 0.96
+    },
+    {
+      "id": "right-yoke-join",
+      "name": "right yoke join",
+      "type": "normal",
+      "a": {
+        "pieceId": "right-back-leg",
+        "edgeIndex": 9
+      },
+      "b": {
+        "pieceId": "right-back-yoke",
+        "edgeIndex": 2
+      },
+      "reverseB": true,
+      "junctionScale": 0.96
+    },
+    {
+      "id": "right-front-waist",
+      "name": "right front waist",
+      "type": "normal",
+      "a": {
+        "pieceId": "right-front-leg",
+        "edgeIndex": 10
+      },
+      "b": {
+        "pieceId": "right-front-waistband",
+        "edgeIndex": 0
+      },
+      "reverseB": false,
+      "junctionScale": 0.96
+    },
+    {
+      "id": "right-back-waist",
+      "name": "right back waist",
+      "type": "normal",
+      "a": {
+        "pieceId": "right-back-yoke",
+        "edgeIndex": 0
+      },
+      "b": {
+        "pieceId": "right-back-waistband",
+        "edgeIndex": 0
+      },
+      "reverseB": false,
+      "junctionScale": 0.96
+    },
+    {
+      "id": "right-waist-side-join",
+      "name": "right waist side join",
+      "type": "normal",
+      "a": {
+        "pieceId": "right-front-waistband",
+        "edgeIndex": 1
+      },
+      "b": {
+        "pieceId": "right-back-waistband",
+        "edgeIndex": 3
+      },
+      "reverseB": false,
+      "junctionScale": 0.96
+    },
+    {
+      "id": "front-center-rise-lower",
+      "name": "front center rise lower",
+      "type": "normal",
+      "a": {
+        "pieceId": "left-front-leg",
+        "edgeIndex": 8
+      },
+      "b": {
+        "pieceId": "right-front-leg",
+        "edgeIndex": 8
+      },
+      "reverseB": true,
+      "junctionScale": 0.96
+    },
+    {
+      "id": "front-center-rise-upper",
+      "name": "front center rise upper",
+      "type": "normal",
+      "a": {
+        "pieceId": "left-front-leg",
+        "edgeIndex": 9
+      },
+      "b": {
+        "pieceId": "right-front-leg",
+        "edgeIndex": 9
+      },
+      "reverseB": true,
+      "junctionScale": 0.96
+    },
+    {
+      "id": "back-center-rise-lower",
+      "name": "back center rise lower",
+      "type": "normal",
+      "a": {
+        "pieceId": "left-back-leg",
+        "edgeIndex": 7
+      },
+      "b": {
+        "pieceId": "right-back-leg",
+        "edgeIndex": 7
+      },
+      "reverseB": true,
+      "junctionScale": 0.96
+    },
+    {
+      "id": "back-center-rise-upper",
+      "name": "back center rise upper",
+      "type": "normal",
+      "a": {
+        "pieceId": "left-back-leg",
+        "edgeIndex": 8
+      },
+      "b": {
+        "pieceId": "right-back-leg",
+        "edgeIndex": 8
+      },
+      "reverseB": true,
+      "junctionScale": 0.96
+    },
+    {
+      "id": "back-center-yoke",
+      "name": "back center yoke",
+      "type": "normal",
+      "a": {
+        "pieceId": "left-back-yoke",
+        "edgeIndex": 1
+      },
+      "b": {
+        "pieceId": "right-back-yoke",
+        "edgeIndex": 1
+      },
+      "reverseB": true,
+      "junctionScale": 0.96
+    },
+    {
+      "id": "waistband-back-center",
+      "name": "waistband back center",
+      "type": "normal",
+      "a": {
+        "pieceId": "left-back-waistband",
+        "edgeIndex": 1
+      },
+      "b": {
+        "pieceId": "right-back-waistband",
+        "edgeIndex": 1
+      },
+      "reverseB": true,
+      "junctionScale": 0.96
+    }
+  ],
+  "fasteners": [],
+  "customMeasurements": [],
+  "fabrics": {
+    "main": {
+      "id": "main",
+      "name": "13.5 oz Rigid Indigo Twill",
+      "color": "#2c4259",
+      "gsm": 458,
+      "stretchWarp": 0.008,
+      "stretchWeft": 0.012,
+      "shrinkWarp": 0,
+      "shrinkWeft": 0,
+      "bend": 0.93,
+      "damping": 0.978,
+      "friction": 0.42,
+      "thickness": 0.0032,
+      "roughness": 0.89,
+      "metalness": 0,
+      "sheen": 0.08,
+      "sheenRoughness": 0.86,
+      "normalStrength": 1.15,
+      "textureDescription": "3/1 right-hand cotton denim, raw indigo face"
+    },
+    "pocket": {
+      "id": "pocket",
+      "name": "Unbleached Cotton Pocketing",
+      "color": "#e3dcc5",
+      "gsm": 150,
+      "stretchWarp": 0.01,
+      "stretchWeft": 0.015,
+      "shrinkWarp": 0,
+      "shrinkWeft": 0,
+      "bend": 0.68,
+      "damping": 0.985,
+      "friction": 0.34,
+      "thickness": 0.002,
+      "roughness": 0.78,
+      "metalness": 0,
+      "sheen": 0.28,
+      "sheenRoughness": 0.82,
+      "normalStrength": 1
+    }
+  },
+  "avatar": {
+    "name": "Base Mens 180",
+    "model": "makehuman-base",
+    "heightCm": 180,
+    "chestCm": 96,
+    "waistCm": 78,
+    "hipCm": 94,
+    "shoulderWidthCm": 46,
+    "neckCm": 38,
+    "bicepCm": 32,
+    "armAngleDeg": 6,
+    "visibility": 0.82
+  },
+  "grading": {
+    "baseSize": "W32",
+    "sizes": [
+      "W28",
+      "W30",
+      "W32",
+      "W34",
+      "W36",
+      "W38"
+    ],
+    "widthPerSizeCm": 2.54,
+    "lengthPerSizeCm": 0
+  },
+  "markerSettings": {
+    "fabricWidthCm": 150,
+    "gapCm": 1.5
+  },
+  "simulation": {
+    "backendId": "browser-pbd",
+    "nativeQuality": "balanced",
+    "nativeClothModel": "distance",
+    "nativeBendingModel": "isometric-xpbd",
+    "gravity": 9.81,
+    "stiffness": 0.92,
+    "seamStiffness": 0.96,
+    "autoFitTacks": true,
+    "iterations": 7,
+    "substeps": 2,
+    "resolution": 1,
+    "curveSegments": 2,
+    "collisionMargin": 0.012,
+    "collisions": true,
+    "selfCollision": true,
+    "selfCollisionMargin": 0.002,
+    "visualWrapAssist": false,
+    "wind": {
+      "enabled": false,
+      "speed": 4,
+      "directionDeg": 0,
+      "turbulence": 0.18,
+      "response": 0.025
+    }
+  },
+  "templateId": "jeans-501",
+  "description": "Independent size-32 classic five-pocket, button-fly straight-leg jean block. Draft / virtual prototyping; not an original manufacturer pattern.",
+  "referenceMeasurements": {
+    "units": "cm",
+    "waistLabelIn": 32,
+    "inseamLabelIn": 32,
+    "publishedFrontRiseIn": 11.25,
+    "publishedKneeCircumferenceIn": 17.5,
+    "publishedHemCircumferenceIn": 16,
+    "inseamTargetCm": 81.28,
+    "reference": "Levi 501 Original published fit / size 32; independent pattern geometry"
+  },
+  "previewSize": "W32L32"
+}

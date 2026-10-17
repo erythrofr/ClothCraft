@@ -1,0 +1,59 @@
+.exo-fabric-catalog{width:100%;min-width:0;display:flex;flex-direction:column;gap:9px;color:#dedfe2}
+.exo-fabric-catalog-intro{display:flex;flex-direction:column;gap:3px;font-size:12px}
+.exo-fabric-catalog-intro span,.exo-fabric-provenance,.exo-fabric-native-note{font-size:10px;line-height:1.5;color:#a9afb8;margin:0}
+.exo-fabric-native-note{border-left:2px solid #96bfd1;padding:8px;background:#28343a}
+.exo-fabric-gesture-hint{font-size:10px;line-height:1.45;color:#aab5c0;margin:0}
+.exo-fabric-family-label{font-size:10px;color:#bfc4ca}
+.exo-fabric-catalog select{width:100%;min-height:32px;background:#202224;color:#eceef0;border:1px solid #505357;border-radius:5px;padding:5px;font-size:11px}
+.exo-fabric-results{font-size:10px;color:#aeb5bc;border-bottom:1px solid #444;padding-bottom:6px}
+.exo-fabric-list{width:100%;display:flex;flex-direction:column;gap:5px;min-height:0}
+.exo-fabric-entry{width:100%;border:1px solid #414448;background:#282b2f;border-radius:6px;overflow:hidden;content-visibility:auto;contain-intrinsic-size:auto 80px}
+.exo-fabric-entry.inspected{border-color:#8eacbc}
+.exo-fabric-entry-main{display:flex;width:100%;min-height:74px;padding:7px;gap:9px;text-align:left;align-items:center;color:inherit;background:transparent;border:0;cursor:pointer}
+.exo-fabric-thumb{width:63px;height:58px;flex:0 0 63px;position:relative;overflow:hidden;border-radius:4px;background-position:center;background-size:cover;border:1px solid #56585d}
+.exo-fabric-thumb img{width:100%;height:100%;display:block;object-fit:cover;filter:grayscale(1);mix-blend-mode:luminosity}
+.exo-fabric-entry-copy{min-width:0;display:flex;flex-direction:column;gap:3px;flex:1}
+.exo-fabric-entry-copy strong{font-weight:600;font-size:11px;overflow-wrap:anywhere}
+.exo-fabric-entry-copy small{font-size:9px;color:#aeb4bb;line-height:1.25}
+.exo-fabric-entry-expand{font-size:17px;color:#bdc6ce}
+.exo-fabric-detail{padding:9px;display:flex;flex-direction:column;gap:8px;border-top:1px solid #414448}
+.exo-fabric-detail p{font-size:10px;color:#bcc3cb;line-height:1.4;margin:0}
+.exo-fabric-detail a{font-size:10px;color:#9dd5f9;overflow-wrap:anywhere}
+.exo-fabric-detail button{width:100%;min-height:30px;background:#455c6c;border:1px solid #7395a9;border-radius:4px;color:white;cursor:pointer;font-size:10px}
+.exo-fabric-project{display:flex;flex-direction:column;gap:4px;max-height:210px;overflow-y:auto;border-bottom:1px solid #4c4d4f;padding-bottom:9px}
+.exo-fabric-project h4{margin:0 0 4px;font-size:10px;text-transform:uppercase;letter-spacing:.04em}
+.exo-fabric-project button{display:flex;align-items:center;gap:7px;min-height:34px;width:100%;border:1px solid #43484c;border-radius:4px;background:#303438;color:#e5e6e8;text-align:left;font-size:10px;cursor:pointer}
+.exo-fabric-project button span:nth-child(2){flex:1;overflow-wrap:anywhere}
+.exo-fabric-project button small{color:#b9dbf4}
+.exo-fabric-chip{width:24px;height:24px;flex-shrink:0;border-radius:3px}
+.exo-fabric-empty{font-size:11px;color:#bec5cb}
+.exo-fabric-entry button:focus-visible,.exo-fabric-catalog select:focus-visible,.exo-fabric-project button:focus-visible{outline:2px solid #9cdeff;outline-offset:1px}
+.exo-fabric-selected-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+/* The asset browser owns its own scrollbar; its 400 cards never expand the CAD grid. */
+.asset-browser:has(.exo-fabric-catalog){height:100%;min-height:0;overflow:hidden}
+.asset-browser:has(.exo-fabric-catalog) .clo-library-top,
+.asset-browser:has(.exo-fabric-catalog) .clo-library-search{flex-shrink:0}
+.asset-browser:has(.exo-fabric-catalog) .clo-library-categories{flex-shrink:0;max-height:min(31vh,290px)}
+.asset-browser:has(.exo-fabric-catalog) .asset-library-content{flex:1 1 0;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
+.asset-browser:has(.exo-fabric-catalog) .exo-fabric-catalog{flex:0 0 100%;align-self:flex-start}
+.exo-fabric-hover-preview{position:fixed;z-index:99999;width:min(360px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow:hidden;display:flex;flex-direction:column;background:#121416;color:#edf0f3;border:1px solid #626871;border-radius:12px;box-shadow:0 18px 65px #000c;pointer-events:none;font-family:inherit}
+.exo-fabric-preview-image{height:220px;min-height:120px;flex-shrink:1;overflow:hidden;background-size:cover;background-position:center;position:relative}
+.exo-fabric-preview-image img{display:block;width:100%;height:100%;object-fit:cover;filter:grayscale(1);mix-blend-mode:luminosity}
+.exo-fabric-hover-dual{height:100%;width:100%;display:grid;grid-template-columns:minmax(0,.82fr) minmax(0,1.18fr);align-items:center;gap:14px;padding:13px;background:#111416;overflow:hidden}
+.exo-fabric-hover-flat,.exo-fabric-hover-drape{min-width:0;overflow:hidden;position:relative;border-radius:5px;background-position:center;background-size:cover}
+.exo-fabric-hover-flat{width:100%;height:auto;max-height:100%;aspect-ratio:1 / 1;align-self:center;justify-self:center;border:1px solid #545a60;box-shadow:inset 0 0 18px #0003,0 12px 24px #0006}
+.exo-fabric-hover-flat-canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none}
+.exo-fabric-hover-drape{height:100%;width:100%;align-self:stretch}
+.exo-fabric-hover-drape .exo-fabric-ball{height:100%!important;min-height:0}
+.exo-fabric-hover-drape .exo-fabric-ball canvas{pointer-events:auto;touch-action:none}
+.exo-library-asset-hover--fabric .exo-fabric-hover-flat{box-shadow:inset 0 0 30px #0003}
+.exo-fabric-hover-dual>div>span{position:absolute;bottom:6px;left:6px;z-index:2;padding:3px 5px;background:#12171de3;border-radius:3px;color:#e5eaf0;font-size:9px;letter-spacing:.075em}
+.exo-fabric-preview-content{padding:15px;overflow-y:auto;display:flex;flex-direction:column;gap:7px}
+.exo-fabric-preview-content>strong{font-size:17px;font-weight:650;line-height:1.25}
+.exo-fabric-preview-content>span{font-size:11px;color:#b9c0c9}
+.exo-fabric-preview-content dl{margin:7px 0;display:flex;flex-direction:column;gap:6px}
+.exo-fabric-preview-content dl>div{display:flex;gap:10px;justify-content:space-between;border-top:1px solid #363a3e;padding-top:6px;font-size:10px;line-height:1.4}
+.exo-fabric-preview-content dt{flex:0 0 64px;color:#a6afb9}
+.exo-fabric-preview-content dd{margin:0;text-align:right;overflow-wrap:anywhere}
+.exo-fabric-preview-content>small{font-size:10px;color:#bac1c8;line-height:1.4}
+@media(max-height:600px){.exo-fabric-preview-image{height:140px}.exo-fabric-preview-content{padding:10px;gap:4px}}

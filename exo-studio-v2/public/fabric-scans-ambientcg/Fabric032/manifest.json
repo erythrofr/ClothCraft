@@ -1,0 +1,36 @@
+{
+  "id": "Fabric032",
+  "source": "ambientCG",
+  "name": "Fabric 032",
+  "license": "CC0-1.0",
+  "assetUrl": "https://ambientcg.com/a/Fabric032",
+  "authors": "ambientCG",
+  "categoryTags": [
+    "32",
+    "cloth",
+    "fabric",
+    "white",
+    "wool"
+  ],
+  "scanWidthCm": 20,
+  "scanHeightCm": 20,
+  "physicalScaleStatus": "unknown-illustrative-20cm",
+  "maps": {
+    "color": {
+      "src": "/fabric-scans-ambientcg/Fabric032/color.jpg",
+      "sha256": "9b8435528e63b4c7948bec000eee5067c41c5de51798a0a2c6563503306f44de",
+      "resolution": "1k"
+    },
+    "normal": {
+      "src": "/fabric-scans-ambientcg/Fabric032/normal.jpg",
+      "sha256": "c25867f1aa79f64e62f1bab9f162713b590d1c83984b60f7c9cd14c19e6b3961",
+      "resolution": "1k"
+    },
+    "roughness": {
+      "src": "/fabric-scans-ambientcg/Fabric032/roughness.jpg",
+      "sha256": "3d4db8efebfd3236e42651b4690f19c686d56a11e6656b1735b30c9019444e81",
+      "resolution": "1k"
+    }
+  },
+  "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+}

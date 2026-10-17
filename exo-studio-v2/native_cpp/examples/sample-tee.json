@@ -1,0 +1,882 @@
+{
+  "id": "project-foundation-tee",
+  "name": "Foundation Tee · First Fit Test",
+  "version": 21,
+  "revision": 1,
+  "updatedAt": "2026-10-14T23:15:06.127Z",
+  "units": "cm",
+  "pieces": [
+    {
+      "id": "front",
+      "name": "Front",
+      "points": [
+        {
+          "x": -9,
+          "y": 71
+        },
+        {
+          "x": -21,
+          "y": 69
+        },
+        {
+          "x": -23,
+          "y": 58
+        },
+        {
+          "x": -27,
+          "y": 50
+        },
+        {
+          "x": -25,
+          "y": 0
+        },
+        {
+          "x": 25,
+          "y": 0
+        },
+        {
+          "x": 27,
+          "y": 50
+        },
+        {
+          "x": 23,
+          "y": 58
+        },
+        {
+          "x": 21,
+          "y": 69
+        },
+        {
+          "x": 9,
+          "y": 71
+        },
+        {
+          "x": 6,
+          "y": 63
+        },
+        {
+          "x": -6,
+          "y": 63
+        }
+      ],
+      "curves": {
+        "1": {
+          "cx": -21.7,
+          "cy": 63.4
+        },
+        "2": {
+          "cx": -22.5,
+          "cy": 53.8
+        },
+        "6": {
+          "cx": 22.5,
+          "cy": 53.8
+        },
+        "7": {
+          "cx": 21.7,
+          "cy": 63.4
+        },
+        "10": {
+          "cx": 0,
+          "cy": 58.5
+        }
+      },
+      "layout2d": {
+        "x": 62,
+        "y": 116
+      },
+      "arrangement3d": {
+        "x": 0,
+        "y": 0.89,
+        "z": 0.245,
+        "flip": false,
+        "wrap": "front",
+        "stagingOffsetZ": -0.1
+      },
+      "fitShoulderTacks": false,
+      "simulationResolution": 2,
+      "grainAngleDeg": 0,
+      "notches": [
+        {
+          "id": "front-left-armhole-notch",
+          "edgeIndex": 2,
+          "t": 0.55,
+          "type": "single",
+          "depthCm": 0.45,
+          "matchGroupId": "tee-notches-seam-sleeve-l-front-lower",
+          "matchedSeamId": "seam-sleeve-l-front-lower"
+        },
+        {
+          "id": "front-right-armhole-notch",
+          "edgeIndex": 6,
+          "t": 0.45,
+          "type": "single",
+          "depthCm": 0.45,
+          "matchGroupId": "tee-notches-seam-sleeve-r-front-lower",
+          "matchedSeamId": "seam-sleeve-r-front-lower"
+        }
+      ],
+      "topstitches": [
+        {
+          "id": "front-neck-topstitch",
+          "edgeIndex": 10,
+          "offsetCm": 0.7,
+          "rows": 1,
+          "rowGapCm": 0.45,
+          "stitchLengthMm": 3,
+          "color": "#8d8d8d"
+        },
+        {
+          "id": "front-hem-topstitch",
+          "edgeIndex": 4,
+          "offsetCm": 1.8,
+          "rows": 2,
+          "rowGapCm": 0.45,
+          "stitchLengthMm": 3,
+          "color": "#8d8d8d"
+        }
+      ],
+      "bindings": [
+        {
+          "id": "front-neck-binding-9",
+          "edgeIndex": 9,
+          "ratio": 0.96,
+          "stiffness": 0.78,
+          "widthCm": 1.8,
+          "color": "#d9dde1"
+        },
+        {
+          "id": "front-neck-binding-10",
+          "edgeIndex": 10,
+          "ratio": 0.96,
+          "stiffness": 0.78,
+          "widthCm": 1.8,
+          "color": "#d9dde1"
+        },
+        {
+          "id": "front-neck-binding-11",
+          "edgeIndex": 11,
+          "ratio": 0.96,
+          "stiffness": 0.78,
+          "widthCm": 1.8,
+          "color": "#d9dde1"
+        }
+      ],
+      "graphics": [],
+      "zippers": [],
+      "buttons": [],
+      "seamAllowance": 1,
+      "fabricId": "main",
+      "locked": false,
+      "edgeSeamAllowances": {
+        "4": 2.5,
+        "9": 0.7,
+        "10": 0.7,
+        "11": 0.7
+      }
+    },
+    {
+      "id": "back",
+      "name": "Back",
+      "points": [
+        {
+          "x": -9,
+          "y": 71
+        },
+        {
+          "x": -21,
+          "y": 69
+        },
+        {
+          "x": -23,
+          "y": 58
+        },
+        {
+          "x": -27,
+          "y": 50
+        },
+        {
+          "x": -25,
+          "y": 0
+        },
+        {
+          "x": 25,
+          "y": 0
+        },
+        {
+          "x": 27,
+          "y": 50
+        },
+        {
+          "x": 23,
+          "y": 58
+        },
+        {
+          "x": 21,
+          "y": 69
+        },
+        {
+          "x": 9,
+          "y": 71
+        },
+        {
+          "x": 7,
+          "y": 67
+        },
+        {
+          "x": -7,
+          "y": 67
+        }
+      ],
+      "curves": {
+        "1": {
+          "cx": -21.7,
+          "cy": 63.4
+        },
+        "2": {
+          "cx": -22.5,
+          "cy": 53.8
+        },
+        "6": {
+          "cx": 22.5,
+          "cy": 53.8
+        },
+        "7": {
+          "cx": 21.7,
+          "cy": 63.4
+        },
+        "10": {
+          "cx": 0,
+          "cy": 65.5
+        }
+      },
+      "layout2d": {
+        "x": 160,
+        "y": 116
+      },
+      "arrangement3d": {
+        "x": 0,
+        "y": 0.89,
+        "z": -0.245,
+        "flip": false,
+        "wrap": "back",
+        "stagingOffsetZ": 0.1
+      },
+      "fitShoulderTacks": false,
+      "simulationResolution": 2,
+      "grainAngleDeg": 0,
+      "notches": [
+        {
+          "id": "back-left-armhole-notch",
+          "edgeIndex": 2,
+          "t": 0.55,
+          "type": "double",
+          "depthCm": 0.45,
+          "matchGroupId": "tee-notches-seam-sleeve-l-back-lower",
+          "matchedSeamId": "seam-sleeve-l-back-lower"
+        },
+        {
+          "id": "back-right-armhole-notch",
+          "edgeIndex": 6,
+          "t": 0.45,
+          "type": "double",
+          "depthCm": 0.45,
+          "matchGroupId": "tee-notches-seam-sleeve-r-back-lower",
+          "matchedSeamId": "seam-sleeve-r-back-lower"
+        }
+      ],
+      "topstitches": [
+        {
+          "id": "back-neck-topstitch",
+          "edgeIndex": 10,
+          "offsetCm": 0.7,
+          "rows": 1,
+          "rowGapCm": 0.45,
+          "stitchLengthMm": 3,
+          "color": "#8d8d8d"
+        },
+        {
+          "id": "back-hem-topstitch",
+          "edgeIndex": 4,
+          "offsetCm": 1.8,
+          "rows": 2,
+          "rowGapCm": 0.45,
+          "stitchLengthMm": 3,
+          "color": "#8d8d8d"
+        }
+      ],
+      "bindings": [
+        {
+          "id": "back-neck-binding-9",
+          "edgeIndex": 9,
+          "ratio": 0.96,
+          "stiffness": 0.78,
+          "widthCm": 1.8,
+          "color": "#d9dde1"
+        },
+        {
+          "id": "back-neck-binding-10",
+          "edgeIndex": 10,
+          "ratio": 0.96,
+          "stiffness": 0.78,
+          "widthCm": 1.8,
+          "color": "#d9dde1"
+        },
+        {
+          "id": "back-neck-binding-11",
+          "edgeIndex": 11,
+          "ratio": 0.96,
+          "stiffness": 0.78,
+          "widthCm": 1.8,
+          "color": "#d9dde1"
+        }
+      ],
+      "graphics": [],
+      "zippers": [],
+      "buttons": [],
+      "seamAllowance": 1,
+      "fabricId": "main",
+      "locked": false,
+      "edgeSeamAllowances": {
+        "4": 2.5,
+        "9": 0.7,
+        "10": 0.7,
+        "11": 0.7
+      }
+    },
+    {
+      "id": "sleeve-left",
+      "name": "Left Sleeve",
+      "points": [
+        {
+          "x": 0,
+          "y": 25
+        },
+        {
+          "x": -11,
+          "y": 23
+        },
+        {
+          "x": -17.25,
+          "y": 17
+        },
+        {
+          "x": -16,
+          "y": 0
+        },
+        {
+          "x": 16,
+          "y": 0
+        },
+        {
+          "x": 17.25,
+          "y": 17
+        },
+        {
+          "x": 11,
+          "y": 23
+        }
+      ],
+      "curves": {
+        "0": {
+          "cx": -6.05,
+          "cy": 23.5
+        },
+        "1": {
+          "cx": -16.5,
+          "cy": 22
+        },
+        "5": {
+          "cx": 16.5,
+          "cy": 22
+        },
+        "6": {
+          "cx": 6.05,
+          "cy": 23.5
+        }
+      },
+      "layout2d": {
+        "x": 240,
+        "y": 120
+      },
+      "arrangement3d": {
+        "x": -0.285,
+        "y": 1.35,
+        "z": 0,
+        "flip": false,
+        "wrap": "left-arm",
+        "stagingOffsetX": 0.11,
+        "stagingRotationY": 78
+      },
+      "fitSleeveApexTack": false,
+      "simulationResolution": 2,
+      "grainAngleDeg": 0,
+      "notches": [
+        {
+          "id": "left-sleeve-front-notch",
+          "edgeIndex": 1,
+          "t": 0.5,
+          "type": "single",
+          "depthCm": 0.45,
+          "matchGroupId": "tee-notches-seam-sleeve-l-front-lower",
+          "matchedSeamId": "seam-sleeve-l-front-lower"
+        },
+        {
+          "id": "left-sleeve-back-notch",
+          "edgeIndex": 5,
+          "t": 0.5,
+          "type": "double",
+          "depthCm": 0.45,
+          "matchGroupId": "tee-notches-seam-sleeve-l-back-lower",
+          "matchedSeamId": "seam-sleeve-l-back-lower"
+        }
+      ],
+      "topstitches": [
+        {
+          "id": "left-cuff-topstitch",
+          "edgeIndex": 3,
+          "offsetCm": 1.8,
+          "rows": 2,
+          "rowGapCm": 0.45,
+          "stitchLengthMm": 3,
+          "color": "#8d8d8d"
+        }
+      ],
+      "bindings": [],
+      "graphics": [],
+      "zippers": [],
+      "buttons": [],
+      "seamAllowance": 1,
+      "fabricId": "main",
+      "locked": false,
+      "edgeSeamAllowances": {
+        "3": 2.5
+      }
+    },
+    {
+      "id": "sleeve-right",
+      "name": "Right Sleeve",
+      "points": [
+        {
+          "x": 0,
+          "y": 25
+        },
+        {
+          "x": -11,
+          "y": 23
+        },
+        {
+          "x": -17.25,
+          "y": 17
+        },
+        {
+          "x": -16,
+          "y": 0
+        },
+        {
+          "x": 16,
+          "y": 0
+        },
+        {
+          "x": 17.25,
+          "y": 17
+        },
+        {
+          "x": 11,
+          "y": 23
+        }
+      ],
+      "curves": {
+        "0": {
+          "cx": -6.05,
+          "cy": 23.5
+        },
+        "1": {
+          "cx": -16.5,
+          "cy": 22
+        },
+        "5": {
+          "cx": 16.5,
+          "cy": 22
+        },
+        "6": {
+          "cx": 6.05,
+          "cy": 23.5
+        }
+      },
+      "layout2d": {
+        "x": 295,
+        "y": 120
+      },
+      "arrangement3d": {
+        "x": 0.285,
+        "y": 1.35,
+        "z": 0,
+        "flip": false,
+        "wrap": "right-arm",
+        "stagingOffsetX": -0.11,
+        "stagingRotationY": -78
+      },
+      "fitSleeveApexTack": false,
+      "simulationResolution": 2,
+      "grainAngleDeg": 0,
+      "notches": [
+        {
+          "id": "right-sleeve-front-notch",
+          "edgeIndex": 1,
+          "t": 0.5,
+          "type": "single",
+          "depthCm": 0.45,
+          "matchGroupId": "tee-notches-seam-sleeve-r-front-lower",
+          "matchedSeamId": "seam-sleeve-r-front-lower"
+        },
+        {
+          "id": "right-sleeve-back-notch",
+          "edgeIndex": 5,
+          "t": 0.5,
+          "type": "double",
+          "depthCm": 0.45,
+          "matchGroupId": "tee-notches-seam-sleeve-r-back-lower",
+          "matchedSeamId": "seam-sleeve-r-back-lower"
+        }
+      ],
+      "topstitches": [
+        {
+          "id": "right-cuff-topstitch",
+          "edgeIndex": 3,
+          "offsetCm": 1.8,
+          "rows": 2,
+          "rowGapCm": 0.45,
+          "stitchLengthMm": 3,
+          "color": "#8d8d8d"
+        }
+      ],
+      "bindings": [],
+      "graphics": [],
+      "zippers": [],
+      "buttons": [],
+      "seamAllowance": 1,
+      "fabricId": "main",
+      "locked": false,
+      "edgeSeamAllowances": {
+        "3": 2.5
+      }
+    }
+  ],
+  "seams": [
+    {
+      "id": "seam-shoulder-l",
+      "name": "Left shoulder",
+      "reverseB": false,
+      "a": {
+        "pieceId": "front",
+        "edgeIndex": 0
+      },
+      "b": {
+        "pieceId": "back",
+        "edgeIndex": 0
+      }
+    },
+    {
+      "id": "seam-side-l",
+      "name": "Left side",
+      "reverseB": false,
+      "a": {
+        "pieceId": "front",
+        "edgeIndex": 3
+      },
+      "b": {
+        "pieceId": "back",
+        "edgeIndex": 3
+      }
+    },
+    {
+      "id": "seam-side-r",
+      "name": "Right side",
+      "reverseB": false,
+      "a": {
+        "pieceId": "front",
+        "edgeIndex": 5
+      },
+      "b": {
+        "pieceId": "back",
+        "edgeIndex": 5
+      }
+    },
+    {
+      "id": "seam-shoulder-r",
+      "name": "Right shoulder",
+      "reverseB": false,
+      "a": {
+        "pieceId": "front",
+        "edgeIndex": 8
+      },
+      "b": {
+        "pieceId": "back",
+        "edgeIndex": 8
+      }
+    },
+    {
+      "id": "seam-sleeve-l-front-upper",
+      "name": "Left sleeve front upper",
+      "reverseB": false,
+      "a": {
+        "pieceId": "front",
+        "edgeIndex": 1
+      },
+      "b": {
+        "pieceId": "sleeve-left",
+        "edgeIndex": 0
+      }
+    },
+    {
+      "id": "seam-sleeve-l-front-lower",
+      "name": "Left sleeve front lower",
+      "reverseB": false,
+      "a": {
+        "pieceId": "front",
+        "edgeIndex": 2
+      },
+      "b": {
+        "pieceId": "sleeve-left",
+        "edgeIndex": 1
+      }
+    },
+    {
+      "id": "seam-sleeve-l-back-lower",
+      "name": "Left sleeve back lower",
+      "reverseB": true,
+      "a": {
+        "pieceId": "back",
+        "edgeIndex": 2
+      },
+      "b": {
+        "pieceId": "sleeve-left",
+        "edgeIndex": 5
+      }
+    },
+    {
+      "id": "seam-sleeve-l-back-upper",
+      "name": "Left sleeve back upper",
+      "reverseB": true,
+      "a": {
+        "pieceId": "back",
+        "edgeIndex": 1
+      },
+      "b": {
+        "pieceId": "sleeve-left",
+        "edgeIndex": 6
+      }
+    },
+    {
+      "id": "seam-sleeve-l-underarm",
+      "name": "Left sleeve underarm",
+      "reverseB": true,
+      "a": {
+        "pieceId": "sleeve-left",
+        "edgeIndex": 2
+      },
+      "b": {
+        "pieceId": "sleeve-left",
+        "edgeIndex": 4
+      }
+    },
+    {
+      "id": "seam-sleeve-r-front-lower",
+      "name": "Right sleeve front lower",
+      "reverseB": true,
+      "a": {
+        "pieceId": "front",
+        "edgeIndex": 6
+      },
+      "b": {
+        "pieceId": "sleeve-right",
+        "edgeIndex": 1
+      }
+    },
+    {
+      "id": "seam-sleeve-r-front-upper",
+      "name": "Right sleeve front upper",
+      "reverseB": true,
+      "a": {
+        "pieceId": "front",
+        "edgeIndex": 7
+      },
+      "b": {
+        "pieceId": "sleeve-right",
+        "edgeIndex": 0
+      }
+    },
+    {
+      "id": "seam-sleeve-r-back-upper",
+      "name": "Right sleeve back upper",
+      "reverseB": false,
+      "a": {
+        "pieceId": "back",
+        "edgeIndex": 7
+      },
+      "b": {
+        "pieceId": "sleeve-right",
+        "edgeIndex": 6
+      }
+    },
+    {
+      "id": "seam-sleeve-r-back-lower",
+      "name": "Right sleeve back lower",
+      "reverseB": false,
+      "a": {
+        "pieceId": "back",
+        "edgeIndex": 6
+      },
+      "b": {
+        "pieceId": "sleeve-right",
+        "edgeIndex": 5
+      }
+    },
+    {
+      "id": "seam-sleeve-r-underarm",
+      "name": "Right sleeve underarm",
+      "reverseB": true,
+      "a": {
+        "pieceId": "sleeve-right",
+        "edgeIndex": 2
+      },
+      "b": {
+        "pieceId": "sleeve-right",
+        "edgeIndex": 4
+      }
+    }
+  ],
+  "fasteners": [],
+  "customMeasurements": [],
+  "fabrics": {
+    "main": {
+      "id": "main",
+      "name": "Cotton Jersey",
+      "color": "#d9dde1",
+      "gsm": 220,
+      "stretchWarp": 0.12,
+      "stretchWeft": 0.18,
+      "shrinkWarp": 0,
+      "shrinkWeft": 0,
+      "bend": 0.68,
+      "damping": 0.985,
+      "friction": 0.34,
+      "thickness": 0.002,
+      "roughness": 0.78,
+      "metalness": 0,
+      "sheen": 0.28,
+      "sheenRoughness": 0.82,
+      "normalStrength": 1,
+      "fiberAnisotropy": 0.2,
+      "fiberAngleDeg": 0,
+      "clearcoat": 0,
+      "clearcoatRoughness": 0.48,
+      "colorVariation": 0.25,
+      "weaveScaleCm": 3
+    }
+  },
+  "avatar": {
+    "name": "Base Mens 180",
+    "model": "makehuman-base",
+    "heightCm": 180,
+    "chestCm": 96,
+    "waistCm": 78,
+    "hipCm": 94,
+    "shoulderWidthCm": 46,
+    "neckCm": 38,
+    "bicepCm": 32,
+    "armAngleDeg": 6,
+    "visibility": 0.82,
+    "shoulderContactMode": "adaptive-limited-lateral",
+    "shoulderMaxLateralCorrectionM": 0.006
+  },
+  "grading": {
+    "baseSize": "M",
+    "sizes": [
+      "XS",
+      "S",
+      "M",
+      "L",
+      "XL",
+      "XXL"
+    ],
+    "widthPerSizeCm": 3,
+    "lengthPerSizeCm": 1.2
+  },
+  "markerSettings": {
+    "fabricWidthCm": 150,
+    "gapCm": 1.5
+  },
+  "simulation": {
+    "backendId": "browser-pbd",
+    "nativeQuality": "balanced",
+    "nativeClothModel": "distance",
+    "nativeBendingModel": "isometric-xpbd",
+    "gravity": 9.81,
+    "stiffness": 0.92,
+    "seamStiffness": 0.97,
+    "autoFitTacks": true,
+    "autoFitPlacement": true,
+    "iterations": 9,
+    "substeps": 3,
+    "resolution": 1,
+    "curveSegments": 2,
+    "collisionMargin": 0.012,
+    "ppfContactGap": 0.001,
+    "ppfContactOffset": 0,
+    "ppfAvatarContactGap": 0.001,
+    "ppfAvatarContactOffset": 0,
+    "ppfStrainLimitPercent": 5,
+    "collisions": true,
+    "selfCollision": true,
+    "selfCollisionMargin": 0.0025,
+    "visualWrapAssist": false,
+    "wind": {
+      "enabled": false,
+      "speed": 4,
+      "directionDeg": 0,
+      "turbulence": 0.18,
+      "response": 0.025
+    },
+    "bodyTriangleContactAssist": true
+  },
+  "templateId": "tee",
+  "productionSpec": {
+    "format": "garment-studio.tee-production-development.v1",
+    "approvalStatus": "FIT_SAMPLE_AND_FACTORY_VALIDATION_REQUIRED",
+    "baseSize": "M",
+    "units": "cm",
+    "block": "regular-fit short-sleeve jersey crew neck",
+    "gradingModel": "seam-locked-affine-v1",
+    "referenceHalfChestCm": 54,
+    "referenceBodyLengthCm": 71,
+    "sewingLines": "drafted geometry represents stitch lines; cut outlines include edgeSeamAllowances",
+    "cutQuantities": {
+      "front": 1,
+      "back": 1,
+      "sleeve-left": 1,
+      "sleeve-right": 1
+    },
+    "construction": {
+      "sideAndShoulder": "1.0 cm overlock seam",
+      "bodyHem": "2.5 cm double-needle coverstitch turnback",
+      "sleeveHem": "2.5 cm double-needle coverstitch turnback",
+      "neckline": "rib finish must be physically sampled and added to production marker"
+    },
+    "neckband": {
+      "measuredNecklineCm": 53.18,
+      "proposedRibSewingRatio": 0.87,
+      "proposedCutLengthCm": 48.27,
+      "proposedCutWidthCm": 4.6,
+      "joinSeamAllowanceCm": 1,
+      "requiresSeparateNeckbandCutPattern": true
+    },
+    "qualityGates": [
+      "physical body-fit sample",
+      "graded nest and sewability",
+      "wash/shrink calibration",
+      "factory seam and neckband approval"
+    ]
+  }
+}

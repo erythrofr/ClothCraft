@@ -1,0 +1,44 @@
+feature,area,priority,original,clone,notes,evidence
+Side-by-side 2D pattern and 3D garment workspace,Interface,must,yes,yes,Split with draggable middle divider and working 2D only or 3D only modes verified,scripts/qa-clo-workspace-command-loop.mjs
+Persistent CLO-style configurable workspace layouts,Interface,should,yes,partial,Four persisted profiles and saved custom layouts now include viewport splits and collapsed sidebars; detachable floating windows are still missing,src/core/workspaceProfiles.js
+Two-column 2D drafting and sewing toolbars,Interface,should,yes,partial,Existing independent two-column palette but ordering and action coverage not complete,src/components/RightToolPalette.jsx
+Toolbars with fully working referenced commands,Interface,must,yes,partial,Some commands disabled or unavailable; full published CLO index not covered,docs/NON_SIMULATION_CLO_PARITY_ROADMAP_2026-10-14.md
+Object and fabric browser with selection and locks,Interface,should,yes,yes,Browser object tabs visibility and lock actions implemented,src/components/CloUI.jsx
+Editable Property Editor bound to selection,Interface,must,yes,partial,Point curve edge materials implemented; contextual inspector parity incomplete,src/App.jsx
+2D unobstructed pattern dragging,Interface,must,yes,yes,Drag from fill or edge no longer opens floating popup,scripts/qa-2d-nonblocking-measurements.mjs
+Complete keyboard command mapping and tool search,Interface,could,yes,partial,Cmd K searches 71 implemented actions and runs sewing pin and measure; full CLO keymap and all advanced commands remain unavailable,scripts/qa-clo-workspace-command-loop.mjs
+Piece selection and 2D position moves,2D drafting,must,yes,yes,Real piece layout changes tested in browser,scripts/qa-2d-nonblocking-measurements.mjs
+Pattern points numeric X Y and length angle edits,2D drafting,must,yes,yes,Precise numeric coordinates with history,scripts/qa-precision-point-curve.mjs
+Bezier control editing with measured true curve length,2D drafting,must,yes,yes,Quadratic control edits and adaptive arc length; not full spline toolset,src/core/draftingPrecision.js
+Industrial 2D snapping and construction constraints,2D drafting,must,yes,no,Full snap grid and persistent constraints not implemented,docs/CLO_DRAFTING_WORKSPACE_MATERIAL_ACCEPTANCE_2026-10-14.md
+Analytic construction projection offset and intersection,2D drafting,should,yes,yes,Five measured line construction operations verified independently,scripts/check-analytic-drafting-constructions.mjs
+Complete darts rotation slash spread pleats,2D drafting,must,yes,no,Full topology-safe dart transfer and slash spread not complete,docs/NON_SIMULATION_CLO_PARITY_ROADMAP_2026-10-14.md
+Pattern mirrored symmetry and unfolding,2D drafting,should,yes,partial,Mirror features exist but full linked unfolding and propagation are unverified,src/core/project.js
+Cut split and merge patterns while preserving sewing references,2D drafting,must,yes,partial,Edge point splitting exists; generalized robust cuts and merges missing,src/core/project.js
+Full internal lines and reference annotation tools,2D drafting,should,yes,partial,Internal lines and measurements exist; advanced polygons and cutting absent,src/components/PatternEditor.jsx
+Piece notches and seam allowances,2D drafting,must,yes,partial,Functional per-edge allowances and notches; all corner handling not validated,scripts/qa-precision-edge-inspector.mjs
+True geometry self-intersection and topology validation,2D drafting,must,yes,no,Not all point and curve edits reject invalid garment topology,docs/NON_SIMULATION_CLO_PARITY_ROADMAP_2026-10-14.md
+Sewing edge selection and pair creation,Sewing,must,yes,yes,Edge correspondence graph and persistent sewing relationships,src/core/project.js
+Partial segment sewing and seam length audit,Sewing,must,yes,partial,Measured exact fractional sewing for 947 CLO segments in both solvers and the 2D editor; full M:N auto-fitting and garment assembly are not certified,scripts/check-exact-sewing.mjs
+Automated sewing and initial pattern assembly on avatar,Sewing,must,yes,no,Real Thomas tee still exceeds maximum initial 3cm seam gap,docs/PPF_ACTUAL_GARMENT_FIT_DEEP_AUDIT_2026-10-14.md
+Buttons zippers and edge finishing details,Sewing,should,yes,partial,Trims and buttonholes present but editing/rendering and sew semantics incomplete,src/core/trims.js
+3D avatar import and dimension edits,3D garment,must,yes,partial,Visual mesh import and proxy measurements; general avatar surface physics differs,src/App.jsx
+3D garment placement and piece transforms,3D garment,must,yes,partial,Staging transforms exist; complex 3D styling tools incomplete,src/core/staging.js
+3D garment mesh selection and visibility,3D garment,should,yes,yes,Mesh selection and piece switching covered by checks,scripts/check-mesh-selection.mjs
+Physically stable gravity garment draping,Simulation,must,yes,no,No certified full drape and garment fit for active sewn tee,docs/PPF_ACTUAL_GARMENT_FIT_DEEP_AUDIT_2026-10-14.md
+Accurate cloth avatar and cloth cloth collision,Simulation,must,yes,no,Observed actual PPF trajectory penetrates body starting frame 3,docs/PPF_ACTUAL_GARMENT_FIT_DEEP_AUDIT_2026-10-14.md
+Real solver backend and physical material parameters,Simulation,must,yes,partial,Native solver runs but cannot yet deliver accepted sewn fit,ppf_backend/server.mjs
+Fabric fiber optics roughness sheen and normal maps,Materials,must,yes,yes,Live physically-based optical parameter shader maps verified,scripts/qa-material-render-still.mjs
+Fabric user texture overrides with repeat scaling,Materials,should,yes,yes,Uploaded PBR texture channels override procedural maps,src/components/GarmentViewport.jsx
+Textile bending stretch shear from calibrated material tests,Materials,must,yes,partial,Fabric physics controls present but not calibrated to physical samples,docs/CLO_DRAFTING_WORKSPACE_MATERIAL_ACCEPTANCE_2026-10-14.md
+Professional multi-fabric library and scanned material catalogue,Materials,should,yes,partial,Presets and fabric browser present; calibrated digital scans not complete,src/data/defaultProject.js
+Real-time HDRI lighting and PBR preview,Rendering,must,yes,yes,WebGL lighting and PBR verification exists,scripts/qa-material-render-still.mjs
+Export still garment images,Rendering,should,yes,yes,Actual 1080 by 1350 PNG saved by browser test,scripts/qa-material-render-still.mjs
+Photorealistic path tracing and denoising,Rendering,should,yes,no,Production-quality path tracing unimplemented,docs/CLO_DRAFTING_WORKSPACE_MATERIAL_ACCEPTANCE_2026-10-14.md
+Animations and professional video render queue,Rendering,should,yes,no,No complete animation or batch professional render pipeline,docs/CLO_DRAFTING_WORKSPACE_MATERIAL_ACCEPTANCE_2026-10-14.md
+Multi-size grading size run and measurement CSV,Production,must,yes,partial,Grading and POM exports exist; full supplier rule fidelity incomplete,src/core/grading.js
+DXF pattern import export with seam allowances,Production,must,yes,partial,Round-trip checks run; advanced ASTM AAMA fidelity not certified,scripts/dxf-roundtrip-check.mjs
+Marker nesting production layout,Production,should,yes,partial,Functional marker algorithms present; industrial marker optimization incomplete,scripts/check-markers.mjs
+Tech pack BOM and garment metadata export,Production,should,yes,partial,Metadata exports exist; final factory validation missing,src/core/measurements.js
+Parametric formula-driven pattern drafting with linked measurements,Interoperability,should,yes,no,Seamly2D graph imported read-only and native evaluated parameter dependency graph is not implemented,src/core/seamlyConstructionReference.js
+User-defined measurement tables and avatar POM workflow,Interoperability,could,yes,partial,Imported measurements and POM exist but full interactive body-measurement drafting not complete,scripts/check-seamly-workspace-materials.mjs

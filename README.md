@@ -1,5 +1,7 @@
 # ClothCraft
 
+**EXO ClothCraft Studio V2 full application:** The `mikristian` fork's `feature/full-exo-clothcraft-studio-v2` branch additionally contains the complete EXO studio source snapshot in [`exo-studio-v2/`](exo-studio-v2/). It includes the React/Three.js editor, material and 2D/3D workspaces, native backends, community V4 concept, tests, documentation and original EXO license. [Open the fork integration instructions](EXO_STUDIO_V2.md). No Thomas avatar files are included. The main ClothCraft crate and MIT license remain distinct.
+
 ClothCraft is an open-source garment editor written in Rust. It connects editable 2D patterns, sewing relationships and 3D placement to a cloth simulation.
 
 **Early alpha.** Basic drafting and fitting work, but most of the work needed for a production garment tool remains ahead. Expect incomplete tools, uncalibrated materials and simulation failures on difficult arrangements.

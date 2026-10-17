@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#050505">
+  <meta name="color-scheme" content="dark">
+  <title>EXO — The Creative Design Community</title>
+  <meta name="description" content="Discover digital fashion, original creator projects and a unified garment and fabric marketplace. EXO Community is an interactive local prototype.">
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./screens-v2.css">
+  <link rel="stylesheet" href="./dark-studio.css">
+  <link rel="stylesheet" href="./pattern-visualizer.css">
+  <link rel="stylesheet" href="./materials-experience.css">
+  <link rel="stylesheet" href="./edition-three.css">
+  <link rel="stylesheet" href="./fabric-store.css">
+  <link rel="stylesheet" href="./fabric-showcase.css">
+  <link rel="stylesheet" href="./project-home.css">
+  <link rel="stylesheet" href="./project-infinite-hero.css">
+  <link rel="stylesheet" href="./community-social.css">
+  <link rel="stylesheet" href="./designer-profiles.css">
+  <link rel="stylesheet" href="./community-v4.css">
+  <link rel="stylesheet" href="./home-v5.css">
+  <link rel="stylesheet" href="./ar-experience.css">
+  <link rel="stylesheet" href="./design-system.css">
+  <link rel="stylesheet" href="./editorial-v7.css">
+  <link rel="stylesheet" href="./garment-exhibition.css">
+  <link rel="stylesheet" href="./garment-media-v8.css">
+  <link rel="stylesheet" href="./editorial-v10.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <div class="prototype-ribbon" role="note"><span class="mini-led"></span> EXO COMMUNITY <span class="ribbon-right">LOCAL DESIGN PREVIEW · PROJECT IMAGES FROM OUR WORKSPACE</span></div>
+  <div id="website" class="surface website">
+    <header class="topbar">
+      <a class="brand" href="#home" aria-label="EXO Community home"><span>EXO<span class="exo-brand-dot">.</span></span><small>COMMUNITY</small></a>
+      <nav class="main-links" aria-label="Main navigation">
+        <button data-nav="discover" class="nav-link selected">Home</button>
+        <button data-nav="marketplace" class="nav-link">Marketplace</button>
+        <button data-nav="explore" class="nav-link">For You</button>
+        <button data-nav="forum" class="nav-link">Forum</button>
+        <button data-nav="ar" class="nav-link">AR Studio</button>
+        <button data-nav="profile" class="nav-link">Profile</button>
+      </nav>
+      <div class="top-actions">
+        <button class="nav-search-trigger" id="top-search-trigger" aria-label="Search marketplace"><svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="10.8" cy="10.8" r="6.5"></circle><path d="m16 16 4.3 4.3"></path></svg><span>Search</span> <kbd>⌘ K</kbd></button>
+        <button class="ghost-btn header-team" data-view="teams">Teams</button>
+        <button class="line-btn header-submit" data-action="upload">Share your work <span aria-hidden="true">↗</span></button>
+        <button class="avatar-button" id="profile-menu" aria-label="View designer profile" data-view="profile">MK</button>
+      </div>
+    </header>
+
+    <main id="site-content">
+      <section id="project-home" aria-label="Featured projects and curator picks"></section>
+      <section class="landing-hero" id="hero">
+        <div class="hero-copy">
+          <div class="eyebrow"><span class="dot"></span> THE EXO ARCHIVE <span class="hero-edition">EDITION 001 — INTERACTIVE REFERENCE COLLECTION</span></div>
+          <h1>Form begins<br>with <em>an idea.</em></h1>
+          <p class="hero-lead">An evolving world of garments, patterns and materials. Study the construction. Inspect the texture. Discover the people shaping what comes next.</p>
+          <div class="hero-cta"><button class="solid-btn" data-nav="patterns">Explore the collection <span aria-hidden="true">↗</span></button><button class="text-arrow" id="hero-view-model" data-action="studio">Enter the studio <span aria-hidden="true">↗</span></button></div>
+          <div class="hero-footnote"><span>01 / DESIGN OBJECTS</span><span>02 / TEXTILE INTELLIGENCE</span><span>03 / CREATOR CULTURE</span></div>
+        </div>
+        <div class="hero-art" aria-label="Interactive reference of the Arc Shoulder Hoodie">
+          <div class="hero-art-grid" aria-hidden="true"></div>
+          <div class="hero-art-top"><span><i></i> FORM STUDY / 001</span><span>EXO DIGITAL OBJECTS — © 2026</span></div>
+          <div id="hero-garment" class="hero-garment"></div>
+          <div class="hero-art-bottom"><div><span>GARMENT / 01</span><strong>Arc Shoulder Hoodie</strong><small>Rotate the reference with your pointer</small></div><button type="button" data-open="arc" aria-label="Inspect Arc Shoulder Hoodie">INSPECT OBJECT <span>↗</span></button></div>
+        </div>
+      </section>
+
+      <section class="intro-strip" aria-label="Platform categories">
+        <span>RESEARCH THE OBJECT. UNDERSTAND THE MAKING.</span>
+        <div><button data-nav="patterns">PATTERNS <span>↗</span></button><button data-nav="materials">MATERIALS <span>↗</span></button><button data-nav="studios">ENVIRONMENTS <span>↗</span></button><button data-nav="creators">CREATORS <span>↗</span></button></div>
+      </section>
+      <section class="edition-feature" aria-label="Featured collection">
+        <div class="edition-feature-head"><div><span class="eyebrow">THE EDIT / 001</span><h2>Objects worth <em>looking closer.</em></h2></div><p>From the drafting table to digital form. A selection of studies that reveal how a garment becomes an idea you can explore.</p></div>
+        <div class="edition-feature-grid"><button type="button" data-open="denim" class="edition-spotlight edition-spotlight-pattern"><span class="spotlight-index">01 / CONSTRUCTION STUDY</span><div class="spotlight-visual" id="spotlight-denim"></div><span class="spotlight-copy"><span>THE ART OF THE PATTERN</span><strong>Every line has intention.</strong><em>DISCOVER THE DRAFT ↗</em></span></button><button type="button" data-open="terry" class="edition-spotlight edition-spotlight-material"><span class="spotlight-index">02 / MATERIAL RESEARCH</span><div class="spotlight-visual spotlight-fabric"><span></span><span></span><span></span></div><span class="spotlight-copy"><span>THE MATERIAL LIBRARY</span><strong>Look closer. Feel the structure.</strong><em>EXPLORE THE ATLAS ↗</em></span></button></div>
+      </section>
+
+      <section class="discovery-section" id="catalog-section">
+        <div class="section-overline">THE EXO MARKETPLACE / ONE COLLECTION <span>ORIGINAL PROJECTS · DIGITAL RESOURCES</span></div>
+        <div class="heading-line"><div><h2 id="catalog-heading">Explore the collection.</h2><p id="catalog-subtitle">Garments, fabric, trims, avatars, patterns and scenes in one curated archive.</p></div><button class="outline-square" id="grid-toggle" aria-label="Toggle compact catalog view" title="Toggle compact view">▦ <span>GRID</span></button></div>
+        <div class="exo-market-tabs" role="group" aria-label="Marketplace categories"><button type="button" data-market-category="All" class="active" aria-pressed="true">All</button><button type="button" data-market-category="Garments" aria-pressed="false">Garments</button><button type="button" data-market-category="Fabrics" aria-pressed="false">Fabrics</button><button type="button" data-market-category="Trims" aria-pressed="false">Trims</button><button type="button" data-market-category="Avatars" aria-pressed="false">Avatars</button><button type="button" data-market-category="Scenes" aria-pressed="false">Scenes</button><button type="button" data-market-category="Patterns" aria-pressed="false">Patterns</button></div>
+        <section id="garment-exhibition" aria-label="Garment form studies and construction development"></section>
+        <div class="explore-shell">
+          <aside class="facet-panel" id="facets">
+            <div class="facet-header">FILTER COLLECTION <button id="clear-filters" class="subtle-link">Reset</button></div>
+            <div class="filter-group"><div class="filter-title">DISCIPLINE <span>−</span></div>
+              <label><input type="checkbox" name="discipline" value="Patterns"> Patterns <small>02</small></label>
+              <label><input type="checkbox" name="discipline" value="Garments"> Garments <small>02</small></label>
+              <label><input type="checkbox" name="discipline" value="Fabrics"> Fabrics <small>400+</small></label>
+              <label><input type="checkbox" name="discipline" value="Trims"> Trims <small>01</small></label>
+              <label><input type="checkbox" name="discipline" value="Avatars"> Avatars <small>01</small></label>
+              <label><input type="checkbox" name="discipline" value="Scenes"> Scenes <small>02+</small></label>
+            </div>
+            <div class="filter-group"><div class="filter-title">AVAILABILITY <span>−</span></div>
+              <label><input type="checkbox" name="license" value="Free"> Free concept</label>
+              <label><input type="checkbox" name="license" value="Paid"> Paid concept</label>
+              <label><input type="checkbox" name="license" value="View only"> View only</label>
+              <label><input type="checkbox" id="remix-check"> Remix permitted</label>
+            </div>
+            <div class="filter-group"><div class="filter-title">FILE FORMAT <span>−</span></div>
+              <label><input type="checkbox" name="format" value="DXF"> DXF / 2D CAD</label>
+              <label><input type="checkbox" name="format" value="GLB"> GLB / 3D</label>
+              <label><input type="checkbox" name="format" value="PBR"> PBR / textures</label>
+              <label><input type="checkbox" name="format" value="BLEND"> BLEND / scene</label>
+            </div>
+            <div class="filter-aside-note">CONSIDERED OBJECTS.<br>VISIBLE CONSTRUCTION.<br><span>Creator rights remain their own.</span></div>
+          </aside>
+          <div class="result-column">
+            <div class="browse-controls">
+              <label class="catalog-search"><span aria-hidden="true">⌕</span><input id="catalog-search" type="search" placeholder="Find a pattern, fabric, creator, silhouette…" aria-label="Search assets" autocomplete="off"/><kbd>⌘ K</kbd></label>
+              <select id="sort-choice" aria-label="Sort assets"><option value="curated">Curated first</option><option value="new">Recently added</option><option value="name">Name A–Z</option><option value="free">Free first</option></select>
+              <button id="mobile-filter-toggle" class="mobile-filter">Filters</button>
+            </div>
+            <div class="applied-row"><div id="active-filters" class="active-filters"><span class="quiet">SELECTED WORK / ALL DISCIPLINES</span></div><span id="result-count" class="count-label">08 OBJECTS</span></div>
+            <div id="asset-grid" class="asset-grid" aria-live="polite"></div>
+            <div id="home-market-cta" class="exo-home-market-cta" hidden>
+              <div><span>THE COMPLETE INDEX</span><strong><span data-home-total>417</span> digital resources, one collection.</strong><small>Patterns, fabrics, garments, trims, avatars and environments.</small></div>
+              <button type="button" data-nav="marketplace">Explore all resources <span aria-hidden="true">↗</span></button>
+            </div>
+            <div id="empty-results" class="empty-results" hidden><h3>No pieces found.</h3><p>Try another material, format, or category.</p><button class="line-btn" id="empty-clear">Reset filters</button></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="home-action-reel" class="exo-home-action-reel" hidden aria-label="More ways to explore EXO">
+        <div class="exo-reel-kicker"><span>03 / BEYOND THE IMAGE</span><span>THE STUDIO CONTINUES</span></div>
+        <div class="exo-reel-heading"><h2>The work<br>doesn't <em>stop here.</em></h2><p>Discover the people behind the projects, or bring a design into your own space with the manual camera studio.</p></div>
+        <div class="exo-reel-cards">
+          <button type="button" data-nav="explore" class="exo-reel-card"><span class="exo-reel-photo"><img src="./project-media/runway-world.jpg" loading="lazy" decoding="async" alt="Original XTENDED gallery project room"><span>01 / CREATOR CULTURE</span></span><span class="exo-reel-copy"><strong>For You</strong><span>Explore work from designers and digital studios <b aria-hidden="true">↗</b></span></span></button>
+          <button type="button" data-nav="ar" class="exo-reel-card"><span class="exo-reel-photo"><img src="./project-media/denim-focus-34.webp" loading="lazy" decoding="async" alt="Original denim virtual fitting development render"><span>02 / VIRTUAL RESEARCH</span></span><span class="exo-reel-copy"><strong>AR Studio</strong><span>Preview clothing and patterns through your camera — manual alignment <b aria-hidden="true">↗</b></span></span></button>
+        </div>
+        <p class="exo-reel-disclaimer">EXO COMMUNITY IS A LOCAL CONCEPT. NO PUBLIC SOCIAL NETWORK OR BODY-TRACKED AR IS ACTIVE.</p>
+      </section>
+      <section id="ar-studio" aria-label="Virtual try-on and table projection"></section>
+      <section class="feature-banner"><div class="feature-abstract"><div class="square-track"><span>EXO<br>LAB</span></div><div class="feature-technical"><small>3D FORM</small><small>2D PATTERN</small><small>MATERIAL SURFACE</small></div></div><div class="feature-body"><span class="eyebrow">YOUR NEXT IDEA STARTS HERE</span><h2>From object<br>to <em>understanding.</em></h2><p>Bring the archive into a digital workroom. Examine a garment from every angle, match flat pattern pieces, and study the surfaces that make it possible.</p><button class="solid-btn solid-light" id="launch-lab">Explore Pattern Lab <span aria-hidden="true">↗</span></button></div></section>
+      <footer class="footer"><span class="footer-brand">EXO <small>AN OPEN ATELIER</small></span><span>Design is a conversation worth continuing.</span><span>RESEARCH CONCEPT · © 2026</span></footer>
+    </main>
+  </div>
+
+  <div id="app-surface" class="surface app-surface" hidden>
+    <header class="app-titlebar"><div class="app-id"><button class="app-exit" id="back-to-site" aria-label="Return to website">←</button><span class="app-brand">✳ EXO <small>STUDIO / CONCEPT</small></span><span class="app-project">MIKRISTIAN / HOODIE DEVELOPMENT <small>REV 012</small></span></div><div class="app-commands"><span class="saving-indicator"><i></i> Local draft</span><button class="app-soft" id="app-library">My library <span id="app-library-count">0</span></button><button class="app-dark-btn" id="close-lab">Toggle Pattern Lab</button></div></header>
+    <div class="app-workspace">
+      <aside class="tool-rail"><div class="rail-logo">E.</div><button class="rail-selected" title="Select">⌖</button><button title="Move">✣</button><button title="2D pattern">▱</button><button title="Seams">⌁</button><button title="Materials">◈</button><button title="Simulation">◌</button><div class="tool-rail-end">⚙</div></aside>
+      <section class="viewport viewport-3d"><div class="viewport-head"><span>3D VIEWPORT</span><span>ILLUSTRATIVE WORKSPACE <small>◉</small></span></div><div class="viewport-stage"><div id="app-3d-art"></div><div class="stage-overlay">PROCEDURAL FORM STUDY <span>01 / REFERENCE</span></div><div class="stage-floor"></div></div><div class="viewport-bottom"><span>RENDER REFERENCE <i>●</i> NO PHYSICS</span><span>Perspective · 3D</span></div></section>
+      <section class="viewport viewport-2d"><div class="viewport-head"><span>2D PATTERN</span><span>100% <small>↗</small></span></div><div class="pattern-board" id="pattern-board"><svg viewBox="0 0 500 610" role="img" aria-label="Technical garment pattern pieces"><defs><pattern id="boardgrid" width="25" height="25" patternUnits="userSpaceOnUse"><path d="M25 0H0V25" fill="none" stroke="#dad8d2" stroke-width=".6"/></pattern></defs><rect width="500" height="610" fill="url(#boardgrid)"/><g fill="#f4f3ee" stroke="#958f80" stroke-width="1.4"><path d="M80 115 L115 90 L151 110 L182 97 L208 138 L192 180 L183 390 L87 390 L78 177 L59 145 Z"/><path d="M294 112 L329 91 L360 110 L395 96 L430 137 L416 179 L405 392 L300 392 L286 178 L269 142 Z"/><path d="M88 447 L169 436 L196 465 L179 553 L114 567 L90 519 Z"/><path d="M277 439 L358 451 L381 500 L363 558 L293 558 L272 483 Z"/></g><g fill="none" stroke="#b1a58b" stroke-dasharray="5 4" stroke-width=".8"><path d="M88 139 L183 139 L174 372 L100 372 Z"/><path d="M302 139 L401 139 L389 374 L315 374 Z"/><path d="M99 464 L177 466 L173 543 L118 545 Z"/></g><g stroke="#b68852" stroke-width="1.4"><path d="M134 150 V358"/><path d="M351 150 V358"/></g><g fill="#867d6a" font-family="Arial,sans-serif" font-size="9"><text x="110" y="409">FRONT · M</text><text x="312" y="409">BACK · M</text><text x="118" y="585">SLEEVE</text><text x="302" y="581">SLEEVE</text></g></svg><div id="lab-preview-layer" class="lab-preview-layer" hidden>ASSET PREVIEW <span>NOT IMPORTED</span></div></div><div class="viewport-bottom"><span>2D / MATERIAL SPACE</span><span>Units: mm</span></div></section>
+      <aside class="property-panel"><div class="property-title">PROPERTY INSPECTOR <span>⚙</span></div><h3>ILLUSTRATIVE REFERENCE</h3><div class="property-row"><span>Selected</span><strong id="property-selected">Front body</strong></div><div class="property-row"><span>Visual surface</span><strong id="property-fabric">French terry</strong></div><div class="property-row"><span>Reference mass</span><strong id="property-gsm">460 GSM · sample</strong></div><div class="property-row"><span>Physics</span><strong>Unmeasured</strong></div><div class="property-rule"></div><h3>PROJECT ASSETS</h3><p>Preview designs in Pattern Lab. Native assets require permission and validation before import.</p><button id="open-lab-from-panel" class="property-action">＋ Browse Pattern Lab</button></aside>
+      <aside id="lab-drawer" class="lab-drawer" aria-label="Pattern Lab concept">
+        <div class="lab-header"><div><span class="lab-eyebrow">EXO / CONNECTED LIBRARY</span><h2>Pattern Lab<span class="dot-accent">.</span></h2></div><button class="lab-close" id="lab-close" aria-label="Close Pattern Lab">×</button></div>
+        <p class="lab-subtitle">Discover and inspect pattern components, materials and silhouettes before a rights-checked import.</p>
+        <label class="lab-search"><span>⌕</span><input id="lab-search" type="search" placeholder="Search all community assets…" aria-label="Search Pattern Lab"></label>
+        <div class="lab-chips" id="lab-chips"><button data-lab-filter="All" class="on">All</button><button data-lab-filter="Patterns">Patterns</button><button data-lab-filter="Materials">Materials</button><button data-lab-filter="Garments">Garments</button><button data-lab-filter="Studios">Studios</button></div>
+        <div class="lab-toolbar"><label><input type="checkbox" id="lab-free"/> Free first</label><span id="lab-result-count">8 ASSETS</span></div>
+        <div class="lab-items" id="lab-items"></div>
+        <div class="lab-info" id="lab-info"><strong>Nothing selected yet.</strong><p>Choose an asset to inspect compatibility and permissions before importing.</p></div>
+        <div class="lab-footer"><span><i></i> CONCEPT / OFFLINE DATA</span><button id="visit-community">Community ↗</button></div>
+      </aside>
+    </div>
+  </div>
+
+  <div id="detail-modal" class="detail-backdrop" role="dialog" aria-modal="true" aria-labelledby="detail-title" hidden><div class="detail-dialog">
+    <button id="detail-close" class="modal-close" aria-label="Close asset details">×</button>
+    <div id="detail-art" class="detail-art"></div>
+    <div class="detail-copy"><div class="detail-kicker" id="detail-kind">GARMENT / ARCHIVE 001</div><h2 id="detail-title"></h2><p class="detail-creator" id="detail-creator"></p><div class="detail-tabs" id="detail-tabs"><button class="active" data-detail-tab="Overview">Overview</button><button data-detail-tab="Specifications">Specifications</button><button data-detail-tab="License">License</button></div><div id="detail-body" class="detail-body"></div><div class="detail-bottom"><button id="detail-save" class="detail-secondary">＋ Save to collection</button><button id="detail-primary" class="detail-primary">Preview in Pattern Lab ↗</button><button id="detail-full" class="detail-secondary" data-action="asset-full">View complete asset profile ↗</button></div></div>
+  </div></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

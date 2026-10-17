@@ -1,0 +1,16 @@
+.clo-inspector .clo-object-browser {position:relative;}
+.clo-object-bullet-menu-trigger {width:100%;height:100%;display:grid;place-items:center;border:0;border-right:1px solid #40454c;border-radius:0;background:transparent;color:#c8c8c9;cursor:pointer;}
+.clo-object-bullet-menu-trigger:hover,.clo-object-bullet-menu-trigger.active {color:#fff;background:#394b5a;border-color:#76ccf6;}
+.clo-inspector .clo-object-tabs {grid-template-columns:repeat(9,minmax(0,1fr));}
+.clo-inspector .clo-object-tabs .clo-object-tab-menu {min-width:0;position:relative;flex:initial;z-index:1;}
+.clo-object-hierarchy-menu {display:block;position:relative;left:auto;top:auto;z-index:auto;width:100%;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;box-sizing:border-box;border:0;border-radius:0;background:#262729;color:#ededee;box-shadow:none;}
+.clo-object-hierarchy-top {display:flex;justify-content:space-between;align-items:center;padding:7px 9px;background:#222325;color:#babcc0;font-size:9px;font-weight:750;letter-spacing:.08em;}
+.clo-object-hierarchy-top button {background:transparent;color:#e9e9e9;border:0;font-size:17px;line-height:1;cursor:pointer;}
+.clo-object-hierarchy-group > button {display:flex;align-items:center;gap:7px;width:100%;min-height:36px;padding:8px 11px;border:0;border-bottom:1px solid #343942;background:#262729;color:#d9e0e5;text-align:left;cursor:pointer;}
+.clo-object-hierarchy-group > button svg {transition:transform .12s ease;}
+.clo-object-hierarchy-group > button.expanded svg {transform:rotate(90deg);}
+.clo-object-hierarchy-group > button strong {font-size:10px;}
+.clo-object-hierarchy-group > button:hover,.clo-object-hierarchy-group > button.expanded {background:#303c46;}
+.clo-object-hierarchy-children {display:flex;flex-direction:column;padding:3px 2px 5px 21px;background:#252a2e;}
+.clo-object-hierarchy-children button {min-height:32px;padding:7px 8px;text-align:left;background:transparent;color:#d2d5d7;font-size:10px;border:0;border-left:2px solid #4a6579;cursor:pointer;}
+.clo-object-hierarchy-children button:hover {color:#fff;background:#404146;border-left-color:#ffe73d;}

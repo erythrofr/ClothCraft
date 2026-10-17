@@ -1,0 +1,35 @@
+{
+  "id": "Fabric078",
+  "source": "ambientCG",
+  "name": "Fabric 078",
+  "license": "CC0-1.0",
+  "assetUrl": "https://ambientcg.com/a/Fabric078",
+  "authors": "ambientCG",
+  "categoryTags": [
+    "78",
+    "cloth",
+    "fabric",
+    "green"
+  ],
+  "scanWidthCm": 60,
+  "scanHeightCm": 60,
+  "physicalScaleStatus": "provider-cm-dimensions",
+  "maps": {
+    "color": {
+      "src": "/fabric-scans-ambientcg/Fabric078/color.jpg",
+      "sha256": "cea2914fd4bfdc5462c3d64d9476bb081b573bb7422433c333552b23860b4254",
+      "resolution": "1k"
+    },
+    "normal": {
+      "src": "/fabric-scans-ambientcg/Fabric078/normal.jpg",
+      "sha256": "0f709170a3f9138c2dfd1cea908265d524b78556a3b787ced73debc71a8e6de4",
+      "resolution": "1k"
+    },
+    "roughness": {
+      "src": "/fabric-scans-ambientcg/Fabric078/roughness.jpg",
+      "sha256": "e34e55485658dc1afd9be9e70eeb065cfabd10b150171639d3b076a3449691e1",
+      "resolution": "1k"
+    }
+  },
+  "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+}

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EXO Hanger Hover QA Fixture</title>
+  <style>
+    body { margin:0; background:#121315; color:#e7e8ea; font:13px system-ui,sans-serif }
+    main { width:520px; padding:24px }
+    .fixture-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px }
+    .fixture-tile { cursor:pointer; border:1px solid #393b3f; border-radius:12px; padding:8px; background:#1c1e20; color:inherit }
+    .fixture-tile > span {display:block}
+    .fixture-tile > small {display:block; margin-top:6px}
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/docs/hanger-assets/preview-fixture.jsx"></script>
+</body>
+</html>

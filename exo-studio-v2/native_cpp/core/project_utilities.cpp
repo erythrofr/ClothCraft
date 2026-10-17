@@ -1,0 +1,12 @@
+#include "project_utilities.hpp"
+#include <algorithm>
+#include <cmath>
+#include <stdexcept>
+namespace garment::project_utilities {
+Json cloneProject(const Json& project){return project;}
+Json touchProject(const Json& project,const std::string& isoTimestamp){Json result=project;if(!result.is_object())throw std::invalid_argument("project must be an object");double old=0;if(result.contains("revision")){const auto& r=result["revision"];if(r.is_number())old=r.get<double>();else if(r.is_boolean())old=r.get<bool>()?1:0;else if(r.is_string()){try{old=std::stod(r.get<std::string>());}catch(...){old=0;}}}double next=old+1;if(std::isfinite(next)&&std::floor(next)==next&&next>=-9007199254740991.&&next<=9007199254740991.)result["revision"]=static_cast<std::int64_t>(next);else result["revision"]=next;result["updatedAt"]=isoTimestamp;return result;}
+Json getPiece(const Json& project,const std::string& id){if(!project.is_object()||!project.contains("pieces")||!project["pieces"].is_array())throw std::invalid_argument("project.pieces must be an array");for(const auto& piece:project["pieces"])if(piece.is_object()&&piece.contains("id")&&piece["id"].is_string()&&piece["id"].get<std::string>()==id)return piece;return nullptr;}
+static std::string base36(std::uint64_t value){const char* digits="0123456789abcdefghijklmnopqrstuvwxyz";std::string s;do{s.push_back(digits[value%36]);value/=36;}while(value);std::reverse(s.begin(),s.end());return s;}
+std::string uniqueId(const std::string& prefix,std::int64_t epochMilliseconds,double randomUnit){if(epochMilliseconds<0||!std::isfinite(randomUnit)||randomUnit<0||randomUnit>=1)throw std::invalid_argument("clock must be nonnegative and random in [0,1)");std::string fraction;double r=randomUnit;for(int i=0;i<5;i++){r*=36;int digit=std::min(35,int(r));fraction.push_back("0123456789abcdefghijklmnopqrstuvwxyz"[digit]);r-=digit;}return prefix+"-"+base36(static_cast<std::uint64_t>(epochMilliseconds))+"-"+fraction;}
+Json makeRectanglePiece(double index,std::int64_t epochMilliseconds,double randomUnit){return {{"id",uniqueId("piece",epochMilliseconds,randomUnit)},{"name",std::string("Pattern ")+std::to_string(static_cast<int>(index+1))},{"points",Json::array({{{"x",-18},{"y",0}},{{"x",18},{"y",0}},{{"x",18},{"y",36}},{{"x",-18},{"y",36}}})},{"layout2d",{{"x",250},{"y",112}}},{"arrangement3d",{{"x",0.72},{"y",0.55},{"z",0.1},{"flip",false}}},{"seamAllowance",1},{"fabricId","main"},{"locked",false}};}
+}

@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict'
+import { mergeMeshFaceSelection as select } from '../src/core/meshSelection.js'
+const a = select(null, 'front', 3, {a:0,b:1,c:2})
+assert.deepEqual(a.triangleIndices, [3])
+assert.deepEqual(a.vertices, [0,1,2])
+const b = select(a, 'front', 7, {a:1,b:2,c:4}, true)
+assert.deepEqual(b.triangleIndices, [3,7])
+assert.deepEqual(b.vertices, [0,1,2,4])
+const c = select(b, 'front', 3, {a:0,b:1,c:2}, true)
+assert.deepEqual(c.triangleIndices, [7])
+assert.deepEqual(c.vertices, [1,2,4])
+assert.equal(select(c, 'front', 7, {a:1,b:2,c:4}, true), null)
+assert.deepEqual(select(b, 'back', 2, {a:5,b:6,c:7}, true).triangleIndices, [2])
+assert.equal(select(b, 'front', -1, {a:0,b:1,c:2}), null)
+console.log('mesh selection add/remove/piece switch: PASS')

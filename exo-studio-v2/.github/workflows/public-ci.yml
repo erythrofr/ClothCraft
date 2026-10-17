@@ -1,0 +1,29 @@
+name: Public source checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+env:
+  VITE_PUBLIC_DISTRIBUTION: '1'
+jobs:
+  build-and-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: node scripts/check-public-release.mjs
+      - run: npm run build
+      - run: npm run check:non-simulation
+      - name: Reject proprietary avatar in checkout and built app
+        shell: bash
+        run: |
+          if find public dist -type f -iname '*clo*thomas*' -print -quit | grep -q .; then
+            echo 'Private CLO Thomas asset found; refusing public build' >&2
+            exit 1
+          fi

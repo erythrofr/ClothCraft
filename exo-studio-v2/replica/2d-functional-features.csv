@@ -1,0 +1,53 @@
+feature,area,priority,original,clone,notes,evidence
+Two dimensional pattern workspace beside 3D,Drafting,must,yes,yes,Functional editable 2D viewport beside active 3D garment,src/App.jsx
+Transform select and move complete pattern,Drafting,must,yes,yes,Real layout position changes with preserved cutline and sewing,scripts/qa-2d-nonblocking-measurements.mjs
+Pan zoom and fit patterns,Drafting,must,yes,yes,Mouse zoom pan fit selected and fit all in actual canvas,src/components/PatternEditor.jsx
+Pattern locking during manipulation,Drafting,must,yes,yes,Locked pieces are guarded against geometry and move operations,src/components/PatternEditor.jsx
+Keyboard nudging of pattern location,Drafting,should,yes,yes,Arrow keys move by one or ten centimeters,src/components/PatternEditor.jsx
+Transform selected point from canvas,Drafting,must,yes,yes,Interactive selected point drag with preserved vertex metadata,src/App.jsx
+Select multiple point and line objects,Drafting,must,yes,no,Shift multi selection and group move not implemented,src/components/PatternEditor.jsx
+Lasso and rectangle multi-point selection,Drafting,should,yes,no,No point marquee or lasso selection yet,src/components/PatternEditor.jsx
+Edit numeric point XY,Drafting,must,yes,yes,Exact coordinates in right Property Editor with Undo,scripts/qa-precision-point-curve.mjs
+Edit numeric point distance and angle,Drafting,must,yes,yes,Polar point editing implemented with numeric constraints,scripts/check-drafting-precision.mjs
+Construct points by line projection intersection and mirror,Drafting,should,yes,yes,Five exact analytic construction operations validated,scripts/check-analytic-drafting-constructions.mjs
+Shift horizontal vertical and 45-degree guidelines,Drafting,should,yes,yes,Pointer motion constrained to nearest 45 degree ray,scripts/check-drafting-snapping.mjs
+Snap to adjustable 2D grid,Drafting,must,yes,yes,Working grid spacing and persistent toggle with temporary Alt bypass,scripts/qa-clo-2d-snapping.mjs
+Snap to other pattern point and edge,Drafting,must,yes,partial,Vertex and segment snapping works for internal lines but all 2D construction tools are not yet covered,scripts/check-drafting-snapping.mjs
+Edit quadratic curves numerically and interactively,Drafting,must,yes,yes,Curve control chord depth and absolute handle editing with accurate arc length,scripts/qa-precision-point-curve.mjs
+Convert quadratic curve to straight edge,Drafting,should,yes,yes,Real curve delete and undo in browser,scripts/qa-precision-point-curve.mjs
+Spline and multiple-curve point control,Drafting,should,yes,no,Only quadratic edge handles rather than full spline and smooth continuity controls,src/core/draftingPrecision.js
+Split edge by mouse click,Drafting,must,yes,yes,Interactive point insertion with sewing and notch remapping,src/App.jsx
+Split by exact length from start,Drafting,must,yes,yes,Browser tested length based split of an already sewn edge,scripts/qa-clo-2d-precise-splits.mjs
+Split an edge by percentage ratio,Drafting,should,yes,yes,Numeric ratio along true cutting arc supported,scripts/check-drafting-splits.mjs
+Split edge into N equal lengths,Drafting,must,yes,yes,Two to twelve real length subdivisions in one reversible operation,scripts/qa-clo-2d-precise-splits.mjs
+Remove outline point while preserving references,Drafting,should,yes,partial,Removing points guards sewn and notched edges but all curve reparameterizations not certified,src/App.jsx
+Reject invalid crossing or degenerate cutlines,Drafting,must,yes,partial,Point and curve edits validated but full import cut merge and split creation not globally gated,scripts/check-drafting-topology.mjs
+Create rectangle pattern from drafting input,Drafting,should,yes,partial,Rectangle primitive exists but not a complete arbitrary click drag rectangle interface,src/core/project.js
+Create free polygon and curved pattern,Drafting,must,yes,partial,Existing clipped polygon template and point splits do not support complete interactive free polygon drafting,src/App.jsx
+Create circle and ellipse patterns,Drafting,should,yes,no,General circle and ellipse drafting tool is missing,src/components/PatternEditor.jsx
+Create straight internal construction line,Drafting,must,yes,yes,Mouse drawn internal line stored in garment coordinates,src/components/PatternEditor.jsx
+Create internal closed polygon rectangle and circle,Drafting,should,yes,no,Internal geometry is primarily line based and closed shapes need real editing,src/components/PatternEditor.jsx
+Draw darts with dimensional fold allowances,Drafting,must,yes,partial,Dart line annotations and width are present but cutting topology folding and intake transfer are incomplete,src/App.jsx
+Slash and spread pattern geometry,Drafting,should,yes,partial,Hem taper widening works but arbitrary pivot and cutline slash spread do not,src/App.jsx
+Add pleats with true fold construction,Drafting,should,yes,partial,Repeated pleat annotations exist without industrial folding and sewing simulation parity,src/components/PatternEditor.jsx
+Unfold a half-pattern across a straight edge,Drafting,must,yes,partial,Tested real symmetric unfold but attached trims and curved folds are restricted,scripts/qa-clo-2d-unfold.mjs
+Merge two pattern pieces into one cutline,Drafting,must,yes,no,Union seam matching and merge sewing graph are not implemented,src/App.jsx
+Cut one pattern into two closed pieces,Drafting,must,yes,no,Topology-aware piece separation with new piece IDs is not implemented,src/App.jsx
+Create independent mirrored pattern copy,Drafting,should,yes,yes,Mirror copy preserves piece construction geometry and renders as separate pattern,src/App.jsx
+Maintain linked mirror updates,Drafting,should,yes,partial,Mirrored linked counterparts exist but all mutation paths and graded dimensions not certified,src/App.jsx
+Add and display pattern notches,Sewing,must,yes,yes,Notch positions follow measured edge length and survive splits,src/components/PatternEditor.jsx
+Per edge seam allowances,Sewing,must,yes,yes,Individual edge allowances persist with numeric property editing,scripts/qa-precision-edge-inspector.mjs
+Industrial seam allowance corner types,Sewing,should,yes,no,Controllable bevel miter and curved corner joins not implemented,src/core/project.js
+Sew two corresponding pattern edges,Sewing,must,yes,yes,Actual sewing relationship graph created through 2D selection,src/core/project.js
+Create and preserve partial edge sewing,Sewing,must,yes,partial,Partial topology tracked and inspected but full free range and multi edge UI needs acceptance,scripts/check-partial-seams.mjs
+Multiple segment M N sewing,Sewing,should,yes,no,Full CLO M N sewing selection and automatic ordering unavailable,src/App.jsx
+Audit sewing length mismatches,Sewing,must,yes,yes,Measured seam reports through curved edges and right dock QA,src/core/project.js
+Measure custom pattern distance and area,Production,must,yes,yes,Editable custom tape points and live dimension plus area readouts,src/components/PatternEditor.jsx
+Size grading and measurement tables,Production,must,yes,partial,Graded size runs and measurement CSV exist but arbitrary graded rule editing incomplete,src/core/grading.js
+2D DXF export of graded pattern shapes,Production,must,yes,partial,DXF exported with fixture checks but supplier level ASTM AAMA coverage incomplete,scripts/dxf-roundtrip-check.mjs
+2D DXF pattern import,Production,must,yes,partial,DXF parsed into project patterns but complete curves and industrial formats unverified,src/core/dxf.js
+Marker and production packing,Production,should,yes,partial,Usable markers without certified industrial nesting constraints,scripts/check-markers.mjs
+Parametric body-measurement driven pattern formulas,Production,must,yes,no,Seamly2D reference graph remains read only and CLO Pattern Drafter style evaluation not present,src/core/seamlyConstructionReference.js
+Extend or trim internal lines at intersections,Drafting,should,yes,no,Construction intersections are analytic but no interactive extend trim workflow,src/core/draftingConstructions.js
+Clone original contour as reference line,Drafting,could,yes,no,Reference contour workflow is not wired in editor,src/components/PatternEditor.jsx
+Undo redo save reload after 2D operations,Drafting,must,yes,yes,Actual browser history and persistence across point edit and split,scripts/qa-precision-point-curve.mjs

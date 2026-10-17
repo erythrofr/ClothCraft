@@ -1,0 +1,37 @@
+{
+  "id": "Fabric070",
+  "source": "ambientCG",
+  "name": "Fabric 070",
+  "license": "CC0-1.0",
+  "assetUrl": "https://ambientcg.com/a/Fabric070",
+  "authors": "ambientCG",
+  "categoryTags": [
+    "70",
+    "fabric",
+    "green",
+    "light",
+    "sport",
+    "sportswear"
+  ],
+  "scanWidthCm": 20,
+  "scanHeightCm": 20,
+  "physicalScaleStatus": "unknown-illustrative-20cm",
+  "maps": {
+    "color": {
+      "src": "/fabric-scans-ambientcg/Fabric070/color.jpg",
+      "sha256": "f9f720705d48ccfe0a6ccbed7637a333fdc558b2c33f50dd2ee9f8371a4ad3c9",
+      "resolution": "1k"
+    },
+    "normal": {
+      "src": "/fabric-scans-ambientcg/Fabric070/normal.jpg",
+      "sha256": "8e9a5799354579966b450791e15facca8e5d052da1357d50a8fd5d84a7d0ed8e",
+      "resolution": "1k"
+    },
+    "roughness": {
+      "src": "/fabric-scans-ambientcg/Fabric070/roughness.jpg",
+      "sha256": "1c262a143a7c9508d81c604fe14aacae97c3336b436509aa1b94258e4765ba1c",
+      "resolution": "1k"
+    }
+  },
+  "evidence": "CC0 photographic PBR; structural/surface appearance only; NOT tensile, friction or bending data"
+}
