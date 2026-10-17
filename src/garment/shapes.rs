@@ -88,6 +88,9 @@ pub fn primitive(
         holes: vec![],
         lines: vec![],
         target_lengths: Default::default(),
+        notches: Default::default(),
+        seam_allowances: Default::default(),
+        annotations: vec![],
     })
 }
 
@@ -105,6 +108,9 @@ pub fn mirror(poly: &mut PolygonPattern, axis: MirrorAxis, size: DVec2) {
     };
     for p in &mut poly.points {
         reflect(p);
+    }
+    for annotation in &mut poly.annotations {
+        reflect(&mut annotation.position);
     }
     for c in poly.curves.values_mut() {
         for p in c.iter_mut() {
@@ -211,6 +217,9 @@ pub fn boolean(
             holes,
             lines: vec![],
             target_lengths: Default::default(),
+            notches: Default::default(),
+            seam_allowances: Default::default(),
+            annotations: vec![],
         });
     }
     Ok(out)

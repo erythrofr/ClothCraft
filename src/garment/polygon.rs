@@ -5,6 +5,24 @@ use glam::{DMat2, DVec2};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
+/// A notch anchored to a fraction of the named boundary's sampled arclength.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EdgeNotch {
+    pub t: f64,
+    /// Notch marker depth, measured outward from the stitch boundary in metres.
+    pub depth_m: f64,
+}
+
+/// Editable print / manufacturing note in local material coordinates (metres).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PatternAnnotation {
+    pub id: String,
+    pub text: String,
+    pub position: DVec2,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PolygonPattern {
@@ -32,6 +50,14 @@ pub struct PolygonPattern {
         skip_serializing_if = "BTreeMap::is_empty"
     )]
     pub target_lengths: BTreeMap<String, f64>,
+    /// Material-space marking instructions. They never alter the drape mesh.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub notches: BTreeMap<String, Vec<EdgeNotch>>,
+    /// Cutting-guide width in metres per contour edge, not a stitched contour.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub seam_allowances: BTreeMap<String, f64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub annotations: Vec<PatternAnnotation>,
 }
 /// Tolerant reader for stored targets. A hand-edited file can hold `null` (what a
 /// non-finite float serialises to) or another unusable value. Those become `NaN`
@@ -84,6 +110,77 @@ fn intersects(a: DVec2, b: DVec2, c: DVec2, d: DVec2) -> bool {
     cross(a, b, c) * cross(a, b, d) <= eps * eps && cross(c, d, a) * cross(c, d, b) <= eps * eps
 }
 impl PolygonPattern {
+    /// Marker endpoints in material coordinates. The polygon is CCW, so the
+    /// outward normal lies to the right of each directed boundary segment.
+    pub fn notch_segment(&self, edge: &str, notch: &EdgeNotch) -> Result<[DVec2; 2], String> {
+        if !notch.t.is_finite()
+            || notch.t <= 0.
+            || notch.t >= 1.
+            || !notch.depth_m.is_finite()
+            || notch.depth_m <= 0.
+        {
+            return Err("Notch requires 0 < t < 1 and positive finite depth".into());
+        }
+        let index = self
+            .edges
+            .iter()
+            .position(|name| name == edge)
+            .ok_or("Boundary not found")?;
+        let path = self.edge_points(index)?;
+        let total: f64 = path.windows(2).map(|w| w[0].distance(w[1])).sum();
+        if total <= 1e-9 {
+            return Err("Notch boundary has zero length".into());
+        }
+        let distance = total * notch.t;
+        let mut consumed = 0.;
+        for pair in path.windows(2) {
+            let tangent = pair[1] - pair[0];
+            let length = tangent.length();
+            if length <= 1e-12 {
+                continue;
+            }
+            if consumed + length >= distance {
+                let start = pair[0] + tangent * ((distance - consumed) / length);
+                let normal = DVec2::new(tangent.y, -tangent.x) / length;
+                return Ok([start, start + normal * notch.depth_m]);
+            }
+            consumed += length;
+        }
+        Err("Notch cannot be placed on this boundary".into())
+    }
+
+    /// Per-edge cutting guide. Corner joins and intersection cleanup are not
+    /// performed, so consumers must not treat this as a production cut contour.
+    pub fn allowance_guide(&self, edge: &str) -> Result<Option<Vec<DVec2>>, String> {
+        let Some(&width) = self.seam_allowances.get(edge) else {
+            return Ok(None);
+        };
+        if !width.is_finite() || width <= 0. {
+            return Err("Invalid seam allowance width".into());
+        }
+        let index = self
+            .edges
+            .iter()
+            .position(|name| name == edge)
+            .ok_or("Boundary not found")?;
+        let path = self.edge_points(index)?;
+        let mut guide = Vec::with_capacity(path.len());
+        for (i, point) in path.iter().enumerate() {
+            let tangent = if i == 0 {
+                path[1] - path[0]
+            } else if i + 1 == path.len() {
+                path[i] - path[i - 1]
+            } else {
+                path[i + 1] - path[i - 1]
+            };
+            if tangent.length_squared() <= 1e-20 {
+                return Err("Degenerate allowance guide".into());
+            }
+            guide.push(*point + DVec2::new(tangent.y, -tangent.x).normalize() * width);
+        }
+        Ok(Some(guide))
+    }
+
     pub fn edge_points(&self, i: usize) -> Result<Vec<DVec2>, String> {
         let a = self.points[i];
         let b = self.points[(i + 1) % self.points.len()];
@@ -155,6 +252,21 @@ impl PolygonPattern {
             .any(|(name, points)| !names.contains(name) || points.iter().any(|p| !p.is_finite()))
         {
             return Err("Invalid Bézier edge name or control point".into());
+        }
+        for (edge, notches) in &self.notches {
+            if !names.contains(edge) {
+                return Err("Notch references unknown boundary".into());
+            }
+            for notch in notches {
+                self.notch_segment(edge, notch)?;
+            }
+        }
+        for (edge, width) in &self.seam_allowances {
+            if !names.contains(edge) || !width.is_finite() || *width <= 0. || *width > 0.5 {
+                return Err(
+                    "Seam allowance needs a known boundary and width in (0, 0.5] metres".into(),
+                );
+            }
         }
         let mut points = vec![];
         let mut segments = vec![];
@@ -269,5 +381,67 @@ impl PolygonPattern {
             mesh.masses[i] = mesh.rest_area[i] * m.density;
         }
         Ok(MeshedPolygon { mesh, boundaries })
+    }
+}
+
+#[cfg(test)]
+mod notch_allowance_tests {
+    use super::*;
+    fn square() -> PolygonPattern {
+        PolygonPattern {
+            points: vec![
+                DVec2::ZERO,
+                DVec2::new(1., 0.),
+                DVec2::ONE,
+                DVec2::new(0., 1.),
+            ],
+            edges: vec!["top".into(), "right".into(), "bottom".into(), "left".into()],
+            subdivisions: 0,
+            meshing: None,
+            curves: Default::default(),
+            holes: vec![],
+            lines: vec![],
+            target_lengths: Default::default(),
+            notches: Default::default(),
+            seam_allowances: Default::default(),
+            annotations: vec![],
+        }
+    }
+    #[test]
+    fn notch_extends_outward_in_material_coordinates() {
+        let poly = square();
+        let [start, end] = poly
+            .notch_segment(
+                "top",
+                &EdgeNotch {
+                    t: 0.25,
+                    depth_m: 0.01,
+                },
+            )
+            .unwrap();
+        assert!((start - DVec2::new(0.25, 0.)).length() < 1e-12);
+        assert!((end - DVec2::new(0.25, -0.01)).length() < 1e-12);
+        assert!(
+            poly.notch_segment(
+                "top",
+                &EdgeNotch {
+                    t: 1.,
+                    depth_m: 0.01
+                }
+            )
+            .is_err()
+        );
+    }
+    #[test]
+    fn allowance_is_a_non_destructive_cutting_guide() {
+        let mut poly = square();
+        let original = poly.points.clone();
+        poly.seam_allowances.insert("top".into(), 0.012);
+        let guide = poly.allowance_guide("top").unwrap().unwrap();
+        assert_eq!(guide, vec![DVec2::new(0., -0.012), DVec2::new(1., -0.012)]);
+        assert_eq!(original, poly.points);
+        let json = serde_json::to_string(&poly).unwrap();
+        let read: PolygonPattern = serde_json::from_str(&json).unwrap();
+        assert_eq!(read.seam_allowances["top"], 0.012);
     }
 }
