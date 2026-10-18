@@ -36,9 +36,10 @@ Le chemin courant de `cloth-fit` passe par `VbdSolver` + `OgcWorld`, ou `GpuVbd:
 | `model.rs` | Géométrie de repos rectangulaire et maillage FEM | `Pattern` → `Mesh`, masse, charnières |
 | `garment/template.rs` | Modèle d'édition, validation, compilation | `GarmentTemplate` → `CompiledGarment` |
 | `garment/polygon.rs`, `garment/meshing.rs` | Contours validés, Delaunay contrainte et métrique | points/bords → UV et triangles, contrôle qualité |
+| `garment/markings.rs` | Marge de couture et crans, ligne de coupe jointe | brouillon (mètres) → contour de coupe, jamais le maillage |
 | `garment/seam.rs` | Correspondance de bords et énergie de raccord | longueurs au repos → quadrature, éléments |
 | `garment/embedding.rs` | Attachements géométriques en coordonnées du patron | `MaterialPath` → barycentriques temporaires |
-| `garment/export.rs` | Artefacts CPU sans état d'interface | OBJ par panneau, SVG, directions de fibres |
+| `garment/export.rs` | Artefacts CPU sans état d'interface | OBJ par panneau, SVG, feuille à l'échelle, directions de fibres |
 | `math.rs`, `energy.rs` | AD d'ordre 2, membrane et flexion | géométrie actuelle + repos → énergie/dérivées |
 | `contact.rs` | Pénalité sommets/sphère | contact discret, épaisseur par sommet |
 | `avatar.rs` | OBJ, BVH statique et distance locale signée | mannequin → implémentation du trait Collider |

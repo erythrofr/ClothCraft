@@ -6,7 +6,7 @@ use std::{collections::BTreeMap, time::Instant};
 // the authoring widgets (`smoke_target`). These keys are part of the test harness
 // contract and are deliberately left unchanged even where a key still spells a
 // former French button label; only the visible labels themselves were translated.
-const ACTIONS: [(&str, Vec2); 55] = [
+const ACTIONS: [(&str, Vec2); 57] = [
     ("Plume", Vec2::ZERO),
     ("replace", Vec2::ZERO),
     ("Rectangle", Vec2::ZERO),
@@ -20,6 +20,8 @@ const ACTIONS: [(&str, Vec2); 55] = [
     ("create", Vec2::ZERO),
     ("Modifier", Vec2::ZERO),
     ("panel_1", Vec2::ZERO),
+    ("markings_allowance", Vec2::ZERO),
+    ("markings_notch", Vec2::ZERO),
     ("handle_1", Vec2::new(-12., -16.)),
     ("anchor_3", Vec2::new(-16., 0.)),
     ("body_panel_1", Vec2::new(36., 20.)),
@@ -92,6 +94,13 @@ pub(super) struct Smoke {
     fabric_applied: bool,
     seam_before: Option<Vec<glam::DVec3>>,
     seam_removed: bool,
+    markings_before: Option<(
+        marvelous_cloth::garment::template::GarmentTemplate,
+        Vec<glam::DVec3>,
+    )>,
+    allowance_applied: bool,
+    notch_added: bool,
+    markings_preserved_physics: bool,
 }
 impl Smoke {
     pub(super) fn wants(&self, key: &str) -> bool {
@@ -123,6 +132,10 @@ impl Smoke {
             fabric_applied: false,
             seam_before: None,
             seam_removed: false,
+            markings_before: None,
+            allowance_applied: false,
+            notch_added: false,
+            markings_preserved_physics: false,
         }
     }
     pub fn target(&mut self, name: &str, p: egui::Pos2) {
@@ -312,6 +325,32 @@ impl Atelier {
                         .any(|m| (m.density - 0.296675).abs() < 1e-12)
             });
         }
+        if key == Some("markings_allowance") && smoke.markings_before.is_none() {
+            smoke.markings_before =
+                Some((self.project.template.clone(), self.scene.state.x.clone()));
+        }
+        if key == Some("markings_notch") {
+            let mut allowance = false;
+            let mut notch = false;
+            for poly in self
+                .project
+                .template
+                .panels
+                .iter()
+                .filter_map(|p| p.polygon.as_ref())
+            {
+                allowance |= !poly.seam_allowances.is_empty()
+                    && poly.cutting_contour().is_ok_and(|c| c.is_some());
+                notch |= !poly.notches.is_empty();
+            }
+            smoke.allowance_applied |= allowance;
+            smoke.notch_added |= notch;
+            smoke.markings_preserved_physics |=
+                smoke.markings_before.as_ref().is_some_and(|(t, x)| {
+                    marvelous_cloth::authoring::same_physics(t, &self.project.template)
+                        && x == &self.scene.state.x
+                });
+        }
         if smoke.finished
             || ((!simulated || smoke.action < ACTIONS.len())
                 && smoke.start.elapsed().as_secs() < 40)
@@ -349,9 +388,22 @@ impl Atelier {
         let exported = FittingProject::load(&self.output.join("fitting-project.json"))
             .and_then(|p| p.compile().map(|_| p))
             .is_ok_and(|p| p.template.panels.len() == 2 && p.template.seams.len() == 1);
-        let report = serde_json::json!({"passed":complete&&simulated&&moved&&curved&&smoke.rectangle_drawn&&smoke.handle_edited&&smoke.anchor_edited&&smoke.layout_preserved_physics&&smoke.mixed_sewing&&rotated&&exported&&smoke.undo_observed&&smoke.redo_observed&&self.project.template.seams.len()==1,
+        let markings_exported = FittingProject::load(&self.output.join("fitting-project.json"))
+            .is_ok_and(|p| {
+                p.template
+                    .panels
+                    .iter()
+                    .filter_map(|panel| panel.polygon.as_ref())
+                    .any(|poly| {
+                        !poly.seam_allowances.is_empty()
+                            && !poly.notches.is_empty()
+                            && poly.cutting_contour().is_ok_and(|c| c.is_some())
+                    })
+            });
+        let report = serde_json::json!({"passed":complete&&simulated&&moved&&curved&&smoke.rectangle_drawn&&smoke.handle_edited&&smoke.anchor_edited&&smoke.layout_preserved_physics&&smoke.mixed_sewing&&rotated&&exported&&smoke.undo_observed&&smoke.redo_observed&&self.project.template.seams.len()==1&&smoke.allowance_applied&&smoke.notch_added&&smoke.markings_preserved_physics&&markings_exported,
             "partial_and_multi_edge_sewing":partial_chain,"seam_removed_preserving_drape":smoke.seam_removed,"fabric_applied_preserving_drape":smoke.fabric_applied,"new_panel_simulated":simulated,"pending_seam_committed_on_play":smoke.mixed_sewing&&smoke.undo_observed,"completed_pointer_actions":smoke.action,"expected_actions":ACTIONS.len(),"translated_with_gizmo":moved,"bezier_drawn":curved,"rectangle_drawn":smoke.rectangle_drawn,"handle_edited":smoke.handle_edited,"anchor_edited":smoke.anchor_edited,"layout_preserved_physics":smoke.layout_preserved_physics,"sewing_selected_in_2d_and_3d":smoke.mixed_sewing,"rotated_with_gizmo":rotated,
-            "rotation_axes_xyz":smoke.rotation_axes,"rotation_2d_preserved_physics":smoke.rotation_2d_preserved_physics,"export_reload_compiles":exported,"undo_observed":smoke.undo_observed,"redo_observed":smoke.redo_observed,"panels":self.project.template.panels.len(),"seams":self.project.template.seams.len(),"status":self.status});
+            "rotation_axes_xyz":smoke.rotation_axes,"rotation_2d_preserved_physics":smoke.rotation_2d_preserved_physics,"export_reload_compiles":exported,"undo_observed":smoke.undo_observed,"redo_observed":smoke.redo_observed,"panels":self.project.template.panels.len(),"seams":self.project.template.seams.len(),"status":self.status,
+            "allowance_applied":smoke.allowance_applied,"notch_added":smoke.notch_added,"markings_preserved_physics":smoke.markings_preserved_physics,"markings_exported":markings_exported});
         if let Err(e) = std::fs::write(
             self.output.join("authoring.json"),
             serde_json::to_string_pretty(&report).unwrap(),

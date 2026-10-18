@@ -54,6 +54,16 @@ pub(super) struct AuthoringUi {
     pub target_edge: Option<(String, String)>,
     /// Target length draft, in millimetres. The document stores metres.
     pub target_mm: f64,
+    /// Boundary the markings draft belongs to: (panel id, boundary name).
+    pub markings_edge: Option<(String, String)>,
+    /// Seam allowance draft, in millimetres.
+    pub allowance_mm: f64,
+    /// Notch position draft, measured in millimetres from the boundary start.
+    pub notch_at_mm: f64,
+    /// Notch marker length draft, in millimetres.
+    pub notch_len_mm: f64,
+    /// Notch marker shape for the next notch.
+    pub notch_kind: marvelous_cloth::garment::markings::NotchKind,
 }
 
 pub(super) fn segment_distance(p: egui::Pos2, a: egui::Pos2, b: egui::Pos2) -> f32 {
@@ -143,6 +153,7 @@ impl Atelier {
         self.authoring.numeric_panel = None;
         self.authoring.numeric_anchor = None;
         self.authoring.target_edge = None;
+        self.authoring.markings_edge = None;
         self.authoring.ends.clear();
         self.authoring.edge = self.authoring.edge.take().filter(|edge| {
             self.scene.garment.panels.iter().any(|p| {
@@ -659,7 +670,7 @@ impl Atelier {
         self.drafting_properties(ui, &panel);
         ui.horizontal(|ui| {
             let duplicate = ui.button("Duplicate");
-            self.smoke_target("duplicate", duplicate.rect.center());
+            self.smoke_target_ui(ui, "duplicate", duplicate.rect);
             if duplicate.clicked() {
                 self.edit(Command::Duplicate {
                     panel: panel.id.clone(),
@@ -691,7 +702,7 @@ impl Atelier {
         });
         ui.small("Flat placement: this piece takes the shape of its pattern. The other pieces stay in place.");
         let focus = ui.button("Frame the panel");
-        self.smoke_target("focus", focus.rect.center());
+        self.smoke_target_ui(ui, "focus", focus.rect);
         if focus.clicked() {
             let placement = self.authoring.preview.as_ref().unwrap_or(&panel.placement);
             self.camera.target = placement

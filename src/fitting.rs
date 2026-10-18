@@ -257,6 +257,8 @@ fn mesh_signature(template: &GarmentTemplate, g: &CompiledGarment) -> Result<Str
         panel.layout_rotation_degrees = 0.;
         if let Some(polygon) = panel.polygon.as_mut() {
             polygon.target_lengths.clear();
+            polygon.seam_allowances.clear();
+            polygon.notches.clear();
         }
     }
     append(&serde_json::to_vec(&physical_template).map_err(|e| e.to_string())?);

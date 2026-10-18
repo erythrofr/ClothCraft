@@ -11,7 +11,7 @@ Implemented on 2026-10-15. CPU authoring operations, independent of the physical
 - **Sew** pairs that line with another piece's boundary in 2D or 3D. Alternatively select the line and **Create and sew a ruffle**: width in mm, length ratio 1–4. A ratio of 1.5 creates a strip 50% longer than the receiving line with explicit ease. Adjust its initial 3D placement before simulation, especially along a curve. This is gathered material with a finite seam penalty, not guaranteed folds or collision-free placement.
 - **Delete line** removes an unsewn line. Remove its seam first if needed; Ctrl+Z restores edits.
 
-Still missing: partial/1:N sewing, offsets, intersecting/joined paths, darts, allowances, linked symmetry and automatic ruffle arrangement. Internal lines add no fold/crease energy. Hole rims can be selected/sewn; dedicated hole point editing is absent.
+Still missing: partial/1:N sewing, linked symmetry and automatic ruffle arrangement. Seam allowance and notches are now draft markings; see [markings.md](markings.md). Internal lines add no fold/crease energy. Hole rims can be selected/sewn; dedicated hole point editing is absent.
 
 ## Persistent model
 

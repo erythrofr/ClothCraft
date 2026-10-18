@@ -1,6 +1,6 @@
 //! One metric drafting board. Layout is presentation; rest contours remain local.
 use super::{
-    authoring_ui::{Tool, segment_distance},
+    authoring_ui::{Tool, millimetre_field, segment_distance},
     *,
 };
 use glam::DVec2;
@@ -24,6 +24,12 @@ const MIN_SCALE: f32 = 40.;
 const MAX_SCALE: f32 = 2400.;
 /// Rotation applied by one view-rotation step, in degrees.
 pub(super) const ROTATE_STEP_DEGREES: f64 = 15.;
+/// Seam-allowance width, in millimetres, that the property panel shows for a
+/// boundary that has none stored yet. The common metric default; the stored
+/// value replaces it as soon as the drafter applies one.
+const DEFAULT_ALLOWANCE_MM: f64 = 10.;
+/// Notch length, in millimetres, used when the draft has not been set.
+const DEFAULT_NOTCH_LENGTH_MM: f64 = 5.;
 /// Screen-pixel capture radii for snapping. The radius is a property of the
 /// pointing device, so keeping it in pixels makes the magnet feel identical at
 /// every zoom; the captured coordinate itself is material and exact.
@@ -875,13 +881,146 @@ impl Atelier {
                     );
                 }
                 self.edit(Command::Shape {
-                    panel: edge.panel,
-                    polygon: poly,
+                    panel: edge.panel.clone(),
+                    polygon: poly.clone(),
                 });
             }
             ui.small("Drag the points or handles on the 2D plane.");
         }
+        self.marking_properties(ui, &edge.panel, &poly, &poly.edges[k]);
         ui.separator();
+    }
+
+    /// Seam allowance and notches for the selected outer boundary. Absorbed into
+    /// the same property panel as the boundary tools so selection stays shared
+    /// between the 2D and 3D views.
+    fn marking_properties(
+        &mut self,
+        ui: &mut egui::Ui,
+        panel: &str,
+        polygon: &PolygonPattern,
+        name: &str,
+    ) {
+        use marvelous_cloth::garment::markings::{Notch, NotchKind, polyline_length};
+        let length = polygon
+            .closed_boundary(name)
+            .map(|p| polyline_length(&p))
+            .unwrap_or(0.);
+        if self.authoring.markings_edge.as_ref() != Some(&(panel.to_string(), name.to_string())) {
+            self.authoring.markings_edge = Some((panel.to_string(), name.to_string()));
+            // A boundary without an allowance opens on the default width so the
+            // draft is immediately actionable; the stored value wins once set.
+            self.authoring.allowance_mm = if polygon.seam_allowances.contains_key(name) {
+                polygon.allowance_of(name) * 1000.
+            } else {
+                DEFAULT_ALLOWANCE_MM
+            };
+            self.authoring.notch_at_mm = length * 1000. * 0.5;
+            if self.authoring.notch_len_mm <= 0. {
+                self.authoring.notch_len_mm = DEFAULT_NOTCH_LENGTH_MM;
+            }
+        }
+        ui.separator();
+        ui.strong("Seam allowance");
+        ui.horizontal(|ui| {
+            ui.label("Width");
+            millimetre_field(ui, &mut self.authoring.allowance_mm);
+        });
+        ui.horizontal(|ui| {
+            let apply = ui
+                .button("Apply allowance")
+                .on_hover_text("Offset this boundary outward to make the cutting line");
+            self.smoke_target_ui(ui, "markings_allowance", apply.rect);
+            if apply.clicked() {
+                self.edit(Command::SeamAllowance {
+                    panel: panel.to_string(),
+                    edge: name.to_string(),
+                    width_m: authoring::mm_to_m(self.authoring.allowance_mm.max(0.)),
+                });
+            }
+            let stored = polygon.seam_allowances.contains_key(name);
+            let clear = ui.add_enabled(stored, egui::Button::new("Clear allowance"));
+            self.smoke_target_ui(ui, "markings_clear", clear.rect);
+            if clear.clicked() {
+                self.edit(Command::SeamAllowance {
+                    panel: panel.to_string(),
+                    edge: name.to_string(),
+                    width_m: 0.,
+                });
+            }
+        });
+        match polygon.cutting_contour() {
+            Ok(Some(contour)) => {
+                ui.small(format!("Cutting line: {} points", contour.outer.len()));
+            }
+            Ok(None) => {}
+            Err(error) => {
+                ui.colored_label(Color32::LIGHT_RED, error);
+            }
+        }
+        ui.strong("Notches");
+        ui.horizontal_wrapped(|ui| {
+            ui.label("At");
+            millimetre_field(ui, &mut self.authoring.notch_at_mm);
+            ui.label("Length");
+            millimetre_field(ui, &mut self.authoring.notch_len_mm);
+        });
+        ui.horizontal(|ui| {
+            ui.selectable_value(&mut self.authoring.notch_kind, NotchKind::V, "V");
+            ui.selectable_value(&mut self.authoring.notch_kind, NotchKind::Slit, "Slit");
+        });
+        let at = if length > 0. {
+            authoring::mm_to_m(self.authoring.notch_at_mm) / length
+        } else {
+            0.5
+        };
+        let notch = Notch::new(
+            at,
+            authoring::mm_to_m(self.authoring.notch_len_mm),
+            self.authoring.notch_kind,
+        );
+        let add = ui
+            .button("Add notch")
+            .on_hover_text("At least 1 mm from each boundary end");
+        self.smoke_target_ui(ui, "markings_notch", add.rect);
+        if add.clicked() {
+            self.edit(Command::SetNotch {
+                panel: panel.to_string(),
+                edge: name.to_string(),
+                index: None,
+                notch,
+            });
+        }
+        match polygon.notches.get(name) {
+            Some(list) if !list.is_empty() => {
+                for (i, existing) in list.iter().enumerate() {
+                    ui.horizontal(|ui| {
+                        ui.small(format!(
+                            "#{} at {:.1} mm · {:.1} mm · {}",
+                            i + 1,
+                            existing.at * length * 1000.,
+                            existing.length_m * 1000.,
+                            match existing.kind {
+                                NotchKind::V => "V",
+                                NotchKind::Slit => "slit",
+                            }
+                        ));
+                        let remove = ui.small_button("Remove");
+                        self.smoke_target_ui(ui, &format!("markings_remove_{i}"), remove.rect);
+                        if remove.clicked() {
+                            self.edit(Command::RemoveNotch {
+                                panel: panel.to_string(),
+                                edge: name.to_string(),
+                                index: i,
+                            });
+                        }
+                    });
+                }
+            }
+            _ => {
+                ui.small("No notches on this boundary.");
+            }
+        }
     }
     pub(super) fn patterns(&mut self, ui: &mut egui::Ui) {
         let header = super::chrome::view_header(
@@ -2169,6 +2308,30 @@ impl Atelier {
                             );
                             painter.circle_filled(point(control), 5., Color32::LIGHT_BLUE);
                             smoke_targets.push((format!("handle_{j}"), point(control)));
+                        }
+                    }
+                }
+                // Manufacturing markings: the joined cutting line and the notches.
+                // They are drawn in every tool so the drafter always sees the cut.
+                if let Some(contour) = poly.cutting_contour().ok().flatten() {
+                    for ring in std::iter::once(&contour.outer).chain(contour.holes.iter()) {
+                        let mut pts: Vec<egui::Pos2> = ring.iter().map(|uv| point(*uv)).collect();
+                        if let Some(first) = pts.first().copied() {
+                            pts.push(first);
+                        }
+                        painter.add(egui::Shape::line(
+                            pts,
+                            Stroke::new(1.2, Color32::from_rgb(0xE6, 0x4A, 0x19)),
+                        ));
+                    }
+                }
+                for (name, notches) in &poly.notches {
+                    for notch in notches {
+                        if let Ok(marker) = poly.notch_marker(name, notch) {
+                            painter.add(egui::Shape::line(
+                                marker.iter().map(|uv| point(*uv)).collect(),
+                                Stroke::new(1.2, Color32::from_rgb(0xC6, 0x28, 0x28)),
+                            ));
                         }
                     }
                 }

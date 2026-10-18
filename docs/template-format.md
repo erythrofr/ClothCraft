@@ -60,7 +60,8 @@ Le maximum d'ouverture est évalué à toutes les extrémités de la partition :
 
 ## Artefacts et limites
 
-- `patterns.svg` : vue du repos, grain, bords colorés et crans ; pas un patron imprimable à l'échelle, aucune marge de couture.
+- `patterns.svg` : vue du repos, grain, bords colorés, ligne de coupe (marge de couture) et crans ; pas un patron imprimable à l'échelle.
+- `patterns-print.svg` : feuille **à l'échelle** en millimètres, une pièce par page, avec ligne de couture, ligne de coupe, trous, lignes intérieures, crans, grain et une règle de 100 mm. Sans imbrication ni découpe en tuiles (voir [markings.md](markings.md)).
 - `cloth.obj` : positions simulées et groupes par panneau ; `vt` contient les coordonnées locales en mètres.
 - `fibers.json` : une entrée par triangle, directions monde chaîne/trame, stretches, cosinus du cisaillement et validité. L'ordre correspond aux faces OBJ.
 - `grain-guides.obj` : deux lignes centrales par panneau, interpolées sur les triangles de la surface déformée ; aucune mécanique de fil supplémentaire.

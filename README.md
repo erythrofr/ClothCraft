@@ -29,6 +29,7 @@ Windows is the primary development platform. Equivalent macOS and Linux acceptan
 ## Working with garments
 
 - **Draw:** rectangles, ellipses, arc sectors and Bézier contours on a shared 2D board. Edit points and dimensions; mirror, duplicate, combine or subtract pieces; add holes and internal sewing paths.
+- **Mark:** select an outer boundary and give it a seam allowance (mm) and notches. The joined cutting line and the notches are drawn on the board and printed; they are draft data and never change the simulation. See the [markings guide](docs/markings.md).
 - **Sew:** select boundaries in either view. Sew full edges or partial ranges, edit their lengths, reverse their direction and assemble ordered chains on both sides. Unequal lengths require explicit easing. Existing seams can be edited or deleted.
 - **Arrange:** move and rotate pieces in 3D. Board layout is separate from material rest geometry.
 - **Simulate:** start or pause with Space; use Grab to pull the cloth. Inspect seam gaps, stretch and full-step timings in Properties → Simulation.
@@ -46,6 +47,7 @@ Right-click either canvas for the radial tool menu. Ctrl+C/V copies selected pie
 | Static avatar | OBJ | — |
 | Simulated surface | — | OBJ geometry and material-space UVs |
 | Pattern preview | — | SVG; not a print-to-scale production pattern |
+| Print sheet | — | mm-scaled `patterns-print.svg` with seam allowance, notches and a 100 mm ruler; one piece per page, no nesting or tiling |
 | Research data | — | Metrics, fiber frames and geometric grain guides |
 
 Export writes interchange artifacts to the session output folder, separately from Save. DXF-AAMA/ASTM, MTL, GLB, Alembic, USD, FBX, PDF printing and grading-rule adapters are **not implemented**. CLO and Marvelous Designer project files are not supported.
@@ -64,7 +66,7 @@ Current limits include finite iteration budgets, penalty sewing, local collision
 
 ## Development
 
-Start with [CONTRIBUTING.md](CONTRIBUTING.md), [AI_START_HERE.md](AI_START_HERE.md) and [the handoff](docs/handoff.md). The [roadmap](ROADMAP.md) separates implemented features from planned work. Human and AI-assisted contributions follow the same review and validation requirements.
+Start with [CONTRIBUTING.md](CONTRIBUTING.md), [AI_START_HERE.md](AI_START_HERE.md) and [the handoff](docs/handoff.md). The [roadmap](ROADMAP.md) separates implemented features from planned work, and the [feature map](docs/feature-map.md) tracks the published CLO/Marvelous function families against it. Human and AI-assisted contributions follow the same review and validation requirements.
 
 ```powershell
 .\scripts\check-cpu.ps1

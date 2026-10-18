@@ -61,6 +61,31 @@ Revisited the [official manual index](https://www.marvelousdesigner.com/manuals)
 
 The [concrete backlog](../ROADMAP.md#3-concrete-authoring-backlog-from-the-manual-study) maps these sources to priorities, prerequisites and observable completion criteria. Save/recovery and realtime quality gates are ClothCraft project needs, not behaviors inferred from an unread page. No article establishes the proprietary solver's internal algorithm. Darts, trims, complete manufacturing workflows and the rest of the manual remain a future reading queue.
 
+## Feature-map review (2026-10-18)
+
+Read, for the [feature map](feature-map.md): the CLO product pages
+<https://www.clo3d.com/en/product/clo> and <https://www.clo3d.com/en/product/features>, the
+public release-feature JSON that the features page loads
+(`/api/v1/swrelease/features?version=<version>&lang=en`, versions `2026.1` through `12.0`),
+and the public manual index
+<https://support.clo3d.com/hc/en-us/categories/115000064648>. The features page returned no
+rows without a version context, so the versioned response it fetches was read instead of the
+rendered page. From the index, only category and article titles were used (for example *2D
+Pattern Information*, *Create Notch*, *Pattern Annotation*, *Print Layout Mode*, *BOM
+Editor*). Individual articles were not read for this pass beyond those already recorded
+above.
+
+No CLO asset, icon or code was copied. Feature names are paraphrased from public pages; the
+status column is a code audit of *this* repository, and the roadmap from the map is our own
+prioritisation, not a vendor ranking. Recognising a published function is not a compatibility
+or parity claim.
+
+The slice the map proposes for `BOM-01` (per-piece cut count, richer page labels, and a printed
+cut list with page ranges) does not exist in this tree. When it is built it should use our own
+field name, bounds, omission rule, tiling reuse and file naming; the cut-list page layout is a
+ClothCraft document design rather than a reproduction of any vendor screen, and no manual page
+defines its columns or order.
+
 
 ## Viewport controls follow-up (2026-10-15)
 

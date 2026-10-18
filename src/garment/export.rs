@@ -83,6 +83,37 @@ pub fn pattern_svg(template: &GarmentTemplate) -> String {
                 }
                 write!(out,"\" fill=\"none\" stroke=\"#eab1de\" stroke-dasharray=\"5 3\"><title>{}</title></polyline>",xml(&line.id)).unwrap();
             }
+            // Manufacturing markings: the joined cutting contour (dashed) and the
+            // notches, drawn on the sewing line the same way a pattern drafter
+            // shows the seam allowance beside the stitch line.
+            if let Some(contour) = polygon.cutting_contour().ok().flatten() {
+                out.push_str("<path d=\"");
+                for (k, p) in contour.outer.iter().enumerate() {
+                    let p = pos(*p);
+                    write!(out, "{} {} {} ", if k == 0 { "M" } else { "L" }, p.x, p.y).unwrap();
+                }
+                out.push_str("Z ");
+                for hole in &contour.holes {
+                    for (k, p) in hole.iter().enumerate() {
+                        let p = pos(*p);
+                        write!(out, "{} {} {} ", if k == 0 { "M" } else { "L" }, p.x, p.y).unwrap();
+                    }
+                    out.push_str("Z ");
+                }
+                out.push_str("\" fill=\"none\" stroke=\"#ff8a65\" stroke-width=\"2\" stroke-dasharray=\"7 4\"><title>Cutting line (seam allowance)</title></path>");
+            }
+            for (edge, notches) in &polygon.notches {
+                for (i, notch) in notches.iter().enumerate() {
+                    if let Ok(marker) = polygon.notch_marker(edge, notch) {
+                        out.push_str("<polyline points=\"");
+                        for p in marker {
+                            let p = pos(p);
+                            write!(out, "{},{} ", p.x, p.y).unwrap();
+                        }
+                        write!(out,"\" fill=\"none\" stroke=\"#ff5252\" stroke-width=\"2\"><title>{}: notch {}</title></polyline>",xml(edge),i+1).unwrap();
+                    }
+                }
+            }
         }
         let centre = pos(DVec2::new(w, h) * 0.5);
         let angle = panel.grain_degrees.to_radians();
@@ -154,6 +185,168 @@ pub fn pattern_svg(template: &GarmentTemplate) -> String {
     out
 }
 
+fn svg_path(contour: &[DVec2], to_page: &impl Fn(DVec2) -> DVec2) -> String {
+    let mut d = String::new();
+    for (k, p) in contour.iter().enumerate() {
+        let p = to_page(*p);
+        write!(
+            d,
+            "{} {:.3} {:.3} ",
+            if k == 0 { "M" } else { "L" },
+            p.x,
+            p.y
+        )
+        .unwrap();
+    }
+    d.push('Z');
+    d
+}
+
+/// True-scale sewing sheet in millimetres: one panel per page, laid out in a
+/// single column. Each page carries the stitch line, the joined seam-allowance
+/// cutting line, the notches and a 100 mm ruler, all at 1 mm = 1 mm. This is not
+/// nesting and not tiling: pages are never packed together and a panel wider than
+/// the page is not split.
+pub fn pattern_print_svg(template: &GarmentTemplate) -> String {
+    const MARGIN: f64 = 15.;
+    const LABEL: f64 = 16.;
+    let mut pages = String::new();
+    let mut cursor_y = MARGIN + 12.;
+    let mut page_width = 220.0_f64;
+    for panel in &template.panels {
+        let (w, h) = (panel.pattern.width, panel.pattern.height);
+        let mut contours = vec![];
+        match &panel.polygon {
+            Some(polygon) => {
+                contours.push(polygon.outer_points().unwrap_or_default());
+                contours.extend(polygon.holes.iter().map(|hole| hole.points.clone()));
+            }
+            None => contours.push(vec![
+                DVec2::ZERO,
+                DVec2::new(w, 0.),
+                DVec2::new(w, h),
+                DVec2::new(0., h),
+            ]),
+        }
+        let cut = panel
+            .polygon
+            .as_ref()
+            .and_then(|p| p.cutting_contour().ok().flatten());
+        let mut bounds: Vec<DVec2> = contours.iter().flatten().copied().collect();
+        if let Some(contour) = &cut {
+            bounds.extend(contour.outer.iter().copied());
+            bounds.extend(contour.holes.iter().flatten().copied());
+        }
+        if bounds.is_empty() {
+            continue;
+        }
+        let lo = bounds
+            .iter()
+            .fold(DVec2::splat(f64::INFINITY), |a, b| a.min(*b));
+        let hi = bounds
+            .iter()
+            .fold(DVec2::splat(f64::NEG_INFINITY), |a, b| a.max(*b));
+        let span = (hi - lo) * 1000.;
+        let origin = DVec2::new(MARGIN, cursor_y + LABEL) - lo * 1000.;
+        let to_page = |p: DVec2| DVec2::new(p.x * 1000., p.y * 1000.) + origin;
+        write!(
+            pages,
+            "<text x=\"{MARGIN}\" y=\"{:.3}\" font-size=\"4\">{} · {} · {:.0} × {:.0} mm</text>",
+            cursor_y + 5.,
+            xml(&panel.id),
+            xml(&panel.name),
+            w * 1000.,
+            h * 1000.
+        )
+        .unwrap();
+        for (k, contour) in contours.iter().enumerate() {
+            write!(
+                pages,
+                "<path d=\"{}\" fill=\"{}\" stroke=\"#111\" stroke-width=\"0.3\"/>",
+                svg_path(contour, &to_page),
+                if k == 0 { "#f4f1ea" } else { "#ffffff" }
+            )
+            .unwrap();
+        }
+        if let Some(contour) = &cut {
+            write!(pages, "<path d=\"{}\" fill=\"none\" stroke=\"#d32f2f\" stroke-width=\"0.4\" stroke-dasharray=\"4 1.8\"><title>Cutting line</title></path>", svg_path(&contour.outer, &to_page)).unwrap();
+            for hole in &contour.holes {
+                write!(pages, "<path d=\"{}\" fill=\"none\" stroke=\"#d32f2f\" stroke-width=\"0.4\" stroke-dasharray=\"4 1.8\"/>", svg_path(hole, &to_page)).unwrap();
+            }
+        }
+        if let Some(polygon) = &panel.polygon {
+            for line in &polygon.lines {
+                pages.push_str("<polyline points=\"");
+                for q in line.samples().unwrap_or_default() {
+                    let q = to_page(q);
+                    write!(pages, "{:.3},{:.3} ", q.x, q.y).unwrap();
+                }
+                pages.push_str("\" fill=\"none\" stroke=\"#888\" stroke-width=\"0.3\" stroke-dasharray=\"2 1.5\"/>");
+            }
+            for (edge, notches) in &polygon.notches {
+                for (j, notch) in notches.iter().enumerate() {
+                    if let Ok(marker) = polygon.notch_marker(edge, notch) {
+                        pages.push_str("<polyline points=\"");
+                        for q in marker {
+                            let q = to_page(q);
+                            write!(pages, "{:.3},{:.3} ", q.x, q.y).unwrap();
+                        }
+                        write!(pages, "\" fill=\"none\" stroke=\"#d32f2f\" stroke-width=\"0.5\"><title>{}: notch {}</title></polyline>", xml(edge), j + 1).unwrap();
+                    }
+                }
+            }
+        }
+        let centre = to_page((lo + hi) * 0.5);
+        let angle = panel.grain_degrees.to_radians();
+        let direction = DVec2::new(angle.cos(), angle.sin());
+        let start = centre - direction * 15.;
+        let end = centre + direction * 15.;
+        write!(
+            pages,
+            "<path d=\"M {:.3} {:.3} L {:.3} {:.3}\" stroke=\"#e0a500\" stroke-width=\"0.5\"/>",
+            start.x, start.y, end.x, end.y
+        )
+        .unwrap();
+        // A 100 mm ruler proves the page scale.
+        let ruler_y = cursor_y + LABEL + span.y + 8.;
+        write!(
+            pages,
+            "<path d=\"M {MARGIN} {:.3} L {:.3} {:.3}\" stroke=\"#111\" stroke-width=\"0.4\"/>",
+            ruler_y,
+            MARGIN + 100.,
+            ruler_y
+        )
+        .unwrap();
+        for tick in 0..=10 {
+            let x = MARGIN + f64::from(tick) * 10.;
+            let len = if tick % 5 == 0 { 3. } else { 1.5 };
+            write!(
+                pages,
+                "<path d=\"M {:.3} {:.3} L {:.3} {:.3}\" stroke=\"#111\" stroke-width=\"0.3\"/>",
+                x,
+                ruler_y,
+                x,
+                ruler_y - len
+            )
+            .unwrap();
+        }
+        write!(
+            pages,
+            "<text x=\"{:.3}\" y=\"{:.3}\" font-size=\"4\">100 mm ruler</text>",
+            MARGIN + 104.,
+            ruler_y + 1.5
+        )
+        .unwrap();
+        cursor_y = ruler_y + 12.;
+        page_width = page_width.max(span.x + 2. * MARGIN + 20.);
+    }
+    let height = cursor_y + MARGIN;
+    format!(
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{page_width}mm\" height=\"{height}mm\" viewBox=\"0 0 {page_width} {height}\"><rect width=\"100%\" height=\"100%\" fill=\"#ffffff\"/><style>text{{font-family:Arial,sans-serif;fill:#111}}</style><text x=\"{MARGIN}\" y=\"{MARGIN}\" font-size=\"5\">{} — true-scale sewing sheet, one piece per page, no nesting</text>{pages}</svg>\n",
+        xml(&template.name)
+    )
+}
+
 pub fn obj(garment: &CompiledGarment, state: &State) -> String {
     let mut out = String::from("# MARVELOUS CLOTH garment; metres; UV=local rest pattern metres\n");
     for p in &state.x {
@@ -181,6 +374,7 @@ pub fn write_artifacts(
     fs::create_dir_all(path)?;
     fs::write(path.join("cloth.obj"), obj(garment, state))?;
     fs::write(path.join("patterns.svg"), pattern_svg(template))?;
+    fs::write(path.join("patterns-print.svg"), pattern_print_svg(template))?;
     fs::write(
         path.join("grain-guides.obj"),
         grain_guides_obj(template, garment, state)?,

@@ -1,4 +1,5 @@
 //! Named material contours, holes and internal sewing paths.
+use super::markings::Notch;
 use super::meshing::{self, MeshingSettings};
 use crate::model::{Hinge, Material, Mesh, Triangle};
 use glam::{DMat2, DVec2};
@@ -32,6 +33,15 @@ pub struct PolygonPattern {
         skip_serializing_if = "BTreeMap::is_empty"
     )]
     pub target_lengths: BTreeMap<String, f64>,
+    /// Per-boundary seam allowance in metres, keyed by the stable boundary id.
+    /// Draft data only: the cutting contour is derived on demand and never enters
+    /// the mesh, the masses or the solver. Empty maps serialise to nothing.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub seam_allowances: BTreeMap<String, f64>,
+    /// Notches keyed by the stable boundary id, each with a position along the
+    /// sampled arclength. Draft data only, like `seam_allowances`.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub notches: BTreeMap<String, Vec<Notch>>,
 }
 /// Tolerant reader for stored targets. A hand-edited file can hold `null` (what a
 /// non-finite float serialises to) or another unusable value. Those become `NaN`
@@ -156,6 +166,7 @@ impl PolygonPattern {
         {
             return Err("Invalid Bézier edge name or control point".into());
         }
+        self.validate_markings()?;
         let mut points = vec![];
         let mut segments = vec![];
         let mut owners = vec![];
