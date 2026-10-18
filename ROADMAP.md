@@ -6,6 +6,8 @@ Status: research prototype, October 2026. **Most of the product is still missing
 
 The [15 October essential-tool review](docs/essential-authoring-tools.md) compares the current code with official CLO/Marvelous workflows. It proposes user-visible slices and acceptance examples: reliable documents, partial and multi-edge sewing, pins/freeze, arrangement, measurements and visibility, offsets/cuts, linked symmetry and grain. Manufacturing-specific release gates are separate. This is research and planning, not an implementation update.
 
+The [18 October feature map](docs/feature-map.md) is the broader inventory: it maps the published CLO/Marvelous function families (product page, the versioned release-feature list and the public manual index) onto this tree, marks each family *implemented / partial / planned / not planned*, and turns the gaps into ordered slices (`MARK-*`, `MEASURE-01`, `LAYOUT-*`, `BOM-*`, `DXF-*`, …). It is a planning and audit document, not a parity claim.
+
 ## Next milestones, in order
 
 16 October update: Open/Save/Save As, portable avatar assets and local recovery are implemented, followed by partial ranges and ordered 1:N/M:N sewing. See [document and sewing contracts](docs/documents-and-sewing.md). Multi-document tabs, asset cleanup, dedicated notch editing and manufacturing sewing semantics remain open. The rows below retain the broader acceptance goals.

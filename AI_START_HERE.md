@@ -10,7 +10,7 @@ If you want to vibe-code a better solver: welcome. A convincing contribution inc
 
 1. Read [AGENTS.md](AGENTS.md), [handoff](docs/handoff.md) and [architecture](docs/architecture.md). Inspect the code before trusting a historical result.
 2. Run `cargo test --locked --no-default-features -j 2 -- --test-threads=2`. This does not use a GPU.
-3. Choose one bounded task from [ROADMAP.md](ROADMAP.md). The manual-backed backlog has stable task IDs (`SAVE-01`, `DRAW-01`, `SEW-01`, etc.), dependencies and acceptance cases. State inputs, observable behavior, failure cases and what will remain unsupported.
+3. Choose one bounded task from [ROADMAP.md](ROADMAP.md) or the [feature map](docs/feature-map.md). The manual-backed backlog has stable task IDs (`SAVE-01`, `DRAW-01`, `SEW-01`, etc.), dependencies and acceptance cases. State inputs, observable behavior, failure cases and what will remain unsupported.
 4. Keep editable panel/boundary IDs and material coordinates stable. Rebuild every dependent cache after topology changes. Never derive rest shape from a drape.
 5. Leave a small reproducible example, relevant checks, and a precise handoff. Report failures as well as improvements.
 
@@ -19,6 +19,7 @@ If you want to vibe-code a better solver: welcome. A convincing contribution inc
 | Want to help with… | Start here | A useful next contribution |
 |---|---|---|
 | Pattern authoring | `src/authoring.rs`, `src/authoring/geometry.rs`, `src/atelier/board.rs` | Primitives, mirrors, booleans/holes and internal sewing exist; numeric point tools and unsewn splits are integrated from Firefly. Next: offsets, linked symmetry and dedicated notch editing. Read `docs/documents-and-sewing.md` for save/open and partial/chain sewing. Read `docs/firefly-integration.md` and `docs/drafting-tools.md` |
+| Feature selection | [feature map](docs/feature-map.md) | Pick the next ordered slice (`MARK-01` seam allowance and notches, `MEASURE-01`, `LAYOUT-01`, …) and record its acceptance case. Statuses are a code audit, not parity claims |
 | Placement tools | `src/atelier/gizmo.rs` | Arrangement points and collision diagnostics before simulation |
 | Sewing | `src/garment/seam.rs`, `src/atelier/edges_3d.rs` | Extend partial/chain sewing with notch editing and manufacturing semantics |
 | Interoperability | [input/output contracts](docs/interoperability.md), [format roadmap](ROADMAP.md#interoperability) | Small, independently sourced fixtures with units, transforms and round-trip tests |

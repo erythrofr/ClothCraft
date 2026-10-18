@@ -64,7 +64,7 @@ Current limits include finite iteration budgets, penalty sewing, local collision
 
 ## Development
 
-Start with [CONTRIBUTING.md](CONTRIBUTING.md), [AI_START_HERE.md](AI_START_HERE.md) and [the handoff](docs/handoff.md). The [roadmap](ROADMAP.md) separates implemented features from planned work. Human and AI-assisted contributions follow the same review and validation requirements.
+Start with [CONTRIBUTING.md](CONTRIBUTING.md), [AI_START_HERE.md](AI_START_HERE.md) and [the handoff](docs/handoff.md). The [roadmap](ROADMAP.md) separates implemented features from planned work, and the [feature map](docs/feature-map.md) tracks the published CLO/Marvelous function families against it. Human and AI-assisted contributions follow the same review and validation requirements.
 
 ```powershell
 .\scripts\check-cpu.ps1
