@@ -83,11 +83,18 @@ pub fn primitive(
         points,
         edges,
         curves,
+        free_curve_points: Default::default(),
+        vertex_ids: Default::default(),
+        vertex_mirror_groups: Default::default(),
         subdivisions: 0,
         meshing: Some(meshing),
         holes: vec![],
         lines: vec![],
         target_lengths: Default::default(),
+        notches: Default::default(),
+        seam_allowances: Default::default(),
+        annotations: vec![],
+        measurements: vec![],
     })
 }
 
@@ -105,6 +112,15 @@ pub fn mirror(poly: &mut PolygonPattern, axis: MirrorAxis, size: DVec2) {
     };
     for p in &mut poly.points {
         reflect(p);
+    }
+    for annotation in &mut poly.annotations {
+        reflect(&mut annotation.position);
+    }
+    // Every directed named edge keeps its identity but reverses its
+    // traversal when the contour winding is restored after reflection.
+    for pom in &mut poly.measurements {
+        pom.a.t=1.-pom.a.t;
+        pom.b.t=1.-pom.b.t;
     }
     for c in poly.curves.values_mut() {
         for p in c.iter_mut() {
@@ -206,11 +222,18 @@ pub fn boolean(
                 .collect(),
             points,
             curves: BTreeMap::new(),
+            free_curve_points: Default::default(),
+            vertex_ids: Default::default(),
+            vertex_mirror_groups: Default::default(),
             subdivisions: 0,
             meshing: Some(a.meshing_settings()),
             holes,
             lines: vec![],
             target_lengths: Default::default(),
+        notches: Default::default(),
+        seam_allowances: Default::default(),
+        annotations: vec![],
+        measurements: vec![],
         });
     }
     Ok(out)

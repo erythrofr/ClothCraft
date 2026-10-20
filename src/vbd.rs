@@ -75,10 +75,14 @@ pub struct VbdMetrics {
     pub detection_updates: usize,
     pub broad_phase_rebuilds: usize,
     pub truncated_vertices: usize,
+    /// Final accepted-position feature separation within the contact search
+    /// radius, clamped by that radius; not an independent penetration audit.
     pub minimum_distance_m: f64,
     pub max_seam_gap_m: f64,
     pub extension_p95_percent: f64,
     pub extension_max_percent: f64,
+    /// RMS unconstrained energy gradient of the accepted final positions,
+    /// excluding pins. Not a trust-region KKT or physical-fit certificate.
     pub residual_rms_n: Option<f64>,
 }
 #[derive(Clone)]
@@ -333,14 +337,13 @@ impl VbdSolver {
                 metrics.contact_profile += contacts.profile;
             }
             clipped = 0;
-            let mut residual = 0.0;
             for color in &colors {
                 let updates: Vec<_> = color
                     .par_iter()
                     .map(|v| {
                         let v = *v;
                         if self.garment.mesh.pins[v].is_some() {
-                            return (v, x[v], false, 0.0);
+                            return (v, x[v], false);
                         }
                         let jet = self.local(
                             v,
@@ -384,17 +387,15 @@ impl VbdSolver {
                                 break;
                             }
                         }
-                        (v, accepted, truncated, g.length_squared())
+                        (v, accepted, truncated)
                     })
                     .collect();
-                for (v, p, c, r) in updates {
+                for (v, p, c) in updates {
                     x[v] = p;
                     clipped += usize::from(c);
-                    residual += r;
                 }
             }
             metrics.truncated_vertices += clipped;
-            metrics.residual_rms_n = Some((residual / (3 * n) as f64).sqrt());
         }
         if x.iter().any(|v| !v.is_finite()) {
             return Err("Non-finite VBD result; state unchanged".into());
@@ -403,6 +404,48 @@ impl VbdSolver {
         if (0..n).any(|i| x[i].distance(contacts.centers[i]) > contacts.radii[i] + 1e-10) {
             return Err("OGC trust-region invariant failed".into());
         }
+        // Detection during the minimization uses the previous configuration
+        // and is periodically refreshed. Measurements for a completed step
+        // must describe its *accepted* positions, including final contacts.
+        // Do this before writing to State so an invalid geometry is rejected
+        // transactionally. It also supplies the correct final contact gradient.
+        let detect = Instant::now();
+        let final_contacts = self.world.detect(&x, rq, &settings.contact)?;
+        if final_contacts.minimum_distance <= 1e-12 {
+            return Err("OGC final separation is zero; state unchanged".into());
+        }
+        metrics.detection_ms += detect.elapsed().as_secs_f64() * 1000.0;
+        metrics.detection_updates += 1;
+        metrics.broad_phase_rebuilds += usize::from(final_contacts.broad_phase_rebuilt);
+        metrics.contact_profile += final_contacts.profile;
+        // Report the gradient of the ACTUAL accepted state, rather than the
+        // gradients sampled before sequential color updates. The previous
+        // in-loop sum mixed different configurations and understated/overstated
+        // stationarity depending on color ordering. Pinned DOFs do not enter
+        // the unconstrained residual.
+        let free = (0..n)
+            .filter(|i| self.garment.mesh.pins[*i].is_none())
+            .collect::<Vec<_>>();
+        let residual_sq: f64 = free
+            .par_iter()
+            .map(|&v| {
+                let gradient = self.local(
+                    v,
+                    std::array::from_fn(|k| Jet::<3>::variable(x[v][k], k)),
+                    &x,
+                    &final_contacts,
+                    settings,
+                    grab,
+                );
+                let g = DVec3::from_array(gradient.g) + (x[v] - target[v]) * inertia[v];
+                g.length_squared()
+            })
+            .sum();
+        metrics.residual_rms_n = Some(if free.is_empty() {
+            0.0
+        } else {
+            (residual_sq / (3 * free.len()) as f64).sqrt()
+        });
         for (i, position) in x.iter().take(n).enumerate() {
             state.v[i] = (*position - state.x[i]) / dt;
             state.x[i] = *position;
@@ -410,9 +453,9 @@ impl VbdSolver {
         state.time += dt;
         self.prediction.record(&old_velocity, state, settings);
         metrics.time_s = state.time;
-        metrics.contacts = contacts.active_contacts;
-        metrics.contact_terms = contacts.contacts.len();
-        metrics.minimum_distance_m = contacts.minimum_distance;
+        metrics.contacts = final_contacts.active_contacts;
+        metrics.contact_terms = final_contacts.contacts.len();
+        metrics.minimum_distance_m = final_contacts.minimum_distance;
         metrics.max_seam_gap_m = self.garment.max_seam_gap(&state.x);
         [metrics.extension_p95_percent, metrics.extension_max_percent] =
             crate::garment::diagnostics::extension_percent(&self.garment, state);

@@ -322,7 +322,13 @@ impl CompiledSeam {
         if !spec.stiffness.is_finite() || spec.stiffness <= 0.0 {
             return Err("Seam stiffness must be positive and finite (N/m²)".into());
         }
-        if !spec.allow_ease && (a.length - b.length).abs() > 1e-8 * a.length.max(b.length) {
+        // The authoring contour is cubic, but compiled sewing uses a flattened
+        // material-space polyline. Splitting an unchanged cubic changes its
+        // flattening partition and can introduce a few micrometres of sampled
+        // arclength drift. Do not confuse that numerical error with actual ease.
+        // 1e-5 m = 0.01 mm; larger physical mismatches remain invalid.
+        const SEW_SAMPLING_TOLERANCE_M: f64 = 1e-5;
+        if !spec.allow_ease && (a.length - b.length).abs() > SEW_SAMPLING_TOLERANCE_M {
             return Err(format!(
                 "Seam {} has unequal lengths ({:.6}, {:.6} m); set allow_ease explicitly",
                 spec.id, a.length, b.length
@@ -347,7 +353,7 @@ impl CompiledSeam {
             && knots.windows(2).any(|k| {
                 let la = a.length * (k[1][0] - k[0][0]);
                 let lb = b.length * (k[1][1] - k[0][1]);
-                (la - lb).abs() > 1e-8 * la.max(lb)
+                (la - lb).abs() > SEW_SAMPLING_TOLERANCE_M
             })
         {
             return Err(format!(
@@ -422,6 +428,14 @@ impl CompiledSeam {
             .iter()
             .map(|p| p.gap(x).length())
             .fold(0.0, f64::max)
+    }
+    /// Length-weighted RMS separation of physically coupled stitch samples.
+    /// Unlike whole-garment max seam gap this isolates the selected seam, and
+    /// unlike the material rest gap it measures actual world-space closure.
+    pub fn rms_gap(&self, x: &[DVec3]) -> f64 {
+        let weight: f64 = self.samples.iter().map(|s| s.weight_m).sum();
+        if weight <= 0. || !weight.is_finite() {return f64::NAN;}
+        (self.integrated_gap_squared(x) / weight).sqrt()
     }
     pub fn integrated_gap_squared(&self, x: &[DVec3]) -> f64 {
         self.samples
