@@ -8,6 +8,11 @@ pub fn cubic(p: [DVec2; 4], t: f64) -> DVec2 {
     let c = p[2].lerp(p[3], t);
     a.lerp(b, t).lerp(b.lerp(c, t), t)
 }
+/// Exact derivative with respect to the cubic's unit parameter.
+pub fn cubic_derivative(p: [DVec2; 4], t: f64) -> DVec2 {
+    let u = 1. - t;
+    3. * (u * u * (p[1] - p[0]) + 2. * u * t * (p[2] - p[1]) + t * t * (p[3] - p[2]))
+}
 fn distance_to_segment(p: DVec2, a: DVec2, b: DVec2) -> f64 {
     let d = b - a;
     p.distance(a + d * ((p - a).dot(d) / d.length_squared().max(1e-30)).clamp(0., 1.))

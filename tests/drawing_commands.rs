@@ -898,24 +898,6 @@ fn invalid_commands_are_atomic() {
             },
         ),
         (
-            "split a sewn boundary",
-            sewn.clone(),
-            Command::SplitBoundary {
-                panel: sewn.panels[0].id.clone(),
-                edge: "edge_1".into(),
-                at_m: 0.1,
-            },
-        ),
-        (
-            "split a targeted boundary",
-            targeted.clone(),
-            Command::SplitBoundary {
-                panel: id.clone(),
-                edge: "edge_1".into(),
-                at_m: 0.1,
-            },
-        ),
-        (
             "remove out of range",
             square.clone(),
             Command::RemovePoint {

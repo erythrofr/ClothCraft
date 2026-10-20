@@ -147,7 +147,8 @@ pub(super) fn boolean(
             || !p.pin_points.is_empty()
             || p.polygon
                 .as_ref()
-                .is_some_and(|p| !p.lines.is_empty() || !p.target_lengths.is_empty())
+                .is_some_and(|p| !p.lines.is_empty() || !p.target_lengths.is_empty()
+                    || !p.measurements.is_empty())
         {
             return Err("Boolean operands must have no seams, pins, internal lines or target lengths; clear those relations first".into());
         }

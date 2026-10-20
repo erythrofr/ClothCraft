@@ -437,6 +437,18 @@ impl GpuVbd {
                 return Err("GPU OGC trust-region check failed; state unchanged".into());
             }
         }
+        // Final diagnostics are evaluated against the actual f32 GPU result
+        // reconstructed in f64. Initial OGC detection belongs to the incoming
+        // state and would misreport final gaps/contact counts after motion.
+        let post_detection_start = Instant::now();
+        let final_x = solver.world.positions(&new);
+        let final_contacts = solver.world.detect(&final_x, rq, &settings.contact)?;
+        if final_contacts.minimum_distance < 2e-6 {
+            return Err("GPU OGC final separation below f32 safety margin; state unchanged".into());
+        }
+        let detection_ms = detection_ms + post_detection_start.elapsed().as_secs_f64() * 1000.;
+        let mut contact_profile = contacts.profile;
+        contact_profile += final_contacts.profile;
         for (i, position) in new.iter().enumerate() {
             if g.mesh.pins[i].is_none() {
                 state.v[i] = (*position - state.x[i]) / dt;
@@ -455,15 +467,16 @@ impl GpuVbd {
             dt_s: dt,
             step_ms,
             detection_ms,
-            contact_profile: contacts.profile,
+            contact_profile,
             solve_ms: step_ms - detection_ms,
             gpu_compute_ms,
             iterations: settings.iterations,
-            contacts: contacts.active_contacts,
-            contact_terms: contacts.contacts.len(),
-            detection_updates: 1,
-            broad_phase_rebuilds: usize::from(contacts.broad_phase_rebuilt),
-            minimum_distance_m: contacts.minimum_distance,
+            contacts: final_contacts.active_contacts,
+            contact_terms: final_contacts.contacts.len(),
+            detection_updates: 2,
+            broad_phase_rebuilds: usize::from(contacts.broad_phase_rebuilt)
+                + usize::from(final_contacts.broad_phase_rebuilt),
+            minimum_distance_m: final_contacts.minimum_distance,
             max_seam_gap_m: g.max_seam_gap(&state.x),
             extension_p95_percent,
             extension_max_percent,

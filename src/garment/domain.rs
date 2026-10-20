@@ -237,6 +237,9 @@ impl PolygonPattern {
         {
             *p += delta;
         }
+        for mark in self.free_curve_points.values_mut().flatten() {
+            mark.position += delta;
+        }
         for hole in &mut self.holes {
             for p in &mut hole.points {
                 *p += delta;

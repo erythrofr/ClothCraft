@@ -191,6 +191,38 @@ fn unequal_seam_lengths_require_explicit_ease() {
 }
 
 #[test]
+fn free_sewing_creates_partial_ranges_and_rejects_overlaps_atomically() {
+    let fixture = fixture();
+    let base = authoring::apply(
+        &fixture,
+        Command::Duplicate { panel: fixture.panels[0].id.clone() },
+    )
+    .unwrap().template;
+    let a = base.panels[0].id.clone();
+    let b = base.panels[1].id.clone();
+    let trimmed = |panel: &str, interval: [f64;2]| {
+        let mut ref_edge = edge(panel, "edge_1");
+        ref_edge.range = interval;
+        ref_edge
+    };
+    let command = |first, second| Command::Sew {
+        a:trimmed(&a, first),
+        b:trimmed(&b, second),
+        reverse:false,
+        ease:false,
+    };
+    let first = authoring::apply(&base, command([0.15,0.45],[0.15,0.45])).unwrap();
+    assert_eq!(first.template.seams.len(), base.seams.len()+1);
+    assert_eq!(first.template.seams.last().unwrap().a.range, [0.15,0.45]);
+    let second = authoring::apply(&first.template, command([0.60,0.90],[0.60,0.90])).unwrap();
+    assert_eq!(second.template.seams.len(), base.seams.len()+2);
+    let old=serde_json::to_vec(&second.template).unwrap();
+    assert!(authoring::apply(&second.template, command([0.30,0.70],[0.30,0.70])).is_err());
+    assert_eq!(old,serde_json::to_vec(&second.template).unwrap());
+    assert!(authoring::apply(&second.template, command([0.95,0.95],[0.95,1.0])).is_err());
+}
+
+#[test]
 fn undo_redo_restores_compilable_document_and_branch_clears_redo() {
     let mut history = History::default();
     let a = fixture();

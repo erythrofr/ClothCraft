@@ -3,6 +3,42 @@
 **16 October:** [Document lifecycle and partial/multi-edge sewing](documents-and-sewing.md) now extend the workflow below. Native Save/Open is separate from Export. Use Sew → Multiple edges per side for ordered chains.
 
 **Workspace update (15 October):** tools are on the left rail and in the radial menu. Drag dividers to resize 3D / 2D / Properties; use Expand / Split to focus a canvas. Display controls are in each viewport’s gear menu, and Properties has Piece, Fabric and Simulation tabs. [Layout, display options and limits](workspace-ui.md).
+## Persistent Points of Measure (EXO 2D)
+
+EXO stores editable POMs in `GarmentTemplate` v2 under each
+`panels[].polygon.measurements` array. Each record has a stable `id`, human
+`label`, and two anchors `{edge,t}` tied to a named panel boundary. The
+`t` value is the **normalized material-space sampled arclength** in
+`[0,1]`, not a Bézier parameter, screen coordinate, triangle index, or
+position on a draped 3D mesh. Physical distances are in **metres** in Rust
+and shown in centimetres or millimetres by the UI. Current POM values
+measure the **straight-line rest-space distance** between the two stations.
+This is not a curved-path tape measurement or a graded technical POM table.
+
+`SetMeasurement` creates or replaces an identified record; `RemoveMeasurement`
+deletes one. Both are compiled, validated transactions with Undo/Redo and
+do not reset the simulation's rest mesh or drape. Invalid IDs, labels,
+fractions and missing boundaries fail closed. On `SplitBoundary` an anchor
+is assigned to the left or successor edge using the exact physical
+split station, and its normalized station is remapped to the child. Mirror
+reverses station direction (`t ↦ 1-t`) while retaining named-edge identity.
+Supported contour edits retain POM IDs. Deleting a referenced boundary,
+performing Boolean reconstruction that loses those stations, or sending a
+`Shape` with a silently removed POM is rejected.
+
+The 2D Measure tool accepts two cutline clicks and saves a real native POM,
+then provides a frosted in-viewport list for selecting, renaming and deleting
+stored records. The nearest-boundary hit tolerance is screen-based (12 px,
+bounded to 35 mm) so it scales with zoom. Stored marks render using the
+current compiled Rust material UV boundaries, not an independent SVG model.
+The `pattern-audit` response includes each POM's measured millimetres and
+both material endpoint stations. Undo/Redo and reopen are exercised through
+`tests/persistent_pom_references.rs` and the isolated real-browser script
+`scripts/engineering/tests/qa-native-pom-browser-20261018.mjs` in EXO V2.
+
+**Limitations:** No native multi-size POM rule table, user-defined curved
+measurement paths, cross-panel POM, or automatic industry-specific fit
+tolerances yet. These are not manufacturing-approved measurements.
 
 Launch `scripts/start-atelier.ps1`. All pieces share **one metric 2D board**, beside the 3D garment view. A panel or named boundary selected in either view identifies the same model object in the other view.
 
@@ -100,6 +136,12 @@ Implementation: `authoring/clipboard.rs` and `Command::{Paste,LayoutGroup}` own 
 
 Adapted from FireflyTheReal / julienfoss; see [provenance and integration fixes](firefly-integration.md).
 In Edit, Shift-click contour points to select several. Drag a selected point or use arrow keys (1 mm; Shift: 10 mm). Numeric coordinates and rectangle dimensions are in the inspector. The nearby + badge splits an unsewn boundary at sampled material arclength; Delete removes a straight, unsewn, untargeted point. Clear an affected seam or target before changing its boundary identity. Internal sewing paths remain separate from outer-contour point selection.
+
+The native EXO V2 **Edit Curve Point** workspace also supports independent free points along named cutlines. Each point keeps its stable ID and physical position, with optional exact material-space derivative metadata after a topology change. A **SplitBoundary** action on a cutline with independent free curve points now divides the exact piecewise-cubic source into two child cubics, reparameterizes every surviving point and preserves its tangent and stable ID. The already-implemented sewing interval, correspondence notch, allowance and measured target migration applies to the two named children. It remains one undoable transaction. Ordinary authored points omit derivative metadata; older saved projects remain readable.
+
+Splitting **directly at** an independent free point is also supported. The free point is promoted into a true topological vertex with its original ID stored in the optional `polygon.vertex_ids` mapping under the new outgoing named edge. No invalid free point at `t=0` or `t=1` is left behind. The native 2D Split tool exposes authored free points as clickable split markers; it sends the measured curve arclength, and Rust snaps within 0.50 mm to the original saved knot station before partitioning geometry and manufacturing references. The stable ID survives subsequent edge indexing changes, JSON reload and history. Deleting that identified corner remains blocked rather than discarding its provenance.
+
+**Linked mirrored free-curve point splitting is atomic:** when the two owning edges are verified geometric reflections, splitting either marked knot also splits its counterpart at its reflected physical-arclength station. Both source point IDs are promoted to persistent vertices, and a shared `vertex_mirror_groups` mapping records their symmetry for reload and future editing. The authoring command performs two internal validated migrations but exposes just one new revision and one Undo/Redo step. The source remains untouched if either side fails sewing, notches, allowances, target lengths, correspondence, or shape validation. Multiple linked knot pairs on two edges are supported only when their identities can all be restored coherently; unmatched or geometrically non-reflected groups are rejected. A cut through a physical notch station or malformed sewing correspondence is still blocked. The regression contract includes `cargo test --test mirrored_free_curve_split` alongside `free_curve_knot_split`, `free_curve_split_migration`, `free_curve_point_authoring`, `split_attachment_migration` and `edge_sampling_validation`. Sampled contour deviation is checked within the 0.25 mm per-span flattening bound. These checks support accurate engineering references, not certification of garment manufacturing outputs.
 
 The inspector and board share the selected boundary's target length. Applying it changes rest geometry; clearing it removes only metadata. Dimensions scale the rectangle's holes and internal paths as well. All commands remain transactional and undoable.
 
