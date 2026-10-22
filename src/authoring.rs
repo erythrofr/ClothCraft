@@ -4,7 +4,7 @@ use crate::{
     garment::{
         CompiledGarment, GarmentTemplate, curves,
         meshing::MeshingSettings,
-        polygon::PolygonPattern,
+        polygon::{EdgeNotch, PatternAnnotation, PolygonPattern},
         seam::{BoundaryRef, SeamSpec},
         template::{Fabric, FabricProperties, Panel, Placement},
     },
@@ -24,6 +24,16 @@ pub enum Command {
     LayoutGroup {
         panels: Vec<String>,
         delta: DVec2,
+    },
+    Annotation {
+        panel: String,
+        id: Option<String>,
+        text: String,
+        position: DVec2,
+    },
+    RemoveAnnotation {
+        panel: String,
+        id: String,
     },
     Primitive {
         kind: Primitive,
@@ -138,6 +148,25 @@ pub enum Command {
         edge: String,
         target_m: f64,
     },
+    /// Add or replace a notch marker at fractional boundary arclength.
+    Notch {
+        panel: String,
+        edge: String,
+        t: f64,
+        depth_m: f64,
+    },
+    /// Remove the notch at fractional boundary arclength (within 1e-9).
+    RemoveNotch {
+        panel: String,
+        edge: String,
+        t: f64,
+    },
+    /// Set a per-boundary cutting guide width; zero clears it.
+    SeamAllowance {
+        panel: String,
+        edge: String,
+        width_m: f64,
+    },
     Layout {
         panel: String,
         origin: DVec2,
@@ -248,6 +277,9 @@ pub fn same_physics(a: &GarmentTemplate, b: &GarmentTemplate) -> bool {
             // geometry: storing or clearing it must not invalidate the drape.
             if let Some(polygon) = p.polygon.as_mut() {
                 polygon.target_lengths.clear();
+                polygon.notches.clear();
+                polygon.seam_allowances.clear();
+                polygon.annotations.clear();
             }
         }
         serde_json::to_vec(&t).unwrap()
@@ -273,6 +305,9 @@ fn normalize(panel: &mut Panel) {
         .copied()
         .fold(DVec2::splat(f64::NEG_INFINITY), DVec2::max);
     poly.translate_material(-lo);
+    for annotation in &mut poly.annotations {
+        annotation.position -= lo;
+    }
     for p in &mut panel.pin_points {
         *p -= lo;
     }
@@ -342,6 +377,9 @@ fn resize_rectangle(panel: &mut Panel, width: f64, height: f64) -> Result<(), St
         for tangent in &mut line.tangents {
             *tangent *= scale;
         }
+    }
+    for annotation in &mut polygon.annotations {
+        annotation.position = (annotation.position - lo) * scale;
     }
     for point in &mut panel.pin_points {
         *point = (*point - lo) * scale;
@@ -548,6 +586,62 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
                     p.layout_2d = Some(origin + delta);
                 }
             }
+        }
+        Command::Annotation {
+            panel,
+            id,
+            text,
+            position,
+        } => {
+            if !position.is_finite()
+                || text.trim().is_empty()
+                || text.chars().count() > 500
+                || text.chars().any(|c| c.is_control() && c != '\n')
+            {
+                return Err(
+                    "Annotation needs finite coordinates and 1–500 printable characters".into(),
+                );
+            }
+            let p = template
+                .panels
+                .iter_mut()
+                .find(|p| p.id == panel)
+                .ok_or("Panel not found")?;
+            let poly = p
+                .polygon
+                .as_mut()
+                .ok_or("Editable polygon required for annotation")?;
+            if let Some(id) = id {
+                let existing = poly
+                    .annotations
+                    .iter_mut()
+                    .find(|a| a.id == id)
+                    .ok_or("Annotation not found")?;
+                existing.text = text;
+                existing.position = position;
+            } else {
+                let id = unused_id("annotation", poly.annotations.iter().map(|a| a.id.clone()));
+                poly.annotations
+                    .push(PatternAnnotation { id, text, position });
+            }
+            selected = Some(panel);
+        }
+        Command::RemoveAnnotation { panel, id } => {
+            let p = template
+                .panels
+                .iter_mut()
+                .find(|p| p.id == panel)
+                .ok_or("Panel not found")?;
+            let poly = p
+                .polygon
+                .as_mut()
+                .ok_or("Editable polygon required for annotation")?;
+            let before = poly.annotations.len();
+            poly.annotations.retain(|a| a.id != id);
+            if before == poly.annotations.len() {
+                return Err("Annotation not found".into());
+            }
+            selected = Some(panel);
         }
         Command::Primitive {
             kind,
@@ -756,6 +850,9 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
                     holes: vec![],
                     lines: vec![],
                     target_lengths: Default::default(),
+                    notches: Default::default(),
+                    seam_allowances: Default::default(),
+                    annotations: vec![],
                 }),
                 fabric,
                 grain_degrees: 90.,
@@ -940,6 +1037,17 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
                         .into(),
                 );
             }
+            if template
+                .panels
+                .iter()
+                .find(|p| p.id == panel)
+                .and_then(|p| p.polygon.as_ref())
+                .is_some_and(|poly| {
+                    poly.notches.contains_key(&edge) || poly.seam_allowances.contains_key(&edge)
+                })
+            {
+                return Err("Clear boundary notches and seam allowance before splitting".into());
+            }
             let p = template
                 .panels
                 .iter_mut()
@@ -1028,6 +1136,10 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
             if p.polygon.as_ref().is_some_and(|polygon| {
                 polygon.target_lengths.contains_key(&incoming)
                     || polygon.target_lengths.contains_key(&outgoing)
+                    || polygon.notches.contains_key(&incoming)
+                    || polygon.notches.contains_key(&outgoing)
+                    || polygon.seam_allowances.contains_key(&incoming)
+                    || polygon.seam_allowances.contains_key(&outgoing)
             }) {
                 return Err(
                     "A target length uses this point's boundaries; clear the target first".into(),
@@ -1152,6 +1264,86 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
                     .insert(edge, target_m);
                 selected = Some(panel);
             }
+        }
+        Command::Notch {
+            panel,
+            edge,
+            t,
+            depth_m,
+        } => {
+            let p = template
+                .panels
+                .iter_mut()
+                .find(|p| p.id == panel)
+                .ok_or("Panel not found")?;
+            let poly = p
+                .polygon
+                .as_mut()
+                .ok_or("This panel has no editable contour")?;
+            let notch = EdgeNotch { t, depth_m };
+            poly.notch_segment(&edge, &notch)?;
+            let entries = poly.notches.entry(edge).or_default();
+            if let Some(existing) = entries.iter_mut().find(|n| (n.t - t).abs() < 1e-9) {
+                *existing = notch;
+            } else {
+                entries.push(notch);
+                entries.sort_by(|a, b| a.t.total_cmp(&b.t));
+            }
+            selected = Some(panel);
+        }
+        Command::RemoveNotch { panel, edge, t } => {
+            if !t.is_finite() {
+                return Err("Notch position must be finite".into());
+            }
+            let p = template
+                .panels
+                .iter_mut()
+                .find(|p| p.id == panel)
+                .ok_or("Panel not found")?;
+            let poly = p
+                .polygon
+                .as_mut()
+                .ok_or("This panel has no editable contour")?;
+            let entries = poly
+                .notches
+                .get_mut(&edge)
+                .ok_or("No notches on boundary")?;
+            let before = entries.len();
+            entries.retain(|n| (n.t - t).abs() >= 1e-9);
+            if entries.len() == before {
+                return Err("Notch not found".into());
+            }
+            if entries.is_empty() {
+                poly.notches.remove(&edge);
+            }
+            selected = Some(panel);
+        }
+        Command::SeamAllowance {
+            panel,
+            edge,
+            width_m,
+        } => {
+            if !width_m.is_finite() || !(0.0..=0.5).contains(&width_m) {
+                return Err("Seam allowance must be finite and 0..500 mm".into());
+            }
+            let p = template
+                .panels
+                .iter_mut()
+                .find(|p| p.id == panel)
+                .ok_or("Panel not found")?;
+            let poly = p
+                .polygon
+                .as_mut()
+                .ok_or("This panel has no editable contour")?;
+            if !poly.edges.contains(&edge) {
+                return Err("Boundary not found".into());
+            }
+            if width_m == 0. {
+                poly.seam_allowances.remove(&edge);
+            } else {
+                poly.seam_allowances.insert(edge, width_m);
+            }
+            selected = Some(panel);
         }
         Command::Layout { panel, origin } => {
             template
@@ -1346,5 +1538,84 @@ impl History {
             selected: None,
             new_point: None,
         })
+    }
+}
+
+#[cfg(test)]
+mod annotation_tests {
+    use super::*;
+    use crate::garment::presets::{GarmentKind, basic};
+
+    #[test]
+    fn create_edit_delete_undo_and_json_reopen_annotations() {
+        let original = basic(GarmentKind::Tshirt, 0);
+        let panel = original.panels[0].id.clone();
+        let mut history = History::default();
+        let at = DVec2::new(0.2, 0.3);
+        let make = |id, text: &str| Command::Annotation {
+            panel: panel.clone(),
+            id,
+            text: text.into(),
+            position: at,
+        };
+        let added = apply(&original, make(None, "CUT ON FOLD")).unwrap();
+        assert!(!added.reset_simulation);
+        assert_eq!(
+            added.template.panels[0]
+                .polygon
+                .as_ref()
+                .unwrap()
+                .annotations
+                .len(),
+            1
+        );
+        let reopened: GarmentTemplate =
+            serde_json::from_str(&serde_json::to_string(&added.template).unwrap()).unwrap();
+        assert_eq!(
+            reopened.panels[0].polygon.as_ref().unwrap().annotations[0].text,
+            "CUT ON FOLD"
+        );
+        let id = reopened.panels[0].polygon.as_ref().unwrap().annotations[0]
+            .id
+            .clone();
+        history.record(original.clone());
+        let changed = apply(&reopened, make(Some(id.clone()), "SEW GUIDE")).unwrap();
+        assert_eq!(
+            changed.template.panels[0]
+                .polygon
+                .as_ref()
+                .unwrap()
+                .annotations[0]
+                .text,
+            "SEW GUIDE"
+        );
+        history.record(changed.template.clone());
+        let gone = apply(
+            &changed.template,
+            Command::RemoveAnnotation {
+                panel: panel.clone(),
+                id,
+            },
+        )
+        .unwrap();
+        assert!(
+            gone.template.panels[0]
+                .polygon
+                .as_ref()
+                .unwrap()
+                .annotations
+                .is_empty()
+        );
+        let undo = history.restore(&gone.template, false).unwrap();
+        assert_eq!(
+            undo.template.panels[0]
+                .polygon
+                .as_ref()
+                .unwrap()
+                .annotations[0]
+                .text,
+            "SEW GUIDE"
+        );
+        assert!(apply(&original, make(None, " \n")).is_err());
     }
 }
