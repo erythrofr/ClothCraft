@@ -16,6 +16,8 @@ mod authoring_ui;
 mod board;
 #[path = "atelier/chrome.rs"]
 mod chrome;
+#[path = "atelier/commands.rs"]
+mod commands;
 #[path = "atelier/documents_ui.rs"]
 mod documents_ui;
 #[path = "atelier/drafting_ui.rs"]
@@ -260,6 +262,65 @@ struct Atelier {
     smoke_initial: Vec<glam::DVec3>,
 }
 impl Atelier {
+    /// The only live dispatch route for registry actions. All external
+    /// adapters must recheck this snapshot rather than trusting cached UI
+    /// availability from an earlier frame.
+    fn command_context(&self) -> commands::CapabilityContext {
+        commands::CapabilityContext {
+            document_loaded: !self.project.template.panels.is_empty(),
+            worker_ready: true,     // A worker is created before Atelier exists.
+            filesystem_ready: true, // Export reports actual I/O failures.
+            playing: self.playing,
+            pending: self.pending,
+        }
+    }
+
+    fn dispatch_command(
+        &mut self,
+        id: commands::CommandId,
+        ctx: &egui::Context,
+    ) -> Result<(), String> {
+        use commands::CommandId as Id;
+        commands::availability(id, self.command_context())
+            .map_err(|reason| reason.message().to_owned())?;
+        match id {
+            Id::ToggleSimulation => {
+                if self.playing {
+                    self.playing = false;
+                } else if self.prepare_simulation() {
+                    self.playing = true;
+                } else {
+                    return Err(self.status.clone());
+                }
+            }
+            Id::StepSimulation => {
+                if !self.prepare_simulation() {
+                    return Err(self.status.clone());
+                }
+                self.step(ctx);
+            }
+            Id::ResetSimulation => self.reset(),
+            Id::ExportSession => self.export(),
+            Id::SplitView => self.prefs.workspace.mode = layout::ViewMode::Split,
+            Id::GarmentView => self.prefs.workspace.mode = layout::ViewMode::Garment,
+            Id::PatternView => self.prefs.workspace.mode = layout::ViewMode::Patterns,
+            Id::ToggleInspector => {
+                self.prefs.workspace.inspector_open = !self.prefs.workspace.inspector_open;
+            }
+            Id::ResetLayout => self.prefs.workspace = Default::default(),
+            Id::OpenPreferences => self.settings_open = true,
+            Id::LoadTshirt => self.preset(GarmentKind::Tshirt),
+            Id::LoadDress => self.preset(GarmentKind::Dress),
+        }
+        Ok(())
+    }
+
+    fn invoke_command(&mut self, id: commands::CommandId, ctx: &egui::Context) {
+        if let Err(error) = self.dispatch_command(id, ctx) {
+            self.status = error;
+        }
+    }
+
     fn step(&mut self, ctx: &egui::Context) {
         self.submit(ctx, true);
     }
@@ -500,11 +561,7 @@ impl eframe::App for Atelier {
             && ctx.input(|i| i.key_pressed(egui::Key::Space))
             && !ctx.egui_wants_keyboard_input()
         {
-            if self.playing {
-                self.playing = false;
-            } else if self.prepare_simulation() {
-                self.playing = true;
-            }
+            self.invoke_command(commands::CommandId::ToggleSimulation, &ctx);
         }
         egui::Panel::top("toolbar").show(ui, |ui| {
             ui.horizontal(|ui| {
@@ -524,42 +581,54 @@ impl eframe::App for Atelier {
                 });
                 self.smoke_target("simulate", play.rect.center());
                 if play.clicked() {
-                    if self.playing {
-                        self.playing = false;
-                    } else if self.prepare_simulation() {
-                        self.playing = true;
-                    }
+                    self.invoke_command(commands::CommandId::ToggleSimulation, &ctx);
                 }
                 ui.menu_button("Simulation", |ui| {
-                    if ui.add_enabled(!self.pending && !self.playing, egui::Button::new("Advance one step")).clicked()
-                        && self.prepare_simulation() { self.step(&ctx); ui.close(); }
+                    let step = commands::CommandId::StepSimulation;
+                    let enabled = commands::availability(step, self.command_context());
+                    let reason = enabled.as_ref().err().map(|e| e.message());
+                    if ui.add_enabled(enabled.is_ok(), egui::Button::new("Advance one step"))
+                        .on_disabled_hover_text(reason.unwrap_or(""))
+                        .clicked() {
+                        self.invoke_command(step, &ctx);
+                        ui.close();
+                    }
                     if ui.button("Reset the flat arrangement").on_hover_text("Resets the drape of every panel").clicked() {
-                        self.reset(); ui.close();
+                        self.invoke_command(commands::CommandId::ResetSimulation, &ctx); ui.close();
                     }
                 });
                 ui.menu_button("File",|ui| self.document_menu(ui));
                 let export_button = ui.button("Export").on_hover_text("Saves the JSON project, the patterns, the OBJ garment and the previews into the session folder.");
                 self.smoke_target("export", export_button.rect.center());
                 if export_button.clicked() {
-                    self.export();
+                    self.invoke_command(commands::CommandId::ExportSession, &ctx);
                 }
                 ui.separator();
                 ui.menu_button("Workspace", |ui| {
-                    ui.checkbox(&mut self.prefs.workspace.inspector_open,"Properties inspector");
-                    for (mode,label) in [(layout::ViewMode::Split,"Split view"),(layout::ViewMode::Garment,"3D only"),(layout::ViewMode::Patterns,"2D only")] {
-                        ui.selectable_value(&mut self.prefs.workspace.mode,mode,label);
+                    let inspector = self.prefs.workspace.inspector_open;
+                    if ui.selectable_label(inspector, "Properties inspector").clicked() {
+                        self.invoke_command(commands::CommandId::ToggleInspector, &ctx);
+                    }
+                    for (mode, id, label) in [
+                        (layout::ViewMode::Split,commands::CommandId::SplitView,"Split view"),
+                        (layout::ViewMode::Garment,commands::CommandId::GarmentView,"3D only"),
+                        (layout::ViewMode::Patterns,commands::CommandId::PatternView,"2D only")
+                    ] {
+                        if ui.selectable_label(self.prefs.workspace.mode == mode, label).clicked() {
+                            self.invoke_command(id, &ctx);
+                        }
                     }
                     ui.separator();
-                    if ui.button("Reset layout").clicked() { self.prefs.workspace=Default::default(); ui.close(); }
-                    if ui.button("Preferences…").clicked() { self.settings_open=true; ui.close(); }
+                    if ui.button("Reset layout").clicked() { self.invoke_command(commands::CommandId::ResetLayout, &ctx); ui.close(); }
+                    if ui.button("Preferences…").clicked() { self.invoke_command(commands::CommandId::OpenPreferences, &ctx); ui.close(); }
                 });
                 ui.menu_button("Examples", |ui| {
                     if ui.button("T-shirt").clicked() {
-                        self.preset(GarmentKind::Tshirt);
+                        self.invoke_command(commands::CommandId::LoadTshirt, &ctx);
                         ui.close();
                     }
                     if ui.button("Dress").clicked() {
-                        self.preset(GarmentKind::Dress);
+                        self.invoke_command(commands::CommandId::LoadDress, &ctx);
                         ui.close();
                     }
                 });
