@@ -17,17 +17,35 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-latest
+          - os: macos-15
             artifact: macos-arm64
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             artifact: linux-x86_64
-          - os: windows-latest
+          - os: windows-2025
             artifact: windows-x86_64
     env:
       RAYON_NUM_THREADS: 2
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+
+      # Keep the actual toolchain/image with the artifact: stable evolves.
+      - name: Record build environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          {
+            echo "Commit: $GITHUB_SHA"
+            echo "Runner: $RUNNER_OS $RUNNER_ARCH"
+            echo "Image: ${ImageOS:-unknown} ${ImageVersion:-unknown}"
+            rustc -Vv
+            cargo -V
+          } | tee dist/BUILD-ENVIRONMENT.txt
+          cat dist/BUILD-ENVIRONMENT.txt >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Test the CPU core without graphics features
+        run: cargo test --locked --no-default-features -j 2 -- --test-threads=2
 
       # eframe/winit need X11, Wayland and an OpenGL loader to LINK on Linux,
       # even though `cargo check` alone would not. Without these the desktop
@@ -75,3 +93,11 @@ jobs:
           name: clothcraft-${{ matrix.artifact }}
           path: dist/
           if-no-files-found: error
+
+      # Preserve diagnostic metadata even if linking or a test fails.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-environment-${{ matrix.artifact }}
+          path: dist/BUILD-ENVIRONMENT.txt
+          if-no-files-found: warn
