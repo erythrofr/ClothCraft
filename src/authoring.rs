@@ -12,6 +12,7 @@ use crate::{
 };
 use glam::{DQuat, DVec2, DVec3, EulerRot};
 pub mod clipboard;
+pub mod constructions;
 mod geometry;
 mod linked;
 use crate::garment::shapes::{BooleanOp, MirrorAxis, Primitive};
