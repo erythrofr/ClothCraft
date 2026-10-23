@@ -78,8 +78,9 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-PHY-002](#exo-phy-002) — Compare candidate engines on shared quality gates | physics | blocked | EXO-PHY-001, EXO-QA-001 | Not registered |
 | [EXO-PHY-003](#exo-phy-003) — Evaluate foam and padding as a separate material experiment | physics | blocked | EXO-PHY-001 | Not registered |
 | [EXO-CAD-009](#exo-cad-009) — Integrate the freehand fitter and create new panels in the 2D workspace | cad | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/33) |
-| [EXO-SEW-006](#exo-sew-006) — Expose cached sewing diagnostics in the native inspector | sewing | ready | EXO-SEW-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/43) |
-| [EXO-QA-004](#exo-qa-004) — Exercise editor tools with a deterministic named-widget harness | validation | ready | EXO-SEW-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/47) |
+| [EXO-SEW-006](#exo-sew-006) — Expose cached sewing diagnostics in the native inspector | sewing | done | EXO-SEW-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/43) |
+| [EXO-QA-004](#exo-qa-004) — Exercise editor tools with a deterministic named-widget harness | validation | done | EXO-SEW-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/47) |
+| [EXO-CAD-010](#exo-cad-010) — Place a pattern point at the intersection of two reference edges | cad | ready | EXO-CAD-001, EXO-CAD-002, EXO-QA-004 | [Issue](https://github.com/erythrofr/ClothCraft/issues/50) |
 
 ## EXO-COORD-001
 
@@ -1806,7 +1807,7 @@ Merged #35 (3bac583) after all 12 CI checks passed. 22 targeted CPU integration 
 
 **Expose cached sewing diagnostics in the native inspector**
 
-Status: ready. Dependencies: EXO-SEW-001.
+Status: done. Dependencies: EXO-SEW-001.
 
 **Files / directories**
 
@@ -1826,14 +1827,15 @@ Status: ready. Dependencies: EXO-SEW-001.
 
 - https://github.com/erythrofr/ClothCraft/pull/41
 - https://github.com/erythrofr/ClothCraft/blob/main/docs/sewing-audit.md
+- https://github.com/erythrofr/ClothCraft/pull/46
 
-Original Rust UI adapter, no EXO code/assets copied. Keep cache in AuthoringUi separately from SewingDraft so selecting another seam does not discard the report. Use existing generation invalidation conservatively. No new solver telemetry, automatic repair, document fields, atelier.rs or command-registry changes. A synchronous explicit audit can pause the UI on large geometry; document this limit rather than claiming a background job.
+Original Rust UI adapter, no EXO code/assets copied. Keep cache in AuthoringUi separately from SewingDraft so selecting another seam does not discard the report. Use existing generation invalidation conservatively. No new solver telemetry, automatic repair, document fields, atelier.rs or command-registry changes. A synchronous explicit audit can pause the UI on large geometry; document this limit rather than claiming a background job. Completed in merged PR #46 after all 13 CI checks passed. CPU audit tests and a native Windows inspection passed; see docs/sewing-audit-ui.md.
 
 ## EXO-QA-004
 
 **Exercise editor tools with a deterministic named-widget harness**
 
-Status: ready. Dependencies: EXO-SEW-001.
+Status: done. Dependencies: EXO-SEW-001.
 
 **Files / directories**
 
@@ -1854,5 +1856,33 @@ Status: ready. Dependencies: EXO-SEW-001.
 **Evidence and related contributions**
 
 - https://github.com/erythrofr/ClothCraft/pull/46
+- https://github.com/erythrofr/ClothCraft/pull/49
 
-Owner-requested reusable internal testing. Begin from the merged audit UI (#46) and obtain an accepted claim after releasing EXO-SEW-006. atelier.rs is excluded because command-registry work owns that shared file. No new dependencies, private garments, solver changes or EXO source copied.
+Owner-requested reusable internal testing. Begin from the merged audit UI (#46) and obtain an accepted claim after releasing EXO-SEW-006. atelier.rs is excluded because command-registry work owns that shared file. No new dependencies, private garments, solver changes or EXO source copied. Completed in merged PR #49 after all 13 CI checks passed. Six named-widget scenarios and 58 editor tests passed; one optional preview ignored. Desktop Clippy passed. See docs/widget-harness.md for CPU-only scope and limits.
+
+## EXO-CAD-010
+
+**Place a pattern point at the intersection of two reference edges**
+
+Status: ready. Dependencies: EXO-CAD-001, EXO-CAD-002, EXO-QA-004.
+
+**Files / directories**
+
+- `src/authoring.rs`
+- `src/atelier/authoring_ui.rs`
+- `tests/drawing_commands.rs`
+- `docs/authoring.md`
+
+**Acceptance**
+
+- Resolve two straight reference edges by stable panel/boundary IDs in board space, including rotated panels, using the existing Rust intersection primitive.
+- Expose Intersection in the point inspector with two edge selectors and a preview of both lines and the proposed point; reject missing, curved, degenerate and parallel references explicitly.
+- Do not mutate before Apply; validate through the existing transaction and preserve exact undo/redo and other panels.
+- Use the named-widget CPU harness for real selector/mode/Apply events and invalid/stale cases, plus rotated geometry and undo regressions.
+
+**Evidence and related contributions**
+
+- https://github.com/erythrofr/ClothCraft/pull/26
+- https://github.com/erythrofr/ClothCraft/pull/49
+
+Original Rust integration of an existing CPU primitive. No solver, serialized document schema, atelier.rs or command-registry edits; no upstream code/assets copied. Infinite reference lines, not segment-clamped intersection.

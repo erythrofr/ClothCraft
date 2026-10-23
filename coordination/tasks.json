@@ -1732,7 +1732,7 @@
       "id": "EXO-SEW-006",
       "title": "Expose cached sewing diagnostics in the native inspector",
       "area": "sewing",
-      "status": "ready",
+      "status": "done",
       "depends_on": [
         "EXO-SEW-001"
       ],
@@ -1752,14 +1752,16 @@
         "https://github.com/erythrofr/ClothCraft/pull/41",
         "https://github.com/erythrofr/ClothCraft/blob/main/docs/sewing-audit.md"
       ],
-      "related_prs": [],
-      "notes": "Original Rust UI adapter, no EXO code/assets copied. Keep cache in AuthoringUi separately from SewingDraft so selecting another seam does not discard the report. Use existing generation invalidation conservatively. No new solver telemetry, automatic repair, document fields, atelier.rs or command-registry changes. A synchronous explicit audit can pause the UI on large geometry; document this limit rather than claiming a background job."
+      "related_prs": [
+        "https://github.com/erythrofr/ClothCraft/pull/46"
+      ],
+      "notes": "Original Rust UI adapter, no EXO code/assets copied. Keep cache in AuthoringUi separately from SewingDraft so selecting another seam does not discard the report. Use existing generation invalidation conservatively. No new solver telemetry, automatic repair, document fields, atelier.rs or command-registry changes. A synchronous explicit audit can pause the UI on large geometry; document this limit rather than claiming a background job. Completed in merged PR #46 after all 13 CI checks passed. CPU audit tests and a native Windows inspection passed; see docs/sewing-audit-ui.md."
     },
     {
       "id": "EXO-QA-004",
       "title": "Exercise editor tools with a deterministic named-widget harness",
       "area": "validation",
-      "status": "ready",
+      "status": "done",
       "depends_on": [
         "EXO-SEW-001"
       ],
@@ -1780,8 +1782,39 @@
       "evidence": [
         "https://github.com/erythrofr/ClothCraft/pull/46"
       ],
+      "related_prs": [
+        "https://github.com/erythrofr/ClothCraft/pull/49"
+      ],
+      "notes": "Owner-requested reusable internal testing. Begin from the merged audit UI (#46) and obtain an accepted claim after releasing EXO-SEW-006. atelier.rs is excluded because command-registry work owns that shared file. No new dependencies, private garments, solver changes or EXO source copied. Completed in merged PR #49 after all 13 CI checks passed. Six named-widget scenarios and 58 editor tests passed; one optional preview ignored. Desktop Clippy passed. See docs/widget-harness.md for CPU-only scope and limits."
+    },
+    {
+      "id": "EXO-CAD-010",
+      "title": "Place a pattern point at the intersection of two reference edges",
+      "area": "cad",
+      "status": "ready",
+      "depends_on": [
+        "EXO-CAD-001",
+        "EXO-CAD-002",
+        "EXO-QA-004"
+      ],
+      "scope": [
+        "src/authoring.rs",
+        "src/atelier/authoring_ui.rs",
+        "tests/drawing_commands.rs",
+        "docs/authoring.md"
+      ],
+      "acceptance": [
+        "Resolve two straight reference edges by stable panel/boundary IDs in board space, including rotated panels, using the existing Rust intersection primitive.",
+        "Expose Intersection in the point inspector with two edge selectors and a preview of both lines and the proposed point; reject missing, curved, degenerate and parallel references explicitly.",
+        "Do not mutate before Apply; validate through the existing transaction and preserve exact undo/redo and other panels.",
+        "Use the named-widget CPU harness for real selector/mode/Apply events and invalid/stale cases, plus rotated geometry and undo regressions."
+      ],
+      "evidence": [
+        "https://github.com/erythrofr/ClothCraft/pull/26",
+        "https://github.com/erythrofr/ClothCraft/pull/49"
+      ],
       "related_prs": [],
-      "notes": "Owner-requested reusable internal testing. Begin from the merged audit UI (#46) and obtain an accepted claim after releasing EXO-SEW-006. atelier.rs is excluded because command-registry work owns that shared file. No new dependencies, private garments, solver changes or EXO source copied."
+      "notes": "Original Rust integration of an existing CPU primitive. No solver, serialized document schema, atelier.rs or command-registry edits; no upstream code/assets copied. Infinite reference lines, not segment-clamped intersection."
     }
   ]
 }
