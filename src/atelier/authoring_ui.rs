@@ -25,6 +25,7 @@ pub(super) enum Tool {
 pub(super) struct AuthoringUi {
     pub construction: ConstructionDraft,
     pub sewing: super::sewing_ui::SewingDraft,
+    pub sewing_audit: super::sewing_ui::SewingAuditUi,
     pub radial: super::radial::Radial,
     pub selection: super::selection::Selection,
     pub tool: Tool,
@@ -805,6 +806,7 @@ impl Atelier {
     }
     pub(super) fn authoring_properties(&mut self, ui: &mut egui::Ui) {
         self.existing_seams(ui);
+        self.sewing_audit_controls(ui);
         if self.authoring.tool == Tool::Sew || !self.authoring.ends.is_empty() {
             self.sewing_controls(ui);
         }

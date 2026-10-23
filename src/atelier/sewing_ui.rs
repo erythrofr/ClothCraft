@@ -2,8 +2,130 @@
 use super::{authoring_ui::Tool, board::same_edge, *};
 use marvelous_cloth::{
     authoring::Command,
-    garment::seam::{BoundaryCurve, BoundaryRef},
+    garment::seam::{BoundaryCurve, BoundaryRef, audit},
 };
+
+/// An explicit snapshot, independent of the editable sewing draft. Generation
+/// invalidation is conservative: even placement/tool changes can make it stale.
+#[derive(Default)]
+pub(super) struct SewingAuditUi {
+    generation: Option<u64>,
+    result: Option<Result<audit::SewingAudit, String>>,
+}
+
+#[derive(Debug, PartialEq)]
+enum AuditAction {
+    Refresh,
+    Inspect(String),
+}
+
+impl SewingAuditUi {
+    fn refresh(&mut self, template: &marvelous_cloth::garment::GarmentTemplate, generation: u64) {
+        // Replace a previous successful report even when compilation fails.
+        self.result = Some(audit::report(template));
+        self.generation = Some(generation);
+    }
+
+    fn is_current(&self, generation: u64) -> bool {
+        self.result.is_some() && self.generation == Some(generation)
+    }
+
+    fn show(&self, ui: &mut egui::Ui, generation: u64) -> Option<AuditAction> {
+        ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Wrap);
+        let warning = ui.visuals().warn_fg_color;
+        let error_color = ui.visuals().error_fg_color;
+        let mut action = None;
+        if ui
+            .button(if self.result.is_some() {
+                "Refresh audit"
+            } else {
+                "Run audit"
+            })
+            .clicked()
+        {
+            action = Some(AuditAction::Refresh);
+        }
+        ui.small("Material rest lengths · not draped gaps or simulation stress.");
+        let Some(result) = &self.result else {
+            ui.small("Check authored sewing without changing the garment.");
+            return action;
+        };
+        let current = self.is_current(generation);
+        if !current {
+            ui.colored_label(warning, "Out of date — refresh before inspecting seams.");
+        }
+        let report = match result {
+            Ok(report) => report,
+            Err(error) => {
+                ui.colored_label(error_color, format!("Audit unavailable: {error}"));
+                return action;
+            }
+        };
+        ui.label(format!(
+            "{} seams · {} shared material endpoints",
+            report.seams.len(),
+            report.junctions.len()
+        ));
+        ui.colored_label(
+            if !current {
+                warning
+            } else if report.valid {
+                if ui.visuals().dark_mode {
+                    Color32::LIGHT_GREEN
+                } else {
+                    Color32::from_rgb(20, 110, 55)
+                }
+            } else {
+                error_color
+            },
+            if report.valid {
+                "Snapshot: no authored-sewing errors"
+            } else {
+                "Snapshot: authored-sewing errors"
+            },
+        );
+        ui.small("Positive B − A means extra material on side B. Easing may be intentional.");
+        egui::ScrollArea::vertical().id_salt("sewing_audit_rows").max_height(300.).show(ui, |ui| {
+            for seam in &report.seams {
+                ui.push_id(seam.seam_index, |ui| {
+                    let mismatch = seam.difference_m.map_or_else(|| "unresolved".into(), |d| format!("{:+.2} mm", d * 1000.));
+                    egui::CollapsingHeader::new(format!("{} · B − A {mismatch}", seam.seam_id)).show(ui, |ui| {
+                        if let Some([a, b]) = seam.lengths_m {
+                            ui.label(format!("A {:.2} mm · B {:.2} mm", a * 1000., b * 1000.));
+                        }
+                        ui.label(format!("Easing: {}", if seam.allow_ease { "allowed" } else { "not allowed" }));
+                        ui.label(format!("B direction: {}", if seam.reverse_b { "reversed" } else { "forward" }));
+                        for error in &seam.errors {
+                            ui.colored_label(error_color, &error.message);
+                        }
+                        for (side, segments) in [("A", &seam.a), ("B", &seam.b)] {
+                            for segment in segments {
+                                let boundary = segment.edge.clone().unwrap_or_else(|| segment.rectangle_side.map_or_else(|| "unresolved boundary".into(), |side| format!("{side:?}")));
+                                ui.label(format!("{side}: {} / {boundary}", segment.panel_id));
+                                for error in &segment.errors {
+                                    ui.colored_label(error_color, &error.message);
+                                }
+                            }
+                        }
+                        for (i, interval) in seam.intervals.iter().enumerate() {
+                            ui.label(format!("Interval {}: A {:.2} / B {:.2} mm · B − A {:+.2} mm{}", i + 1,
+                                interval.lengths_m[0] * 1000., interval.lengths_m[1] * 1000., interval.difference_m * 1000.,
+                                if interval.requires_easing { " · easing required" } else { "" }));
+                        }
+                        // Duplicate IDs cannot navigate unambiguously through the existing editor.
+                        let unique = report.seams.iter().filter(|s| s.seam_id == seam.seam_id).count() == 1;
+                        if ui.add_enabled(current && unique, egui::Button::new("Inspect seam"))
+                            .on_hover_text("Open the existing sewing draft. The document changes only on Apply.")
+                            .clicked() {
+                            action = Some(AuditAction::Inspect(seam.seam_id.clone()));
+                        }
+                    });
+                });
+            }
+        });
+        action
+    }
+}
 
 #[derive(Default)]
 pub(super) struct SewingDraft {
@@ -38,6 +160,22 @@ fn sewing_primary_action(ui: &mut egui::Ui, editing: bool, easing_needed: bool) 
 }
 
 impl Atelier {
+    pub(super) fn sewing_audit_controls(&mut self, ui: &mut egui::Ui) {
+        let action = egui::CollapsingHeader::new("Sewing audit")
+            .show(ui, |ui| {
+                self.authoring.sewing_audit.show(ui, self.generation)
+            })
+            .body_returned
+            .flatten();
+        match action {
+            Some(AuditAction::Refresh) => self
+                .authoring
+                .sewing_audit
+                .refresh(&self.project.template, self.generation),
+            Some(AuditAction::Inspect(id)) => self.begin_seam_edit(&id),
+            None => {}
+        }
+    }
     /// A deliberate third click confirms the visible pair. Widget clicks and
     /// endpoint drags keep their own ownership; no underlying edge is selected.
     pub(super) fn sewing_canvas_confirm(&mut self, response: &egui::Response) -> bool {
@@ -793,6 +931,78 @@ impl Atelier {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sewing_audit_snapshot_preserves_document_and_replaces_success_on_error() {
+        let mut template = marvelous_cloth::garment::GarmentTemplate::two_panel_demo();
+        let before = serde_json::to_string(&template).unwrap();
+        let mut cache = SewingAuditUi::default();
+        assert!(!cache.is_current(0));
+        cache.refresh(&template, 7);
+        assert!(cache.is_current(7));
+        assert!(!cache.is_current(8));
+        assert!(cache.result.as_ref().unwrap().as_ref().unwrap().valid);
+        assert_eq!(serde_json::to_string(&template).unwrap(), before);
+        template.version = u32::MAX;
+        cache.refresh(&template, 8);
+        assert!(cache.is_current(8));
+        assert!(cache.result.as_ref().unwrap().is_err());
+    }
+
+    #[test]
+    fn sewing_audit_keeps_local_easing_even_with_equal_total_lengths() {
+        let mut template = marvelous_cloth::garment::GarmentTemplate::two_panel_demo();
+        template.seams[0].notches = vec![[0.25, 0.75]];
+        let mut cache = SewingAuditUi::default();
+        cache.refresh(&template, 1);
+        let report = cache.result.as_ref().unwrap().as_ref().unwrap();
+        assert!(!report.valid);
+        assert_eq!(report.seams[0].difference_m, Some(0.));
+        assert!(report.seams[0].intervals.iter().all(|i| i.requires_easing));
+    }
+
+    #[test]
+    fn sewing_audit_button_requests_refresh_without_compiling_during_render() {
+        let ctx = egui::Context::default();
+        let cache = SewingAuditUi::default();
+        let frame = |events| {
+            let mut action = None;
+            let mut at = egui::Pos2::ZERO;
+            let mut output = ctx.run_ui(
+                egui::RawInput {
+                    screen_rect: Some(egui::Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        Vec2::new(400., 500.),
+                    )),
+                    events,
+                    ..Default::default()
+                },
+                |ui| {
+                    egui::CentralPanel::default().show(ui, |ui| {
+                        at = ui.next_widget_position() + Vec2::new(30., 9.);
+                        action = cache.show(ui, 1);
+                    });
+                },
+            );
+            output.textures_delta.clear();
+            (action, at)
+        };
+        let (action, at) = frame(vec![]);
+        assert_eq!(action, None);
+        let click = |pressed| egui::Event::PointerButton {
+            pos: at,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::NONE,
+        };
+        assert_eq!(
+            frame(vec![egui::Event::PointerMoved(at), click(true)]).0,
+            None
+        );
+        assert_eq!(frame(vec![click(false)]).0, Some(AuditAction::Refresh));
+        assert_eq!(frame(vec![]).0, None);
+        assert!(cache.result.is_none());
+    }
 
     #[test]
     fn unequal_length_primary_action_requires_an_explicit_click() {
