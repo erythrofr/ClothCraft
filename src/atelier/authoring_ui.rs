@@ -98,6 +98,70 @@ struct ConstructionControls {
     field: egui::Response,
     apply: egui::Response,
 }
+
+/// Board-space reference endpoints, current corner and proposed corner.
+/// Only semantic contour coordinates are read; this never compiles a mesh.
+fn construction_preview_points(
+    template: &marvelous_cloth::garment::GarmentTemplate,
+    target: &ConstructionRef,
+    reference: &ConstructionRef,
+    result: DVec2,
+) -> Option<[DVec2; 4]> {
+    let resolve = |r: &ConstructionRef| {
+        let i = template.panels.iter().position(|p| p.id == r.panel)?;
+        let polygon = template.panels[i].polygon.as_ref()?;
+        let k = polygon.edges.iter().position(|e| e == &r.edge)?;
+        Some((i, k, polygon))
+    };
+    let (ri, rk, rp) = resolve(reference)?;
+    let (ti, tk, tp) = resolve(target)?;
+    let board = |i: usize, p: DVec2| {
+        authoring::layout(template, i)
+            + authoring::rotate_2d(p, template.panels[i].layout_rotation_degrees)
+    };
+    let points = [
+        board(ri, *rp.points.get(rk)?),
+        board(ri, *rp.points.get((rk + 1) % rp.points.len())?),
+        board(ti, *tp.points.get(tk)?),
+        board(ti, result),
+    ];
+    points.iter().all(|p| p.is_finite()).then_some(points)
+}
+
+fn paint_construction_preview(ui: &mut egui::Ui, points: [DVec2; 4]) {
+    let min = points.iter().copied().fold(points[0], DVec2::min);
+    let max = points.iter().copied().fold(points[0], DVec2::max);
+    let span = max - min;
+    if !span.is_finite() {
+        return;
+    }
+    let (rect, _) = ui.allocate_exact_size(
+        Vec2::new(ui.available_width().clamp(80., 280.), 110.),
+        egui::Sense::hover(),
+    );
+    let painter = ui.painter_at(rect);
+    painter.rect_filled(rect, 4., ui.visuals().extreme_bg_color);
+    let inner = rect.shrink(14.);
+    let scale =
+        (inner.width() as f64 / span.x.max(1e-9)).min(inner.height() as f64 / span.y.max(1e-9));
+    let screen = |p: DVec2| {
+        let offset = ((p - min) - span * 0.5) * scale;
+        inner.center() + Vec2::new(offset.x as f32, offset.y as f32)
+    };
+    let [a, b, current, proposed] = points.map(screen);
+    let reference = Color32::from_rgb(110, 180, 240);
+    let result = Color32::from_rgb(110, 220, 160);
+    painter.arrow(a, b - a, egui::Stroke::new(2., reference));
+    painter.line_segment([current, proposed], egui::Stroke::new(1., Color32::GRAY));
+    painter.circle_stroke(current, 5., egui::Stroke::new(2., Color32::GOLD));
+    painter.circle_filled(proposed, 3., result);
+    ui.horizontal_wrapped(|ui| {
+        ui.colored_label(reference, "→ Reference");
+        ui.colored_label(Color32::GOLD, "○ Current");
+        ui.colored_label(result, "● Proposed");
+    });
+    ui.small("Auto-scaled board view · Apply still validates the contour and seams.");
+}
 /// A UI-only draft. Typing and choosing a reference never mutate a document.
 fn construction_controls(
     ui: &mut egui::Ui,
@@ -200,6 +264,13 @@ fn construction_controls(
                 p.x * 1000.,
                 p.y * 1000.
             ));
+            if let Some(points) = draft
+                .reference
+                .as_ref()
+                .and_then(|reference| construction_preview_points(template, target, reference, *p))
+            {
+                paint_construction_preview(ui, points);
+            }
         }
         Err(error) => {
             ui.colored_label(Color32::GOLD, error);
@@ -1170,6 +1241,8 @@ mod construction_tests {
         let (initial, labels) = frame(&ctx, &mut draft, &t, vec![]);
         assert!(initial.command.is_none());
         assert!(labels.iter().any(|s| s == "mm"));
+        assert!(labels.iter().any(|s| s == "→ Reference"));
+        assert!(labels.iter().any(|s| s == "● Proposed"));
         let at = initial.apply.rect.center();
         assert!(
             frame(
@@ -1220,5 +1293,34 @@ mod construction_tests {
         assert!(draft.value_mm.contains('g'));
         assert!(typed.command.is_none());
         assert!(!typed.apply.enabled());
+    }
+
+    #[test]
+    fn construction_diagram_tracks_rotated_board_geometry_and_stale_references() {
+        let mut t = template();
+        let target = ConstructionRef {
+            panel: t.panels[0].id.clone(),
+            edge: "edge_4".into(),
+        };
+        let reference = ConstructionRef {
+            edge: "edge_1".into(),
+            ..target.clone()
+        };
+        let operation = PointConstruction::Distance(0.05);
+        let local = authoring::constructed_point(&t, &target, &reference, operation).unwrap();
+        let initial = construction_preview_points(&t, &target, &reference, local).unwrap();
+        let origin = authoring::layout(&t, 0);
+        t.panels[0].layout_rotation_degrees = 90.;
+        let local = authoring::constructed_point(&t, &target, &reference, operation).unwrap();
+        let rotated = construction_preview_points(&t, &target, &reference, local).unwrap();
+        let new_origin = authoring::layout(&t, 0);
+        for (a, b) in initial.into_iter().zip(rotated) {
+            assert!((b - (new_origin + authoring::rotate_2d(a - origin, 90.))).length() < 1e-12);
+        }
+        let missing = ConstructionRef {
+            edge: "deleted".into(),
+            ..reference
+        };
+        assert!(construction_preview_points(&t, &target, &missing, local).is_none());
     }
 }

@@ -23,6 +23,10 @@ on another panel, then choose:
   coordinates (the displayed vertical coordinate increases downward).
 
 Read the proposed panel-local X/Y coordinates, then click **Apply construction**.
+The auto-scaled diagram shows the directed reference edge in blue, the current
+corner as a gold ring and its proposed position as a green dot. It follows
+the flat board's rotations and layout, not the draped mesh. This is a geometric
+preview only: it does not certify that the resulting contour or seams are valid.
 Typing does not edit the pattern; Enter in the distance field does not apply it.
 Distances are not clamped to the edge endpoints. Curved reference boundaries
 are explicitly unsupported rather than approximated by their chords.

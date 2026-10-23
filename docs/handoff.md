@@ -1,5 +1,20 @@
 # Repository handoff
 
+## Construction preview follow-up — 23 October 2026
+
+PR #38 now includes an auto-scaled, read-only board-space diagram in the
+numeric inspector. A directed reference edge, current corner and proposed
+corner make the operation visible before Apply. The diagram uses stable
+boundary references and the same flat layout transforms as construction;
+it neither remeshes nor reads simulation state. It is not a whole-contour
+validity check. The normal transaction still validates geometry and seams.
+
+CPU validation: all 49 desktop unit tests passed, one optional preview ignored;
+this includes the three construction UI tests (labels, explicit Apply,
+keyboard focus, rotated geometry and stale references). Desktop binary Clippy
+passed with warnings denied. No native window or GPU was used. The earlier
+revision of #38 had 12 green CI checks; the follow-up requires fresh CI.
+
 ## Numeric point construction — 23 October 2026
 
 Task EXO-CAD-002 / issue #36 adds Project, Distance and Perpendicular actions
