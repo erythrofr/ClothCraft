@@ -77,6 +77,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-PHY-001](#exo-phy-001) — Define capabilities for real interchangeable solver adapters | physics | blocked | EXO-CORE-001 | Not registered |
 | [EXO-PHY-002](#exo-phy-002) — Compare candidate engines on shared quality gates | physics | blocked | EXO-PHY-001, EXO-QA-001 | Not registered |
 | [EXO-PHY-003](#exo-phy-003) — Evaluate foam and padding as a separate material experiment | physics | blocked | EXO-PHY-001 | Not registered |
+| [EXO-CAD-009](#exo-cad-009) — Integrate the freehand fitter and create new panels in the 2D workspace | cad | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/33) |
 
 ## EXO-COORD-001
 
@@ -1760,3 +1761,32 @@ Status: blocked. Dependencies: EXO-PHY-001.
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/foamPaddingGeometry.js
 
 EXO has a separate compression prototype; its presence does not establish general solid mechanics.
+
+## EXO-CAD-009
+
+**Integrate the freehand fitter and create new panels in the 2D workspace**
+
+Status: ready. Dependencies: none.
+
+**Files / directories**
+
+- `src/atelier/board.rs`
+- `src/atelier/authoring_ui.rs`
+- `src/authoring.rs`
+- `tests/freehand_authoring.rs`
+- `docs/authoring.md`
+- `docs/handoff.md`
+
+**Acceptance**
+
+- First verify and integrate PR #27 after successful CI; do not substitute or duplicate its fitter.
+- Capture a stroke, preview fitted asymmetric cubics and the closing edge, then commit only a valid new panel.
+- Cancel, undo/redo and save/reload preserve existing panels, seams and stable IDs.
+- Reject invalid/self-intersecting contours and sample/segment overflow without mutating the document.
+
+**Evidence and related contributions**
+
+- https://github.com/erythrofr/ClothCraft/pull/27
+- https://github.com/erythrofr/ClothCraft/pull/27
+
+Owner-requested standalone integration slice on 23 October. Includes verifying its fitter prerequisite before UI coding. New panels only; existing-contour replacement remains EXO-CAD-006 and requires topology reference migration. No src/atelier.rs edits: that file is reserved by EXO-UX-001.

@@ -1687,6 +1687,34 @@
       ],
       "related_prs": [],
       "notes": "EXO has a separate compression prototype; its presence does not establish general solid mechanics."
+    },
+    {
+      "id": "EXO-CAD-009",
+      "title": "Integrate the freehand fitter and create new panels in the 2D workspace",
+      "area": "cad",
+      "status": "ready",
+      "depends_on": [],
+      "scope": [
+        "src/atelier/board.rs",
+        "src/atelier/authoring_ui.rs",
+        "src/authoring.rs",
+        "tests/freehand_authoring.rs",
+        "docs/authoring.md",
+        "docs/handoff.md"
+      ],
+      "acceptance": [
+        "First verify and integrate PR #27 after successful CI; do not substitute or duplicate its fitter.",
+        "Capture a stroke, preview fitted asymmetric cubics and the closing edge, then commit only a valid new panel.",
+        "Cancel, undo/redo and save/reload preserve existing panels, seams and stable IDs.",
+        "Reject invalid/self-intersecting contours and sample/segment overflow without mutating the document."
+      ],
+      "evidence": [
+        "https://github.com/erythrofr/ClothCraft/pull/27"
+      ],
+      "related_prs": [
+        "https://github.com/erythrofr/ClothCraft/pull/27"
+      ],
+      "notes": "Owner-requested standalone integration slice on 23 October. Includes verifying its fitter prerequisite before UI coding. New panels only; existing-contour replacement remains EXO-CAD-006 and requires topology reference migration. No src/atelier.rs edits: that file is reserved by EXO-UX-001."
     }
   ]
 }
