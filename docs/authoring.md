@@ -10,6 +10,35 @@ Launch `scripts/start-atelier.ps1`. All pieces share **one metric 2D board**, be
 
 ## Draft cloth
 
+### Numeric point construction
+
+In **Edit**, select a contour point on the 2D board. The Piece inspector shows
+**Point · Construction**. Choose a straight reference edge, including an edge
+on another panel, then choose:
+
+- **Project**: orthogonal projection onto the edge's infinite line.
+- **Distance**: signed millimetres from its start toward its end.
+- **Perpendicular**: signed millimetres from the projection, along the direction
+  obtained by rotating the directed reference edge by +90 degrees in board
+  coordinates (the displayed vertical coordinate increases downward).
+
+Read the proposed panel-local X/Y coordinates, then click **Apply construction**.
+Typing does not edit the pattern; Enter in the distance field does not apply it.
+Distances are not clamped to the edge endpoints. Curved reference boundaries
+are explicitly unsupported rather than approximated by their chords.
+
+The reference and target are resolved by panel/boundary names. Construction
+uses the flat 2D arrangement, including each panel's rotation, then converts
+the result into the target's material coordinates. It never reads draped 3D
+positions. Only the selected corner and its attached handles/material pins
+move; linked mirrors follow the existing transaction policy. Other pieces'
+board positions stay fixed, including files using automatic layouts.
+
+Apply validates the whole garment: crossings, invalid geometry or incompatible
+seams reject the edit without adding history. One successful Apply is one
+undo/redo step, and the resulting ordinary contour survives Save/Open. This
+is a one-time geometric edit, not a persistent dimensional constraint.
+
 ### Freehand panels
 
 Choose **Freehand** above the 2D board. Hold the left mouse button to trace

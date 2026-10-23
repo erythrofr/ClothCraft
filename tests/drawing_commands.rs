@@ -1152,3 +1152,237 @@ fn one_action_is_one_undo_entry_for_every_command() {
     );
     assert!(removed.compile().is_ok());
 }
+
+mod numeric_construction_tests {
+    use glam::DVec2;
+    use marvelous_cloth::{
+        authoring::{self, Command, ConstructionRef, History, PointConstruction},
+        garment::{
+            GarmentTemplate,
+            meshing::MeshingSettings,
+            presets::{self, GarmentKind},
+        },
+    };
+
+    fn fixture() -> GarmentTemplate {
+        let mut t = authoring::apply(
+            &presets::basic(GarmentKind::Tshirt, 0),
+            Command::Polygon {
+                points: vec![
+                    DVec2::ZERO,
+                    DVec2::new(0.4, 0.),
+                    DVec2::new(0.4, 0.3),
+                    DVec2::new(0., 0.3),
+                ],
+                tangents: vec![],
+                meshing: MeshingSettings {
+                    target_edge_m: 0.1,
+                    ..Default::default()
+                },
+                fabric: "woven-reference".into(),
+                replace: true,
+            },
+        )
+        .unwrap()
+        .template;
+        let mut reference = t.panels[0].clone();
+        reference.id = "reference".into();
+        reference.name = "Reference".into();
+        reference.layout_2d = Some(DVec2::new(-0.05, -0.05));
+        t.panels.push(reference);
+        t
+    }
+
+    #[test]
+    fn construction_moves_attached_handles_and_material_pin_with_the_corner() {
+        let mut t = fixture();
+        let poly = t.panels[0].polygon.as_mut().unwrap();
+        poly.curves
+            .insert("edge_1".into(), [DVec2::new(0.1, 0.), DVec2::new(0.3, 0.)]);
+        poly.curves
+            .insert("edge_4".into(), [DVec2::new(0., 0.2), DVec2::new(0., 0.1)]);
+        t.panels[0].pin_points.push(DVec2::ZERO);
+        let edit = authoring::apply(&t, command(&t, PointConstruction::Project)).unwrap();
+        let panel = &edit.template.panels[0];
+        let origin = authoring::layout(&edit.template, 0);
+        let poly = panel.polygon.as_ref().unwrap();
+        near(origin + poly.curves["edge_1"][0], DVec2::new(0.1, -0.05));
+        near(origin + poly.curves["edge_1"][1], DVec2::new(0.3, 0.));
+        near(origin + poly.curves["edge_4"][1], DVec2::new(0., 0.05));
+        near(origin + panel.pin_points[0], DVec2::new(0., -0.05));
+    }
+    fn target(t: &GarmentTemplate) -> ConstructionRef {
+        ConstructionRef {
+            panel: t.panels[0].id.clone(),
+            edge: "edge_1".into(),
+        }
+    }
+    fn reference() -> ConstructionRef {
+        ConstructionRef {
+            panel: "reference".into(),
+            edge: "edge_1".into(),
+        }
+    }
+    fn command(t: &GarmentTemplate, operation: PointConstruction) -> Command {
+        Command::ConstructPoint {
+            target: target(t),
+            reference: reference(),
+            operation,
+        }
+    }
+    fn board_point(t: &GarmentTemplate, p: usize, k: usize) -> DVec2 {
+        authoring::layout(t, p)
+            + authoring::rotate_2d(
+                t.panels[p].polygon.as_ref().unwrap().points[k],
+                t.panels[p].layout_rotation_degrees,
+            )
+    }
+    fn near(a: DVec2, b: DVec2) {
+        assert!(a.distance(b) < 1e-10, "{a:?} != {b:?}");
+    }
+
+    #[test]
+    fn numeric_constructions_apply_in_metres_and_preserve_unrelated_points() {
+        for (operation, expected) in [
+            (PointConstruction::Project, DVec2::new(0., -0.05)),
+            (PointConstruction::Distance(0.15), DVec2::new(0.1, -0.05)),
+            (
+                PointConstruction::Perpendicular(0.02),
+                DVec2::new(0., -0.03),
+            ),
+            (PointConstruction::Distance(-0.05), DVec2::new(-0.1, -0.05)),
+        ] {
+            let t = fixture();
+            near(
+                authoring::constructed_point(&t, &target(&t), &reference(), operation).unwrap(),
+                expected,
+            );
+            let edit = authoring::apply(&t, command(&t, operation)).unwrap();
+            near(board_point(&edit.template, 0, 0), expected);
+            for k in 1..4 {
+                near(board_point(&edit.template, 0, k), board_point(&t, 0, k));
+            }
+            for k in 0..4 {
+                near(board_point(&edit.template, 1, k), board_point(&t, 1, k));
+            }
+            assert_eq!(
+                edit.template.panels[0].polygon.as_ref().unwrap().edges,
+                t.panels[0].polygon.as_ref().unwrap().edges
+            );
+            assert!(edit.reset_simulation);
+        }
+    }
+
+    #[test]
+    fn board_rotations_and_translation_do_not_change_material_result() {
+        let baseline = fixture();
+        for angle in [0., 37., -91.] {
+            let mut t = baseline.clone();
+            for i in 0..t.panels.len() {
+                let origin = authoring::layout(&baseline, i);
+                t.panels[i].layout_2d =
+                    Some(authoring::rotate_2d(origin, angle) + DVec2::new(1.2, -0.7));
+                t.panels[i].layout_rotation_degrees = angle;
+            }
+            near(
+                authoring::constructed_point(
+                    &t,
+                    &target(&t),
+                    &reference(),
+                    PointConstruction::Distance(0.15),
+                )
+                .unwrap(),
+                DVec2::new(0.1, -0.05),
+            );
+            let edit =
+                authoring::apply(&t, command(&t, PointConstruction::Distance(0.15))).unwrap();
+            near(
+                board_point(&edit.template, 0, 0),
+                authoring::rotate_2d(DVec2::new(0.1, -0.05), angle) + DVec2::new(1.2, -0.7),
+            );
+        }
+        // A reference rotated independently of the target is still in board space.
+        let mut t = baseline;
+        t.panels[1].layout_rotation_degrees = 90.;
+        near(
+            authoring::constructed_point(&t, &target(&t), &reference(), PointConstruction::Project)
+                .unwrap(),
+            DVec2::new(-0.05, 0.),
+        );
+    }
+
+    #[test]
+    fn invalid_references_values_and_crossings_leave_document_unchanged() {
+        let t = fixture();
+        let before = serde_json::to_vec(&t).unwrap();
+        for op in [
+            PointConstruction::Distance(f64::NAN),
+            PointConstruction::Perpendicular(f64::INFINITY),
+            PointConstruction::Distance(1.),
+        ] {
+            assert!(authoring::apply(&t, command(&t, op)).is_err());
+            assert_eq!(serde_json::to_vec(&t).unwrap(), before);
+        }
+        let missing = ConstructionRef {
+            panel: "reference".into(),
+            edge: "deleted".into(),
+        };
+        assert!(
+            authoring::constructed_point(&t, &target(&t), &missing, PointConstruction::Project)
+                .is_err()
+        );
+        assert!(
+            authoring::constructed_point(&t, &missing, &reference(), PointConstruction::Project)
+                .is_err()
+        );
+        let mut curved = t.clone();
+        curved.panels[1].polygon.as_mut().unwrap().curves.insert(
+            "edge_1".into(),
+            [DVec2::new(0.1, -0.02), DVec2::new(0.3, -0.02)],
+        );
+        assert!(authoring::apply(&curved, command(&curved, PointConstruction::Project)).is_err());
+    }
+
+    #[test]
+    fn construction_is_one_reversible_edit_and_survives_reload() {
+        let t = fixture();
+        let edit =
+            authoring::apply(&t, command(&t, PointConstruction::Perpendicular(0.02))).unwrap();
+        let mut history = History::default();
+        history.record(t.clone());
+        let undo = history.restore(&edit.template, false).unwrap();
+        assert_eq!(
+            serde_json::to_vec(&undo.template).unwrap(),
+            serde_json::to_vec(&t).unwrap()
+        );
+        assert!(!history.can_undo());
+        let redo = history.restore(&undo.template, true).unwrap();
+        let read: GarmentTemplate =
+            serde_json::from_slice(&serde_json::to_vec(&redo.template).unwrap()).unwrap();
+        assert_eq!(
+            serde_json::to_vec(&read).unwrap(),
+            serde_json::to_vec(&edit.template).unwrap()
+        );
+        assert_eq!(read.compile().unwrap().mesh.uv, edit.garment.mesh.uv);
+    }
+
+    #[test]
+    fn widening_one_piece_does_not_shift_implicit_layouts() {
+        let mut t = fixture();
+        t.panels[0].layout_2d = None;
+        t.panels[1].layout_2d = None;
+        let before = authoring::layout(&t, 1);
+        let mut ref_edge = reference();
+        ref_edge.edge = "edge_4".into();
+        let edit = authoring::apply(
+            &t,
+            Command::ConstructPoint {
+                target: target(&t),
+                reference: ref_edge,
+                operation: PointConstruction::Perpendicular(-0.7),
+            },
+        )
+        .unwrap();
+        near(authoring::layout(&edit.template, 1), before);
+    }
+}

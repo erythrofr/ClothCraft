@@ -2,7 +2,7 @@
 use super::*;
 use glam::{DVec2, DVec3};
 use marvelous_cloth::{
-    authoring::{self, Command, Edit, History},
+    authoring::{self, Command, ConstructionRef, Edit, History, PointConstruction},
     garment::{meshing::MeshingSettings, seam::BoundaryRef, template::Placement},
 };
 
@@ -23,6 +23,7 @@ pub(super) enum Tool {
 }
 #[derive(Default)]
 pub(super) struct AuthoringUi {
+    pub construction: ConstructionDraft,
     pub sewing: super::sewing_ui::SewingDraft,
     pub radial: super::radial::Radial,
     pub selection: super::selection::Selection,
@@ -76,6 +77,149 @@ pub(super) fn millimetre_field(ui: &mut egui::Ui, value_mm: &mut f64) -> bool {
             .suffix(" mm"),
     )
     .changed()
+}
+
+pub(super) struct ConstructionDraft {
+    reference: Option<ConstructionRef>,
+    mode: usize,
+    value_mm: String,
+}
+impl Default for ConstructionDraft {
+    fn default() -> Self {
+        Self {
+            reference: None,
+            mode: 0,
+            value_mm: "50".into(),
+        }
+    }
+}
+struct ConstructionControls {
+    command: Option<Command>,
+    field: egui::Response,
+    apply: egui::Response,
+}
+/// A UI-only draft. Typing and choosing a reference never mutate a document.
+fn construction_controls(
+    ui: &mut egui::Ui,
+    draft: &mut ConstructionDraft,
+    template: &marvelous_cloth::garment::GarmentTemplate,
+    target: &ConstructionRef,
+) -> ConstructionControls {
+    let choices: Vec<_> = template
+        .panels
+        .iter()
+        .flat_map(|p| {
+            p.polygon.iter().flat_map(move |poly| {
+                poly.edges.iter().enumerate().filter_map(move |(i, e)| {
+                    if poly.curves.contains_key(e) {
+                        return None;
+                    }
+                    Some((
+                        ConstructionRef {
+                            panel: p.id.clone(),
+                            edge: e.clone(),
+                        },
+                        format!(
+                            "{} / {} · {} → {}",
+                            p.name,
+                            e,
+                            i + 1,
+                            (i + 1) % poly.points.len() + 1
+                        ),
+                    ))
+                })
+            })
+        })
+        .collect();
+    if draft.reference.is_none() {
+        draft.reference = choices.first().map(|(r, _)| r.clone());
+    }
+    let label = choices
+        .iter()
+        .find(|(r, _)| Some(r) == draft.reference.as_ref())
+        .map(|(_, s)| s.as_str())
+        .unwrap_or("Choose a straight edge");
+    ui.label("Reference edge · start → end");
+    egui::ComboBox::from_id_salt("construction-reference")
+        .selected_text(label)
+        .width(220.)
+        .show_ui(ui, |ui| {
+            for (reference, label) in choices {
+                ui.selectable_value(&mut draft.reference, Some(reference), label);
+            }
+        });
+    ui.horizontal_wrapped(|ui| {
+        for (i, label) in ["Project", "Distance", "Perpendicular"].iter().enumerate() {
+            ui.selectable_value(&mut draft.mode, i, *label);
+        }
+    });
+    let field = ui
+        .horizontal(|ui| {
+            let response = ui.add_enabled(
+                draft.mode != 0,
+                egui::TextEdit::singleline(&mut draft.value_mm).desired_width(90.),
+            );
+            ui.label("mm");
+            response
+        })
+        .inner;
+    ui.small(match draft.mode {
+        0 => "Project onto the infinite line; endpoints do not clamp it.",
+        1 => "Signed distance from the reference start toward its end.",
+        _ => "Offset from the projection; + follows a 90° turn in board coordinates.",
+    });
+    let operation = if draft.mode == 0 {
+        Ok(PointConstruction::Project)
+    } else {
+        draft
+            .value_mm
+            .trim()
+            .parse::<f64>()
+            .ok()
+            .filter(|v| v.is_finite())
+            .map(|v| {
+                if draft.mode == 1 {
+                    PointConstruction::Distance(authoring::mm_to_m(v))
+                } else {
+                    PointConstruction::Perpendicular(authoring::mm_to_m(v))
+                }
+            })
+            .ok_or_else(|| "Enter a finite signed distance in mm".to_owned())
+    };
+    let preview = operation.clone().and_then(|operation| {
+        let reference = draft
+            .reference
+            .as_ref()
+            .ok_or("Choose a straight reference edge")?;
+        authoring::constructed_point(template, target, reference, operation)
+    });
+    match &preview {
+        Ok(p) => {
+            ui.small(format!(
+                "Local result: X {:.2} mm · Y {:.2} mm",
+                p.x * 1000.,
+                p.y * 1000.
+            ));
+        }
+        Err(error) => {
+            ui.colored_label(Color32::GOLD, error);
+        }
+    }
+    let apply = ui.add_enabled(preview.is_ok(), egui::Button::new("Apply construction"));
+    let command = if apply.clicked() {
+        Some(Command::ConstructPoint {
+            target: target.clone(),
+            reference: draft.reference.clone().unwrap(),
+            operation: operation.unwrap(),
+        })
+    } else {
+        None
+    };
+    ConstructionControls {
+        command,
+        field,
+        apply,
+    }
 }
 
 impl Atelier {
@@ -761,6 +905,25 @@ impl Atelier {
                 self.target_length_properties(ui, &panel, polygon);
             }
         });
+        if self.authoring.tool == Tool::Edit
+            && let Some((_, k)) = self
+                .authoring
+                .anchor
+                .as_ref()
+                .filter(|(id, _)| id == &panel.id)
+            && let Some(edge) = panel.polygon.as_ref().and_then(|poly| poly.edges.get(*k))
+        {
+            let target = ConstructionRef {
+                panel: panel.id.clone(),
+                edge: edge.clone(),
+            };
+            egui::CollapsingHeader::new(format!("Point {} · Construction", k+1)).default_open(true).show(ui, |ui| {
+                let controls = construction_controls(ui, &mut self.authoring.construction, &self.project.template, &target);
+                controls.field.on_hover_text("Signed millimetres; typing does not change the pattern");
+                controls.apply.on_hover_text("Move this point only; invalid contours and incompatible seams are rejected");
+                if let Some(command) = controls.command { self.edit(command); }
+            });
+        }
         self.drafting_properties(ui, &panel);
         ui.horizontal(|ui| {
             let duplicate = ui.button("Duplicate");
@@ -918,5 +1081,144 @@ impl Atelier {
         }
         self.authoring.tool = Tool::Grab;
         true
+    }
+}
+
+#[cfg(test)]
+mod construction_tests {
+    use super::*;
+    fn template() -> marvelous_cloth::garment::GarmentTemplate {
+        use marvelous_cloth::garment::presets::{self, GarmentKind};
+        authoring::apply(
+            &presets::basic(GarmentKind::Tshirt, 0),
+            Command::Polygon {
+                points: vec![
+                    DVec2::ZERO,
+                    DVec2::new(0.4, 0.),
+                    DVec2::new(0.4, 0.3),
+                    DVec2::new(0., 0.3),
+                ],
+                tangents: vec![],
+                meshing: MeshingSettings {
+                    target_edge_m: 0.1,
+                    ..Default::default()
+                },
+                fabric: "woven-reference".into(),
+                replace: true,
+            },
+        )
+        .unwrap()
+        .template
+    }
+    fn frame(
+        ctx: &egui::Context,
+        draft: &mut ConstructionDraft,
+        t: &marvelous_cloth::garment::GarmentTemplate,
+        events: Vec<egui::Event>,
+    ) -> (ConstructionControls, Vec<String>) {
+        let target = ConstructionRef {
+            panel: t.panels[0].id.clone(),
+            edge: "edge_4".into(),
+        };
+        let mut controls = None;
+        let mut output = ctx.run_ui(
+            egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    Vec2::new(400., 500.),
+                )),
+                events,
+                ..Default::default()
+            },
+            |ui| {
+                egui::CentralPanel::default().show(ui, |ui| {
+                    controls = Some(construction_controls(ui, draft, t, &target));
+                });
+            },
+        );
+        let labels = output
+            .shapes
+            .iter()
+            .filter_map(|s| {
+                if let egui::Shape::Text(text) = &s.shape {
+                    Some(text.galley.job.text.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        output.textures_delta.clear(); // This CPU input test has no texture backend.
+        (controls.unwrap(), labels)
+    }
+    fn button(pos: egui::Pos2, pressed: bool) -> egui::Event {
+        egui::Event::PointerButton {
+            pos,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::NONE,
+        }
+    }
+    #[test]
+    fn construction_controls_show_units_and_dispatch_only_on_apply() {
+        let t = template();
+        let before = serde_json::to_vec(&t).unwrap();
+        let ctx = egui::Context::default();
+        let mut draft = ConstructionDraft {
+            mode: 1,
+            ..Default::default()
+        };
+        let (initial, labels) = frame(&ctx, &mut draft, &t, vec![]);
+        assert!(initial.command.is_none());
+        assert!(labels.iter().any(|s| s == "mm"));
+        let at = initial.apply.rect.center();
+        assert!(
+            frame(
+                &ctx,
+                &mut draft,
+                &t,
+                vec![egui::Event::PointerMoved(at), button(at, true)]
+            )
+            .0
+            .command
+            .is_none()
+        );
+        let command = frame(&ctx, &mut draft, &t, vec![button(at, false)])
+            .0
+            .command
+            .unwrap();
+        assert!(
+            matches!(command,Command::ConstructPoint {operation:PointConstruction::Distance(d),..} if d==0.05)
+        );
+        assert_eq!(serde_json::to_vec(&t).unwrap(), before);
+        draft.value_mm = "NaN".into();
+        let (invalid, _) = frame(&ctx, &mut draft, &t, vec![]);
+        assert!(!invalid.apply.enabled());
+        assert!(invalid.command.is_none());
+    }
+    #[test]
+    fn construction_text_entry_owns_keyboard_and_does_not_apply() {
+        let t = template();
+        let ctx = egui::Context::default();
+        let mut draft = ConstructionDraft {
+            mode: 1,
+            ..Default::default()
+        };
+        let (initial, _) = frame(&ctx, &mut draft, &t, vec![]);
+        let at = initial.field.rect.center();
+        frame(
+            &ctx,
+            &mut draft,
+            &t,
+            vec![egui::Event::PointerMoved(at), button(at, true)],
+        );
+        frame(&ctx, &mut draft, &t, vec![button(at, false)]);
+        assert!(
+            ctx.egui_wants_keyboard_input(),
+            "Global editor shortcuts must yield to this field"
+        );
+        let (typed, _) = frame(&ctx, &mut draft, &t, vec![egui::Event::Text("g".into())]);
+        assert!(draft.value_mm.contains('g'));
+        assert!(typed.command.is_none());
+        assert!(!typed.apply.enabled());
     }
 }

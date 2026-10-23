@@ -17,7 +17,28 @@ mod geometry;
 mod linked;
 use crate::garment::shapes::{BooleanOp, MirrorAxis, Primitive};
 
+/// A contour corner is the start of a named outgoing boundary, never a mesh index.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ConstructionRef {
+    pub panel: String,
+    pub edge: String,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum PointConstruction {
+    Project,
+    /// Signed distance from the reference boundary's start along its infinite line.
+    Distance(f64),
+    /// Signed offset from the projected point, toward +90 degrees in board (u,v).
+    Perpendicular(f64),
+}
+
 pub enum Command {
+    ConstructPoint {
+        target: ConstructionRef,
+        reference: ConstructionRef,
+        operation: PointConstruction,
+    },
     /// Add a fitted contour without changing existing boundary identities.
     Freehand {
         samples: Vec<DVec2>,
@@ -573,12 +594,104 @@ pub fn freehand_contour(
     Ok(polygon)
 }
 
+fn construction_corner<'a>(
+    template: &'a GarmentTemplate,
+    reference: &ConstructionRef,
+) -> Result<(usize, usize, &'a PolygonPattern), String> {
+    let panel = template
+        .panels
+        .iter()
+        .position(|p| p.id == reference.panel)
+        .ok_or("Construction panel no longer exists")?;
+    let polygon = template.panels[panel]
+        .polygon
+        .as_ref()
+        .ok_or("Construction requires an editable contour")?;
+    let point = polygon
+        .edges
+        .iter()
+        .position(|e| e == &reference.edge)
+        .ok_or("Construction boundary no longer exists")?;
+    polygon
+        .points
+        .get(point)
+        .ok_or("Invalid construction corner")?;
+    Ok((panel, point, polygon))
+}
+
+/// Preview in the target's local material frame. Board layout is used only to
+/// relate two flat pieces; no 3D position or simulation state enters this operation.
+pub fn constructed_point(
+    template: &GarmentTemplate,
+    target: &ConstructionRef,
+    reference: &ConstructionRef,
+    operation: PointConstruction,
+) -> Result<DVec2, String> {
+    use constructions::Line;
+    let (ti, tk, target_poly) = construction_corner(template, target)?;
+    let (ri, rk, reference_poly) = construction_corner(template, reference)?;
+    if reference_poly.curves.contains_key(&reference.edge) {
+        return Err(
+            "Choose a straight reference edge; curved boundaries are not treated as lines".into(),
+        );
+    }
+    let on_board = |i: usize, p| {
+        layout(template, i) + rotate_2d(p, template.panels[i].layout_rotation_degrees)
+    };
+    let a = on_board(ri, reference_poly.points[rk]);
+    let b = on_board(
+        ri,
+        reference_poly.points[(rk + 1) % reference_poly.points.len()],
+    );
+    let point = on_board(ti, target_poly.points[tk]);
+    let line = Line::through(a, b).map_err(|e| e.to_string())?;
+    let result = match operation {
+        PointConstruction::Project => line.project(point),
+        PointConstruction::Distance(distance) => line.point_at_distance_m(distance),
+        PointConstruction::Perpendicular(offset) => {
+            let direction = Line::through(DVec2::ZERO, b - a)
+                .map_err(|e| e.to_string())?
+                .point_at_distance_m(1.)
+                .map_err(|e| e.to_string())?;
+            let foot = line.project(point).map_err(|e| e.to_string())?;
+            Line::through(DVec2::ZERO, DVec2::new(-direction.y, direction.x))
+                .and_then(|normal| normal.point_at_distance_m(offset))
+                .map(|delta| foot + delta)
+        }
+    }
+    .map_err(|e| e.to_string())?;
+    let local = rotate_2d(
+        result - layout(template, ti),
+        -template.panels[ti].layout_rotation_degrees,
+    );
+    if !local.is_finite() {
+        return Err("Construction result must be finite".into());
+    }
+    Ok(local)
+}
+
 pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String> {
     linked::check_command(source, &command)?;
     let mut template = source.clone();
     let mut selected = None;
     let mut new_point = None;
     match command {
+        Command::ConstructPoint {
+            target,
+            reference,
+            operation,
+        } => {
+            let position = constructed_point(source, &target, &reference, operation)?;
+            let (index, anchor, _) = construction_corner(source, &target)?;
+            // Freeze fallback layouts before changing any width, so unrelated
+            // pieces do not shift and the reference remains where it was chosen.
+            for (i, panel) in template.panels.iter_mut().enumerate() {
+                panel.layout_2d = Some(layout(source, i));
+            }
+            remap_anchors(&mut template.panels[index], &[anchor], |_| position)?;
+            normalize(&mut template.panels[index]);
+            selected = Some(target.panel);
+        }
         Command::Freehand {
             samples,
             tolerance_m,
