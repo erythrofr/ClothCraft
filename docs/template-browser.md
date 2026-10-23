@@ -9,11 +9,12 @@ manufacturing patterns. The T-shirt and dress were drafted for the bundled
 
 Selecting a template shows its flat contours, panel/seam counts, metre units,
 source and license. Curves are sampled using the existing contour tolerance;
-The metadata and preview scroll independently of the action row, including in
-small windows; the confirmation controls remain reachable at 480 × 360.
 holes and internal lines are included. The preview uses the authored 2D layout,
 not the draped mesh. Bundled data is embedded in the executable and requires no
 network connection. No third-party pattern catalog is downloaded.
+
+The metadata and preview scroll independently of the action row, including in
+small windows; the confirmation controls remain reachable at 480 × 360.
 
 **Import template JSON…** accepts a local native GarmentTemplate v1/v2 document,
 up to 8 MiB. It does not accept an arbitrary interchange format or a complete
