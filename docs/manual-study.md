@@ -1,5 +1,22 @@
 # Public-manual behavior ledger
 
+## Feature-map reconciliation (2026-10-23)
+
+The [native feature map](feature-map.md) reconciles FireflyTheReal's PR #5
+(`74cd0157de5aa51e90172f59fd79dc01e05b25f5`) with main at `e569ac1` and the
+canonical EXO task catalog. It corrects historical missing-feature claims
+for saved simulation state, periodic recovery, linked mirrors, pane resizing
+and the board ruler. Pending PRs remain separate from merged capabilities.
+
+Actually re-read: the visible category index at
+<https://www.marvelousdesigner.com/manuals>. This establishes category names,
+not detailed behavior or implementation internals. The CLO product URL
+<https://www.clo3d.com/en/product/clo> returned a JavaScript/bot verification
+shell; <https://support.clo3d.com/hc/en-us/categories/115000064648> could not be
+fetched. PR #5's reported release-JSON readings were not repeated and remain
+attributed to that contribution. No new detailed CLO behavior is asserted.
+The existing dated article records below retain their original reading scope.
+
 ## Essential-tool review (2026-10-15)
 
 The [essential-authoring-tool report](essential-authoring-tools.md) records the newly consulted official CLO/Marvelous sources, a current code audit, a prioritized minimum toolkit and acceptance cases. This extends the older backlog with organization/visibility, explicit simulation states, measurement/grain editing and Cut / Cut & Sew; it distinguishes 3D authoring from manufacturing requirements. No implementation or GPU validation was performed during this research pass. Tool priorities are our recommendation, not a ranking supplied by the manuals.
