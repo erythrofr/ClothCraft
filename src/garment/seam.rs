@@ -1,5 +1,6 @@
 //! Rest-arclength line-penalty coupling for nonmatching boundary meshes.
 //! Two-point Gauss integration on the common partition is exact for linear edges.
+pub mod audit;
 use crate::{energy::Element, model::Mesh};
 use glam::DVec3;
 use serde::{Deserialize, Serialize};

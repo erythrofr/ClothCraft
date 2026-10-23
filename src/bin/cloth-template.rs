@@ -32,6 +32,13 @@ enum Command {
     Metrics {
         template: PathBuf,
     },
+    /// Diagnose authored sewing without running simulation. Invalid sewing exits nonzero after JSON output.
+    AuditSewing {
+        template: PathBuf,
+        /// Read the template embedded in a fitting-project v1 JSON; ignore avatar and draped state.
+        #[arg(long)]
+        project: bool,
+    },
     /// Produce rest OBJ, annotated 2D SVG and continuum fiber frames.
     Bake {
         template: PathBuf,
@@ -72,6 +79,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let template = GarmentTemplate::load(&template)?;
             let report = production_metrics::report(&template)?;
             println!("{}", serde_json::to_string_pretty(&report)?);
+        }
+        Command::AuditSewing { template, project } => {
+            // The regular loader compiles first and would hide all but the first
+            // sewing error. Geometry validation remains inside the audit.
+            let json = fs::read_to_string(template)?;
+            let template: GarmentTemplate = if project {
+                let project: marvelous_cloth::fitting::FittingProject =
+                    serde_json::from_str(&json)?;
+                if project.version != 1 {
+                    return Err("Unsupported fitting project version".into());
+                }
+                project.template
+            } else {
+                serde_json::from_str(&json)?
+            };
+            let report = marvelous_cloth::garment::seam::audit::report(&template)?;
+            println!("{}", serde_json::to_string_pretty(&report)?);
+            if !report.valid {
+                return Err("Invalid authored sewing; inspect the JSON diagnostics".into());
+            }
         }
         Command::Bake { template, output } => {
             let t = GarmentTemplate::load(&template)?;
