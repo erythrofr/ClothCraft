@@ -494,7 +494,9 @@ pub fn load(path: &Path, scene: Option<usize>, limits: Limits) -> Result<Importe
     let bytes = read_bounded(path, limits.document_bytes)?;
     import(
         &bytes,
-        path.parent().unwrap_or(Path::new(".")),
+        path.parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .unwrap_or(Path::new(".")),
         scene,
         limits,
     )

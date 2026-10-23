@@ -290,3 +290,26 @@ fn skinning_attributes_and_overflowing_geometry_are_rejected() {
     doc["nodes"][0]["scale"] = json!([1e150, 1e150, 1e-150]);
     assert!(parse(&doc, &bin).is_err());
 }
+
+#[test]
+fn bare_filename_resolves_buffers_in_current_directory() {
+    use std::io::Write;
+    // Unique temporary files avoid changing the process working directory and
+    // do not interfere with other tests running in parallel.
+    let mut buffer = tempfile::NamedTempFile::new_in(".").unwrap();
+    let mut document = tempfile::NamedTempFile::new_in(".").unwrap();
+    let (mut doc, bin) = fixture();
+    buffer.write_all(&bin).unwrap();
+    doc["buffers"][0]["uri"] = json!(buffer.path().file_name().unwrap().to_str().unwrap());
+    document
+        .write_all(&serde_json::to_vec(&doc).unwrap())
+        .unwrap();
+    let filename = Path::new(document.path().file_name().unwrap());
+    assert_eq!(
+        load(filename, None, Limits::default())
+            .unwrap()
+            .mesh
+            .triangles,
+        vec![[0, 1, 2]]
+    );
+}
