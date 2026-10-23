@@ -24,13 +24,15 @@ pub struct ConstructionRef {
     pub edge: String,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum PointConstruction {
     Project,
     /// Signed distance from the reference boundary's start along its infinite line.
     Distance(f64),
     /// Signed offset from the projected point, toward +90 degrees in board (u,v).
     Perpendicular(f64),
+    /// Intersection with a second straight boundary, resolved in board space.
+    Intersection(ConstructionRef),
 }
 
 pub enum Command {
@@ -646,6 +648,15 @@ pub fn constructed_point(
     let point = on_board(ti, target_poly.points[tk]);
     let line = Line::through(a, b).map_err(|e| e.to_string())?;
     let result = match operation {
+        PointConstruction::Intersection(second) => {
+            let (si, sk, poly) = construction_corner(template, &second)?;
+            if poly.curves.contains_key(&second.edge) {
+                return Err("Choose a straight second reference edge".into());
+            }
+            let c = on_board(si, poly.points[sk]);
+            let d = on_board(si, poly.points[(sk + 1) % poly.points.len()]);
+            Line::through(c, d).and_then(|other| line.intersection(other))
+        }
         PointConstruction::Project => line.project(point),
         PointConstruction::Distance(distance) => line.point_at_distance_m(distance),
         PointConstruction::Perpendicular(offset) => {

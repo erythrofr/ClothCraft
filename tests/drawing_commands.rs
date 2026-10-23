@@ -1254,7 +1254,8 @@ mod numeric_construction_tests {
         ] {
             let t = fixture();
             near(
-                authoring::constructed_point(&t, &target(&t), &reference(), operation).unwrap(),
+                authoring::constructed_point(&t, &target(&t), &reference(), operation.clone())
+                    .unwrap(),
                 expected,
             );
             let edit = authoring::apply(&t, command(&t, operation)).unwrap();
@@ -1384,5 +1385,120 @@ mod numeric_construction_tests {
         )
         .unwrap();
         near(authoring::layout(&edit.template, 1), before);
+    }
+    #[test]
+    fn intersection_uses_infinite_lines_and_is_rigid_frame_invariant() {
+        let baseline = fixture();
+        let second = ConstructionRef {
+            edge: "edge_4".into(),
+            ..reference()
+        };
+        for angle in [0., 37., -91.] {
+            let mut t = baseline.clone();
+            for i in 0..t.panels.len() {
+                t.panels[i].layout_2d = Some(
+                    authoring::rotate_2d(authoring::layout(&baseline, i), angle)
+                        + DVec2::new(1.2, -0.7),
+                );
+                t.panels[i].layout_rotation_degrees = angle;
+            }
+            let op = PointConstruction::Intersection(second.clone());
+            near(
+                authoring::constructed_point(&t, &target(&t), &reference(), op.clone()).unwrap(),
+                DVec2::splat(-0.05),
+            );
+            let edit = authoring::apply(&t, command(&t, op)).unwrap();
+            near(
+                board_point(&edit.template, 0, 0),
+                authoring::rotate_2d(DVec2::splat(-0.05), angle) + DVec2::new(1.2, -0.7),
+            );
+            for k in 1..4 {
+                near(board_point(&edit.template, 0, k), board_point(&t, 0, k));
+            }
+            for k in 0..4 {
+                near(board_point(&edit.template, 1, k), board_point(&t, 1, k));
+            }
+            let mut history = History::default();
+            history.record(t.clone());
+            let undo = history.restore(&edit.template, false).unwrap();
+            assert_eq!(
+                serde_json::to_value(&undo.template).unwrap(),
+                serde_json::to_value(&t).unwrap()
+            );
+            assert!(!history.can_undo());
+            let redo = history.restore(&undo.template, true).unwrap();
+            let read: GarmentTemplate =
+                serde_json::from_slice(&serde_json::to_vec(&redo.template).unwrap()).unwrap();
+            assert_eq!(read.compile().unwrap().mesh.uv, edit.garment.mesh.uv);
+        }
+        // Independent panel rotation and an intersection beyond both endpoints.
+        let mut t = baseline;
+        let mut other = t.panels[1].clone();
+        other.id = "other".into();
+        other.layout_2d = Some(DVec2::new(-0.1, 0.1));
+        other.layout_rotation_degrees = 90.;
+        t.panels.push(other);
+        let op = PointConstruction::Intersection(ConstructionRef {
+            panel: "other".into(),
+            edge: "edge_1".into(),
+        });
+        near(
+            authoring::constructed_point(&t, &target(&t), &reference(), op.clone()).unwrap(),
+            DVec2::new(-0.1, -0.05),
+        );
+        authoring::apply(&t, command(&t, op)).unwrap();
+    }
+
+    #[test]
+    fn intersection_rejects_invalid_second_edges_and_invalid_resulting_contours() {
+        let baseline = fixture();
+        for case in 0..7 {
+            let mut t = baseline.clone();
+            let mut second = ConstructionRef {
+                edge: "edge_4".into(),
+                ..reference()
+            };
+            match case {
+                0 => second.edge = "edge_3".into(), // parallel
+                1 => second.edge = "edge_1".into(), // coincident
+                2 => second.edge = "deleted".into(),
+                3 => second.panel = "deleted".into(),
+                4 => {
+                    t.panels[1]
+                        .polygon
+                        .as_mut()
+                        .unwrap()
+                        .curves
+                        .insert("edge_4".into(), [DVec2::ZERO, DVec2::ONE]);
+                }
+                5 => {
+                    t.panels[1].polygon.as_mut().unwrap().points[3] = DVec2::ZERO;
+                }
+                _ => t.panels[1].layout_2d = Some(DVec2::splat(f64::INFINITY)),
+            }
+            let before = t.clone();
+            assert!(
+                authoring::apply(&t, command(&t, PointConstruction::Intersection(second))).is_err(),
+                "case {case}"
+            );
+            assert_eq!(
+                serde_json::to_value(&t.panels[0].polygon).unwrap(),
+                serde_json::to_value(&before.panels[0].polygon).unwrap()
+            );
+        }
+        let mut t = baseline;
+        t.panels[1].layout_2d = Some(DVec2::new(0.4, 0.));
+        let op = PointConstruction::Intersection(ConstructionRef {
+            edge: "edge_4".into(),
+            ..reference()
+        });
+        // A finite intersection can still collapse the target's first edge.
+        near(
+            authoring::constructed_point(&t, &target(&t), &reference(), op.clone()).unwrap(),
+            DVec2::new(0.4, 0.),
+        );
+        let before = serde_json::to_vec(&t).unwrap();
+        assert!(authoring::apply(&t, command(&t, op)).is_err());
+        assert_eq!(serde_json::to_vec(&t).unwrap(), before);
     }
 }

@@ -82,6 +82,7 @@ pub(super) fn millimetre_field(ui: &mut egui::Ui, value_mm: &mut f64) -> bool {
 
 pub(super) struct ConstructionDraft {
     reference: Option<ConstructionRef>,
+    second_reference: Option<ConstructionRef>,
     mode: usize,
     value_mm: String,
 }
@@ -89,6 +90,7 @@ impl Default for ConstructionDraft {
     fn default() -> Self {
         Self {
             reference: None,
+            second_reference: None,
             mode: 0,
             value_mm: "50".into(),
         }
@@ -129,9 +131,10 @@ fn construction_preview_points(
     points.iter().all(|p| p.is_finite()).then_some(points)
 }
 
-fn paint_construction_preview(ui: &mut egui::Ui, points: [DVec2; 4]) {
-    let min = points.iter().copied().fold(points[0], DVec2::min);
-    let max = points.iter().copied().fold(points[0], DVec2::max);
+fn paint_construction_preview(ui: &mut egui::Ui, points: [DVec2; 4], second: Option<[DVec2; 2]>) {
+    let all = points.iter().chain(second.iter().flatten());
+    let min = all.clone().copied().fold(points[0], DVec2::min);
+    let max = all.copied().fold(points[0], DVec2::max);
     let span = max - min;
     if !span.is_finite() {
         return;
@@ -153,16 +156,74 @@ fn paint_construction_preview(ui: &mut egui::Ui, points: [DVec2; 4]) {
     let reference = Color32::from_rgb(110, 180, 240);
     let result = Color32::from_rgb(110, 220, 160);
     painter.arrow(a, b - a, egui::Stroke::new(2., reference));
+    if let Some(second) = second {
+        let [c, d] = second.map(screen);
+        let color = Color32::from_rgb(215, 150, 240);
+        painter.line_segment([a, proposed], egui::Stroke::new(1., reference));
+        painter.line_segment([c, proposed], egui::Stroke::new(1., color));
+        painter.arrow(c, d - c, egui::Stroke::new(2., color));
+    }
     painter.line_segment([current, proposed], egui::Stroke::new(1., Color32::GRAY));
     painter.circle_stroke(current, 5., egui::Stroke::new(2., Color32::GOLD));
     painter.circle_filled(proposed, 3., result);
     ui.horizontal_wrapped(|ui| {
-        ui.colored_label(reference, "→ Reference");
+        ui.colored_label(
+            reference,
+            if second.is_some() {
+                "→ Reference A"
+            } else {
+                "→ Reference"
+            },
+        );
+        if second.is_some() {
+            ui.colored_label(Color32::from_rgb(215, 150, 240), "→ Reference B");
+        }
         ui.colored_label(Color32::GOLD, "○ Current");
         ui.colored_label(result, "● Proposed");
     });
     ui.small("Auto-scaled board view · Apply still validates the contour and seams.");
 }
+fn construction_reference_selector(
+    ui: &mut egui::Ui,
+    slot: &str,
+    label: &str,
+    selected: &mut Option<ConstructionRef>,
+    choices: &[(ConstructionRef, String)],
+) {
+    ui.label(label);
+    let text = choices
+        .iter()
+        .find(|(r, _)| Some(r) == selected.as_ref())
+        .map(|(_, label)| label.as_str())
+        .unwrap_or("Choose a straight edge");
+    let _combo = egui::ComboBox::from_id_salt(("construction-reference", slot))
+        .selected_text(text)
+        .width(220.)
+        .show_ui(ui, |ui| {
+            for (reference, label) in choices {
+                let _response = ui.selectable_value(selected, Some(reference.clone()), label);
+                if _response.clicked() {
+                    ui.close();
+                }
+                #[cfg(test)]
+                super::authoring_smoke::widget_harness::named(
+                    ui,
+                    &_response,
+                    format!(
+                        "construction.reference.{slot}.{}.{}",
+                        reference.panel, reference.edge
+                    ),
+                );
+            }
+        });
+    #[cfg(test)]
+    super::authoring_smoke::widget_harness::named(
+        ui,
+        &_combo.response,
+        format!("construction.reference.{slot}"),
+    );
+}
+
 /// A UI-only draft. Typing and choosing a reference never mutate a document.
 fn construction_controls(
     ui: &mut egui::Ui,
@@ -199,22 +260,18 @@ fn construction_controls(
     if draft.reference.is_none() {
         draft.reference = choices.first().map(|(r, _)| r.clone());
     }
-    let label = choices
-        .iter()
-        .find(|(r, _)| Some(r) == draft.reference.as_ref())
-        .map(|(_, s)| s.as_str())
-        .unwrap_or("Choose a straight edge");
-    ui.label("Reference edge · start → end");
-    egui::ComboBox::from_id_salt("construction-reference")
-        .selected_text(label)
-        .width(220.)
-        .show_ui(ui, |ui| {
-            for (reference, label) in choices {
-                ui.selectable_value(&mut draft.reference, Some(reference), label);
-            }
-        });
+    construction_reference_selector(
+        ui,
+        "a",
+        "Reference A · start → end",
+        &mut draft.reference,
+        &choices,
+    );
     ui.horizontal_wrapped(|ui| {
-        for (i, label) in ["Project", "Distance", "Perpendicular"].iter().enumerate() {
+        for (i, label) in ["Project", "Distance", "Perpendicular", "Intersection"]
+            .iter()
+            .enumerate()
+        {
             let _response = ui.selectable_value(&mut draft.mode, i, *label);
             #[cfg(test)]
             super::authoring_smoke::widget_harness::named(
@@ -224,10 +281,19 @@ fn construction_controls(
             );
         }
     });
+    if draft.mode == 3 {
+        construction_reference_selector(
+            ui,
+            "b",
+            "Reference B · start → end",
+            &mut draft.second_reference,
+            &choices,
+        );
+    }
     let field = ui
         .horizontal(|ui| {
             let response = ui.add_enabled(
-                draft.mode != 0,
+                matches!(draft.mode, 1 | 2),
                 egui::TextEdit::singleline(&mut draft.value_mm).desired_width(90.),
             );
             ui.label("mm");
@@ -239,10 +305,17 @@ fn construction_controls(
     ui.small(match draft.mode {
         0 => "Project onto the infinite line; endpoints do not clamp it.",
         1 => "Signed distance from the reference start toward its end.",
+        3 => "Intersection of two infinite straight lines; not clamped to edge endpoints.",
         _ => "Offset from the projection; + follows a 90° turn in board coordinates.",
     });
     let operation = if draft.mode == 0 {
         Ok(PointConstruction::Project)
+    } else if draft.mode == 3 {
+        draft
+            .second_reference
+            .clone()
+            .map(PointConstruction::Intersection)
+            .ok_or_else(|| "Choose a straight second reference edge".to_owned())
     } else {
         draft
             .value_mm
@@ -278,7 +351,14 @@ fn construction_controls(
                 .as_ref()
                 .and_then(|reference| construction_preview_points(template, target, reference, *p))
             {
-                paint_construction_preview(ui, points);
+                let second = (draft.mode == 3)
+                    .then_some(draft.second_reference.as_ref())
+                    .flatten()
+                    .and_then(|reference| {
+                        construction_preview_points(template, target, reference, *p)
+                    })
+                    .map(|p| [p[0], p[1]]);
+                paint_construction_preview(ui, points, second);
             }
         }
         Err(error) => {
@@ -1172,6 +1252,152 @@ mod construction_tests {
     use super::*;
 
     #[test]
+    fn named_widgets_intersection_selects_edges_rejects_stale_and_applies_once() {
+        use super::super::authoring_smoke::widget_harness::Harness;
+        struct Case {
+            template: marvelous_cloth::garment::GarmentTemplate,
+            target: ConstructionRef,
+            draft: ConstructionDraft,
+            history: History,
+            applies: usize,
+            error: Option<String>,
+        }
+        let mut template = template();
+        let mut reference = template.panels[0].clone();
+        reference.id = "reference".into();
+        reference.name = "Reference".into();
+        reference.layout_2d = Some(DVec2::splat(-0.05));
+        template.panels.push(reference);
+        let target = ConstructionRef {
+            panel: template.panels[0].id.clone(),
+            edge: "edge_1".into(),
+        };
+        let before = serde_json::to_vec(&template).unwrap();
+        let mut c = Case {
+            template,
+            target,
+            draft: Default::default(),
+            history: Default::default(),
+            applies: 0,
+            error: None,
+        };
+        let mut draw = |ui: &mut egui::Ui, c: &mut Case| {
+            if let Some(command) =
+                construction_controls(ui, &mut c.draft, &c.template, &c.target).command
+            {
+                match authoring::apply(&c.template, command) {
+                    Ok(edit) => {
+                        c.history.record(c.template.clone());
+                        c.template = edit.template;
+                        c.applies += 1;
+                        c.error = None;
+                    }
+                    Err(e) => c.error = Some(e),
+                }
+            }
+        };
+        let mut h = Harness::new(egui::vec2(650., 800.));
+        h.frame(&mut c, &mut draw);
+        h.click("construction.mode.3", &mut c, &mut draw).unwrap();
+        assert!(
+            h.click("construction.apply", &mut c, &mut draw)
+                .unwrap_err()
+                .contains("disabled")
+        );
+        h.click("construction.reference.a", &mut c, &mut draw)
+            .unwrap();
+        h.frame(&mut c, &mut draw);
+        h.click(
+            "construction.reference.a.reference.edge_1",
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        h.frame(&mut c, &mut draw);
+        h.click("construction.reference.b", &mut c, &mut draw)
+            .unwrap();
+        h.frame(&mut c, &mut draw);
+        h.click(
+            "construction.reference.b.reference.edge_3",
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert!(
+            h.click("construction.apply", &mut c, &mut draw)
+                .unwrap_err()
+                .contains("disabled")
+        );
+        h.frame(&mut c, &mut draw);
+        h.click("construction.reference.b", &mut c, &mut draw)
+            .unwrap();
+        h.frame(&mut c, &mut draw);
+        h.click(
+            "construction.reference.b.reference.edge_4",
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert_eq!(serde_json::to_vec(&c.template).unwrap(), before);
+        assert!(!c.history.can_undo());
+        // External edits can invalidate either stable reference. No silent replacement.
+        let reference = c.template.panels.pop().unwrap();
+        h.frame(&mut c, &mut draw);
+        assert!(
+            h.click("construction.apply", &mut c, &mut draw)
+                .unwrap_err()
+                .contains("disabled")
+        );
+        assert_eq!(
+            c.draft.second_reference.as_ref().unwrap().panel,
+            "reference"
+        );
+        c.template.panels.push(reference);
+        c.template.panels[1]
+            .polygon
+            .as_mut()
+            .unwrap()
+            .curves
+            .insert("edge_4".into(), [DVec2::ZERO, DVec2::ONE]);
+        h.frame(&mut c, &mut draw);
+        assert!(
+            h.click("construction.apply", &mut c, &mut draw)
+                .unwrap_err()
+                .contains("disabled")
+        );
+        c.template.panels[1]
+            .polygon
+            .as_mut()
+            .unwrap()
+            .curves
+            .clear();
+        // A finite preview is not an accepted edit: collapse of an edge is rejected.
+        c.template.panels[1].layout_2d = Some(DVec2::new(0.4, 0.));
+        let invalid_before = serde_json::to_vec(&c.template).unwrap();
+        h.frame(&mut c, &mut draw);
+        h.click("construction.apply", &mut c, &mut draw).unwrap();
+        assert!(c.error.is_some());
+        assert_eq!(c.applies, 0);
+        assert!(!c.history.can_undo());
+        assert_eq!(serde_json::to_vec(&c.template).unwrap(), invalid_before);
+        c.template.panels[1].layout_2d = Some(DVec2::splat(-0.05));
+        h.frame(&mut c, &mut draw);
+        h.click("construction.apply", &mut c, &mut draw).unwrap();
+        assert_eq!(c.applies, 1);
+        assert!(c.error.is_none());
+        let panel = &c.template.panels[0];
+        let corner = authoring::layout(&c.template, 0)
+            + authoring::rotate_2d(
+                panel.polygon.as_ref().unwrap().points[0],
+                panel.layout_rotation_degrees,
+            );
+        assert!(corner.distance(DVec2::splat(-0.05)) < 1e-10);
+        let undo = c.history.restore(&c.template, false).unwrap();
+        assert_eq!(serde_json::to_vec(&undo.template).unwrap(), before);
+        assert!(!c.history.can_undo());
+    }
+
+    #[test]
     fn named_widgets_construction_types_validates_applies_and_undoes() {
         use super::super::authoring_smoke::widget_harness::Harness;
         struct Case {
@@ -1395,11 +1621,13 @@ mod construction_tests {
             ..target.clone()
         };
         let operation = PointConstruction::Distance(0.05);
-        let local = authoring::constructed_point(&t, &target, &reference, operation).unwrap();
+        let local =
+            authoring::constructed_point(&t, &target, &reference, operation.clone()).unwrap();
         let initial = construction_preview_points(&t, &target, &reference, local).unwrap();
         let origin = authoring::layout(&t, 0);
         t.panels[0].layout_rotation_degrees = 90.;
-        let local = authoring::constructed_point(&t, &target, &reference, operation).unwrap();
+        let local =
+            authoring::constructed_point(&t, &target, &reference, operation.clone()).unwrap();
         let rotated = construction_preview_points(&t, &target, &reference, local).unwrap();
         let new_origin = authoring::layout(&t, 0);
         for (a, b) in initial.into_iter().zip(rotated) {

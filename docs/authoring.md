@@ -18,6 +18,9 @@ on another panel, then choose:
 
 - **Project**: orthogonal projection onto the edge's infinite line.
 - **Distance**: signed millimetres from its start toward its end.
+- **Intersection**: choose a second straight reference edge, including one on
+  another panel. The selected corner moves to the intersection of the two
+  infinite lines. Parallel, coincident, curved or missing references disable Apply.
 - **Perpendicular**: signed millimetres from the projection, along the direction
   obtained by rotating the directed reference edge by +90 degrees in board
   coordinates (the displayed vertical coordinate increases downward).
@@ -30,6 +33,15 @@ preview only: it does not certify that the resulting contour or seams are valid.
 Typing does not edit the pattern; Enter in the distance field does not apply it.
 Distances are not clamped to the edge endpoints. Curved reference boundaries
 are explicitly unsupported rather than approximated by their chords.
+
+Intersection shows reference A in blue and B in purple, with thin extensions
+leading to the proposed point. The distance field is inactive in this mode.
+The references use the panels' current flat-board positions and rotations;
+they need not touch, and the intersection can lie outside either segment.
+If a chosen edge disappears or becomes curved, choose a valid replacement
+explicitly. The preview does not certify the resulting contour: Apply can
+still reject a collapsed edge, crossing or incompatible seam without changing
+the document or adding history.
 
 The reference and target are resolved by panel/boundary names. Construction
 uses the flat 2D arrangement, including each panel's rotation, then converts
@@ -165,3 +177,22 @@ In Edit, Shift-click contour points to select several. Drag a selected point or 
 The inspector and board share the selected boundary's target length. Applying it changes rest geometry; clearing it removes only metadata. Dimensions scale the rectangle's holes and internal paths as well. All commands remain transactional and undoable.
 
 The camera dropdown above 3D provides presets, frame all/selection and perspective/orthographic projection. Alt-left drag rotates the 2D view; [ / ] rotate it 15 degrees and Home resets it. These are camera changes, distinct from the panel arrangement gizmos. Workspace → Preferences applies theme and snap immediately; its simulation/overlay defaults are for the next launch. Local recovery snapshots now exist; see the document guide.
+
+### Intersection tool validation
+
+EXO-CAD-010 extends the existing construction transaction; it adds no saved
+fields or physics behavior. Its CPU tests cover rotated frames, independently
+rotated references, intersections beyond endpoints, invalid references,
+invalid resulting contours, exact undo/redo and reload. The named-widget
+scenario drives the actual Intersection mode, both edge menus and Apply,
+including parallel/stale/curved references and a rejected contour edit.
+It uses the [CPU harness](widget-harness.md), not OS input or a GPU window.
+Run `cargo test --locked -j 2 --bin cloth-fit named_widgets -- --test-threads=2`
+and `cargo test --locked --no-default-features -j 2 --test drawing_commands -- --test-threads=2`.
+
+Validation on 23 October 2026: all 23 drawing-command tests and 59 editor
+tests passed (one optional preview ignored). Seven editor scenarios now use
+named widgets. The intersection scenario also caught a popup-transition
+issue: selectors close explicitly after selection, and the test renders the
+closed popup before opening the next one. No native-window or GPU acceptance
+is claimed for this slice.
