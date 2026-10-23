@@ -210,7 +210,7 @@
       "id": "EXO-CAD-001",
       "title": "Implement exact numeric construction operations",
       "area": "cad",
-      "status": "ready",
+      "status": "done",
       "depends_on": [],
       "scope": [
         "src/authoring/constructions.rs",
@@ -225,14 +225,16 @@
       "evidence": [
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/draftingConstructions.js"
       ],
-      "related_prs": [],
-      "notes": "Original Rust implementation from geometric requirements; no source translation."
+      "related_prs": [
+        "https://github.com/erythrofr/ClothCraft/pull/26"
+      ],
+      "notes": "Merged #26 (61833c6). Five CPU construction tests and one doctest passed; CI passed before merge. Original Rust implementation, no upstream source translation."
     },
     {
       "id": "EXO-CAD-002",
       "title": "Add numeric construction inspector actions",
       "area": "cad",
-      "status": "blocked",
+      "status": "ready",
       "depends_on": [
         "EXO-CAD-001"
       ],
@@ -240,7 +242,8 @@
         "src/authoring.rs",
         "src/atelier/authoring_ui.rs",
         "tests/drawing_commands.rs",
-        "src/atelier.rs"
+        "docs/authoring.md",
+        "docs/handoff.md"
       ],
       "acceptance": [
         "Expose projection, perpendicular and distance actions on stable selected points.",
@@ -251,7 +254,7 @@
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/draftingPrecision.js"
       ],
       "related_prs": [],
-      "notes": ""
+      "notes": "Point inspector integration using the original Rust API from #26. No src/atelier.rs edits: EXO-UX-001 owns that file. Selected contour point references use panel and named boundary identity; projection, signed distance and perpendicular offset use straight reference edges only."
     },
     {
       "id": "EXO-CAD-003",
@@ -1692,7 +1695,7 @@
       "id": "EXO-CAD-009",
       "title": "Integrate the freehand fitter and create new panels in the 2D workspace",
       "area": "cad",
-      "status": "ready",
+      "status": "done",
       "depends_on": [],
       "scope": [
         "src/atelier/board.rs",
@@ -1712,9 +1715,10 @@
         "https://github.com/erythrofr/ClothCraft/pull/27"
       ],
       "related_prs": [
-        "https://github.com/erythrofr/ClothCraft/pull/27"
+        "https://github.com/erythrofr/ClothCraft/pull/27",
+        "https://github.com/erythrofr/ClothCraft/pull/35"
       ],
-      "notes": "Owner-requested standalone integration slice on 23 October. Includes verifying its fitter prerequisite before UI coding. New panels only; existing-contour replacement remains EXO-CAD-006 and requires topology reference migration. No src/atelier.rs edits: that file is reserved by EXO-UX-001."
+      "notes": "Merged #35 (3bac583) after all 12 CI checks passed. 22 targeted CPU integration tests and 46 desktop tests passed locally. New-panel Freehand UI implemented; existing-contour replacement remains EXO-CAD-006."
     }
   ]
 }

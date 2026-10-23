@@ -18,8 +18,8 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-REV-003](#exo-rev-003) — Review physical SVG output contribution | review | review_existing | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/14) |
 | [EXO-REV-004](#exo-rev-004) — Reconcile feature map and current stable lint contributions | review | review_existing | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/15) |
 | [EXO-REV-005](#exo-rev-005) — Extract reviewable boundaries from the EXO Studio and session proposal | review | review_existing | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/16) |
-| [EXO-CAD-001](#exo-cad-001) — Implement exact numeric construction operations | cad | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/17) |
-| [EXO-CAD-002](#exo-cad-002) — Add numeric construction inspector actions | cad | blocked | EXO-CAD-001 | Not registered |
+| [EXO-CAD-001](#exo-cad-001) — Implement exact numeric construction operations | cad | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/17) |
+| [EXO-CAD-002](#exo-cad-002) — Add numeric construction inspector actions | cad | ready | EXO-CAD-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/36) |
 | [EXO-CAD-003](#exo-cad-003) — Define topology reference migration for pattern edits | cad | blocked | EXO-CORE-001, EXO-REV-001, EXO-REV-002 | Not registered |
 | [EXO-CAD-004](#exo-cad-004) — Unfold one half-pattern across a straight fold edge | cad | blocked | EXO-CAD-003 | Not registered |
 | [EXO-CAD-005](#exo-cad-005) — Add bounded-error freehand-to-Bezier fitting | cad | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/18) |
@@ -77,7 +77,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-PHY-001](#exo-phy-001) — Define capabilities for real interchangeable solver adapters | physics | blocked | EXO-CORE-001 | Not registered |
 | [EXO-PHY-002](#exo-phy-002) — Compare candidate engines on shared quality gates | physics | blocked | EXO-PHY-001, EXO-QA-001 | Not registered |
 | [EXO-PHY-003](#exo-phy-003) — Evaluate foam and padding as a separate material experiment | physics | blocked | EXO-PHY-001 | Not registered |
-| [EXO-CAD-009](#exo-cad-009) — Integrate the freehand fitter and create new panels in the 2D workspace | cad | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/33) |
+| [EXO-CAD-009](#exo-cad-009) — Integrate the freehand fitter and create new panels in the 2D workspace | cad | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/33) |
 
 ## EXO-COORD-001
 
@@ -295,7 +295,7 @@ At audit time PR2 had 2212998 additions. Counts are review scope, not functional
 
 **Implement exact numeric construction operations**
 
-Status: ready. Dependencies: none.
+Status: done. Dependencies: none.
 
 **Files / directories**
 
@@ -312,21 +312,23 @@ Status: ready. Dependencies: none.
 **Evidence and related contributions**
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/draftingConstructions.js
+- https://github.com/erythrofr/ClothCraft/pull/26
 
-Original Rust implementation from geometric requirements; no source translation.
+Merged #26 (61833c6). Five CPU construction tests and one doctest passed; CI passed before merge. Original Rust implementation, no upstream source translation.
 
 ## EXO-CAD-002
 
 **Add numeric construction inspector actions**
 
-Status: blocked. Dependencies: EXO-CAD-001.
+Status: ready. Dependencies: EXO-CAD-001.
 
 **Files / directories**
 
 - `src/authoring.rs`
 - `src/atelier/authoring_ui.rs`
 - `tests/drawing_commands.rs`
-- `src/atelier.rs`
+- `docs/authoring.md`
+- `docs/handoff.md`
 
 **Acceptance**
 
@@ -338,7 +340,7 @@ Status: blocked. Dependencies: EXO-CAD-001.
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/draftingPrecision.js
 
-
+Point inspector integration using the original Rust API from #26. No src/atelier.rs edits: EXO-UX-001 owns that file. Selected contour point references use panel and named boundary identity; projection, signed distance and perpendicular offset use straight reference edges only.
 
 ## EXO-CAD-003
 
@@ -1766,7 +1768,7 @@ EXO has a separate compression prototype; its presence does not establish genera
 
 **Integrate the freehand fitter and create new panels in the 2D workspace**
 
-Status: ready. Dependencies: none.
+Status: done. Dependencies: none.
 
 **Files / directories**
 
@@ -1788,5 +1790,6 @@ Status: ready. Dependencies: none.
 
 - https://github.com/erythrofr/ClothCraft/pull/27
 - https://github.com/erythrofr/ClothCraft/pull/27
+- https://github.com/erythrofr/ClothCraft/pull/35
 
-Owner-requested standalone integration slice on 23 October. Includes verifying its fitter prerequisite before UI coding. New panels only; existing-contour replacement remains EXO-CAD-006 and requires topology reference migration. No src/atelier.rs edits: that file is reserved by EXO-UX-001.
+Merged #35 (3bac583) after all 12 CI checks passed. 22 targeted CPU integration tests and 46 desktop tests passed locally. New-panel Freehand UI implemented; existing-contour replacement remains EXO-CAD-006.
