@@ -79,6 +79,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-PHY-003](#exo-phy-003) — Evaluate foam and padding as a separate material experiment | physics | blocked | EXO-PHY-001 | Not registered |
 | [EXO-CAD-009](#exo-cad-009) — Integrate the freehand fitter and create new panels in the 2D workspace | cad | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/33) |
 | [EXO-SEW-006](#exo-sew-006) — Expose cached sewing diagnostics in the native inspector | sewing | ready | EXO-SEW-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/43) |
+| [EXO-QA-004](#exo-qa-004) — Exercise editor tools with a deterministic named-widget harness | validation | ready | EXO-SEW-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/47) |
 
 ## EXO-COORD-001
 
@@ -1827,3 +1828,31 @@ Status: ready. Dependencies: EXO-SEW-001.
 - https://github.com/erythrofr/ClothCraft/blob/main/docs/sewing-audit.md
 
 Original Rust UI adapter, no EXO code/assets copied. Keep cache in AuthoringUi separately from SewingDraft so selecting another seam does not discard the report. Use existing generation invalidation conservatively. No new solver telemetry, automatic repair, document fields, atelier.rs or command-registry changes. A synchronous explicit audit can pause the UI on large geometry; document this limit rather than claiming a background job.
+
+## EXO-QA-004
+
+**Exercise editor tools with a deterministic named-widget harness**
+
+Status: ready. Dependencies: EXO-SEW-001.
+
+**Files / directories**
+
+- `src/atelier/authoring_smoke.rs`
+- `src/atelier/authoring_smoke/widget_harness.rs`
+- `src/atelier/sewing_ui.rs`
+- `src/atelier/authoring_ui.rs`
+- `docs/widget-harness.md`
+
+**Acceptance**
+
+- Register current-frame named widgets and reject missing, duplicate, disabled, stale or clipped targets explicitly.
+- Inject pointer press/release, bounded drag, keyboard and text events through real egui controls with deterministic frame timing; never substitute direct model calls for UI interaction.
+- Exercise sewing-audit refresh, inspection and stale state, plus numeric construction controls; assert resulting state and cancellation rather than only dispatched input.
+- Run the new scenarios without a window, OS input injection or GPU initialization; preserve existing opt-in native smoke paths.
+- Document scenario authoring, stable widget names, actionable failure output and limits of headless acceptance.
+
+**Evidence and related contributions**
+
+- https://github.com/erythrofr/ClothCraft/pull/46
+
+Owner-requested reusable internal testing. Begin from the merged audit UI (#46) and obtain an accepted claim after releasing EXO-SEW-006. atelier.rs is excluded because command-registry work owns that shared file. No new dependencies, private garments, solver changes or EXO source copied.
