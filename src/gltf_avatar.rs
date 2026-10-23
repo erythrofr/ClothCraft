@@ -201,7 +201,7 @@ fn base64(text: &str, limit: usize) -> Result<Vec<u8>, String> {
         return Err("Embedded buffer exceeds the byte limit".into());
     }
     let mut out = Vec::with_capacity(length);
-    for (index, chunk) in input.chunks_exact(4).enumerate() {
+    for (index, chunk) in input.as_chunks::<4>().0.iter().enumerate() {
         let last = index + 1 == input.len() / 4;
         let pad = if last { padding } else { 0 };
         let a = digit(chunk[0])?;
@@ -871,7 +871,7 @@ fn append_primitive(
         (0..count).collect()
     };
     let mirrored = world.determinant() < 0.;
-    for triangle in indices.chunks_exact(3) {
+    for triangle in indices.as_chunks::<3>().0 {
         let mut t = [
             offset + triangle[0],
             offset + triangle[1],
