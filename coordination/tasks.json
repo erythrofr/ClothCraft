@@ -1318,7 +1318,7 @@
       "id": "EXO-AV-001",
       "title": "Define avatar landmarks and body measurements",
       "area": "avatar",
-      "status": "ready",
+      "status": "done",
       "depends_on": [
         "EXO-CORE-001"
       ],
@@ -1334,10 +1334,13 @@
       ],
       "evidence": [
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/seamlyMeasurements.js",
-        "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/docs/EXO_UI_RENDERING_AND_AVATARS.md"
+        "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/docs/EXO_UI_RENDERING_AND_AVATARS.md",
+        "https://github.com/erythrofr/ClothCraft/pull/57"
       ],
-      "related_prs": [],
-      "notes": ""
+      "related_prs": [
+        "https://github.com/erythrofr/ClothCraft/pull/57"
+      ],
+      "notes": "Merged PR #57: versioned metre-based landmarks and explicitly confirmed measurements, separate visual/collision asset identities, and 8 CPU tests. Foundation only: no anatomical inference, surface attachment or measurement UI."
     },
     {
       "id": "EXO-AV-002",
@@ -1521,20 +1524,24 @@
         "src/template_catalog.rs",
         "src/atelier/template_browser.rs",
         "tests/template_catalog.rs",
-        "src/atelier.rs",
-        "src/lib.rs"
+        "src/lib.rs",
+        "src/atelier/authoring_ui.rs",
+        "src/atelier/documents_ui.rs",
+        "docs/template-browser.md"
       ],
       "acceptance": [
         "Index bundled original templates with preview, metadata, units and source/license.",
         "Validate templates before opening; loading replaces a document only after user-visible confirmation.",
-        "External patterns are explicit imports, not automatically downloaded or declared redistributable."
+        "External patterns are explicit imports, not automatically downloaded or declared redistributable.",
+        "Exercise the real browser widgets through the CPU named-widget harness, including cancel, confirmation and invalid input.",
+        "Opening a template starts a new document: preserve the current document on cancellation or validation failure; clear its saved path and undo history only after successful replacement."
       ],
       "evidence": [
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/openSourcePatternToolCatalog.js",
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/projectFileLibrary.js"
       ],
       "related_prs": [],
-      "notes": ""
+      "notes": "Owner-approved scope amendment: integrate through authoring_ui.rs and documents_ui.rs while atelier.rs remains reserved by EXO-UX-001. No solver changes."
     },
     {
       "id": "EXO-UX-006",
@@ -1570,7 +1577,7 @@
       "id": "EXO-QA-001",
       "title": "Build public cross-editor behavioral fixtures",
       "area": "validation",
-      "status": "ready",
+      "status": "done",
       "depends_on": [
         "EXO-CORE-001"
       ],
@@ -1584,10 +1591,13 @@
         "Do not redistribute private garments, upstream proprietary references or unreviewed EXO assets."
       ],
       "evidence": [
-        "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/docs/EXO_VALIDATION_TEST_PLAN.md"
+        "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/docs/EXO_VALIDATION_TEST_PLAN.md",
+        "https://github.com/erythrofr/ClothCraft/pull/55"
       ],
-      "related_prs": [],
-      "notes": ""
+      "related_prs": [
+        "https://github.com/erythrofr/ClothCraft/pull/55"
+      ],
+      "notes": "Merged PR #55: 11 original public fixtures, 29 CLI semantic checks and 4 Python tests; an incorrect-area negative control fails. These Python checks are local, not wired into CI. No private garments or copied assets."
     },
     {
       "id": "EXO-QA-002",

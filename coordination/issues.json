@@ -19,5 +19,9 @@
   "EXO-CAD-002": "https://github.com/erythrofr/ClothCraft/issues/36",
   "EXO-SEW-006": "https://github.com/erythrofr/ClothCraft/issues/43",
   "EXO-QA-004": "https://github.com/erythrofr/ClothCraft/issues/47",
-  "EXO-CAD-010": "https://github.com/erythrofr/ClothCraft/issues/50"
+  "EXO-CAD-010": "https://github.com/erythrofr/ClothCraft/issues/50",
+  "EXO-QA-001": "https://github.com/erythrofr/ClothCraft/issues/54",
+  "EXO-AV-001": "https://github.com/erythrofr/ClothCraft/issues/56",
+  "EXO-PHY-001": "https://github.com/erythrofr/ClothCraft/issues/58",
+  "EXO-IO-007": "https://github.com/erythrofr/ClothCraft/issues/60"
 }
