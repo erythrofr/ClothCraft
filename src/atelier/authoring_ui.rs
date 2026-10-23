@@ -209,6 +209,7 @@ impl Atelier {
     }
     fn undo_edit(&mut self, redo: bool) {
         self.cancel_preview();
+        self.authoring.board.clear_preview();
         self.authoring.replace = false;
         self.authoring.draft.clear();
         self.authoring.tangents.clear();
@@ -404,7 +405,10 @@ impl Atelier {
         });
     }
     pub(super) fn set_authoring_tool(&mut self, tool: Tool, rotate: bool) {
-        if self.authoring.tool == tool && (tool != Tool::Place || self.authoring.rotate == rotate) {
+        if self.authoring.tool == tool
+            && (tool != Tool::Place || self.authoring.rotate == rotate)
+            && !self.authoring.board.freehand.enabled
+        {
             return;
         }
         self.cancel_preview();
@@ -501,6 +505,10 @@ impl Atelier {
             }
         }
         if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::Z)) {
+            if !self.authoring.board.freehand.samples.is_empty() {
+                self.authoring.board.clear_preview();
+                return;
+            }
             if matches!(self.authoring.tool, Tool::Draw | Tool::InternalLine)
                 && !self.authoring.draft.is_empty()
             {
@@ -892,6 +900,10 @@ impl Atelier {
         }
     }
     pub(super) fn prepare_simulation(&mut self) -> bool {
+        if !self.authoring.board.freehand.samples.is_empty() {
+            self.status = "Create or cancel the freehand panel before simulating".into();
+            return false;
+        }
         if self.authoring.sewing.chain_mode
             && self.authoring.sewing.sides.iter().any(|s| !s.is_empty())
         {

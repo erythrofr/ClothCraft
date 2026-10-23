@@ -18,6 +18,13 @@ mod linked;
 use crate::garment::shapes::{BooleanOp, MirrorAxis, Primitive};
 
 pub enum Command {
+    /// Add a fitted contour without changing existing boundary identities.
+    Freehand {
+        samples: Vec<DVec2>,
+        tolerance_m: f64,
+        meshing: MeshingSettings,
+        fabric: String,
+    },
     Paste {
         clipboard: clipboard::PatternClipboard,
         center: DVec2,
@@ -503,12 +510,122 @@ fn seam_uses(template: &GarmentTemplate, panel: &str, edge: &str) -> bool {
 }
 
 /// An error leaves the input byte-for-byte unchanged; no partial edit is visible.
+/// Fit a stroke and close it explicitly with a straight edge when necessary.
+/// Coordinates remain in board/material metres. Validation uses the same
+/// sampled contour and mesher as committed panels, not the draped mesh.
+pub fn freehand_contour(
+    samples: &[DVec2],
+    tolerance_m: f64,
+    meshing: MeshingSettings,
+) -> Result<PolygonPattern, String> {
+    use crate::garment::freehand::{FitOptions, fit_freehand};
+    let fitted = fit_freehand(
+        samples,
+        FitOptions {
+            max_error_m: tolerance_m,
+            max_segments: 63,
+        },
+    )
+    .map_err(|error| format!("Cannot fit stroke: {error:?}"))?;
+    let mut spans: Vec<_> = fitted.segments.iter().map(|s| s.controls).collect();
+    let first = spans[0][0];
+    let last = spans.last().unwrap()[3];
+    if first != last {
+        let delta = first - last;
+        spans.push([last, last + delta / 3., last + delta * (2. / 3.), first]);
+    }
+    // A closed curve can have fewer than three spans; exact subdivision
+    // supplies the polygon's required anchors without changing the curve.
+    while spans.len() < 3 {
+        let [a, b, c, d] = spans.remove(0);
+        let (ab, bc, cd) = (a.lerp(b, 0.5), b.lerp(c, 0.5), c.lerp(d, 0.5));
+        let (abc, bcd) = (ab.lerp(bc, 0.5), bc.lerp(cd, 0.5));
+        let mid = abc.lerp(bcd, 0.5);
+        spans.splice(0..0, [[a, ab, abc, mid], [mid, bcd, cd, d]]);
+    }
+    let mut area = 0.;
+    for span in &spans {
+        for pair in curves::flatten(*span, curves::FLATNESS_M)?.windows(2) {
+            area += (pair[0] - first).perp_dot(pair[1] - first);
+        }
+    }
+    if area < 0. {
+        spans.reverse();
+        for span in &mut spans {
+            span.reverse();
+        }
+    }
+    let polygon = PolygonPattern {
+        points: spans.iter().map(|s| s[0]).collect(),
+        edges: (1..=spans.len()).map(|i| format!("edge_{i}")).collect(),
+        curves: spans
+            .iter()
+            .enumerate()
+            .map(|(i, s)| (format!("edge_{}", i + 1), [s[1], s[2]]))
+            .collect(),
+        subdivisions: 0,
+        meshing: Some(meshing),
+        holes: vec![],
+        lines: vec![],
+        target_lengths: Default::default(),
+    };
+    polygon.build(&crate::model::Material::default())?;
+    Ok(polygon)
+}
+
 pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String> {
     linked::check_command(source, &command)?;
     let mut template = source.clone();
     let mut selected = None;
     let mut new_point = None;
     match command {
+        Command::Freehand {
+            samples,
+            tolerance_m,
+            meshing,
+            fabric,
+        } => {
+            let mut polygon = freehand_contour(&samples, tolerance_m, meshing)?;
+            let lo = polygon
+                .points
+                .iter()
+                .chain(polygon.curves.values().flatten())
+                .copied()
+                .fold(DVec2::splat(f64::INFINITY), DVec2::min);
+            polygon.translate_material(-lo);
+            let id = unused_id("panel", template.panels.iter().map(|p| p.id.clone()));
+            let translation = if let Some(first) = template.panels.first() {
+                let delta = lo - layout(&template, 0);
+                first.placement.translation + DVec3::new(delta.x, -delta.y, 0.12)
+            } else {
+                DVec3::new(0., 1.5, 0.45)
+            };
+            let mut panel = Panel {
+                id: id.clone(),
+                name: id.clone(),
+                pattern: Pattern {
+                    width: 1.,
+                    height: 1.,
+                    nx: 1,
+                    ny: 1,
+                },
+                polygon: Some(polygon),
+                fabric,
+                grain_degrees: 90.,
+                placement: Placement {
+                    translation,
+                    ..Default::default()
+                },
+                pins: vec![],
+                pin_points: vec![],
+                layout_2d: Some(lo),
+                layout_rotation_degrees: 0.,
+            };
+            normalize(&mut panel);
+            template.panels.push(panel);
+            template.version = 2;
+            selected = Some(id);
+        }
         Command::LinkedMirror { panel, axis } => {
             let copy = geometry::mirror(&mut template, &panel, axis, Some(1))?;
             template

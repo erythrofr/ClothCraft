@@ -135,7 +135,45 @@ pub(super) fn corner_angle(a: DVec2, corner: DVec2, b: DVec2) -> Option<f64> {
     Some(u.angle_to(v).to_degrees().abs())
 }
 
+pub(super) struct FreehandDraft {
+    pub enabled: bool,
+    pub samples: Vec<DVec2>,
+    drawing: bool,
+    tolerance_mm: f64,
+    preview: Option<PolygonPattern>,
+    error: Option<String>,
+    overflow: bool,
+}
+impl Default for FreehandDraft {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            samples: vec![],
+            drawing: false,
+            tolerance_mm: 1.,
+            preview: None,
+            error: None,
+            overflow: false,
+        }
+    }
+}
+impl FreehandDraft {
+    fn push(&mut self, point: DVec2) {
+        if self.error.is_some() || self.samples.last() == Some(&point) {
+            return;
+        }
+        if self.samples.len() == marvelous_cloth::garment::freehand::MAX_INPUT_SAMPLES {
+            self.overflow = true;
+            self.error = Some("Stroke exceeds 4096 samples. Draw a shorter outline.".into());
+            self.preview = None;
+        } else {
+            self.samples.push(point);
+        }
+    }
+}
+
 pub(super) struct Board {
+    pub freehand: FreehandDraft,
     pub center: DVec2,
     pub scale: f32,
     pub fitted: bool,
@@ -168,6 +206,7 @@ pub(super) struct Board {
 impl Default for Board {
     fn default() -> Self {
         Self {
+            freehand: FreehandDraft::default(),
             center: DVec2::ZERO,
             scale: 300.,
             fitted: false,
@@ -189,6 +228,52 @@ impl Default for Board {
     }
 }
 impl Board {
+    fn capture_freehand(
+        &mut self,
+        rect: egui::Rect,
+        events: Vec<egui::Event>,
+        can_start: bool,
+    ) -> bool {
+        let mut finished = false;
+        for event in events {
+            match event {
+                egui::Event::PointerButton {
+                    pos,
+                    button: egui::PointerButton::Primary,
+                    pressed,
+                    ..
+                } => {
+                    if pressed && rect.contains(pos) && can_start {
+                        let tolerance_mm = self.freehand.tolerance_mm;
+                        self.freehand = FreehandDraft {
+                            enabled: true,
+                            drawing: true,
+                            tolerance_mm,
+                            ..Default::default()
+                        };
+                        let point = self.world(rect, pos);
+                        self.freehand.push(point);
+                    } else if !pressed && self.freehand.drawing {
+                        let point = self.world(rect, pos);
+                        self.freehand.push(point);
+                        self.freehand.drawing = false;
+                        if self.freehand.error.is_none() {
+                            finished = true;
+                        }
+                    }
+                }
+                egui::Event::PointerMoved(pos) if self.freehand.drawing => {
+                    let point = self.world(rect, pos);
+                    self.freehand.push(point);
+                }
+                egui::Event::WindowFocused(false) => {
+                    self.clear_preview();
+                }
+                _ => {}
+            }
+        }
+        finished && !self.freehand.drawing && self.freehand.enabled
+    }
     pub(super) fn gesture_active(&self) -> bool {
         self.drag.is_some()
     }
@@ -251,6 +336,7 @@ impl Board {
         self.point_groups = groups;
     }
     pub fn clear_preview(&mut self) {
+        self.freehand = FreehandDraft::default();
         self.drag = None;
         self.shape = None;
         self.layout = None;
@@ -598,6 +684,153 @@ fn paint_panel_dimensions(
     );
 }
 impl Atelier {
+    fn fit_freehand_preview(&mut self) {
+        let draft = &mut self.authoring.board.freehand;
+        if draft.overflow {
+            return;
+        }
+        let result = authoring::freehand_contour(
+            &draft.samples,
+            draft.tolerance_mm * 0.001,
+            marvelous_cloth::garment::meshing::MeshingSettings {
+                target_edge_m: self.mesh_mm * 0.001,
+                anisotropy: self.anisotropy,
+                axis_degrees: self.mesh_axis,
+                ..Default::default()
+            },
+        );
+        match result {
+            Ok(poly) => {
+                draft.preview = Some(poly);
+                draft.error = None;
+            }
+            Err(error) => {
+                draft.preview = None;
+                draft.error = Some(error);
+            }
+        }
+    }
+    fn freehand_controls(&mut self, ui: &mut egui::Ui) {
+        // Keep this row present throughout the stroke: the canvas must not
+        // move when the first pointer sample arrives.
+        ui.horizontal(|ui| {
+            ui.label("Fit tolerance");
+            let draft = &mut self.authoring.board.freehand;
+            let changed = ui
+                .add_enabled(
+                    !draft.drawing,
+                    egui::DragValue::new(&mut draft.tolerance_mm)
+                        .range(0.1..=10.)
+                        .speed(0.1)
+                        .suffix(" mm"),
+                )
+                .changed();
+            if changed && !draft.samples.is_empty() {
+                self.fit_freehand_preview();
+            }
+            let ready = self.authoring.board.freehand.preview.is_some()
+                && !self.authoring.board.freehand.drawing;
+            if ui
+                .add_enabled(ready, egui::Button::new("Create panel"))
+                .clicked()
+            {
+                let draft = &self.authoring.board.freehand;
+                if let Some(fabric) = self.project.template.fabrics.first() {
+                    let command = Command::Freehand {
+                        samples: draft.samples.clone(),
+                        tolerance_m: draft.tolerance_mm * 0.001,
+                        fabric: fabric.id.clone(),
+                        meshing: marvelous_cloth::garment::meshing::MeshingSettings {
+                            target_edge_m: self.mesh_mm * 0.001,
+                            anisotropy: self.anisotropy,
+                            axis_degrees: self.mesh_axis,
+                            ..Default::default()
+                        },
+                    };
+                    if self.edit(command) {
+                        self.authoring.tool = Tool::Place;
+                    }
+                }
+            }
+            if ui.small_button("Cancel").clicked() {
+                self.authoring.board.clear_preview();
+            }
+        });
+        ui.small(
+            "Drag an outline · release to preview · orange edge closes the stroke · Esc: cancel",
+        );
+    }
+    fn freehand_canvas(&mut self, ui: &egui::Ui, rect: egui::Rect, response: &egui::Response) {
+        if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+            self.authoring.board.clear_preview();
+            self.paint_board(ui, rect, response);
+            return;
+        }
+        // Consume all delivered pointer samples, not just one per rendered frame.
+        // Camera transforms remain fixed while the button is held.
+        let events = ui.input(|i| i.events.clone());
+        if self
+            .authoring
+            .board
+            .capture_freehand(rect, events, response.contains_pointer())
+        {
+            self.fit_freehand_preview();
+        }
+        if !self.authoring.board.freehand.drawing {
+            if response.dragged_by(egui::PointerButton::Middle) {
+                self.authoring.board.pan_by(ui.input(|i| i.pointer.delta()));
+            }
+            if let Some(pos) = response.hover_pos() {
+                let scroll = ui.input(|i| i.smooth_scroll_delta.y);
+                if scroll != 0. {
+                    self.authoring
+                        .board
+                        .zoom_at(rect, pos, (f64::from(scroll) * 0.002).exp());
+                }
+            }
+        }
+        self.authoring.board.hover_snap = None;
+        self.authoring.board.insert_hint = None;
+        self.paint_board(ui, rect, response);
+        let board = &self.authoring.board;
+        let draft = &board.freehand;
+        let painter = ui.painter().with_clip_rect(rect);
+        let color = Color32::from_rgb(82, 200, 230);
+        if let Some(poly) = &draft.preview {
+            for k in 0..poly.points.len() {
+                if let Ok(points) = poly.edge_points(k) {
+                    painter.add(egui::Shape::line(
+                        points.into_iter().map(|p| board.screen(rect, p)).collect(),
+                        Stroke::new(2., color),
+                    ));
+                }
+            }
+        } else if draft.samples.len() > 1 {
+            painter.add(egui::Shape::line(
+                draft
+                    .samples
+                    .iter()
+                    .map(|p| board.screen(rect, *p))
+                    .collect(),
+                Stroke::new(2., color),
+            ));
+        }
+        if let (Some(first), Some(last)) = (draft.samples.first(), draft.samples.last()) {
+            painter.line_segment(
+                [board.screen(rect, *last), board.screen(rect, *first)],
+                Stroke::new(2., Color32::from_rgb(242, 169, 67)),
+            );
+        }
+        if let Some(error) = &draft.error {
+            painter.text(
+                rect.left_top() + Vec2::splat(12.),
+                egui::Align2::LEFT_TOP,
+                error,
+                egui::FontId::proportional(13.),
+                Color32::from_rgb(255, 160, 140),
+            );
+        }
+    }
     pub(super) fn board_angle(&self, i: usize) -> f64 {
         let panel = &self.project.template.panels[i];
         self.authoring
@@ -944,6 +1177,14 @@ impl Atelier {
         });
         ui.horizontal(|ui| {
             self.primitive_menu(ui);
+            if ui.selectable_label(self.authoring.board.freehand.enabled, "Freehand").on_hover_text("Drag a new panel outline, release to preview, then Create panel").clicked() {
+                self.set_authoring_tool(Tool::Draw, false);
+                self.authoring.board.clear_preview();
+                self.authoring.board.freehand.enabled = true;
+                self.authoring.replace = false;
+                self.authoring.draft.clear();
+                self.authoring.tangents.clear();
+            }
             let quick = ui.small_button("Quick · Q").on_hover_text("Shapes, mirrors and booleans near the cursor");
             self.smoke_target("quick_open", quick.rect.center());
             if quick.clicked() { self.quick.open(ui.ctx(), quick.rect.left_bottom()); }
@@ -973,6 +1214,9 @@ impl Atelier {
                 _ => "Right-click for tools · middle-drag to pan · wheel to zoom",
             });
         });
+        if self.authoring.tool == Tool::Draw && self.authoring.board.freehand.enabled {
+            self.freehand_controls(ui);
+        }
         if self.authoring.tool == Tool::InternalLine {
             let target = self
                 .authoring
@@ -1061,6 +1305,10 @@ impl Atelier {
         }
         if self.authoring.radial.blocked || self.quick.blocked {
             self.paint_board(ui, rect, &response);
+            return;
+        }
+        if self.authoring.tool == Tool::Draw && self.authoring.board.freehand.enabled {
+            self.freehand_canvas(ui, rect, &response);
             return;
         }
         if response.secondary_clicked()
@@ -2894,6 +3142,57 @@ impl Atelier {
 /// material coordinate.
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn freehand_gesture_uses_all_samples_and_release_outside_canvas() {
+        let mut board = Board::default();
+        board.freehand.enabled = true;
+        board.set_view_rotation_degrees(32.);
+        let rect = canvas(600., 500.);
+        let start = egui::pos2(100., 100.);
+        let end = egui::pos2(610., 400.);
+        let button = |pos, pressed| egui::Event::PointerButton {
+            pos,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::NONE,
+        };
+        assert!(!board.capture_freehand(rect, vec![button(start, true)], true));
+        assert!(board.capture_freehand(
+            rect,
+            vec![
+                egui::Event::PointerMoved(egui::pos2(150., 200.)),
+                egui::Event::PointerMoved(egui::pos2(200., 300.)),
+                button(end, false),
+            ],
+            false
+        ));
+        assert_eq!(board.freehand.samples.len(), 4);
+        assert_eq!(board.freehand.samples[0], board.world(rect, start));
+        assert_eq!(board.freehand.samples[3], board.world(rect, end));
+        assert!(!board.freehand.drawing);
+        board.clear_preview();
+        assert!(board.freehand.samples.is_empty());
+        assert!(!board.freehand.enabled);
+    }
+
+    #[test]
+    fn freehand_overflow_and_focus_loss_cannot_commit_a_partial_stroke() {
+        let mut board = Board::default();
+        board.freehand.enabled = true;
+        for i in 0..4097 {
+            board.freehand.push(DVec2::new(i as f64, 0.));
+        }
+        assert!(board.freehand.overflow);
+        assert!(board.freehand.error.is_some());
+        assert!(board.freehand.preview.is_none());
+        assert_eq!(board.freehand.samples.len(), 4096);
+        assert!(!board.capture_freehand(
+            canvas(600., 500.),
+            vec![egui::Event::WindowFocused(false)],
+            false
+        ));
+        assert!(board.freehand.samples.is_empty());
+    }
     use super::*;
 
     fn canvas(width: f32, height: f32) -> egui::Rect {

@@ -10,6 +10,32 @@ Launch `scripts/start-atelier.ps1`. All pieces share **one metric 2D board**, be
 
 ## Draft cloth
 
+### Freehand panels
+
+Choose **Freehand** above the 2D board. Hold the left mouse button to trace
+an outline, then release to preview the fitted cubic curves. The orange
+segment shows the straight edge that closes an open stroke. Choose **Create
+panel** to add a meshed piece in both views; this never replaces existing
+panels. Use placement tools to arrange it before sewing or simulation.
+
+**Fit tolerance** is in millimetres (default 1 mm). It bounds the fitter's
+sample residual at chord-length parameters, not the continuous curve's
+Hausdorff distance. Fitting and contour validation happen on release or a
+tolerance change, not every frame. Asymmetric Bézier controls are preserved.
+Self-intersections are checked on the flattened contour, as for other panels.
+
+Escape, Cancel, changing tools or losing window focus cancels an unfinished
+stroke. Ctrl+Z cancels a pending stroke before touching document history.
+Committed panels use ordinary undo/redo and Save/Open. Drawing bypasses grid
+snapping; camera transforms stay fixed during a stroke. Up to 4096 delivered
+pointer samples and 63 fitted spans plus a closing edge are accepted; overflow
+rejects the stroke rather than silently truncating it. Invalid contours remain
+visible with an error and cannot be committed. Draw again to replace a preview.
+
+This first integration creates **new outer contours only**. Replacing existing
+sewn contours, freehand holes and internal lines remain separate tasks because
+they require explicit boundary-reference migration.
+
 For numeric primitives, mirrors, booleans/holes and internal sewing curves with ruffles, see [drafting tools](drafting-tools.md). All use the same board, selections and undo history.
 
 - **New sheet** starts a blank drawing; the existing garment is replaced only after a valid contour is completed. Cancel the trace to keep it.

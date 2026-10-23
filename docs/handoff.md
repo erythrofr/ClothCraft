@@ -1,5 +1,29 @@
 # Repository handoff
 
+## Freehand panel integration — 23 October 2026
+
+PR #27's CPU fitter is merged at `8b69e5c`; its six CI checks passed before
+merge. Task EXO-CAD-009 / issue #33 integrates it through `Command::Freehand`
+and the 2D board's Freehand control. The new-panel transaction preserves
+independent cubic controls, existing panel/seam IDs and material metres.
+Preview and commit use contour validation; no solver/contact code changes.
+
+The UI captures delivered pointer events, fits on release, shows the closing
+edge and requires Create panel. Pending strokes are transient; committed
+panels use the existing document/history pipeline. See `docs/authoring.md`
+for gestures, bounds and limitations. Existing-contour editing remains
+EXO-CAD-006, not part of this implementation.
+
+Local validation: seven fitter tests and four freehand authoring tests pass;
+46 desktop unit tests pass (one optional preview ignored), including pointer
+capture, release outside the canvas, overflow and focus cancellation. Targeted
+desktop Clippy is warning-free and the release `cloth-fit` binary builds.
+A short native Windows check confirmed the Freehand controls and rejection of
+a zero-area stroke. Native testing stopped when user input was detected; a
+valid curved panel and its history/serialization are covered by CPU tests,
+not claimed as a completed manual native drawing test. No solver benchmark
+or private garment was used.
+
 **22 October — shared Rust rewrite hub.** The owner selected this repository
 as the native Rust coordination/integration point and explicitly requested
 parallel agents and a task mailbox. Read [COORDINATION.md](../COORDINATION.md),
