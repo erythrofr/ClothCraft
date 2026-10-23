@@ -1,0 +1,175 @@
+{
+  "format": "marvelous-cloth-template",
+  "version": 2,
+  "name": "Partial reversed seam",
+  "fabrics": [
+    {
+      "id": "test-woven",
+      "name": "Synthetic uncalibrated test fabric",
+      "properties": {
+        "warp": 300.0,
+        "weft": 180.0,
+        "shear": 40.0,
+        "compression_ratio": 0.15,
+        "compression_transition": 0.005,
+        "bend_warp": 8e-05,
+        "bend_weft": 4e-05,
+        "density": 0.2,
+        "thickness": 0.001
+      }
+    }
+  ],
+  "panels": [
+    {
+      "id": "front",
+      "name": "front",
+      "pattern": {
+        "width": 0.4,
+        "height": 0.3,
+        "nx": 4,
+        "ny": 3
+      },
+      "fabric": "test-woven",
+      "grain_degrees": 0.0,
+      "placement": {
+        "translation": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "rotation_degrees": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "pins": [],
+      "polygon": {
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.4,
+            0.0
+          ],
+          [
+            0.4,
+            0.3
+          ],
+          [
+            0.0,
+            0.3
+          ]
+        ],
+        "edges": [
+          "upper",
+          "right",
+          "lower",
+          "left"
+        ],
+        "subdivisions": 0,
+        "meshing": {
+          "target_edge_m": 0.05,
+          "anisotropy": 1.0,
+          "axis_degrees": 0.0
+        }
+      },
+      "layout_2d": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "back",
+      "name": "back",
+      "pattern": {
+        "width": 0.4,
+        "height": 0.3,
+        "nx": 4,
+        "ny": 3
+      },
+      "fabric": "test-woven",
+      "grain_degrees": 0.0,
+      "placement": {
+        "translation": [
+          0.6,
+          1.0,
+          0.0
+        ],
+        "rotation_degrees": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "pins": [],
+      "polygon": {
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.4,
+            0.0
+          ],
+          [
+            0.4,
+            0.3
+          ],
+          [
+            0.0,
+            0.3
+          ]
+        ],
+        "edges": [
+          "upper",
+          "right",
+          "lower",
+          "left"
+        ],
+        "subdivisions": 0,
+        "meshing": {
+          "target_edge_m": 0.05,
+          "anisotropy": 1.0,
+          "axis_degrees": 0.0
+        }
+      },
+      "layout_2d": [
+        0.6,
+        0.0
+      ]
+    }
+  ],
+  "seams": [
+    {
+      "id": "join",
+      "a": {
+        "panel": "front",
+        "edge": "right",
+        "side": "top",
+        "range": [
+          0.25,
+          0.75
+        ],
+        "reversed": false
+      },
+      "b": {
+        "panel": "back",
+        "edge": "left",
+        "side": "top",
+        "range": [
+          0.0,
+          0.5
+        ],
+        "reversed": true
+      },
+      "reverse_b": true,
+      "notches": [],
+      "stiffness": 1000.0,
+      "allow_ease": false
+    }
+  ]
+}

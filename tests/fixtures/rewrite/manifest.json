@@ -1,0 +1,446 @@
+{
+  "version": 1,
+  "source_revision": "678797f23e9072c9245b150f24523a0ecb3dd673",
+  "provenance": "Original ClothCraft fixtures, MIT; manually specified geometry, no private garments or EXO assets.",
+  "units": "metres, kilograms, seconds; density kg/m2",
+  "cases": [
+    {
+      "id": "legacy-rectangle",
+      "file": "legacy-rectangle.json",
+      "sha256": "0220e1a0734a4236755ea1ec977f724308f38d8b4585fd1614ab649e2518b676",
+      "basis": "0.4 * 0.3 m; density 0.2 kg/m2.",
+      "checks": [
+        {
+          "command": "validate",
+          "exit": 0,
+          "exact": {
+            "/panels": 1,
+            "/seams": 0
+          },
+          "near": {}
+        },
+        {
+          "command": "metrics",
+          "exit": 0,
+          "exact": {
+            "/panel_count": 1
+          },
+          "near": {
+            "/net_area_m2": [
+              0.12,
+              1e-10
+            ],
+            "/mass_kg": [
+              0.024,
+              2.0000000000000002e-11
+            ]
+          }
+        },
+        {
+          "command": "audit-sewing",
+          "exit": 0,
+          "exact": {
+            "/valid": true
+          },
+          "near": {}
+        }
+      ]
+    },
+    {
+      "id": "hole",
+      "file": "hole.json",
+      "sha256": "3325ed8dcaa6a01fe1213cb802a10102ce076d9ef4cedd652efaa68314c677fd",
+      "basis": "0.4 * 0.3 - 0.1 * 0.1 m2; hole is clockwise.",
+      "checks": [
+        {
+          "command": "validate",
+          "exit": 0,
+          "exact": {
+            "/panels": 1,
+            "/seams": 0
+          },
+          "near": {}
+        },
+        {
+          "command": "metrics",
+          "exit": 0,
+          "exact": {
+            "/panel_count": 1
+          },
+          "near": {
+            "/net_area_m2": [
+              0.11,
+              1e-10
+            ],
+            "/mass_kg": [
+              0.022000000000000002,
+              2.0000000000000002e-11
+            ]
+          }
+        },
+        {
+          "command": "audit-sewing",
+          "exit": 0,
+          "exact": {
+            "/valid": true
+          },
+          "near": {}
+        }
+      ]
+    },
+    {
+      "id": "internal-strip",
+      "file": "internal-strip.json",
+      "sha256": "533bd4ad4bb33374d97584fa614ce9a8901f1eb267ada6aaa7a01e32eb2edfdd",
+      "basis": "Body 0.12 m2 plus strip 0.024 m2; attachment length 0.30 m.",
+      "checks": [
+        {
+          "command": "validate",
+          "exit": 0,
+          "exact": {
+            "/panels": 2,
+            "/seams": 1
+          },
+          "near": {}
+        },
+        {
+          "command": "metrics",
+          "exit": 0,
+          "exact": {
+            "/panel_count": 2
+          },
+          "near": {
+            "/net_area_m2": [
+              0.144,
+              1e-10
+            ],
+            "/mass_kg": [
+              0.0288,
+              2.0000000000000002e-11
+            ]
+          }
+        },
+        {
+          "command": "audit-sewing",
+          "exit": 0,
+          "exact": {
+            "/valid": true
+          },
+          "near": {
+            "/seams/0/lengths_m/0": [
+              0.3,
+              1e-10
+            ],
+            "/seams/0/lengths_m/1": [
+              0.3,
+              1e-10
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "partial-reversed",
+      "file": "partial-reversed.json",
+      "sha256": "f030ea0c182bf98a452c778ffb78b1e6a16617e8d6dae95fe5a165996364d76c",
+      "basis": "Each side trims half a 0.30 m edge. Segment reversal and whole-side reversal are distinct.",
+      "checks": [
+        {
+          "command": "validate",
+          "exit": 0,
+          "exact": {
+            "/panels": 2,
+            "/seams": 1
+          },
+          "near": {}
+        },
+        {
+          "command": "metrics",
+          "exit": 0,
+          "exact": {
+            "/panel_count": 2
+          },
+          "near": {
+            "/net_area_m2": [
+              0.24,
+              1e-10
+            ],
+            "/mass_kg": [
+              0.048,
+              2.0000000000000002e-11
+            ]
+          }
+        },
+        {
+          "command": "audit-sewing",
+          "exit": 0,
+          "exact": {
+            "/valid": true,
+            "/seams/0/b/0/reversed": true,
+            "/seams/0/reverse_b": true
+          },
+          "near": {
+            "/seams/0/lengths_m/0": [
+              0.15,
+              1e-10
+            ],
+            "/seams/0/lengths_m/1": [
+              0.15,
+              1e-10
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "chain",
+      "file": "chain.json",
+      "sha256": "3e4f2fa83557616b8f0ac673d460424d345cb4ed0186e7a4a8fd428d3561e381",
+      "basis": "0.40 m joined to ordered 0.20 + 0.20 m edges; no inferred seams.",
+      "checks": [
+        {
+          "command": "validate",
+          "exit": 0,
+          "exact": {
+            "/panels": 3,
+            "/seams": 1
+          },
+          "near": {}
+        },
+        {
+          "command": "metrics",
+          "exit": 0,
+          "exact": {
+            "/panel_count": 3
+          },
+          "near": {
+            "/net_area_m2": [
+              0.24,
+              1e-10
+            ],
+            "/mass_kg": [
+              0.048,
+              2.0000000000000002e-11
+            ]
+          }
+        },
+        {
+          "command": "audit-sewing",
+          "exit": 0,
+          "exact": {
+            "/valid": true,
+            "/seams/0/b/1/panel_id": "narrow_b"
+          },
+          "near": {
+            "/seams/0/lengths_m/0": [
+              0.4,
+              1e-10
+            ],
+            "/seams/0/lengths_m/1": [
+              0.4,
+              1e-10
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "local-easing",
+      "file": "local-easing.json",
+      "sha256": "6ba2c38c92c43ac88b39f37cb3f1fb6d01237246ba973d6cd8b3335fe7d96532",
+      "basis": "0.4 m totals; notch maps 0.1 m to 0.3 m, then 0.3 m to 0.1 m.",
+      "checks": [
+        {
+          "command": "validate",
+          "exit": 0,
+          "exact": {
+            "/panels": 2,
+            "/seams": 1
+          },
+          "near": {}
+        },
+        {
+          "command": "metrics",
+          "exit": 0,
+          "exact": {
+            "/panel_count": 2
+          },
+          "near": {
+            "/net_area_m2": [
+              0.24,
+              1e-10
+            ],
+            "/mass_kg": [
+              0.048,
+              2.0000000000000002e-11
+            ]
+          }
+        },
+        {
+          "command": "audit-sewing",
+          "exit": 0,
+          "exact": {
+            "/valid": true,
+            "/seams/0/intervals/0/requires_easing": true,
+            "/seams/0/intervals/1/requires_easing": true
+          },
+          "near": {
+            "/seams/0/difference_m": [
+              0.0,
+              1e-10
+            ],
+            "/seams/0/intervals/0/difference_m": [
+              0.2,
+              1e-10
+            ],
+            "/seams/0/intervals/1/difference_m": [
+              -0.2,
+              1e-10
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "invalid-easing",
+      "file": "invalid-easing.json",
+      "sha256": "1012677450a66f6853d4b63e9ec7dfac5c266fec7d62b6a6eabc8b359a8432ec",
+      "basis": "Same local mismatch without explicit easing must be rejected.",
+      "checks": [
+        {
+          "command": "validate",
+          "exit": 1,
+          "exact": {},
+          "near": {}
+        },
+        {
+          "command": "audit-sewing",
+          "exit": 1,
+          "exact": {
+            "/valid": false,
+            "/seams/0/errors/0/code": "invalid_correspondence"
+          },
+          "near": {}
+        }
+      ]
+    },
+    {
+      "id": "curved",
+      "file": "curved.json",
+      "sha256": "b8dc94a7c93616ed9547284fe3cb0fe01979474adb39ad17978768045289839f",
+      "basis": "x=0.4t, y=0.15t(1-t): exact panel area 0.11 m2; analytic arc length integral. Tolerances allow 0.25 mm contour flattening.",
+      "checks": [
+        {
+          "command": "validate",
+          "exit": 0,
+          "exact": {
+            "/panels": 2,
+            "/seams": 1
+          },
+          "near": {}
+        },
+        {
+          "command": "metrics",
+          "exit": 0,
+          "exact": {
+            "/panel_count": 2
+          },
+          "near": {
+            "/net_area_m2": [
+              0.22,
+              0.0002
+            ],
+            "/mass_kg": [
+              0.044000000000000004,
+              4e-05
+            ]
+          }
+        },
+        {
+          "command": "audit-sewing",
+          "exit": 0,
+          "exact": {
+            "/valid": true
+          },
+          "near": {
+            "/seams/0/lengths_m/0": [
+              0.40918654922234454,
+              0.0005
+            ],
+            "/seams/0/lengths_m/1": [
+              0.40918654922234454,
+              0.0005
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "invalid-reference",
+      "file": "invalid-reference.json",
+      "sha256": "2edad8f355d3b8cf95efc6cdcf7b152e6c347283a4c22f8d87eb152cbf771406",
+      "basis": "Missing stable edge must not bind to another edge.",
+      "checks": [
+        {
+          "command": "validate",
+          "exit": 1,
+          "exact": {},
+          "near": {}
+        },
+        {
+          "command": "audit-sewing",
+          "exit": 1,
+          "exact": {
+            "/valid": false,
+            "/seams/0/b/0/errors/0/code": "invalid_reference"
+          },
+          "near": {}
+        }
+      ]
+    },
+    {
+      "id": "invalid-unknown-field",
+      "file": "invalid-unknown-field.json",
+      "sha256": "660d9420c4e9d05cf038f059bd64a05ad383deced02aef1e92e31e114aaaa06b",
+      "basis": "Unsupported external field must not be silently dropped.",
+      "checks": [
+        {
+          "command": "validate",
+          "exit": 1,
+          "exact": {},
+          "near": {},
+          "stderr_contains": "unknown field"
+        },
+        {
+          "command": "audit-sewing",
+          "exit": 1,
+          "exact": {},
+          "near": {},
+          "stderr_contains": "unknown field"
+        }
+      ]
+    },
+    {
+      "id": "invalid-contour",
+      "file": "invalid-contour.json",
+      "sha256": "ccf9d76e3d9b4926e295e97b862c8fbfa7f7344d76605099109ab224b907730c",
+      "basis": "Crossed outer contour is not a valid material domain.",
+      "checks": [
+        {
+          "command": "validate",
+          "exit": 1,
+          "exact": {},
+          "near": {},
+          "stderr_contains": "Error:"
+        },
+        {
+          "command": "audit-sewing",
+          "exit": 1,
+          "exact": {},
+          "near": {},
+          "stderr_contains": "Error:"
+        }
+      ]
+    }
+  ]
+}
