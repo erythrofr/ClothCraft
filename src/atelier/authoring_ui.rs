@@ -566,6 +566,17 @@ impl Atelier {
     pub(super) fn authoring_toolbar(&mut self, ui: &mut egui::Ui) {
         self.history_shortcuts(ui.ctx());
         ui.vertical_centered(|ui| {
+            if super::icons::icon_only(
+                ui,
+                super::icons::Icon::Grid,
+                36.,
+                self.template_browser_open(),
+                "Templates · browse original examples or import a native template",
+            )
+            .clicked()
+            {
+                self.open_template_browser(ui.ctx());
+            }
             if ui
                 .button("···")
                 .on_hover_text("Right-click either canvas to choose a tool")
@@ -767,6 +778,9 @@ impl Atelier {
         }
     }
     fn history_shortcuts(&mut self, ctx: &egui::Context) {
+        if self.template_browser_open() {
+            return;
+        }
         if ctx.egui_wants_keyboard_input() || self.authoring.radial.blocked || self.quick.blocked {
             return;
         }

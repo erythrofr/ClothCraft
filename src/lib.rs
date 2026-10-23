@@ -23,4 +23,5 @@ pub mod project;
 pub mod render;
 pub mod solver;
 pub mod solver_lab;
+pub mod template_catalog;
 pub mod vbd;

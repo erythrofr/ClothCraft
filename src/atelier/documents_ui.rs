@@ -2,8 +2,11 @@
 use super::*;
 use rfd::{FileDialog, MessageButtons, MessageDialog, MessageDialogResult};
 use std::time::Instant;
+#[path = "template_browser.rs"]
+mod template_browser;
 
 pub(super) struct DocumentUi {
+    browser: template_browser::Browser,
     path: Option<PathBuf>,
     pub dirty: bool,
     last_recovery: Instant,
@@ -14,6 +17,7 @@ pub(super) struct DocumentUi {
 impl DocumentUi {
     pub fn new(output: &std::path::Path, path: Option<PathBuf>, modified: bool) -> Self {
         Self {
+            browser: Default::default(),
             dirty: path.is_none() || modified,
             path,
             last_recovery: Instant::now(),
@@ -23,7 +27,136 @@ impl DocumentUi {
         }
     }
 }
+fn install_template(
+    prepared: marvelous_cloth::template_catalog::Prepared,
+    project: &mut FittingProject,
+    scene: &mut FittingScene,
+    authoring: &mut AuthoringUi,
+    document: &mut DocumentUi,
+) {
+    *project = prepared.project;
+    *scene = prepared.scene;
+    *authoring = AuthoringUi::default();
+    authoring.selected = project.template.panels.first().map(|p| p.id.clone());
+    document.path = None;
+    document.dirty = true;
+    document.browser = Default::default();
+}
 impl Atelier {
+    pub(super) fn template_browser_open(&self) -> bool {
+        self.document.browser.open
+    }
+    pub(super) fn open_template_browser(&mut self, ctx: &egui::Context) {
+        self.pause_document(ctx);
+        self.document.browser.begin();
+    }
+    fn template_browser_tick(&mut self, ctx: &egui::Context) {
+        use template_browser::Action;
+        let dirty =
+            self.document.dirty || self.authoring.preview.is_some() || self.has_document_draft();
+        let action = self.document.browser.show(ctx, dirty);
+        match action {
+            Some(Action::Cancel) => {
+                self.document.browser.open = false;
+                self.document.browser.confirming = false;
+            }
+            Some(Action::Import) => {
+                if let Some(path) = FileDialog::new()
+                    .set_title("Import native garment template")
+                    .add_filter("ClothCraft template JSON", &["json"])
+                    .pick_file()
+                {
+                    use std::io::Read;
+                    let result = (|| {
+                        let mut bytes = Vec::new();
+                        std::fs::File::open(&path)
+                            .map_err(|e| e.to_string())?
+                            .take(8 * 1024 * 1024 + 1)
+                            .read_to_end(&mut bytes)
+                            .map_err(|e| e.to_string())?;
+                        marvelous_cloth::template_catalog::Selection::external(
+                            &bytes,
+                            path.display().to_string(),
+                        )
+                    })();
+                    match result {
+                        Ok(selection) => {
+                            self.document.browser.selection = Some(selection);
+                            self.document.browser.error = None;
+                        }
+                        Err(error) => {
+                            self.document.browser.selection = None;
+                            self.document.browser.error = Some(error);
+                        }
+                    }
+                }
+            }
+            Some(Action::Prepare) => {
+                if let Some(selection) = &self.document.browser.selection {
+                    match selection
+                        .prepare_with_simulation(&self.project, Some(self.settings.clone()))
+                    {
+                        Ok(_) => {
+                            self.document.browser.confirming = true;
+                            self.document.browser.error = None;
+                        }
+                        Err(error) => self.document.browser.error = Some(error),
+                    }
+                }
+            }
+            Some(Action::SaveAndOpen) | Some(Action::Open) => {
+                if action == Some(Action::SaveAndOpen) && !self.save_document(ctx, false) {
+                    return;
+                }
+                if let Some(selection) = &self.document.browser.selection {
+                    // Revalidate against the current avatar/settings at confirmation.
+                    // Only a complete candidate may replace the document.
+                    match selection
+                        .prepare_with_simulation(&self.project, Some(self.settings.clone()))
+                    {
+                        Ok(prepared) => {
+                            self.pause_document(ctx);
+                            self.remove_recovery();
+                            install_template(
+                                prepared,
+                                &mut self.project,
+                                &mut self.scene,
+                                &mut self.authoring,
+                                &mut self.document,
+                            );
+                            // A paused request still references the previous scene.
+                            // Its eventual response must never overwrite this garment.
+                            self.generation += 1;
+                            self.pending = false;
+                            self.playing = false;
+                            self.authoring.board.snap_mm = self.prefs.snap_mm;
+                            if let Some(poly) = self
+                                .project
+                                .template
+                                .panels
+                                .iter()
+                                .find_map(|p| p.polygon.as_ref())
+                            {
+                                let m = poly.meshing_settings();
+                                self.mesh_mm = m.target_edge_m * 1000.;
+                                self.anisotropy = m.anisotropy;
+                                self.mesh_axis = m.axis_degrees;
+                            }
+                            self.issue.invalidate();
+                            self.metrics = None;
+                            self.simulation_error = None;
+                            self.grab = None;
+                            self.drag_plane = None;
+                            self.status =
+                                "Template opened as a new project · Save As to keep it".into();
+                        }
+                        Err(error) => self.document.browser.error = Some(error),
+                    }
+                }
+            }
+            None => {}
+        }
+    }
     fn has_document_draft(&self) -> bool {
         !self.authoring.draft.is_empty()
             || !self.authoring.ends.is_empty()
@@ -219,6 +352,7 @@ impl Atelier {
     pub(super) fn document_menu(&mut self, ui: &mut egui::Ui) {
         let ctx = ui.ctx().clone();
         for (label, action) in [
+            ("Templates…", 5),
             ("New project…", 0),
             ("Open…  Ctrl+O", 1),
             ("Save  Ctrl+S", 2),
@@ -236,7 +370,8 @@ impl Atelier {
                     3 => {
                         self.save_document(&ctx, true);
                     }
-                    _ => self.open_document(&ctx, true),
+                    4 => self.open_document(&ctx, true),
+                    _ => self.open_template_browser(&ctx),
                 }
             }
         }
@@ -244,6 +379,10 @@ impl Atelier {
         self.export_information(ui);
     }
     pub(super) fn document_tick(&mut self, ctx: &egui::Context) {
+        self.template_browser_tick(ctx);
+        if self.document.browser.open {
+            return;
+        }
         if self.smoke {
             return;
         }
@@ -331,5 +470,190 @@ impl Atelier {
             if self.document.dirty { " *" } else { "" }
         )));
         ctx.request_repaint_after(Duration::from_secs(5));
+    }
+}
+
+#[cfg(test)]
+mod template_tests {
+    use super::super::authoring_smoke::widget_harness::Harness;
+    use super::*;
+    use marvelous_cloth::{garment::presets::GarmentKind, template_catalog::Selection};
+
+    struct Case {
+        browser: template_browser::Browser,
+        document: DocumentUi,
+        project: FittingProject,
+        scene: FittingScene,
+        authoring: AuthoringUi,
+        installs: usize,
+    }
+    fn draw(ui: &mut egui::Ui, case: &mut Case) {
+        let action = case.browser.show(ui.ctx(), case.document.dirty);
+        match action {
+            Some(template_browser::Action::Prepare) => {
+                match case
+                    .browser
+                    .selection
+                    .as_ref()
+                    .unwrap()
+                    .prepare(&case.project)
+                {
+                    Ok(_) => case.browser.confirming = true,
+                    Err(e) => case.browser.error = Some(e),
+                }
+            }
+            Some(template_browser::Action::Cancel) => {
+                case.browser.open = false;
+                case.browser.confirming = false;
+            }
+            Some(template_browser::Action::Open) => {
+                let prepared = case
+                    .browser
+                    .selection
+                    .as_ref()
+                    .unwrap()
+                    .prepare(&case.project)
+                    .unwrap();
+                install_template(
+                    prepared,
+                    &mut case.project,
+                    &mut case.scene,
+                    &mut case.authoring,
+                    &mut case.document,
+                );
+                case.browser.open = false;
+                case.installs += 1;
+            }
+            None => {}
+            other => panic!("Unexpected action: {other:?}"),
+        }
+    }
+    fn fixture(directory: &std::path::Path) -> Case {
+        let avatar = directory.join("avatar.obj");
+        std::fs::write(&avatar, "v 0 0 -10\nv 1 0 -10\nv 0 1 -10\nf 1 2 3\n").unwrap();
+        let project = FittingProject::basic(GarmentKind::Dress, 1, avatar);
+        let scene = project.compile().unwrap();
+        let mut authoring = AuthoringUi::default();
+        authoring.history.record(project.template.clone());
+        let mut browser = template_browser::Browser::default();
+        browser.begin();
+        Case {
+            browser,
+            document: DocumentUi::new(directory, Some(directory.join("existing.json")), true),
+            project,
+            scene,
+            authoring,
+            installs: 0,
+        }
+    }
+    #[test]
+    fn named_widgets_templates_cancel_preserves_then_confirm_starts_new_document() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut case = fixture(directory.path());
+        let original = serde_json::to_vec(&case.project).unwrap();
+        let saved = case.document.path.clone();
+        let avatar = case.project.avatar_path.clone();
+        let mut h = Harness::new(egui::vec2(900., 850.));
+        for _ in 0..4 {
+            h.frame(&mut case, &mut draw);
+        }
+        h.click("templates.choose.two-panel", &mut case, &mut draw)
+            .unwrap();
+        h.frame(&mut case, &mut draw);
+        h.frame(&mut case, &mut draw);
+        h.click("templates.prepare", &mut case, &mut draw).unwrap();
+        h.frame(&mut case, &mut draw);
+        h.frame(&mut case, &mut draw);
+        assert!(case.browser.confirming);
+        assert_eq!(case.installs, 0);
+        h.click("templates.cancel", &mut case, &mut draw).unwrap();
+        assert_eq!(serde_json::to_vec(&case.project).unwrap(), original);
+        assert_eq!(case.document.path, saved);
+        assert!(case.authoring.history.can_undo());
+        h.frame(&mut case, &mut draw);
+        case.browser.begin();
+        h.frame(&mut case, &mut draw);
+        h.frame(&mut case, &mut draw);
+        h.frame(&mut case, &mut draw);
+        h.frame(&mut case, &mut draw);
+        h.click("templates.prepare", &mut case, &mut draw).unwrap();
+        h.frame(&mut case, &mut draw);
+        h.frame(&mut case, &mut draw);
+        h.click("templates.confirm", &mut case, &mut draw).unwrap();
+        assert_eq!(case.installs, 1);
+        assert!(case.document.path.is_none());
+        assert!(case.document.dirty);
+        assert!(!case.authoring.history.can_undo());
+        assert!(!case.authoring.history.can_redo());
+        assert_eq!(case.project.avatar_path, avatar);
+        assert_eq!(case.project.template.name, "Two panels / nonmatching seam");
+        assert!(case.project.state.is_none());
+        assert!(case.project.mesh_signature.is_none());
+        assert!(!directory.path().join("existing.json").exists());
+    }
+    #[test]
+    fn named_widgets_templates_small_window_keeps_confirmation_accessible() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut case = fixture(directory.path());
+        let mut h = Harness::new(egui::vec2(480., 360.));
+        for _ in 0..4 {
+            h.frame(&mut case, &mut draw);
+        }
+        h.click("templates.choose.two-panel", &mut case, &mut draw)
+            .unwrap();
+        h.frame(&mut case, &mut draw);
+        h.frame(&mut case, &mut draw);
+        h.click("templates.prepare", &mut case, &mut draw).unwrap();
+        h.frame(&mut case, &mut draw);
+        h.frame(&mut case, &mut draw);
+        h.click("templates.cancel", &mut case, &mut draw).unwrap();
+        assert_eq!(case.installs, 0);
+    }
+    #[test]
+    fn named_widgets_templates_owns_keyboard_and_escape_preserves_document() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut case = fixture(directory.path());
+        let original = serde_json::to_vec(&case.project).unwrap();
+        let mut h = Harness::new(egui::vec2(900., 850.));
+        h.frame(&mut case, &mut draw);
+        h.frame(&mut case, &mut draw);
+        assert!(h.ctx.egui_wants_keyboard_input());
+        h.key(
+            "templates.close",
+            egui::Key::Escape,
+            egui::Modifiers::NONE,
+            &mut case,
+            &mut draw,
+        )
+        .unwrap();
+        assert!(!case.browser.open);
+        assert_eq!(case.installs, 0);
+        assert_eq!(serde_json::to_vec(&case.project).unwrap(), original);
+        assert!(case.authoring.history.can_undo());
+    }
+    #[test]
+    fn named_widgets_templates_invalid_avatar_never_replaces_document() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut case = fixture(directory.path());
+        case.project.avatar_path = directory.path().join("missing.obj");
+        let original = serde_json::to_vec(&case.project).unwrap();
+        let saved = case.document.path.clone();
+        let mut h = Harness::new(egui::vec2(900., 850.));
+        for _ in 0..4 {
+            h.frame(&mut case, &mut draw);
+        }
+        h.click("templates.choose.two-panel", &mut case, &mut draw)
+            .unwrap();
+        h.frame(&mut case, &mut draw);
+        h.frame(&mut case, &mut draw);
+        h.click("templates.prepare", &mut case, &mut draw).unwrap();
+        h.frame(&mut case, &mut draw);
+        h.frame(&mut case, &mut draw);
+        assert!(case.browser.error.is_some());
+        assert!(!case.browser.confirming);
+        assert_eq!(case.installs, 0);
+        assert_eq!(serde_json::to_vec(&case.project).unwrap(), original);
+        assert_eq!(case.document.path, saved);
+        assert!(Selection::external(b"invalid", "broken".into()).is_err());
     }
 }
