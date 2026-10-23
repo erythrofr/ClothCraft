@@ -45,8 +45,9 @@ change the collision mesh to satisfy a requested capability silently.
    mass, material orientation and seam quadrature remain owned by that model.
    Never obtain rest coordinates from a draped `State`.
 2. Construct `Backend::new` with the selected algorithm, compiled garment,
-   optional avatar surface and a compatible state. Initialization validates
-   geometry and builds incidence/contact caches; it can fail.
+   optional avatar surface and a compatible state. Initialization rejects
+   non-finite positions, velocities and time, checks dimensions and geometry,
+   and builds incidence/contact caches; it can fail.
 3. Call `step` with a mutable state, validated settings and optional Grab.
    Accepted steps update x/v/time. Invalid input must not partially install
    x/v/time. Diagnostics and internal caches can change on a rejected attempt;
@@ -107,6 +108,6 @@ cargo test --locked --no-default-features -j 2 --lib adapter_contract -- --test-
 ```
 
 Tests exercise real adapter construction and stepping on an original small
-garment, accepted physical time, unchanged state on invalid settings/controls,
+garment, corrupt checkpoint rejection, accepted physical time, unchanged state on invalid settings/controls,
 cold restarts and descriptive capability distinctions. They are API regression
 tests, not the production collision, convergence or performance acceptance suite.

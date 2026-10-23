@@ -139,6 +139,12 @@ impl Backend {
         avatar: Option<&SurfaceMesh>,
         state: &State,
     ) -> Result<Self, String> {
+        // Reject corrupt checkpoints before constructing contact/incidence caches.
+        // VbdSolver validates dimensions and geometry but defers velocity/time
+        // finiteness to step; the adapter's initialization contract is stricter.
+        if !state.time.is_finite() || state.x.iter().chain(&state.v).any(|p| !p.is_finite()) {
+            return Err("Lab checkpoint positions, velocities and time must be finite".into());
+        }
         let reference = VbdSolver::new(garment, avatar, state)?;
         let constraints = constraints::compile(&reference.garment);
         if constraints
@@ -787,6 +793,31 @@ mod tests {
         template.panels[0].pattern.nx = 1;
         template.panels[0].pattern.ny = 1;
         Arc::new(template.compile().unwrap())
+    }
+
+    #[test]
+    fn adapter_contract_rejects_invalid_checkpoints_at_construction() {
+        let garment = contract_garment();
+        for &algorithm in Algorithm::value_variants() {
+            for case in 0..5 {
+                let mut state = garment.initial_state.clone();
+                match case {
+                    0 => state.time = f64::NAN,
+                    1 => state.v[0].x = f64::INFINITY,
+                    2 => state.x[0].y = f64::NAN,
+                    3 => {
+                        state.x.pop();
+                    }
+                    _ => {
+                        state.v.pop();
+                    }
+                }
+                assert!(
+                    Backend::new(algorithm, garment.clone(), None, &state).is_err(),
+                    "{algorithm:?} accepted invalid checkpoint case {case}"
+                );
+            }
+        }
     }
 
     #[test]
