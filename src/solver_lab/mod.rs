@@ -33,6 +33,86 @@ pub enum Algorithm {
     /// Finite AVBD curvature, bounded target ramp and coupled primal polishing.
     AvbdTarget,
 }
+
+/// Describes the finite-iteration material model, not a convergence guarantee.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StiffnessSchedule {
+    Target,
+    AdaptiveFinite,
+    TargetCompletion,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ResidualSampling {
+    LastColorSweepAllVertices,
+    FinalPrimalFreeVertices,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ContactMetricSampling {
+    LastDetection,
+    FinalDistanceLastDetectionCounts,
+}
+
+/// Versioned descriptive metadata for the existing CPU lab interface. No plugin
+/// negotiation or editor promotion is implied. See docs/solver-adapter-contract.md.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+pub struct Capabilities {
+    pub version: u32,
+    pub id: &'static str,
+    pub experimental: bool,
+    pub execution: &'static str,
+    pub target_material: &'static str,
+    pub contact: &'static str,
+    pub max_factor_vertices: usize,
+    pub stiffness_schedule: StiffnessSchedule,
+    pub residual_sampling: ResidualSampling,
+    pub contact_metric_sampling: ContactMetricSampling,
+    pub coulomb_friction: bool,
+    pub animated_avatar: bool,
+    pub portable_warm_start: bool,
+}
+
+impl Algorithm {
+    /// Only names real stepping implementations. The production hybrid GPU
+    /// solver, historical Newton and external Box3D harness are separate APIs.
+    pub const fn capabilities(self) -> Capabilities {
+        let (id, stiffness_schedule) = match self {
+            Self::Vbd => ("vbd", StiffnessSchedule::Target),
+            Self::Xpbd => ("xpbd", StiffnessSchedule::Target),
+            Self::AvbdFinite => ("avbd-finite", StiffnessSchedule::AdaptiveFinite),
+            Self::XpbdPrimal => ("xpbd-primal", StiffnessSchedule::Target),
+            Self::AvbdTarget => ("avbd-target", StiffnessSchedule::TargetCompletion),
+        };
+        let control = matches!(self, Self::Vbd);
+        Capabilities {
+            version: 1,
+            id,
+            experimental: !control,
+            execution: "cpu_f64",
+            target_material: "orthotropic_membrane_normal_difference_bending_weighted_seams",
+            contact: "ogc_surface_bounds_with_local_sewing_exclusions",
+            max_factor_vertices: 4,
+            stiffness_schedule,
+            residual_sampling: if control {
+                ResidualSampling::LastColorSweepAllVertices
+            } else {
+                ResidualSampling::FinalPrimalFreeVertices
+            },
+            contact_metric_sampling: if control {
+                ContactMetricSampling::LastDetection
+            } else {
+                ContactMetricSampling::FinalDistanceLastDetectionCounts
+            },
+            coulomb_friction: false,
+            animated_avatar: false,
+            portable_warm_start: false,
+        }
+    }
+}
 /// Actual adapters, sharing compiled rest data, state and diagnostics. Switching
 /// means a cold restart; no predictor, contact history or multiplier transfer.
 pub struct Backend {
@@ -46,6 +126,9 @@ pub struct Backend {
     pub worst_refresh: Option<primal::RefreshEvent>,
 }
 impl Backend {
+    pub const fn capabilities(&self) -> Capabilities {
+        self.algorithm.capabilities()
+    }
     /// Expensive per-sweep convergence evidence, off by default.
     pub fn trace_convergence(&mut self, enabled: bool) {
         self.trace_enabled = enabled;
@@ -111,7 +194,7 @@ impl Backend {
                 || !b.stiffness.is_finite()
                 || b.stiffness <= 0.
                 || !b.target.is_finite()
-                || b.weights.iter().any(|w| !w.is_finite())
+                || b.weights.iter().any(|w| !w.is_finite() || *w < 0.)
                 || (b.weights.iter().sum::<f64>() - 1.).abs() > 1e-10
                 || b.vertices[0] == b.vertices[1]
                 || b.vertices[1] == b.vertices[2]
@@ -694,6 +777,157 @@ fn feasible_fraction(contacts: &ContactSet, i: usize, x: DVec3, d: DVec3) -> f64
 #[cfg(test)]
 mod tests {
     use super::*;
+    use clap::ValueEnum;
+
+    fn contract_garment() -> Arc<CompiledGarment> {
+        let mut template = crate::garment::GarmentTemplate::two_panel_demo();
+        template.panels.truncate(1);
+        template.seams.clear();
+        template.panels[0].pins.clear();
+        template.panels[0].pattern.nx = 1;
+        template.panels[0].pattern.ny = 1;
+        Arc::new(template.compile().unwrap())
+    }
+
+    #[test]
+    fn adapter_contract_rejects_negative_grab_weights_without_changing_state() {
+        let garment = contract_garment();
+        for &algorithm in Algorithm::value_variants() {
+            let mut state = garment.initial_state.clone();
+            let before = serde_json::to_string(&state).unwrap();
+            let mut backend = Backend::new(algorithm, garment.clone(), None, &state).unwrap();
+            let vertices = garment.mesh.triangles[0].vertices;
+            let grab = Grab {
+                vertices,
+                weights: [-0.2, 0.6, 0.6],
+                target: state.x[vertices[0]],
+                stiffness: 10.,
+                patch: vec![],
+            };
+            let settings = VbdSettings {
+                gravity: DVec3::ZERO,
+                iterations: 1,
+                ..Default::default()
+            };
+            assert!(
+                backend.step(&mut state, &settings, Some(&grab)).is_err(),
+                "{algorithm:?} accepted extrapolating grab weights"
+            );
+            assert_eq!(serde_json::to_string(&state).unwrap(), before);
+        }
+    }
+
+    #[test]
+    fn adapter_contract_real_steps_preserve_rest_and_report_physical_time() {
+        let garment = contract_garment();
+        let rest = garment.mesh.uv.clone();
+        for &algorithm in Algorithm::value_variants() {
+            let mut state = garment.initial_state.clone();
+            state.time = 2.5;
+            let initial = state.clone();
+            let mut backend = Backend::new(algorithm, garment.clone(), None, &state).unwrap();
+            let caps = backend.capabilities();
+            assert_eq!(caps, algorithm.capabilities());
+            assert_eq!(caps.id, algorithm.to_possible_value().unwrap().get_name());
+            let settings = VbdSettings {
+                dt: 0.005,
+                iterations: 2,
+                ..Default::default()
+            };
+            let metrics = backend.step(&mut state, &settings, None).unwrap();
+            assert!((state.time - 2.505).abs() < 1e-12, "{}", caps.id);
+            assert_eq!(metrics.time_s, state.time);
+            assert_eq!(metrics.dt_s, settings.dt);
+            assert!(metrics.step_ms.is_finite() && metrics.step_ms >= 0.);
+            assert!(
+                state
+                    .x
+                    .iter()
+                    .zip(&initial.x)
+                    .any(|(a, b)| a.distance(*b) > 1e-8)
+            );
+            assert_eq!(garment.mesh.uv, rest);
+
+            // A new adapter from the SAME input is reproducible. This does not
+            // assert equivalence with warm predictor/contact/stiffness history.
+            let mut repeat = initial.clone();
+            let mut cold = Backend::new(algorithm, garment.clone(), None, &repeat).unwrap();
+            cold.step(&mut repeat, &settings, None).unwrap();
+            for (a, b) in state.x.iter().zip(&repeat.x) {
+                assert!(a.distance(*b) < 1e-12);
+            }
+            for (a, b) in state.v.iter().zip(&repeat.v) {
+                assert!(a.distance(*b) < 1e-12);
+            }
+            assert_eq!(repeat.time, state.time);
+
+            let before = serde_json::to_string(&state).unwrap();
+            let invalid = VbdSettings { dt: 0., ..settings };
+            assert!(backend.step(&mut state, &invalid, None).is_err());
+            assert_eq!(serde_json::to_string(&state).unwrap(), before);
+        }
+    }
+
+    #[test]
+    fn adapter_contract_valid_convex_grab_remains_accepted() {
+        let garment = contract_garment();
+        for &algorithm in Algorithm::value_variants() {
+            let mut state = garment.initial_state.clone();
+            let mut backend = Backend::new(algorithm, garment.clone(), None, &state).unwrap();
+            let vertices = garment.mesh.triangles[0].vertices;
+            let target =
+                vertices.iter().map(|i| state.x[*i] / 3.).sum::<DVec3>() + DVec3::Z * 0.001;
+            let grab = Grab {
+                vertices,
+                weights: [1. / 3.; 3],
+                target,
+                stiffness: 5.,
+                patch: vec![],
+            };
+            let settings = VbdSettings {
+                gravity: DVec3::ZERO,
+                iterations: 2,
+                ..Default::default()
+            };
+            backend.step(&mut state, &settings, Some(&grab)).unwrap();
+            assert_eq!(state.time, settings.dt);
+            assert!(state.x.iter().chain(&state.v).all(|p| p.is_finite()));
+        }
+    }
+
+    #[test]
+    fn adapter_contract_metadata_distinguishes_ramps_and_sampling() {
+        assert_eq!(
+            Algorithm::AvbdFinite.capabilities().stiffness_schedule,
+            StiffnessSchedule::AdaptiveFinite
+        );
+        assert_eq!(
+            Algorithm::AvbdTarget.capabilities().stiffness_schedule,
+            StiffnessSchedule::TargetCompletion
+        );
+        assert_eq!(
+            Algorithm::Vbd.capabilities().residual_sampling,
+            ResidualSampling::LastColorSweepAllVertices
+        );
+        for &algorithm in Algorithm::value_variants() {
+            let caps = algorithm.capabilities();
+            let json = serde_json::to_value(caps).unwrap();
+            assert_eq!(json["execution"], "cpu_f64");
+            assert_eq!(json["portable_warm_start"], false);
+            assert!(!caps.coulomb_friction && !caps.animated_avatar);
+            if !matches!(algorithm, Algorithm::Vbd) {
+                assert!(caps.experimental);
+                assert_eq!(
+                    caps.residual_sampling,
+                    ResidualSampling::FinalPrimalFreeVertices
+                );
+                assert_eq!(
+                    caps.contact_metric_sampling,
+                    ContactMetricSampling::FinalDistanceLastDetectionCounts
+                );
+            }
+        }
+    }
     #[test]
     fn quadratic_plane_contact_keeps_tangential_curvature_zero() {
         for n in [DVec3::Y, DVec3::new(1., 2., -3.).normalize()] {
