@@ -162,7 +162,7 @@
       "id": "EXO-REV-004",
       "title": "Reconcile feature map and current stable lint contributions",
       "area": "review",
-      "status": "review_existing",
+      "status": "done",
       "depends_on": [],
       "scope": [
         "docs/feature-map.md",
@@ -179,9 +179,10 @@
       ],
       "related_prs": [
         "https://github.com/erythrofr/ClothCraft/pull/4",
-        "https://github.com/erythrofr/ClothCraft/pull/5"
+        "https://github.com/erythrofr/ClothCraft/pull/5",
+        "https://github.com/erythrofr/ClothCraft/pull/39"
       ],
-      "notes": "The 22 October bootstrap incorporates the PR4-equivalent chunks_exact-to-as_chunks test fix, credits FireflyTheReal commit 43018fc959b311a6029bb0ffc586619786938e50, and extends it across research tests/examples for Clippy 1.99. PR4 is not merged; PR5 feature-map review remains open. Do not replace the canonical task registry with a second assignment board."
+      "notes": "The 22 October bootstrap incorporates the PR4-equivalent chunks_exact-to-as_chunks test fix, credits FireflyTheReal commit 43018fc959b311a6029bb0ffc586619786938e50, and extends it across research tests/examples for Clippy 1.99. PR4 is not merged; PR5 feature-map review remains open. Do not replace the canonical task registry with a second assignment board. Completed in merged PR #39; all 12 CI checks passed before merge."
     },
     {
       "id": "EXO-REV-005",
@@ -234,7 +235,7 @@
       "id": "EXO-CAD-002",
       "title": "Add numeric construction inspector actions",
       "area": "cad",
-      "status": "ready",
+      "status": "done",
       "depends_on": [
         "EXO-CAD-001"
       ],
@@ -253,8 +254,10 @@
       "evidence": [
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/draftingPrecision.js"
       ],
-      "related_prs": [],
-      "notes": "Point inspector integration using the original Rust API from #26. No src/atelier.rs edits: EXO-UX-001 owns that file. Selected contour point references use panel and named boundary identity; projection, signed distance and perpendicular offset use straight reference edges only."
+      "related_prs": [
+        "https://github.com/erythrofr/ClothCraft/pull/38"
+      ],
+      "notes": "Point inspector integration using the original Rust API from #26. No src/atelier.rs edits: EXO-UX-001 owns that file. Selected contour point references use panel and named boundary identity; projection, signed distance and perpendicular offset use straight reference edges only. Completed in merged PR #38; all 12 CI checks passed before merge."
     },
     {
       "id": "EXO-CAD-003",
@@ -415,21 +418,24 @@
       "status": "ready",
       "depends_on": [],
       "scope": [
-        "src/garment/sewing_audit.rs",
+        "src/garment/seam.rs",
+        "src/garment/seam/audit.rs",
+        "src/bin/cloth-template.rs",
         "tests/sewing_audit.rs",
-        "src/garment/mod.rs"
+        "docs/sewing-audit.md"
       ],
       "acceptance": [
         "Report lengths, easing intervals, dangling references and seam junction degree using stable IDs.",
         "Reuse compiler correspondence including partial/chained/reversed intervals.",
-        "Distinguish authored mismatch from measured simulated seam gap; never alter the solver."
+        "Distinguish authored mismatch from measured simulated seam gap; never alter the solver.",
+        "Provide a headless CLI report with explicit units, deterministic diagnostics and documented invalid-input behavior."
       ],
       "evidence": [
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/sewingConstruction.js",
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/sewingLengthDiagnostics.js"
       ],
       "related_prs": [],
-      "notes": ""
+      "notes": "Expose the read-only audit as garment::seam::audit and a cloth-template CLI command. This avoids garment/mod.rs reserved by EXO-CAD-005; do not alter solver behavior. Reuse existing boundary resolution and correspondence validation. UI presentation is a separate future scope."
     },
     {
       "id": "EXO-SEW-002",

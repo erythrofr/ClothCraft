@@ -16,10 +16,10 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-REV-001](#exo-rev-001) — Reconcile the two notch and allowance contributions | review | review_existing | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/12) |
 | [EXO-REV-002](#exo-rev-002) — Split and review darts, persistent POM and cutline proposal | review | review_existing | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/13) |
 | [EXO-REV-003](#exo-rev-003) — Review physical SVG output contribution | review | review_existing | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/14) |
-| [EXO-REV-004](#exo-rev-004) — Reconcile feature map and current stable lint contributions | review | review_existing | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/15) |
+| [EXO-REV-004](#exo-rev-004) — Reconcile feature map and current stable lint contributions | review | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/15) |
 | [EXO-REV-005](#exo-rev-005) — Extract reviewable boundaries from the EXO Studio and session proposal | review | review_existing | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/16) |
 | [EXO-CAD-001](#exo-cad-001) — Implement exact numeric construction operations | cad | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/17) |
-| [EXO-CAD-002](#exo-cad-002) — Add numeric construction inspector actions | cad | ready | EXO-CAD-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/36) |
+| [EXO-CAD-002](#exo-cad-002) — Add numeric construction inspector actions | cad | done | EXO-CAD-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/36) |
 | [EXO-CAD-003](#exo-cad-003) — Define topology reference migration for pattern edits | cad | blocked | EXO-CORE-001, EXO-REV-001, EXO-REV-002 | Not registered |
 | [EXO-CAD-004](#exo-cad-004) — Unfold one half-pattern across a straight fold edge | cad | blocked | EXO-CAD-003 | Not registered |
 | [EXO-CAD-005](#exo-cad-005) — Add bounded-error freehand-to-Bezier fitting | cad | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/18) |
@@ -245,7 +245,7 @@ Review an existing contribution instead of reimplementing it in parallel.
 
 **Reconcile feature map and current stable lint contributions**
 
-Status: review_existing. Dependencies: none.
+Status: done. Dependencies: none.
 
 **Files / directories**
 
@@ -264,8 +264,9 @@ Status: review_existing. Dependencies: none.
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/docs/EXO_FEATURE_ATLAS.md
 - https://github.com/erythrofr/ClothCraft/pull/4
 - https://github.com/erythrofr/ClothCraft/pull/5
+- https://github.com/erythrofr/ClothCraft/pull/39
 
-The 22 October bootstrap incorporates the PR4-equivalent chunks_exact-to-as_chunks test fix, credits FireflyTheReal commit 43018fc959b311a6029bb0ffc586619786938e50, and extends it across research tests/examples for Clippy 1.99. PR4 is not merged; PR5 feature-map review remains open. Do not replace the canonical task registry with a second assignment board.
+The 22 October bootstrap incorporates the PR4-equivalent chunks_exact-to-as_chunks test fix, credits FireflyTheReal commit 43018fc959b311a6029bb0ffc586619786938e50, and extends it across research tests/examples for Clippy 1.99. PR4 is not merged; PR5 feature-map review remains open. Do not replace the canonical task registry with a second assignment board. Completed in merged PR #39; all 12 CI checks passed before merge.
 
 ## EXO-REV-005
 
@@ -320,7 +321,7 @@ Merged #26 (61833c6). Five CPU construction tests and one doctest passed; CI pas
 
 **Add numeric construction inspector actions**
 
-Status: ready. Dependencies: EXO-CAD-001.
+Status: done. Dependencies: EXO-CAD-001.
 
 **Files / directories**
 
@@ -339,8 +340,9 @@ Status: ready. Dependencies: EXO-CAD-001.
 **Evidence and related contributions**
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/draftingPrecision.js
+- https://github.com/erythrofr/ClothCraft/pull/38
 
-Point inspector integration using the original Rust API from #26. No src/atelier.rs edits: EXO-UX-001 owns that file. Selected contour point references use panel and named boundary identity; projection, signed distance and perpendicular offset use straight reference edges only.
+Point inspector integration using the original Rust API from #26. No src/atelier.rs edits: EXO-UX-001 owns that file. Selected contour point references use panel and named boundary identity; projection, signed distance and perpendicular offset use straight reference edges only. Completed in merged PR #38; all 12 CI checks passed before merge.
 
 ## EXO-CAD-003
 
@@ -500,22 +502,25 @@ Status: ready. Dependencies: none.
 
 **Files / directories**
 
-- `src/garment/sewing_audit.rs`
+- `src/garment/seam.rs`
+- `src/garment/seam/audit.rs`
+- `src/bin/cloth-template.rs`
 - `tests/sewing_audit.rs`
-- `src/garment/mod.rs`
+- `docs/sewing-audit.md`
 
 **Acceptance**
 
 - Report lengths, easing intervals, dangling references and seam junction degree using stable IDs.
 - Reuse compiler correspondence including partial/chained/reversed intervals.
 - Distinguish authored mismatch from measured simulated seam gap; never alter the solver.
+- Provide a headless CLI report with explicit units, deterministic diagnostics and documented invalid-input behavior.
 
 **Evidence and related contributions**
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/sewingConstruction.js
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/sewingLengthDiagnostics.js
 
-
+Expose the read-only audit as garment::seam::audit and a cloth-template CLI command. This avoids garment/mod.rs reserved by EXO-CAD-005; do not alter solver behavior. Reuse existing boundary resolution and correspondence validation. UI presentation is a separate future scope.
 
 ## EXO-SEW-002
 
