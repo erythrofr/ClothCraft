@@ -30,7 +30,7 @@
       "id": "EXO-CORE-001",
       "title": "Agree editor, document and solver ownership contract",
       "area": "architecture",
-      "status": "ready",
+      "status": "done",
       "depends_on": [],
       "scope": [
         "docs/exo-contract.md"
@@ -44,8 +44,10 @@
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/docs/EXO_DATA_MODEL.md",
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/docs/EXO_RUST_CONVERSION_STATUS_2026-10-18.md"
       ],
-      "related_prs": [],
-      "notes": "A bounded design decision with maintainer approval, not a request to rewrite all schemas."
+      "related_prs": [
+        "https://github.com/erythrofr/ClothCraft/pull/30"
+      ],
+      "notes": "A bounded design decision with maintainer approval, not a request to rewrite all schemas. Completed in merged PR #30. Accepted design boundary documented on issue #10. Independently validated native synthetic template: two panels, one seam, 38 vertices, 44 triangles. Proposed session/revision transport remains unimplemented; this completes the design task only."
     },
     {
       "id": "EXO-CORE-002",
@@ -188,7 +190,7 @@
       "id": "EXO-REV-005",
       "title": "Extract reviewable boundaries from the EXO Studio and session proposal",
       "area": "review",
-      "status": "review_existing",
+      "status": "done",
       "depends_on": [],
       "scope": [
         "docs/exo-integration-review.md"
@@ -203,9 +205,10 @@
       ],
       "related_prs": [
         "https://github.com/erythrofr/ClothCraft/pull/2",
-        "https://github.com/erythrofr/ClothCraft/pull/7"
+        "https://github.com/erythrofr/ClothCraft/pull/7",
+        "https://github.com/erythrofr/ClothCraft/pull/32"
       ],
-      "notes": "At audit time PR2 had 2212998 additions. Counts are review scope, not functional completeness."
+      "notes": "At audit time PR2 had 2212998 additions. Counts are review scope, not functional completeness. Completed in merged PR #32. Accepted bounded review on issue #16. Separates authoring, session and solver proposals and identifies follow-up slices. No bulk EXO code/assets approved or imported; historical source claims retain their stated verification limits."
     },
     {
       "id": "EXO-CAD-001",
@@ -314,7 +317,7 @@
       "id": "EXO-CAD-005",
       "title": "Add bounded-error freehand-to-Bezier fitting",
       "area": "cad",
-      "status": "ready",
+      "status": "done",
       "depends_on": [],
       "scope": [
         "src/garment/freehand.rs",
@@ -330,8 +333,10 @@
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/vectorFreehandFit.js",
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/vectorPatternBezier.js"
       ],
-      "related_prs": [],
-      "notes": ""
+      "related_prs": [
+        "https://github.com/erythrofr/ClothCraft/pull/27"
+      ],
+      "notes": "Completed in merged PR #27. Original Rust fitter accepted and integrated in #35. Error is measured at input sample chord-length parameters, not a continuous Hausdorff guarantee; bounded inputs, corners and duplicate handling have CPU tests."
     },
     {
       "id": "EXO-CAD-006",
@@ -443,7 +448,7 @@
       "id": "EXO-SEW-002",
       "title": "Define authored trims and construction annotations",
       "area": "sewing",
-      "status": "blocked",
+      "status": "ready",
       "depends_on": [
         "EXO-CORE-001"
       ],
@@ -909,7 +914,7 @@
       "id": "EXO-IO-001",
       "title": "Import a documented SVG pattern subset",
       "area": "interchange",
-      "status": "blocked",
+      "status": "ready",
       "depends_on": [
         "EXO-CORE-001"
       ],
@@ -933,7 +938,7 @@
       "id": "EXO-IO-002",
       "title": "Import generic 2D DXF pattern entities",
       "area": "interchange",
-      "status": "blocked",
+      "status": "ready",
       "depends_on": [
         "EXO-CORE-001"
       ],
@@ -1060,7 +1065,7 @@
       "id": "EXO-IO-007",
       "title": "Import static glTF/GLB avatars",
       "area": "interchange",
-      "status": "blocked",
+      "status": "ready",
       "depends_on": [
         "EXO-CORE-001"
       ],
@@ -1109,7 +1114,7 @@
       "id": "EXO-LOOK-001",
       "title": "Separate visual fabric properties from mechanics",
       "area": "appearance",
-      "status": "blocked",
+      "status": "ready",
       "depends_on": [
         "EXO-CORE-001"
       ],
@@ -1210,7 +1215,7 @@
       "id": "EXO-LOOK-005",
       "title": "Define material-space garment graphic placements",
       "area": "appearance",
-      "status": "blocked",
+      "status": "ready",
       "depends_on": [
         "EXO-CORE-001"
       ],
@@ -1262,7 +1267,7 @@
       "id": "EXO-LOOK-007",
       "title": "Define reproducible stage, lighting and camera settings",
       "area": "appearance",
-      "status": "blocked",
+      "status": "ready",
       "depends_on": [
         "EXO-CORE-001"
       ],
@@ -1313,7 +1318,7 @@
       "id": "EXO-AV-001",
       "title": "Define avatar landmarks and body measurements",
       "area": "avatar",
-      "status": "blocked",
+      "status": "ready",
       "depends_on": [
         "EXO-CORE-001"
       ],
@@ -1365,7 +1370,7 @@
       "id": "EXO-AV-003",
       "title": "Expose pin editing and an explicit freeze policy",
       "area": "avatar",
-      "status": "blocked",
+      "status": "ready",
       "depends_on": [
         "EXO-CORE-001"
       ],
@@ -1484,7 +1489,7 @@
       "id": "EXO-UX-004",
       "title": "Add group 3D transforms and marquee selection",
       "area": "workspace",
-      "status": "blocked",
+      "status": "ready",
       "depends_on": [
         "EXO-CORE-001"
       ],
@@ -1565,7 +1570,7 @@
       "id": "EXO-QA-001",
       "title": "Build public cross-editor behavioral fixtures",
       "area": "validation",
-      "status": "blocked",
+      "status": "ready",
       "depends_on": [
         "EXO-CORE-001"
       ],
@@ -1610,7 +1615,7 @@
       "id": "EXO-QA-003",
       "title": "Verify native macOS and Linux build paths",
       "area": "release",
-      "status": "ready",
+      "status": "done",
       "depends_on": [],
       "scope": [
         ".github/workflows/build.yml",
@@ -1624,14 +1629,16 @@
       "evidence": [
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/docs/EXO_RELEASE_STATUS.md"
       ],
-      "related_prs": [],
-      "notes": ""
+      "related_prs": [
+        "https://github.com/erythrofr/ClothCraft/pull/45"
+      ],
+      "notes": "Completed in merged PR #45. Named-platform CPU tests and desktop linkage verified from completed jobs and recorded image/toolchain metadata in docs/platform-validation.md. Native window, dialogs, clipboard and GPU acceptance remain pending and are not implied by this build-path task."
     },
     {
       "id": "EXO-PHY-001",
       "title": "Define capabilities for real interchangeable solver adapters",
       "area": "physics",
-      "status": "blocked",
+      "status": "ready",
       "depends_on": [
         "EXO-CORE-001"
       ],
@@ -1791,7 +1798,7 @@
       "id": "EXO-CAD-010",
       "title": "Place a pattern point at the intersection of two reference edges",
       "area": "cad",
-      "status": "ready",
+      "status": "done",
       "depends_on": [
         "EXO-CAD-001",
         "EXO-CAD-002",
@@ -1813,8 +1820,10 @@
         "https://github.com/erythrofr/ClothCraft/pull/26",
         "https://github.com/erythrofr/ClothCraft/pull/49"
       ],
-      "related_prs": [],
-      "notes": "Original Rust integration of an existing CPU primitive. No solver, serialized document schema, atelier.rs or command-registry edits; no upstream code/assets copied. Infinite reference lines, not segment-clamped intersection."
+      "related_prs": [
+        "https://github.com/erythrofr/ClothCraft/pull/52"
+      ],
+      "notes": "Original Rust integration of an existing CPU primitive. No solver, serialized document schema, atelier.rs or command-registry edits; no upstream code/assets copied. Infinite reference lines, not segment-clamped intersection. Completed in merged PR #52. Merged after all 13 checks succeeded. 23 drawing-command and 59 editor tests passed; one optional preview ignored. Named-widget scenario exercises both reference menus, invalid/stale cases, Apply and exact undo. Desktop Clippy passed. Infinite straight lines only; no persistent constraints or GPU acceptance."
     }
   ]
 }

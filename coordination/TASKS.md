@@ -11,23 +11,23 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | Task | Area | Status | Dependencies | Discussion |
 |---|---|---|---|---|
 | [EXO-COORD-001](#exo-coord-001) — Verify live task claim, heartbeat and release coordination | coordination | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/9) |
-| [EXO-CORE-001](#exo-core-001) — Agree editor, document and solver ownership contract | architecture | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/10) |
+| [EXO-CORE-001](#exo-core-001) — Agree editor, document and solver ownership contract | architecture | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/10) |
 | [EXO-CORE-002](#exo-core-002) — Record provenance and licensing for candidate contributions | provenance | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/11) |
 | [EXO-REV-001](#exo-rev-001) — Reconcile the two notch and allowance contributions | review | review_existing | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/12) |
 | [EXO-REV-002](#exo-rev-002) — Split and review darts, persistent POM and cutline proposal | review | review_existing | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/13) |
 | [EXO-REV-003](#exo-rev-003) — Review physical SVG output contribution | review | review_existing | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/14) |
 | [EXO-REV-004](#exo-rev-004) — Reconcile feature map and current stable lint contributions | review | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/15) |
-| [EXO-REV-005](#exo-rev-005) — Extract reviewable boundaries from the EXO Studio and session proposal | review | review_existing | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/16) |
+| [EXO-REV-005](#exo-rev-005) — Extract reviewable boundaries from the EXO Studio and session proposal | review | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/16) |
 | [EXO-CAD-001](#exo-cad-001) — Implement exact numeric construction operations | cad | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/17) |
 | [EXO-CAD-002](#exo-cad-002) — Add numeric construction inspector actions | cad | done | EXO-CAD-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/36) |
 | [EXO-CAD-003](#exo-cad-003) — Define topology reference migration for pattern edits | cad | blocked | EXO-CORE-001, EXO-REV-001, EXO-REV-002 | Not registered |
 | [EXO-CAD-004](#exo-cad-004) — Unfold one half-pattern across a straight fold edge | cad | blocked | EXO-CAD-003 | Not registered |
-| [EXO-CAD-005](#exo-cad-005) — Add bounded-error freehand-to-Bezier fitting | cad | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/18) |
+| [EXO-CAD-005](#exo-cad-005) — Add bounded-error freehand-to-Bezier fitting | cad | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/18) |
 | [EXO-CAD-006](#exo-cad-006) — Connect freehand drawing to transactional contour editing | cad | blocked | EXO-CAD-005, EXO-CAD-003 | Not registered |
 | [EXO-CAD-007](#exo-cad-007) — Edit hole contours with the existing point tools | cad | blocked | EXO-CAD-003 | Not registered |
 | [EXO-CAD-008](#exo-cad-008) — Implement offset paths and cutline corner policy | cad | blocked | EXO-REV-001, EXO-REV-002 | Not registered |
 | [EXO-SEW-001](#exo-sew-001) — Add a read-only sewing construction audit | sewing | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/19) |
-| [EXO-SEW-002](#exo-sew-002) — Define authored trims and construction annotations | sewing | blocked | EXO-CORE-001 | Not registered |
+| [EXO-SEW-002](#exo-sew-002) — Define authored trims and construction annotations | sewing | ready | EXO-CORE-001 | Not registered |
 | [EXO-SEW-003](#exo-sew-003) — Add trim editing, picking and previews | sewing | blocked | EXO-SEW-002 | Not registered |
 | [EXO-SEW-004](#exo-sew-004) — Specify and validate physical zipper or button closure | physics | blocked | EXO-SEW-002, EXO-PHY-001 | Not registered |
 | [EXO-SEW-005](#exo-sew-005) — Define elastic seam and gathering mechanics | physics | blocked | EXO-SEW-001, EXO-PHY-001 | Not registered |
@@ -45,42 +45,42 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-MFG-012](#exo-mfg-012) — Export a revision-stamped HTML technical pack | manufacturing | blocked | EXO-MFG-006, EXO-MFG-011 | Not registered |
 | [EXO-MFG-013](#exo-mfg-013) — Add manufacturing preflight diagnostics | manufacturing | blocked | EXO-MFG-004, EXO-MFG-008, EXO-MFG-011 | Not registered |
 | [EXO-MFG-014](#exo-mfg-014) — Package consistent manufacturing artifacts | manufacturing | blocked | EXO-MFG-010, EXO-MFG-012, EXO-MFG-013, EXO-IO-003 | Not registered |
-| [EXO-IO-001](#exo-io-001) — Import a documented SVG pattern subset | interchange | blocked | EXO-CORE-001 | Not registered |
-| [EXO-IO-002](#exo-io-002) — Import generic 2D DXF pattern entities | interchange | blocked | EXO-CORE-001 | Not registered |
+| [EXO-IO-001](#exo-io-001) — Import a documented SVG pattern subset | interchange | ready | EXO-CORE-001 | Not registered |
+| [EXO-IO-002](#exo-io-002) — Import generic 2D DXF pattern entities | interchange | ready | EXO-CORE-001 | Not registered |
 | [EXO-IO-003](#exo-io-003) — Export generic DXF cut and sewing geometry | interchange | blocked | EXO-REV-002, EXO-MFG-002 | Not registered |
 | [EXO-IO-004](#exo-io-004) — Add one industrial DXF dialect with independent fixtures | interchange | blocked | EXO-IO-002, EXO-IO-003, EXO-MFG-003 | Not registered |
 | [EXO-IO-005](#exo-io-005) — Support OBJ and MTL material-aware round trips | interchange | blocked | EXO-LOOK-001 | Not registered |
 | [EXO-IO-006](#exo-io-006) — Export static glTF/GLB garment assets | interchange | blocked | EXO-LOOK-001 | Not registered |
-| [EXO-IO-007](#exo-io-007) — Import static glTF/GLB avatars | interchange | blocked | EXO-CORE-001 | Not registered |
+| [EXO-IO-007](#exo-io-007) — Import static glTF/GLB avatars | interchange | ready | EXO-CORE-001 | Not registered |
 | [EXO-IO-008](#exo-io-008) — Produce tiled physical PDF pattern sheets | interchange | blocked | EXO-REV-003, EXO-MFG-002 | Not registered |
-| [EXO-LOOK-001](#exo-look-001) — Separate visual fabric properties from mechanics | appearance | blocked | EXO-CORE-001 | Not registered |
+| [EXO-LOOK-001](#exo-look-001) — Separate visual fabric properties from mechanics | appearance | ready | EXO-CORE-001 | Not registered |
 | [EXO-LOOK-002](#exo-look-002) — Render the basic fabric appearance model | appearance | blocked | EXO-LOOK-001 | Not registered |
 | [EXO-LOOK-003](#exo-look-003) — Generate deterministic procedural textile maps | appearance | blocked | EXO-LOOK-001 | Not registered |
 | [EXO-LOOK-004](#exo-look-004) — Import and manage fabric texture assets | appearance | blocked | EXO-LOOK-001 | Not registered |
-| [EXO-LOOK-005](#exo-look-005) — Define material-space garment graphic placements | appearance | blocked | EXO-CORE-001 | Not registered |
+| [EXO-LOOK-005](#exo-look-005) — Define material-space garment graphic placements | appearance | ready | EXO-CORE-001 | Not registered |
 | [EXO-LOOK-006](#exo-look-006) — Render and edit garment graphics | appearance | blocked | EXO-LOOK-005, EXO-LOOK-002 | Not registered |
-| [EXO-LOOK-007](#exo-look-007) — Define reproducible stage, lighting and camera settings | appearance | blocked | EXO-CORE-001 | Not registered |
+| [EXO-LOOK-007](#exo-look-007) — Define reproducible stage, lighting and camera settings | appearance | ready | EXO-CORE-001 | Not registered |
 | [EXO-LOOK-008](#exo-look-008) — Render stages and export still images | appearance | blocked | EXO-LOOK-007 | Not registered |
-| [EXO-AV-001](#exo-av-001) — Define avatar landmarks and body measurements | avatar | blocked | EXO-CORE-001 | Not registered |
+| [EXO-AV-001](#exo-av-001) — Define avatar landmarks and body measurements | avatar | ready | EXO-CORE-001 | Not registered |
 | [EXO-AV-002](#exo-av-002) — Add body-aware panel arrangement assistance | avatar | blocked | EXO-AV-001 | Not registered |
-| [EXO-AV-003](#exo-av-003) — Expose pin editing and an explicit freeze policy | avatar | blocked | EXO-CORE-001 | Not registered |
+| [EXO-AV-003](#exo-av-003) — Expose pin editing and an explicit freeze policy | avatar | ready | EXO-CORE-001 | Not registered |
 | [EXO-AV-004](#exo-av-004) — Show avatar collision coverage and initialization problems | avatar | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/20) |
 | [EXO-UX-001](#exo-ux-001) — Publish a typed command capability registry | workspace | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/21) |
 | [EXO-UX-002](#exo-ux-002) — Add a searchable command palette | workspace | blocked | EXO-UX-001 | Not registered |
 | [EXO-UX-003](#exo-ux-003) — Persist workspace layouts and tool visibility | workspace | blocked | EXO-UX-001 | Not registered |
-| [EXO-UX-004](#exo-ux-004) — Add group 3D transforms and marquee selection | workspace | blocked | EXO-CORE-001 | Not registered |
+| [EXO-UX-004](#exo-ux-004) — Add group 3D transforms and marquee selection | workspace | ready | EXO-CORE-001 | Not registered |
 | [EXO-UX-005](#exo-ux-005) — Create a provenance-aware garment template browser | workspace | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/22) |
 | [EXO-UX-006](#exo-ux-006) — Expose a versioned headless authoring session adapter | automation | blocked | EXO-CORE-001, EXO-REV-005, EXO-UX-001 | Not registered |
-| [EXO-QA-001](#exo-qa-001) — Build public cross-editor behavioral fixtures | validation | blocked | EXO-CORE-001 | Not registered |
+| [EXO-QA-001](#exo-qa-001) — Build public cross-editor behavioral fixtures | validation | ready | EXO-CORE-001 | Not registered |
 | [EXO-QA-002](#exo-qa-002) — Package a clean-machine Windows test release | release | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/23) |
-| [EXO-QA-003](#exo-qa-003) — Verify native macOS and Linux build paths | release | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/24) |
-| [EXO-PHY-001](#exo-phy-001) — Define capabilities for real interchangeable solver adapters | physics | blocked | EXO-CORE-001 | Not registered |
+| [EXO-QA-003](#exo-qa-003) — Verify native macOS and Linux build paths | release | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/24) |
+| [EXO-PHY-001](#exo-phy-001) — Define capabilities for real interchangeable solver adapters | physics | ready | EXO-CORE-001 | Not registered |
 | [EXO-PHY-002](#exo-phy-002) — Compare candidate engines on shared quality gates | physics | blocked | EXO-PHY-001, EXO-QA-001 | Not registered |
 | [EXO-PHY-003](#exo-phy-003) — Evaluate foam and padding as a separate material experiment | physics | blocked | EXO-PHY-001 | Not registered |
 | [EXO-CAD-009](#exo-cad-009) — Integrate the freehand fitter and create new panels in the 2D workspace | cad | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/33) |
 | [EXO-SEW-006](#exo-sew-006) — Expose cached sewing diagnostics in the native inspector | sewing | done | EXO-SEW-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/43) |
 | [EXO-QA-004](#exo-qa-004) — Exercise editor tools with a deterministic named-widget harness | validation | done | EXO-SEW-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/47) |
-| [EXO-CAD-010](#exo-cad-010) — Place a pattern point at the intersection of two reference edges | cad | ready | EXO-CAD-001, EXO-CAD-002, EXO-QA-004 | [Issue](https://github.com/erythrofr/ClothCraft/issues/50) |
+| [EXO-CAD-010](#exo-cad-010) — Place a pattern point at the intersection of two reference edges | cad | done | EXO-CAD-001, EXO-CAD-002, EXO-QA-004 | [Issue](https://github.com/erythrofr/ClothCraft/issues/50) |
 
 ## EXO-COORD-001
 
@@ -109,7 +109,7 @@ Completed 22 October: 30 offline coordinator tests and 5 catalog tests pass. Liv
 
 **Agree editor, document and solver ownership contract**
 
-Status: ready. Dependencies: none.
+Status: done. Dependencies: none.
 
 **Files / directories**
 
@@ -125,8 +125,9 @@ Status: ready. Dependencies: none.
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/docs/EXO_DATA_MODEL.md
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/docs/EXO_RUST_CONVERSION_STATUS_2026-10-18.md
+- https://github.com/erythrofr/ClothCraft/pull/30
 
-A bounded design decision with maintainer approval, not a request to rewrite all schemas.
+A bounded design decision with maintainer approval, not a request to rewrite all schemas. Completed in merged PR #30. Accepted design boundary documented on issue #10. Independently validated native synthetic template: two panels, one seam, 38 vertices, 44 triangles. Proposed session/revision transport remains unimplemented; this completes the design task only.
 
 ## EXO-CORE-002
 
@@ -275,7 +276,7 @@ The 22 October bootstrap incorporates the PR4-equivalent chunks_exact-to-as_chun
 
 **Extract reviewable boundaries from the EXO Studio and session proposal**
 
-Status: review_existing. Dependencies: none.
+Status: done. Dependencies: none.
 
 **Files / directories**
 
@@ -292,8 +293,9 @@ Status: review_existing. Dependencies: none.
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/docs/EXO_RUST_CONVERSION_STATUS_2026-10-18.md
 - https://github.com/erythrofr/ClothCraft/pull/2
 - https://github.com/erythrofr/ClothCraft/pull/7
+- https://github.com/erythrofr/ClothCraft/pull/32
 
-At audit time PR2 had 2212998 additions. Counts are review scope, not functional completeness.
+At audit time PR2 had 2212998 additions. Counts are review scope, not functional completeness. Completed in merged PR #32. Accepted bounded review on issue #16. Separates authoring, session and solver proposals and identifies follow-up slices. No bulk EXO code/assets approved or imported; historical source claims retain their stated verification limits.
 
 ## EXO-CAD-001
 
@@ -400,7 +402,7 @@ A one-time unfold is distinct from linked symmetry between two separate panels.
 
 **Add bounded-error freehand-to-Bezier fitting**
 
-Status: ready. Dependencies: none.
+Status: done. Dependencies: none.
 
 **Files / directories**
 
@@ -418,8 +420,9 @@ Status: ready. Dependencies: none.
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/vectorFreehandFit.js
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/vectorPatternBezier.js
+- https://github.com/erythrofr/ClothCraft/pull/27
 
-
+Completed in merged PR #27. Original Rust fitter accepted and integrated in #35. Error is measured at input sample chord-length parameters, not a continuous Hausdorff guarantee; bounded inputs, corners and duplicate handling have CPU tests.
 
 ## EXO-CAD-006
 
@@ -530,7 +533,7 @@ Merged as 0d5384a after all 12 CI checks passed. CPU-only garment::seam::audit a
 
 **Define authored trims and construction annotations**
 
-Status: blocked. Dependencies: EXO-CORE-001.
+Status: ready. Dependencies: EXO-CORE-001.
 
 **Files / directories**
 
@@ -983,7 +986,7 @@ Status: blocked. Dependencies: EXO-MFG-010, EXO-MFG-012, EXO-MFG-013, EXO-IO-003
 
 **Import a documented SVG pattern subset**
 
-Status: blocked. Dependencies: EXO-CORE-001.
+Status: ready. Dependencies: EXO-CORE-001.
 
 **Files / directories**
 
@@ -1007,7 +1010,7 @@ Original parser/adapter or license-compatible dependency; do not transplant brow
 
 **Import generic 2D DXF pattern entities**
 
-Status: blocked. Dependencies: EXO-CORE-001.
+Status: ready. Dependencies: EXO-CORE-001.
 
 **Files / directories**
 
@@ -1130,7 +1133,7 @@ Status: blocked. Dependencies: EXO-LOOK-001.
 
 **Import static glTF/GLB avatars**
 
-Status: blocked. Dependencies: EXO-CORE-001.
+Status: ready. Dependencies: EXO-CORE-001.
 
 **Files / directories**
 
@@ -1178,7 +1181,7 @@ Status: blocked. Dependencies: EXO-REV-003, EXO-MFG-002.
 
 **Separate visual fabric properties from mechanics**
 
-Status: blocked. Dependencies: EXO-CORE-001.
+Status: ready. Dependencies: EXO-CORE-001.
 
 **Files / directories**
 
@@ -1279,7 +1282,7 @@ Status: blocked. Dependencies: EXO-LOOK-001.
 
 **Define material-space garment graphic placements**
 
-Status: blocked. Dependencies: EXO-CORE-001.
+Status: ready. Dependencies: EXO-CORE-001.
 
 **Files / directories**
 
@@ -1330,7 +1333,7 @@ Status: blocked. Dependencies: EXO-LOOK-005, EXO-LOOK-002.
 
 **Define reproducible stage, lighting and camera settings**
 
-Status: blocked. Dependencies: EXO-CORE-001.
+Status: ready. Dependencies: EXO-CORE-001.
 
 **Files / directories**
 
@@ -1381,7 +1384,7 @@ Status: blocked. Dependencies: EXO-LOOK-007.
 
 **Define avatar landmarks and body measurements**
 
-Status: blocked. Dependencies: EXO-CORE-001.
+Status: ready. Dependencies: EXO-CORE-001.
 
 **Files / directories**
 
@@ -1433,7 +1436,7 @@ Status: blocked. Dependencies: EXO-AV-001.
 
 **Expose pin editing and an explicit freeze policy**
 
-Status: blocked. Dependencies: EXO-CORE-001.
+Status: ready. Dependencies: EXO-CORE-001.
 
 **Files / directories**
 
@@ -1556,7 +1559,7 @@ Status: blocked. Dependencies: EXO-UX-001.
 
 **Add group 3D transforms and marquee selection**
 
-Status: blocked. Dependencies: EXO-CORE-001.
+Status: ready. Dependencies: EXO-CORE-001.
 
 **Files / directories**
 
@@ -1636,7 +1639,7 @@ Evaluate existing exo-session proposal first; use one canonical adapter rather t
 
 **Build public cross-editor behavioral fixtures**
 
-Status: blocked. Dependencies: EXO-CORE-001.
+Status: ready. Dependencies: EXO-CORE-001.
 
 **Files / directories**
 
@@ -1683,7 +1686,7 @@ Status: ready. Dependencies: none.
 
 **Verify native macOS and Linux build paths**
 
-Status: ready. Dependencies: none.
+Status: done. Dependencies: none.
 
 **Files / directories**
 
@@ -1699,14 +1702,15 @@ Status: ready. Dependencies: none.
 **Evidence and related contributions**
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/docs/EXO_RELEASE_STATUS.md
+- https://github.com/erythrofr/ClothCraft/pull/45
 
-
+Completed in merged PR #45. Named-platform CPU tests and desktop linkage verified from completed jobs and recorded image/toolchain metadata in docs/platform-validation.md. Native window, dialogs, clipboard and GPU acceptance remain pending and are not implied by this build-path task.
 
 ## EXO-PHY-001
 
 **Define capabilities for real interchangeable solver adapters**
 
-Status: blocked. Dependencies: EXO-CORE-001.
+Status: ready. Dependencies: EXO-CORE-001.
 
 **Files / directories**
 
@@ -1864,7 +1868,7 @@ Owner-requested reusable internal testing. Begin from the merged audit UI (#46) 
 
 **Place a pattern point at the intersection of two reference edges**
 
-Status: ready. Dependencies: EXO-CAD-001, EXO-CAD-002, EXO-QA-004.
+Status: done. Dependencies: EXO-CAD-001, EXO-CAD-002, EXO-QA-004.
 
 **Files / directories**
 
@@ -1884,5 +1888,6 @@ Status: ready. Dependencies: EXO-CAD-001, EXO-CAD-002, EXO-QA-004.
 
 - https://github.com/erythrofr/ClothCraft/pull/26
 - https://github.com/erythrofr/ClothCraft/pull/49
+- https://github.com/erythrofr/ClothCraft/pull/52
 
-Original Rust integration of an existing CPU primitive. No solver, serialized document schema, atelier.rs or command-registry edits; no upstream code/assets copied. Infinite reference lines, not segment-clamped intersection.
+Original Rust integration of an existing CPU primitive. No solver, serialized document schema, atelier.rs or command-registry edits; no upstream code/assets copied. Infinite reference lines, not segment-clamped intersection. Completed in merged PR #52. Merged after all 13 checks succeeded. 23 drawing-command and 59 editor tests passed; one optional preview ignored. Named-widget scenario exercises both reference menus, invalid/stale cases, Apply and exact undo. Desktop Clippy passed. Infinite straight lines only; no persistent constraints or GPU acceptance.
