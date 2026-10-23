@@ -9,6 +9,8 @@ manufacturing patterns. The T-shirt and dress were drafted for the bundled
 
 Selecting a template shows its flat contours, panel/seam counts, metre units,
 source and license. Curves are sampled using the existing contour tolerance;
+The metadata and preview scroll independently of the action row, including in
+small windows; the confirmation controls remain reachable at 480 × 360.
 holes and internal lines are included. The preview uses the authored 2D layout,
 not the draped mesh. Bundled data is embedded in the executable and requires no
 network connection. No third-party pattern catalog is downloaded.
@@ -56,3 +58,8 @@ unit tests passed (one optional preview test ignored). This includes the three
 template widget scenarios: cancel/confirm, invalid avatar, and keyboard focus
 with Escape cancellation. Targeted Clippy with warnings denied and formatting
 checks passed. No GPU was used.
+
+A follow-up named-widget regression reproduced a clipped confirmation button
+at 480 × 360. A bounded scroll region with explicit minimum height fixes both
+clipping and gradual growth when reopening after confirmation. All four
+template widget scenarios then passed, including the new small-window case.

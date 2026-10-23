@@ -18,7 +18,9 @@ pub(super) enum Action {
     Cancel,
 }
 fn button(ui: &mut egui::Ui, label: &str, name: &str, enabled: bool) -> bool {
-    let response = ui.add_enabled(enabled, egui::Button::new(label));
+    let response = ui
+        .push_id(name, |ui| ui.add_enabled(enabled, egui::Button::new(label)))
+        .inner;
     // Existing workspace shortcuts respect egui keyboard focus. Keep a real
     // modal control focused even before the user tabs or clicks within it.
     if matches!(name, "templates.close" | "templates.cancel")
@@ -66,7 +68,7 @@ impl Browser {
         }
     }
     pub fn controls(&mut self, ui: &mut egui::Ui, dirty: bool) -> Option<Action> {
-        ui.set_width(560.);
+        ui.set_width((ui.ctx().content_rect().width() - 64.).clamp(160., 560.));
         ui.heading(if self.confirming {
             "Open template as a new project?"
         } else {
@@ -111,36 +113,48 @@ impl Browser {
             });
             return action;
         }
-        ui.small("Original examples · metres · uncalibrated fabrics · not production patterns");
-        ui.horizontal_wrapped(|ui| {
-            for entry in ENTRIES {
-                if button(
-                    ui,
-                    entry.title,
-                    &format!("templates.choose.{}", entry.id),
-                    true,
-                ) {
-                    self.choose(entry.id);
+        // Keep the action row outside the scrollable metadata/preview region.
+        // Imported warnings and narrow windows must not hide confirmation.
+        let content_height = (ui.ctx().content_rect().height() - 170.).clamp(80., 440.);
+        egui::ScrollArea::vertical()
+            .id_salt("template-browser-content")
+            .auto_shrink([false, false])
+            .max_height(content_height)
+            .min_scrolled_height(content_height)
+            .show(ui, |ui| {
+                ui.small(
+                    "Original examples · metres · uncalibrated fabrics · not production patterns",
+                );
+                ui.horizontal_wrapped(|ui| {
+                    for entry in ENTRIES {
+                        if button(
+                            ui,
+                            entry.title,
+                            &format!("templates.choose.{}", entry.id),
+                            true,
+                        ) {
+                            self.choose(entry.id);
+                        }
+                    }
+                });
+                if let Some(selection) = &self.selection {
+                    ui.separator();
+                    ui.strong(&selection.title);
+                    ui.label(&selection.description);
+                    ui.label(format!(
+                        "{} panels · {} seams · units: metres",
+                        selection.panel_count, selection.seam_count
+                    ));
+                    ui.small(format!("Source: {}", selection.source));
+                    ui.small(format!("License: {}", selection.license));
+                    for warning in &selection.warnings {
+                        ui.small(warning);
+                    }
+                    preview(ui, selection);
+                } else {
+                    ui.label("Choose an example or import a native template JSON file.");
                 }
-            }
-        });
-        if let Some(selection) = &self.selection {
-            ui.separator();
-            ui.strong(&selection.title);
-            ui.label(&selection.description);
-            ui.label(format!(
-                "{} panels · {} seams · units: metres",
-                selection.panel_count, selection.seam_count
-            ));
-            ui.small(format!("Source: {}", selection.source));
-            ui.small(format!("License: {}", selection.license));
-            for warning in &selection.warnings {
-                ui.small(warning);
-            }
-            preview(ui, selection);
-        } else {
-            ui.label("Choose an example or import a native template JSON file.");
-        }
+            });
         ui.separator();
         let mut action = None;
         ui.horizontal_wrapped(|ui| {

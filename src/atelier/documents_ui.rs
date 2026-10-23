@@ -554,8 +554,9 @@ mod template_tests {
         let saved = case.document.path.clone();
         let avatar = case.project.avatar_path.clone();
         let mut h = Harness::new(egui::vec2(900., 850.));
-        h.frame(&mut case, &mut draw);
-        h.frame(&mut case, &mut draw);
+        for _ in 0..4 {
+            h.frame(&mut case, &mut draw);
+        }
         h.click("templates.choose.two-panel", &mut case, &mut draw)
             .unwrap();
         h.frame(&mut case, &mut draw);
@@ -591,6 +592,24 @@ mod template_tests {
         assert!(!directory.path().join("existing.json").exists());
     }
     #[test]
+    fn named_widgets_templates_small_window_keeps_confirmation_accessible() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut case = fixture(directory.path());
+        let mut h = Harness::new(egui::vec2(480., 360.));
+        for _ in 0..4 {
+            h.frame(&mut case, &mut draw);
+        }
+        h.click("templates.choose.two-panel", &mut case, &mut draw)
+            .unwrap();
+        h.frame(&mut case, &mut draw);
+        h.frame(&mut case, &mut draw);
+        h.click("templates.prepare", &mut case, &mut draw).unwrap();
+        h.frame(&mut case, &mut draw);
+        h.frame(&mut case, &mut draw);
+        h.click("templates.cancel", &mut case, &mut draw).unwrap();
+        assert_eq!(case.installs, 0);
+    }
+    #[test]
     fn named_widgets_templates_owns_keyboard_and_escape_preserves_document() {
         let directory = tempfile::tempdir().unwrap();
         let mut case = fixture(directory.path());
@@ -620,8 +639,9 @@ mod template_tests {
         let original = serde_json::to_vec(&case.project).unwrap();
         let saved = case.document.path.clone();
         let mut h = Harness::new(egui::vec2(900., 850.));
-        h.frame(&mut case, &mut draw);
-        h.frame(&mut case, &mut draw);
+        for _ in 0..4 {
+            h.frame(&mut case, &mut draw);
+        }
         h.click("templates.choose.two-panel", &mut case, &mut draw)
             .unwrap();
         h.frame(&mut case, &mut draw);
