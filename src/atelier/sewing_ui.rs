@@ -35,14 +35,14 @@ impl SewingAuditUi {
         let warning = ui.visuals().warn_fg_color;
         let error_color = ui.visuals().error_fg_color;
         let mut action = None;
-        if ui
-            .button(if self.result.is_some() {
-                "Refresh audit"
-            } else {
-                "Run audit"
-            })
-            .clicked()
-        {
+        let refresh = ui.button(if self.result.is_some() {
+            "Refresh audit"
+        } else {
+            "Run audit"
+        });
+        #[cfg(test)]
+        super::authoring_smoke::widget_harness::named(ui, &refresh, "audit.refresh");
+        if refresh.clicked() {
             action = Some(AuditAction::Refresh);
         }
         ui.small("Material rest lengths · not draped gaps or simulation stress.");
@@ -89,7 +89,7 @@ impl SewingAuditUi {
             for seam in &report.seams {
                 ui.push_id(seam.seam_index, |ui| {
                     let mismatch = seam.difference_m.map_or_else(|| "unresolved".into(), |d| format!("{:+.2} mm", d * 1000.));
-                    egui::CollapsingHeader::new(format!("{} · B − A {mismatch}", seam.seam_id)).show(ui, |ui| {
+                    let _header = egui::CollapsingHeader::new(format!("{} · B − A {mismatch}", seam.seam_id)).show(ui, |ui| {
                         if let Some([a, b]) = seam.lengths_m {
                             ui.label(format!("A {:.2} mm · B {:.2} mm", a * 1000., b * 1000.));
                         }
@@ -114,12 +114,16 @@ impl SewingAuditUi {
                         }
                         // Duplicate IDs cannot navigate unambiguously through the existing editor.
                         let unique = report.seams.iter().filter(|s| s.seam_id == seam.seam_id).count() == 1;
-                        if ui.add_enabled(current && unique, egui::Button::new("Inspect seam"))
-                            .on_hover_text("Open the existing sewing draft. The document changes only on Apply.")
-                            .clicked() {
+                        let inspect = ui.add_enabled(current && unique, egui::Button::new("Inspect seam"))
+                            .on_hover_text("Open the existing sewing draft. The document changes only on Apply.");
+                        #[cfg(test)]
+                        super::authoring_smoke::widget_harness::named(ui, &inspect, format!("audit.seam.{}.inspect", seam.seam_id));
+                        if inspect.clicked() {
                             action = Some(AuditAction::Inspect(seam.seam_id.clone()));
                         }
                     });
+                    #[cfg(test)]
+                    super::authoring_smoke::widget_harness::named(ui, &_header.header_response, format!("audit.seam.{}.toggle", seam.seam_id));
                 });
             }
         });
@@ -136,6 +140,19 @@ pub(super) struct SewingDraft {
     pub editing: Option<String>,
     pub partial: bool,
     pub start: Option<(BoundaryRef, f64)>,
+}
+impl SewingDraft {
+    fn from_spec(seam: &marvelous_cloth::garment::seam::SeamSpec) -> Self {
+        Self {
+            chain_mode: !seam.a_tail.is_empty() || !seam.b_tail.is_empty(),
+            sides: [
+                seam.side(false).cloned().collect(),
+                seam.side(true).cloned().collect(),
+            ],
+            editing: Some(seam.id.clone()),
+            ..Default::default()
+        }
+    }
 }
 /// Use the same relative tolerance as the seam compiler. Display rounding must
 /// not suggest that two edges can sew without easing when compilation rejects it.
@@ -722,15 +739,7 @@ impl Atelier {
         self.authoring.reverse = s.reverse_b;
         self.authoring.ease = s.allow_ease;
         self.authoring.ends = vec![s.a.clone(), s.b.clone()];
-        self.authoring.sewing = SewingDraft {
-            chain_mode: !s.a_tail.is_empty() || !s.b_tail.is_empty(),
-            sides: [
-                s.side(false).cloned().collect(),
-                s.side(true).cloned().collect(),
-            ],
-            editing: Some(s.id),
-            ..Default::default()
-        };
+        self.authoring.sewing = SewingDraft::from_spec(&s);
         self.prefs.workspace.inspector_open = true;
     }
     pub(super) fn sewing_controls(&mut self, ui: &mut egui::Ui) {
@@ -931,6 +940,82 @@ impl Atelier {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn named_widgets_audit_refresh_inspection_staleness_and_failure() {
+        use super::super::authoring_smoke::widget_harness::Harness;
+        struct Case {
+            template: marvelous_cloth::garment::GarmentTemplate,
+            audit: SewingAuditUi,
+            draft: SewingDraft,
+            generation: u64,
+            refreshes: usize,
+        }
+        let mut case = Case {
+            template: marvelous_cloth::garment::GarmentTemplate::two_panel_demo(),
+            audit: Default::default(),
+            draft: Default::default(),
+            generation: 1,
+            refreshes: 0,
+        };
+        // Equal total lengths with deliberately different local correspondence.
+        case.template.seams[0].notches = vec![[0.25, 0.75]];
+        case.template.seams[0].allow_ease = true;
+        let before = serde_json::to_string(&case.template).unwrap();
+        let id = case.template.seams[0].id.clone();
+        let mut draw = |ui: &mut egui::Ui, c: &mut Case| match c.audit.show(ui, c.generation) {
+            Some(AuditAction::Refresh) => {
+                c.audit.refresh(&c.template, c.generation);
+                c.refreshes += 1;
+            }
+            Some(AuditAction::Inspect(id)) => {
+                let seam = c.template.seams.iter().find(|s| s.id == id).unwrap();
+                c.draft = SewingDraft::from_spec(seam);
+            }
+            None => {}
+        };
+        let mut h = Harness::new(Vec2::new(650., 700.));
+        h.frame(&mut case, &mut draw);
+        assert_eq!(case.refreshes, 0);
+        h.click("audit.refresh", &mut case, &mut draw).unwrap();
+        assert_eq!(case.refreshes, 1);
+        h.frame(&mut case, &mut draw);
+        assert_eq!(case.refreshes, 1);
+        assert!(
+            case.audit.result.as_ref().unwrap().as_ref().unwrap().seams[0]
+                .intervals
+                .iter()
+                .all(|i| i.requires_easing)
+        );
+        h.click(&format!("audit.seam.{id}.toggle"), &mut case, &mut draw)
+            .unwrap();
+        h.frame(&mut case, &mut draw);
+        let inspect = format!("audit.seam.{id}.inspect");
+        h.click(&inspect, &mut case, &mut draw).unwrap();
+        assert_eq!(case.draft.editing.as_deref(), Some(id.as_str()));
+        assert_eq!(case.draft.sides[0].len(), 1);
+        assert_eq!(serde_json::to_string(&case.template).unwrap(), before);
+        case.generation += 1;
+        h.frame(&mut case, &mut draw);
+        assert!(
+            h.click(&inspect, &mut case, &mut draw)
+                .unwrap_err()
+                .contains("disabled")
+        );
+        h.click("audit.refresh", &mut case, &mut draw).unwrap();
+        assert!(case.audit.is_current(case.generation));
+        case.template.version = u32::MAX;
+        case.generation += 1;
+        h.frame(&mut case, &mut draw);
+        h.click("audit.refresh", &mut case, &mut draw).unwrap();
+        assert!(case.audit.result.as_ref().unwrap().is_err());
+        h.frame(&mut case, &mut draw);
+        assert!(
+            h.click(&inspect, &mut case, &mut draw)
+                .unwrap_err()
+                .contains("missing")
+        );
+    }
 
     #[test]
     fn sewing_audit_snapshot_preserves_document_and_replaces_success_on_error() {

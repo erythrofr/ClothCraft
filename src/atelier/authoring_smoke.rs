@@ -2,6 +2,10 @@
 use super::*;
 use std::{collections::BTreeMap, time::Instant};
 
+#[cfg(test)]
+#[path = "authoring_smoke/widget_harness.rs"]
+pub(super) mod widget_harness;
+
 // The first element of each action is a smoke-target protocol key registered by
 // the authoring widgets (`smoke_target`). These keys are part of the test harness
 // contract. Keep these English keys synchronized with the authoring toolbar.

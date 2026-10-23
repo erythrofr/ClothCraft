@@ -215,7 +215,13 @@ fn construction_controls(
         });
     ui.horizontal_wrapped(|ui| {
         for (i, label) in ["Project", "Distance", "Perpendicular"].iter().enumerate() {
-            ui.selectable_value(&mut draft.mode, i, *label);
+            let _response = ui.selectable_value(&mut draft.mode, i, *label);
+            #[cfg(test)]
+            super::authoring_smoke::widget_harness::named(
+                ui,
+                &_response,
+                format!("construction.mode.{i}"),
+            );
         }
     });
     let field = ui
@@ -228,6 +234,8 @@ fn construction_controls(
             response
         })
         .inner;
+    #[cfg(test)]
+    super::authoring_smoke::widget_harness::named(ui, &field, "construction.value");
     ui.small(match draft.mode {
         0 => "Project onto the infinite line; endpoints do not clamp it.",
         1 => "Signed distance from the reference start toward its end.",
@@ -278,6 +286,8 @@ fn construction_controls(
         }
     }
     let apply = ui.add_enabled(preview.is_ok(), egui::Button::new("Apply construction"));
+    #[cfg(test)]
+    super::authoring_smoke::widget_harness::named(ui, &apply, "construction.apply");
     let command = if apply.clicked() {
         Some(Command::ConstructPoint {
             target: target.clone(),
@@ -1160,6 +1170,82 @@ impl Atelier {
 #[cfg(test)]
 mod construction_tests {
     use super::*;
+
+    #[test]
+    fn named_widgets_construction_types_validates_applies_and_undoes() {
+        use super::super::authoring_smoke::widget_harness::Harness;
+        struct Case {
+            template: marvelous_cloth::garment::GarmentTemplate,
+            target: ConstructionRef,
+            draft: ConstructionDraft,
+            history: History,
+            applies: usize,
+        }
+        let template = template();
+        let target = ConstructionRef {
+            panel: template.panels[0].id.clone(),
+            edge: "edge_4".into(),
+        };
+        let reference = ConstructionRef {
+            edge: "edge_3".into(),
+            ..target.clone()
+        };
+        let before = serde_json::to_string(&template).unwrap();
+        let mut c = Case {
+            template,
+            target,
+            draft: ConstructionDraft {
+                reference: Some(reference),
+                ..Default::default()
+            },
+            history: Default::default(),
+            applies: 0,
+        };
+        let mut draw = |ui: &mut egui::Ui, c: &mut Case| {
+            let controls = construction_controls(ui, &mut c.draft, &c.template, &c.target);
+            if let Some(command) = controls.command {
+                // Dispatch only the command actually emitted by the real Apply widget.
+                let edit = authoring::apply(&c.template, command).unwrap();
+                c.history.record(c.template.clone());
+                c.template = edit.template;
+                c.applies += 1;
+            }
+        };
+        let mut h = Harness::new(Vec2::new(500., 650.));
+        h.frame(&mut c, &mut draw);
+        assert!(
+            h.click("construction.value", &mut c, &mut draw)
+                .unwrap_err()
+                .contains("disabled")
+        );
+        h.click("construction.mode.1", &mut c, &mut draw).unwrap();
+        h.replace_text("construction.value", "NaN", &mut c, &mut draw)
+            .unwrap();
+        assert!(
+            h.click("construction.apply", &mut c, &mut draw)
+                .unwrap_err()
+                .contains("disabled")
+        );
+        h.replace_text("construction.value", "100", &mut c, &mut draw)
+            .unwrap();
+        h.key(
+            "construction.value",
+            egui::Key::Enter,
+            egui::Modifiers::NONE,
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert_eq!(c.applies, 0);
+        assert!(!c.history.can_undo());
+        assert_eq!(serde_json::to_string(&c.template).unwrap(), before);
+        h.click("construction.apply", &mut c, &mut draw).unwrap();
+        assert_eq!(c.applies, 1);
+        assert!(c.history.can_undo());
+        assert_ne!(serde_json::to_string(&c.template).unwrap(), before);
+        let undo = c.history.restore(&c.template, false).unwrap();
+        assert_eq!(serde_json::to_string(&undo.template).unwrap(), before);
+    }
     fn template() -> marvelous_cloth::garment::GarmentTemplate {
         use marvelous_cloth::garment::presets::{self, GarmentKind};
         authoring::apply(
