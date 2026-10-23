@@ -1065,7 +1065,7 @@
       "id": "EXO-IO-007",
       "title": "Import static glTF/GLB avatars",
       "area": "interchange",
-      "status": "ready",
+      "status": "done",
       "depends_on": [
         "EXO-CORE-001"
       ],
@@ -1082,8 +1082,10 @@
       "evidence": [
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/docs/EXO_UI_RENDERING_AND_AVATARS.md"
       ],
-      "related_prs": [],
-      "notes": ""
+      "related_prs": [
+        "https://github.com/erythrofr/ClothCraft/pull/62"
+      ],
+      "notes": "Merged PR #62 implements the bounded static geometry library importer; all four CI workflows passed at b3dcc521. Native file-picker, confirmation and portable project integration are EXO-IO-009, not claimed by this completed library slice."
     },
     {
       "id": "EXO-IO-008",
@@ -1648,7 +1650,7 @@
       "id": "EXO-PHY-001",
       "title": "Define capabilities for real interchangeable solver adapters",
       "area": "physics",
-      "status": "ready",
+      "status": "done",
       "depends_on": [
         "EXO-CORE-001"
       ],
@@ -1665,8 +1667,10 @@
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/backends/registry.js",
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/backends/protocol.js"
       ],
-      "related_prs": [],
-      "notes": ""
+      "related_prs": [
+        "https://github.com/erythrofr/ClothCraft/pull/59"
+      ],
+      "notes": "Merged PR #59 documents and validates real adapter capabilities. Research backends remain opt-in; no production solver selector was added."
     },
     {
       "id": "EXO-PHY-002",
@@ -1834,6 +1838,37 @@
         "https://github.com/erythrofr/ClothCraft/pull/52"
       ],
       "notes": "Original Rust integration of an existing CPU primitive. No solver, serialized document schema, atelier.rs or command-registry edits; no upstream code/assets copied. Infinite reference lines, not segment-clamped intersection. Completed in merged PR #52. Merged after all 13 checks succeeded. 23 drawing-command and 59 editor tests passed; one optional preview ignored. Named-widget scenario exercises both reference menus, invalid/stale cases, Apply and exact undo. Desktop Clippy passed. Infinite straight lines only; no persistent constraints or GPU acceptance."
+    },
+    {
+      "id": "EXO-IO-009",
+      "title": "Integrate static avatar import into the workspace",
+      "area": "interchange",
+      "status": "blocked",
+      "depends_on": [
+        "EXO-IO-007",
+        "EXO-UX-005"
+      ],
+      "scope": [
+        "src/avatar_import.rs",
+        "src/lib.rs",
+        "src/atelier/avatar_import_ui.rs",
+        "src/atelier/documents_ui.rs",
+        "tests/avatar_import.rs",
+        "docs/avatar-import.md"
+      ],
+      "acceptance": [
+        "Expose explicit local OBJ/glTF/GLB import with source, counts, bounds, metre units and loss warnings before confirmation; reject ambiguous scene selection without silent fallback.",
+        "Prepare validated canonical OBJ geometry with an owned staging lifetime; preserve v1 project compatibility and portable save/recovery. Never overwrite the source asset.",
+        "Explain and apply drape reset on avatar replacement, preserving authored rest geometry, seams and live simulation settings. Cancel and preparation failure leave the active project and worker generation unchanged.",
+        "Invalidate old worker responses on successful commit, clear transient interactions and mark the document dirty. Saved assets survive staging cleanup.",
+        "Test actual named controls and shared production transactions on CPU: cancel, invalid input, transforms, save/reload after staging cleanup and old OBJ compatibility."
+      ],
+      "evidence": [
+        "https://github.com/erythrofr/ClothCraft/pull/62",
+        "https://github.com/erythrofr/ClothCraft/issues/64"
+      ],
+      "related_prs": [],
+      "notes": "Wait for template-browser integration and a confirmed claim. Use documents_ui.rs instead of foreign-reserved atelier.rs. Geometry only: no rigging, animation, textures, guessed scale or collision repair."
     }
   ]
 }
