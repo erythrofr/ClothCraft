@@ -26,7 +26,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-CAD-006](#exo-cad-006) — Connect freehand drawing to transactional contour editing | cad | blocked | EXO-CAD-005, EXO-CAD-003 | Not registered |
 | [EXO-CAD-007](#exo-cad-007) — Edit hole contours with the existing point tools | cad | blocked | EXO-CAD-003 | Not registered |
 | [EXO-CAD-008](#exo-cad-008) — Implement offset paths and cutline corner policy | cad | blocked | EXO-REV-001, EXO-REV-002 | Not registered |
-| [EXO-SEW-001](#exo-sew-001) — Add a read-only sewing construction audit | sewing | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/19) |
+| [EXO-SEW-001](#exo-sew-001) — Add a read-only sewing construction audit | sewing | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/19) |
 | [EXO-SEW-002](#exo-sew-002) — Define authored trims and construction annotations | sewing | blocked | EXO-CORE-001 | Not registered |
 | [EXO-SEW-003](#exo-sew-003) — Add trim editing, picking and previews | sewing | blocked | EXO-SEW-002 | Not registered |
 | [EXO-SEW-004](#exo-sew-004) — Specify and validate physical zipper or button closure | physics | blocked | EXO-SEW-002, EXO-PHY-001 | Not registered |
@@ -78,6 +78,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-PHY-002](#exo-phy-002) — Compare candidate engines on shared quality gates | physics | blocked | EXO-PHY-001, EXO-QA-001 | Not registered |
 | [EXO-PHY-003](#exo-phy-003) — Evaluate foam and padding as a separate material experiment | physics | blocked | EXO-PHY-001 | Not registered |
 | [EXO-CAD-009](#exo-cad-009) — Integrate the freehand fitter and create new panels in the 2D workspace | cad | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/33) |
+| [EXO-SEW-006](#exo-sew-006) — Expose cached sewing diagnostics in the native inspector | sewing | ready | EXO-SEW-001 | Not registered |
 
 ## EXO-COORD-001
 
@@ -498,7 +499,7 @@ Coordinate with reviewed cutline implementation; extend it instead of adding a c
 
 **Add a read-only sewing construction audit**
 
-Status: ready. Dependencies: none.
+Status: done. Dependencies: none.
 
 **Files / directories**
 
@@ -519,8 +520,9 @@ Status: ready. Dependencies: none.
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/sewingConstruction.js
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/sewingLengthDiagnostics.js
+- https://github.com/erythrofr/ClothCraft/pull/41
 
-Expose the read-only audit as garment::seam::audit and a cloth-template CLI command. This avoids garment/mod.rs reserved by EXO-CAD-005; do not alter solver behavior. Reuse existing boundary resolution and correspondence validation. UI presentation is a separate future scope.
+Merged as 0d5384a after all 12 CI checks passed. CPU-only garment::seam::audit and cloth-template audit-sewing report compiler-based material lengths, local easing, invalid references/correspondence, overlapping ownership and exact shared endpoints. Fifteen new tests passed; docs/sewing-audit.md states limits. No solver or document schema changes. UI presentation is EXO-SEW-006.
 
 ## EXO-SEW-002
 
@@ -1798,3 +1800,30 @@ Status: done. Dependencies: none.
 - https://github.com/erythrofr/ClothCraft/pull/35
 
 Merged #35 (3bac583) after all 12 CI checks passed. 22 targeted CPU integration tests and 46 desktop tests passed locally. New-panel Freehand UI implemented; existing-contour replacement remains EXO-CAD-006.
+
+## EXO-SEW-006
+
+**Expose cached sewing diagnostics in the native inspector**
+
+Status: ready. Dependencies: EXO-SEW-001.
+
+**Files / directories**
+
+- `src/atelier/sewing_ui.rs`
+- `src/atelier/authoring_ui.rs`
+- `docs/sewing-audit-ui.md`
+
+**Acceptance**
+
+- Expose a deliberate Audit/Refresh action in the sewing inspector using garment::seam::audit; never compile a report every rendered frame.
+- Display seam IDs, material lengths and signed mismatch in millimetres, local easing and errors without claiming simulation convergence or measured seam gap.
+- Cache results and explicitly mark them stale after the project generation changes; never display stale diagnostics as current.
+- Allow selecting an existing seam for inspection/editing through the existing draft path without mutating the document or history until Apply.
+- Cover cached-state freshness, malformed input reporting and headless egui presentation on CPU; keep GPU/native-window acceptance separate.
+
+**Evidence and related contributions**
+
+- https://github.com/erythrofr/ClothCraft/pull/41
+- https://github.com/erythrofr/ClothCraft/blob/main/docs/sewing-audit.md
+
+Original Rust UI adapter, no EXO code/assets copied. Keep cache in AuthoringUi separately from SewingDraft so selecting another seam does not discard the report. Use existing generation invalidation conservatively. No new solver telemetry, automatic repair, document fields, atelier.rs or command-registry changes. A synchronous explicit audit can pause the UI on large geometry; document this limit rather than claiming a background job.
