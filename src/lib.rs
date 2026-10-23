@@ -8,6 +8,7 @@ pub mod energy;
 pub mod fabrics;
 pub mod fitting;
 pub mod garment;
+pub mod gltf_avatar;
 #[cfg(feature = "desktop")]
 pub mod gpu_vbd;
 pub mod issue_report;
