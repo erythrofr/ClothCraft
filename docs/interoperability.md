@@ -10,10 +10,49 @@ Available-support table updated 2026-10-25. Later sections describe requirements
 | ClothCraft template JSON v1/v2 | Workspace template browser and `cloth-template` CLI | `template.json` | Named panels/boundaries, local metre coordinates, shared fabrics, grain, sewing and board metadata |
 | OBJ | Workspace File → Import avatar and CLI avatar surface geometry | Static garment and grain guides | Geometry only; no MTL, skinning, animation, normals/material round trip or reconstruction of sewing patterns. Export UVs are local metres, not a packed texture atlas. Triangulate complex avatar polygons before import |
 | glTF / GLB | Workspace File → Import avatar; static geometry only | None | Node transforms and mirrored winding; metres, Y-up. No textures, animation or skinning. Ambiguous scenes are rejected; supported extensions and losses are explicit. See [avatar import](avatar-import.md) |
-| SVG | None | Pattern preview | Not print-to-scale; ignores board arrangement; no allowances, nesting, grading or print tiling |
+| SVG | None | Pattern preview and physical sewing outlines | `patterns.svg` is an annotated preview; `patterns-print.svg` uses millimetres at actual size, with a 100 mm ruler. No allowances, nesting, grading or print tiling |
 | Diagnostic JSON | No general interchange reader | Metrics/fiber frames | Research outputs; fibers are surface directions, not simulated yarns |
 
 The workspace's **Export** action writes these supported outputs together to its launch directory. It replaces fixed filenames. Native project Save/Open dialogs, portable OBJ assets and local recovery are available; export still uses the session folder. See [document contracts](documents-and-sewing.md).
+
+## Physical SVG export
+
+Workspace **Export** and `cloth-template bake` now also write
+`patterns-print.svg`. Its root dimensions use `mm`; the matching viewBox makes
+one drawing unit one millimetre. Panels are stacked independently of their 2D
+board arrangement and 3D drape. Polygon boundaries (including sampled curves),
+holes and internal lines come from material rest coordinates. Panel IDs and
+names are escaped as XML text. The existing `patterns.svg` remains an annotated
+preview and must not be used for print scale.
+
+Choose actual size / 100% in the viewer, disable fit-to-page, and measure the
+100 mm calibration ruler. This is an untiled sewing-outline sheet, **not a
+ready-to-cut pattern**: it has no seam allowances, cutting certification,
+printer compensation, grain annotations or PDF page layout. Curves are sampled
+polylines; downstream viewers can still apply their own scaling.
+
+All artifacts are prepared after one full template validation, before existing
+files are replaced. A template or geometry error leaves those files unchanged.
+An I/O failure during writing can still leave a partial set; this is not an
+atomic directory transaction. The exporter does not add a second triangulation
+for the physical SVG.
+
+Based on Mikyle Couto's [PR #3](https://github.com/erythrofr/ClothCraft/pull/3),
+revision `c0ea77d16972abfdc7986a16e3dc3a529a6f0daf`. Firefly's
+[independent browser review](https://github.com/erythrofr/ClothCraft/issues/14#issuecomment-6399877415)
+measured the reference output in Edge: its 100 mm ruler measured
+99.9995–99.9999 mm across three fixtures. That verifies browser unit handling,
+not physical printer calibration. Integration adds early validation and reuses
+the existing template-save validation. Sheet bounds include outward curve bulges
+so they are not clipped; the solver and rest geometry are unchanged.
+
+Integration validation on 2026-10-25 repeated the browser measurement with
+Edge 156.0.4314.42 in headless mode with GPU disabled, using actual CLI exports
+of `two-panel`, `curved-panels`, `tshirt` and `dress`. Rulers measured
+99.99953–99.99986 mm; root dimensions matched their viewBoxes within 0.01 mm,
+and every sewing contour was inside its sheet. Six CPU tests cover units,
+curves/holes/internal lines, an outward curve bulge, invalid geometry, export
+equivalence and preservation of previous files on validation failure.
 
 ## Required inputs and outputs
 

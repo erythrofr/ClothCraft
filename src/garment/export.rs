@@ -154,6 +154,137 @@ pub fn pattern_svg(template: &GarmentTemplate) -> String {
     out
 }
 
+/// Produce a physically dimensioned, untiled SVG of the *sewing outlines*.
+///
+/// Both the root SVG dimensions and its viewBox are in millimetres, so one
+/// user-space unit represents one millimetre at 100% print size. This is not a
+/// ready-to-cut pattern: seam allowances, page tiling and printer scaling are
+/// deliberately outside this export's scope.
+pub fn print_pattern_svg(template: &GarmentTemplate) -> Result<String, String> {
+    template.compile()?;
+    print_pattern_svg_validated(template)
+}
+
+// Call only after compiling this template successfully. Artifact export shares
+// that validation with its JSON output instead of triangulating twice.
+fn print_pattern_svg_validated(template: &GarmentTemplate) -> Result<String, String> {
+    const MARGIN_MM: f64 = 20.0;
+    const LABEL_MM: f64 = 14.0;
+    const GAP_MM: f64 = 22.0;
+    const RULER_MM: f64 = 35.0;
+
+    if template.panels.is_empty() {
+        return Err("Cannot print a template without panels".into());
+    }
+    let mut width_mm: f64 = 100.0 + 2.0 * MARGIN_MM;
+    let mut height_mm = MARGIN_MM;
+    let mut bounds = Vec::with_capacity(template.panels.len());
+    for panel in &template.panels {
+        let mut min = DVec2::ZERO;
+        let mut max = DVec2::new(panel.pattern.width, panel.pattern.height);
+        // Control handles may extend a valid curve beyond the declared corner
+        // bounds. Include the sampled contour so export never clips that bulge.
+        if let Some(polygon) = &panel.polygon {
+            for point in polygon.outer_points()? {
+                min = min.min(point);
+                max = max.max(point);
+            }
+        }
+        let size = (max - min) * 1000.0;
+        let (w, h) = (size.x, size.y);
+        if !w.is_finite()
+            || !h.is_finite()
+            || w <= 0.0
+            || h <= 0.0
+            || w > 100_000.0
+            || h > 100_000.0
+        {
+            return Err(format!(
+                "Invalid printable dimensions for panel {}",
+                panel.id
+            ));
+        }
+        width_mm = width_mm.max(w + 2.0 * MARGIN_MM);
+        height_mm += LABEL_MM + h + GAP_MM;
+        bounds.push((min * 1000.0, size));
+    }
+    height_mm += RULER_MM + MARGIN_MM;
+    let mut out = format!(
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{width_mm:.3}mm\" height=\"{height_mm:.3}mm\" viewBox=\"0 0 {width_mm:.3} {height_mm:.3}\"><title>{}</title><desc>Material-space sewing outlines at 1 SVG unit per mm. Print at 100% and check the 100 mm ruler. No seam allowances, page tiling or cutting certification.</desc><rect width=\"100%\" height=\"100%\" fill=\"white\"/>\n",
+        xml(&template.name)
+    );
+    let mut y = MARGIN_MM;
+    for (panel, (min, size)) in template.panels.iter().zip(bounds) {
+        let (w, h) = (size.x, size.y);
+        writeln!(
+            out,
+            "<text x=\"{MARGIN_MM:.3}\" y=\"{:.3}\" font-family=\"sans-serif\" font-size=\"5\" fill=\"black\">{} — {} ({w:.1} × {h:.1} mm)</text>",
+            y + 5.0,
+            xml(&panel.id),
+            xml(&panel.name)
+        ).unwrap();
+        y += LABEL_MM;
+        write!(out, "<g data-panel=\"{}\" transform=\"translate({:.3} {:.3})\">\n<path data-role=\"sewing-outline\" d=\"", xml(&panel.id), MARGIN_MM - min.x, y - min.y).unwrap();
+        if let Some(polygon) = &panel.polygon {
+            // Each Bézier boundary is sampled in material metres. The first
+            // point of the following edge repeats the previous endpoint.
+            for i in 0..polygon.edges.len() {
+                let points = polygon.edge_points(i)?;
+                for (j, p) in points.iter().enumerate() {
+                    if i > 0 && j == 0 {
+                        continue;
+                    }
+                    write!(
+                        out,
+                        "{} {:.3} {:.3} ",
+                        if i == 0 && j == 0 { "M" } else { "L" },
+                        p.x * 1000.0,
+                        p.y * 1000.0
+                    )
+                    .unwrap();
+                }
+            }
+            out.push_str("Z ");
+            for hole in &polygon.holes {
+                for (j, p) in hole.points.iter().enumerate() {
+                    write!(
+                        out,
+                        "{} {:.3} {:.3} ",
+                        if j == 0 { "M" } else { "L" },
+                        p.x * 1000.0,
+                        p.y * 1000.0
+                    )
+                    .unwrap();
+                }
+                out.push_str("Z ");
+            }
+        } else {
+            write!(
+                out,
+                "M 0.000 0.000 L {w:.3} 0.000 L {w:.3} {h:.3} L 0.000 {h:.3} Z "
+            )
+            .unwrap();
+        }
+        out.push_str(
+            "\" fill=\"none\" stroke=\"black\" stroke-width=\"0.3\" fill-rule=\"evenodd\"/>\n",
+        );
+        if let Some(polygon) = &panel.polygon {
+            for line in &polygon.lines {
+                write!(out, "<polyline data-role=\"internal-line\" points=\"").unwrap();
+                for p in line.samples()? {
+                    write!(out, "{:.3},{:.3} ", p.x * 1000.0, p.y * 1000.0).unwrap();
+                }
+                writeln!(out,"\" fill=\"none\" stroke=\"#555\" stroke-width=\"0.3\" stroke-dasharray=\"2 2\"><title>{}</title></polyline>",xml(&line.id)).unwrap();
+            }
+        }
+        out.push_str("</g>\n");
+        y += h + GAP_MM;
+    }
+    let ruler_y = y + 8.0;
+    writeln!(out, "<g data-role=\"calibration-ruler\" stroke=\"black\" stroke-width=\"0.3\" fill=\"none\"><path d=\"M {MARGIN_MM:.3} {ruler_y:.3} h 100.000 M {MARGIN_MM:.3} {:.3} v 10.000 M {:.3} {:.3} v 10.000\"/></g><text x=\"{MARGIN_MM:.3}\" y=\"{:.3}\" font-family=\"sans-serif\" font-size=\"4\">100 mm calibration ruler — print at actual size (100%)</text></svg>",ruler_y-5.0,MARGIN_MM+100.0,ruler_y-5.0,ruler_y+17.0).unwrap();
+    Ok(out)
+}
+
 pub fn obj(garment: &CompiledGarment, state: &State) -> String {
     let mut out = String::from("# MARVELOUS CLOTH garment; metres; UV=local rest pattern metres\n");
     for p in &state.x {
@@ -178,18 +309,23 @@ pub fn write_artifacts(
     state: &State,
     path: &Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    // Preserve save's full template validation, but do it before any output is
+    // replaced. A geometry/serialization failure must not leave mixed exports.
+    // Filesystem failures during the writes below are not directory-atomic.
+    template.compile()?;
+    let physical_svg = print_pattern_svg_validated(template)?;
+    let guides = grain_guides_obj(template, garment, state)?;
+    let fibers = serde_json::to_string_pretty(&garment.fiber_frames(&state.x))?;
+    let template_json = serde_json::to_string_pretty(template)?;
+    let cloth_obj = obj(garment, state);
+    let preview_svg = pattern_svg(template);
     fs::create_dir_all(path)?;
-    fs::write(path.join("cloth.obj"), obj(garment, state))?;
-    fs::write(path.join("patterns.svg"), pattern_svg(template))?;
-    fs::write(
-        path.join("grain-guides.obj"),
-        grain_guides_obj(template, garment, state)?,
-    )?;
-    fs::write(
-        path.join("fibers.json"),
-        serde_json::to_string_pretty(&garment.fiber_frames(&state.x))?,
-    )?;
-    template.save(&path.join("template.json"))?;
+    fs::write(path.join("cloth.obj"), cloth_obj)?;
+    fs::write(path.join("patterns.svg"), preview_svg)?;
+    fs::write(path.join("patterns-print.svg"), physical_svg)?;
+    fs::write(path.join("grain-guides.obj"), guides)?;
+    fs::write(path.join("fibers.json"), fibers)?;
+    fs::write(path.join("template.json"), template_json)?;
     Ok(())
 }
 
