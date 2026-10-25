@@ -2,11 +2,15 @@
 use super::*;
 use rfd::{FileDialog, MessageButtons, MessageDialog, MessageDialogResult};
 use std::time::Instant;
+#[path = "avatar_import_ui.rs"]
+mod avatar_import_ui;
 #[path = "template_browser.rs"]
 mod template_browser;
 
 pub(super) struct DocumentUi {
     browser: template_browser::Browser,
+    avatar_import: avatar_import_ui::ImportUi,
+    staged_avatar: Option<marvelous_cloth::avatar_import::StagedAvatar>,
     path: Option<PathBuf>,
     pub dirty: bool,
     last_recovery: Instant,
@@ -18,6 +22,8 @@ impl DocumentUi {
     pub fn new(output: &std::path::Path, path: Option<PathBuf>, modified: bool) -> Self {
         Self {
             browser: Default::default(),
+            avatar_import: Default::default(),
+            staged_avatar: None,
             dirty: path.is_none() || modified,
             path,
             last_recovery: Instant::now(),
@@ -26,6 +32,24 @@ impl DocumentUi {
             closing: false,
         }
     }
+}
+fn install_avatar(
+    prepared: marvelous_cloth::avatar_import::Prepared,
+    project: &mut FittingProject,
+    scene: &mut FittingScene,
+    authoring: &mut AuthoringUi,
+    document: &mut DocumentUi,
+    generation: &mut u64,
+) {
+    let (new_project, new_scene, asset) = prepared.into_parts();
+    *project = new_project;
+    *scene = new_scene;
+    *authoring = AuthoringUi::default();
+    authoring.selected = project.template.panels.first().map(|p| p.id.clone());
+    document.staged_avatar = Some(asset);
+    document.avatar_import = Default::default();
+    document.dirty = true;
+    *generation += 1;
 }
 fn install_template(
     prepared: marvelous_cloth::template_catalog::Prepared,
@@ -43,6 +67,61 @@ fn install_template(
     document.browser = Default::default();
 }
 impl Atelier {
+    fn open_avatar_import(&mut self, ctx: &egui::Context) {
+        // Pause controls without changing generation or rewinding the worker.
+        // Cancelling the importer is not a document replacement.
+        self.playing = false;
+        self.submit(ctx, false);
+        self.document.avatar_import = avatar_import_ui::ImportUi {
+            open: true,
+            ..Default::default()
+        };
+    }
+    fn avatar_import_tick(&mut self, ctx: &egui::Context) {
+        use avatar_import_ui::Action;
+        match self.document.avatar_import.show(ctx) {
+            Some(Action::Choose) => {
+                if let Some(path) = FileDialog::new()
+                    .set_title("Import static avatar")
+                    .add_filter("Static mesh", &["obj", "gltf", "glb"])
+                    .pick_file()
+                {
+                    self.document.avatar_import.choose(&path);
+                }
+            }
+            Some(Action::Cancel) => self.document.avatar_import = Default::default(),
+            Some(Action::Confirm) => {
+                if let Some(candidate) = &self.document.avatar_import.candidate {
+                    match candidate.prepare(&self.project, self.settings.clone()) {
+                        Ok(prepared) => {
+                            self.remove_recovery();
+                            install_avatar(
+                                prepared,
+                                &mut self.project,
+                                &mut self.scene,
+                                &mut self.authoring,
+                                &mut self.document,
+                                &mut self.generation,
+                            );
+                            self.authoring.board.snap_mm = self.prefs.snap_mm;
+                            self.playing = false;
+                            self.pending = false;
+                            self.grab = None;
+                            self.drag_plane = None;
+                            self.issue.invalidate();
+                            self.metrics = None;
+                            self.simulation_error = None;
+                            self.status =
+                                "Avatar replaced · drape reset · save to keep the imported asset"
+                                    .into();
+                        }
+                        Err(error) => self.document.avatar_import.error = Some(error),
+                    }
+                }
+            }
+            None => {}
+        }
+    }
     pub(super) fn template_browser_open(&self) -> bool {
         self.document.browser.open
     }
@@ -273,6 +352,7 @@ impl Atelier {
                 }
                 self.project = project;
                 self.scene = scene;
+                self.document.staged_avatar = None;
                 self.authoring = AuthoringUi::default();
                 self.authoring.board.snap_mm = self.prefs.snap_mm;
                 self.generation += 1;
@@ -352,6 +432,7 @@ impl Atelier {
     pub(super) fn document_menu(&mut self, ui: &mut egui::Ui) {
         let ctx = ui.ctx().clone();
         for (label, action) in [
+            ("Import avatar…", 6),
             ("Templates…", 5),
             ("New project…", 0),
             ("Open…  Ctrl+O", 1),
@@ -371,6 +452,7 @@ impl Atelier {
                         self.save_document(&ctx, true);
                     }
                     4 => self.open_document(&ctx, true),
+                    6 => self.open_avatar_import(&ctx),
                     _ => self.open_template_browser(&ctx),
                 }
             }
@@ -379,6 +461,10 @@ impl Atelier {
         self.export_information(ui);
     }
     pub(super) fn document_tick(&mut self, ctx: &egui::Context) {
+        self.avatar_import_tick(ctx);
+        if self.document.avatar_import.open {
+            return;
+        }
         self.template_browser_tick(ctx);
         if self.document.browser.open {
             return;
