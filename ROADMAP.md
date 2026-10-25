@@ -33,7 +33,7 @@ Updated 21 October 2026. The first goal is a coherent editing workflow around th
 | IO-01 | OBJ + MTL static asset round trip | `avatar.rs`, `garment/export.rs` | Units/axes, groups, UVs, normals and material assignments checked in independent tools; explicit losses |
 | IO-02 | Static glTF/GLB import and export | Canonical mesh/material model; separate direction-specific adapters | Document supported PBR/texture subset, transforms and units; independent reader/writer fixtures |
 | IO-03 | DXF-AAMA and DXF-ASTM pattern exchange | Stable pattern entities, grain and notch semantics | Separate dialect fixtures; correct physical dimensions; distinguish cut/sew lines and unsupported entities |
-| IO-04 | Scale-correct SVG/PDF pattern printing | Current preview exporter | Physical page size, 100 mm calibration ruler, tiling and labels; measured print tolerance |
+| IO-04 | Tiled pattern printing and cutting metadata | Physical SVG sewing outlines and 100 mm ruler available; printer output unverified | PDF/tiling, cutting allowances and labels; measured print tolerance |
 | IO-05 | Animated cache and production exchange | Animation/time-sample model first | Alembic/USD, then FBX scope tested separately; stable topology policy, timestamps and external playback |
 | QA-01 | Portable public benchmark pack | Small original garments and synthetic fixtures with provenance | Fresh checkout reproduces edit/save/reload and matched solver runs; large private captures are not required |
 
@@ -111,7 +111,7 @@ The priorities below are the product requirements. Within the critical group, im
 | Alembic `.abc` | Animated simulation caches for VFX/cinematics | **Critical** | Planned. Fixed-topology position/normal cache, timestamps, units and DCC playback fixture |
 | OpenUSD `.usd/.usda/.usdc` | Production pipelines and Chaos Cloth workflows | **Critical** | Planned. Mesh/material/time-sample interchange; validate any Chaos-specific schema separately |
 | FBX `.fbx` | Rigged characters, animation, Unreal, Unity, DCC | **High** | Planned. Avatar hierarchy, skinning, bind transforms and sampled animation; select dependency/distribution strategy before integrating |
-| PDF / SVG | Print and share 2D patterns | **High** | **Partial:** preview SVG export only. No scale-accurate print/PDF yet; add physical page size, scale marks, tiling and seam allowances |
+| PDF / SVG | Print and share 2D patterns | **High** | **Partial:** annotated preview and physical SVG sewing outlines with a 100 mm ruler. No PDF, tiling or allowances; physical printer validation remains open |
 | Grading rule files | S/M/L/XL size ranges, industrial manufacturing | **High** | Planned. Identify concrete dialects; explicit units, size tables, stable point identities and reversible grade application |
 | USDZ `.usdz` | AR and product presentation | **Medium** | Planned after USD: packaging, material/texture validation and viewer fixture |
 | MDD / PC2 | Legacy deformation-cache pipelines | **Secondary** | Planned. Fixed vertex order, frame/time conversion and topology mismatch rejection |

@@ -1,5 +1,42 @@
 # Repository handoff
 
+## Physical SVG and contribution reviews — 25 October 2026
+
+PR #77 integrates Mikyle Couto's physical SVG contribution from #3. Workspace
+Export and `cloth-template bake` write `patterns-print.svg` beside the existing
+annotated preview. Coordinates are material millimetres; a 100 mm ruler and
+explicit limits distinguish sewing outlines from ready-to-cut patterns.
+Valid outward curves expand the sheet. Validation and serialization finish
+before artifact replacement, without adding another full template compile.
+I/O failures can still leave partial outputs. See [interchange](interoperability.md).
+
+Six focused tests pass on `9233a2015ebab6d98015accf86d87025c0f7d53d`, including
+invalid declared dimensions, curve bounds and preservation of previous exports.
+The full CPU run passed 372 tests before the final dimension guard; that guard
+received a fresh targeted run and all-targets CPU Clippy. Edge 156 headless,
+with GPU disabled, measured four actual CLI exports: rulers within 0.001 mm,
+root/viewBox agreement within 0.01 mm, and every sewing contour inside its sheet.
+Firefly's independent earlier review is credited. No physical printer, native
+window, GPU simulation or new physics method was tested in this pass.
+
+Keep the remaining contributions separate:
+
+- #76: the opt-in final-state diagnostic passes its five CPU tests, but review
+  requests generation/request identity across reloads before accepting its UI.
+- #66/#7: no bulk merge. Review reproduced loss of a chain tail after splitting
+  and a dart guard that ignores tail references. Proposed protective fixes
+  passed 40 local tests; evidence and patch are on issue #13, not in `main`.
+- #6: nine existing tests pass, but a valid 50 mm left-edge notch exports a tip
+  at x = -35 mm outside its SVG viewBox. Request changes is posted. Reconcile
+  its notch schema with #1 and preserve #77's exporter rather than adding a
+  second writer. #1 also needs notch-parameter reversal on mirrors and explicit
+  preservation/refusal of marked Boolean operands. These latter findings are
+  from static review, not runtime reproduction.
+
+The #12 integration claim was rejected because #21 still reserves
+`src/atelier.rs`. Mikristian was contacted; no reservation was taken over and
+no markings source was changed. Consult the live board before continuing.
+
 ## Static avatar import — 25 October 2026
 
 PR #74 implements EXO-IO-009: File → Import avatar accepts static OBJ, glTF

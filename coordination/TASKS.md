@@ -15,7 +15,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-CORE-002](#exo-core-002) — Record provenance and licensing for candidate contributions | provenance | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/11) |
 | [EXO-REV-001](#exo-rev-001) — Reconcile the two notch and allowance contributions | review | review_existing | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/12) |
 | [EXO-REV-002](#exo-rev-002) — Split and review darts, persistent POM and cutline proposal | review | review_existing | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/13) |
-| [EXO-REV-003](#exo-rev-003) — Review physical SVG output contribution | review | review_existing | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/14) |
+| [EXO-REV-003](#exo-rev-003) — Review physical SVG output contribution | review | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/14) |
 | [EXO-REV-004](#exo-rev-004) — Reconcile feature map and current stable lint contributions | review | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/15) |
 | [EXO-REV-005](#exo-rev-005) — Extract reviewable boundaries from the EXO Studio and session proposal | review | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/16) |
 | [EXO-CAD-001](#exo-cad-001) — Implement exact numeric construction operations | cad | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/17) |
@@ -229,7 +229,7 @@ PR7 touches physics as well as CAD. This task reviews authoring slices; it does 
 
 **Review physical SVG output contribution**
 
-Status: review_existing. Dependencies: none.
+Status: done. Dependencies: none.
 
 **Files / directories**
 
@@ -249,8 +249,9 @@ Status: review_existing. Dependencies: none.
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/markerArtifacts.js
 - https://github.com/erythrofr/ClothCraft/pull/3
+- https://github.com/erythrofr/ClothCraft/pull/77
 
-Review an existing contribution instead of reimplementing it in parallel.
+PR #77 integrates Mikyle Couto's PR #3 on current main with author attribution, early artifact validation and bounds for outward curves. Six targeted CPU tests pass; Edge 156 headless measurements on four actual CLI exports put the 100 mm ruler within 0.001 mm, with every sewing contour contained. Existing preview remains separate. Physical printing, seam allowances, nesting, tiling and PDF remain unimplemented/unverified; this completes the reviewed SVG subset, not production pattern printing. Preserve this exporter when reconciling PR #6. See docs/interoperability.md and issue #14 for evidence.
 
 ## EXO-REV-004
 
