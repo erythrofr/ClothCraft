@@ -19,6 +19,15 @@ pub(super) struct DocumentUi {
     closing: bool,
 }
 impl DocumentUi {
+    fn dismiss_modals_for_close(&mut self, ctx: &egui::Context) {
+        if ctx.input(|i| i.viewport().close_requested()) {
+            // Let the ordinary Save/Discard/Cancel close flow run below.
+            // A modal's early return must not bypass dirty-document protection.
+            self.avatar_import = Default::default();
+            self.browser.open = false;
+            self.browser.confirming = false;
+        }
+    }
     pub fn new(output: &std::path::Path, path: Option<PathBuf>, modified: bool) -> Self {
         Self {
             browser: Default::default(),
@@ -461,6 +470,7 @@ impl Atelier {
         self.export_information(ui);
     }
     pub(super) fn document_tick(&mut self, ctx: &egui::Context) {
+        self.document.dismiss_modals_for_close(ctx);
         self.avatar_import_tick(ctx);
         if self.document.avatar_import.open {
             return;

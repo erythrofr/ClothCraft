@@ -16,6 +16,8 @@ A previously running step can still finish normally. Choosing a file only
 prepares an isolated candidate. Cancel, Escape, invalid input or failed scene
 compilation never install that candidate. Successful installation advances the
 generation so a late result from the old avatar cannot overwrite the new scene.
+Closing the native window dismisses import/template modals before the ordinary
+Save/Discard/Cancel document-close flow; a modal must not bypass that protection.
 
 ## Geometry and files
 
@@ -66,8 +68,9 @@ pickers and GPU rendering are outside that harness and are not claimed as tested
 No third-party source or assets are copied by this implementation.
 
 Local validation, 25 October 2026: five import integration tests, the fourteen
-existing glTF/document tests and all 68 active desktop unit tests passed (one
+existing glTF/document tests and all 69 active desktop unit tests passed (one
 optional preview ignored). This includes three named-widget import gestures,
-the visible confirmation-text check and the template-replacement lifetime test.
+the visible confirmation-text check, the template-replacement lifetime test and
+a viewport-close event that preserves the unsaved document for the close flow.
 CPU library/import-test Clippy and desktop/test Clippy passed with warnings
 denied. Formatting and whitespace checks passed. No GPU or native window ran.

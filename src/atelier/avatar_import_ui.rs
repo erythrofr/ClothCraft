@@ -325,4 +325,33 @@ mod tests {
         assert!(labels.contains("Geometry only"));
         assert!(labels.contains("Resets draped cloth and undo history"));
     }
+
+    #[test]
+    fn close_event_dismisses_import_without_replacing_or_marking_document_saved() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut case = fixture(dir.path());
+        case.document.dirty = true;
+        case.document.avatar_import.choose(&case.source);
+        case.document.browser.begin();
+        let before = serde_json::to_vec(&case.project).unwrap();
+        let ctx = egui::Context::default();
+        let mut input = egui::RawInput::default();
+        input
+            .viewports
+            .entry(egui::ViewportId::ROOT)
+            .or_default()
+            .events
+            .push(egui::ViewportEvent::Close);
+        let mut output = ctx.run_ui(input, |ui| {
+            case.document.dismiss_modals_for_close(ui.ctx());
+            assert!(ui.ctx().input(|i| i.viewport().close_requested()));
+        });
+        output.textures_delta.clear();
+        assert!(!case.document.avatar_import.open);
+        assert!(case.document.avatar_import.candidate.is_none());
+        assert!(!case.document.browser.open);
+        assert!(case.document.dirty);
+        assert_eq!(case.generation, 17);
+        assert_eq!(serde_json::to_vec(&case.project).unwrap(), before);
+    }
 }
