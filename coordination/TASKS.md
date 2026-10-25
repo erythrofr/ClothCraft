@@ -168,19 +168,25 @@ Status: review_existing. Dependencies: none.
 
 - `src/garment/polygon.rs`
 - `src/garment/markings.rs`
+- `src/garment/shapes.rs`
+- `src/garment/presets.rs`
 - `src/authoring.rs`
 - `src/authoring/geometry.rs`
+- `src/fitting.rs`
 - `src/atelier/board.rs`
 - `src/atelier/authoring_ui.rs`
 - `src/garment/export.rs`
 - `tests/pattern_markings.rs`
 - `src/garment/mod.rs`
-- `src/atelier.rs`
+- `docs/markings.md`
+- `docs/interoperability.md`
 
 **Acceptance**
 
 - Compare PR1 and PR6 schema/semantics before choosing or reconciling them; avoid duplicate representations.
 - Verify curved boundaries, round trips, mirror/split/delete behavior and metadata-only state preservation.
+- Keep complete cutting contours and exported notch markers inside physical sheet bounds; cover unchanged holes and exact/near-notch splits with explicit preservation or refusal.
+- Exercise native controls through the CPU named-widget harness, keeping UI draft state in authoring_ui.rs and leaving the reserved src/atelier.rs entrypoint untouched.
 - Report provenance and rebase/test on current main; merge only after review.
 
 **Evidence and related contributions**
@@ -189,7 +195,7 @@ Status: review_existing. Dependencies: none.
 - https://github.com/erythrofr/ClothCraft/pull/1
 - https://github.com/erythrofr/ClothCraft/pull/6
 
-Existing proposals are not merged or independently validated by the inventory. Shared model edits need exclusive ownership. Existing PR #6 already proposes native notch/allowance controls, cutting-line display and SVG output; preserve that review instead of opening a duplicate implementation. Native text-label editing is separately scoped under EXO-CAD-012 after reconciliation.
+Review #6 as the broader candidate, not a bulk merge. Source review at 7cf7639 confirms it does not change src/atelier.rs: drafts and controls live in authoring_ui.rs. That entrypoint is excluded to preserve EXO-UX-001's reservation; no task owner is displaced. Shapes/presets and fitting.rs are included for schema construction, mirror migration and nonphysical cache exclusion. Preserve the current named-widget harness instead of importing historical smoke changes. Nine existing #6 tests pass, but a valid 50 mm left-edge notch prints at x=-35 mm outside the sheet; issue #12 and the PR review contain reproduction evidence. Resolve incompatible #1/#6 notch schemas explicitly, preserve #77's physical SVG exporter, and do not claim ready-to-cut output until geometry gates pass. Native text-label editing remains EXO-CAD-012 after reconciliation.
 
 ## EXO-REV-002
 
