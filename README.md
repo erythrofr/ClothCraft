@@ -33,6 +33,7 @@ Use **Space** to start or pause, **Grab** to pull the cloth and **Ctrl+S** to sa
 - **Arrangement:** translation and rotation in 3D; a separate 2D board layout; undo/redo and semantic copy/paste.
 - **Simulation:** CPU and hybrid GPU VBD with OGC contact, mouse grabbing and passive motion diagnostics. The floor is currently a visual reference, not a physical collider.
 - **Documents:** Open, Save, Save As, portable avatar assets and local recovery. Keep a saved JSON and its adjacent `.assets` folder together.
+- **Starting assets:** six bundled pattern templates, native template JSON import, and static OBJ/glTF/GLB avatars through File → Import avatar. Avatar replacement preserves authored patterns but resets the drape and undo history; [supported geometry and limits](docs/avatar-import.md).
 - **Net material report:** the CPU `cloth-template metrics` command reports
   rest-mesh area and cloth mass per panel and fabric. It is not cutting or
   purchasing consumption; see [units and limits](docs/production-metrics.md).
@@ -58,12 +59,12 @@ The long-term goal is interchangeable physics behind a stable document and autho
 | Data | Input | Output |
 |---|---|---|
 | Editable garment | ClothCraft project / template JSON | Project / template JSON |
-| Static avatar | OBJ | — |
+| Static avatar | OBJ, static glTF / GLB geometry | — |
 | Simulated garment mesh | — | OBJ geometry and material-space UVs |
 | Pattern preview | — | SVG preview, not production printing |
 | Research data | — | Metrics, fiber frames and geometric grain guides |
 
-DXF-AAMA/ASTM, MTL round trips, GLB, Alembic, USD, FBX, PDF printing and grading rules remain planned. CLO and Marvelous Designer project files are not supported. Save preserves the editable document; Export writes separate interchange artifacts. See the [input/output contracts](docs/interoperability.md).
+DXF-AAMA/ASTM, MTL round trips, glTF/GLB export, animated avatars, Alembic, USD, FBX, PDF printing and grading rules remain planned. CLO and Marvelous Designer project files are not supported. Save preserves the editable document; Export writes separate interchange artifacts. See the [input/output contracts](docs/interoperability.md).
 
 ## Help build it
 

@@ -1,14 +1,15 @@
 # Interchange: actual support and next adapters
 
-Reviewed 2026-10-14. This is a requirements document, not a list of implemented readers/writers. Inputs and outputs are separate capabilities. All adapters must sit outside the physical solver and convert through the canonical garment/asset model.
+Available-support table updated 2026-10-25. Later sections describe requirements, not implemented readers/writers. Inputs and outputs are separate capabilities. All adapters must sit outside the physical solver and convert through the canonical garment/asset model.
 
 ## Available now
 
 | Format | Input | Output | Contract / loss |
 |---|---|---|---|
 | ClothCraft fitting-project JSON v1 | Workspace File → Open and CLI `cloth-fit --project` | Workspace Save / Save As and CLI | Editable template, optional state and interactive settings; adjacent portable OBJ assets |
-| ClothCraft template JSON v1/v2 | `cloth-template` CLI | `template.json` | Named panels/boundaries, local metre coordinates, shared fabrics, grain, sewing and board metadata |
-| OBJ | Avatar surface geometry through CLI | Static garment and grain guides | Geometry only; no MTL, skinning, animation, normals/material round trip or reconstruction of sewing patterns. Export UVs are local metres, not a packed texture atlas. Triangulate complex avatar polygons before import |
+| ClothCraft template JSON v1/v2 | Workspace template browser and `cloth-template` CLI | `template.json` | Named panels/boundaries, local metre coordinates, shared fabrics, grain, sewing and board metadata |
+| OBJ | Workspace File → Import avatar and CLI avatar surface geometry | Static garment and grain guides | Geometry only; no MTL, skinning, animation, normals/material round trip or reconstruction of sewing patterns. Export UVs are local metres, not a packed texture atlas. Triangulate complex avatar polygons before import |
+| glTF / GLB | Workspace File → Import avatar; static geometry only | None | Node transforms and mirrored winding; metres, Y-up. No textures, animation or skinning. Ambiguous scenes are rejected; supported extensions and losses are explicit. See [avatar import](avatar-import.md) |
 | SVG | None | Pattern preview | Not print-to-scale; ignores board arrangement; no allowances, nesting, grading or print tiling |
 | Diagnostic JSON | No general interchange reader | Metrics/fiber frames | Research outputs; fibers are surface directions, not simulated yarns |
 

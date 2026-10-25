@@ -1,5 +1,27 @@
 # Repository handoff
 
+## Static avatar import — 25 October 2026
+
+PR #74 implements EXO-IO-009: File → Import avatar accepts static OBJ, glTF
+and GLB with an explicit geometry-only confirmation. CPU candidate preparation
+validates and stages a canonical OBJ before replacing the scene. Authored
+patterns, seams and live settings survive; draped state and undo history reset.
+The existing portable asset writer preserves saved geometry after staging is
+dropped. See [avatar import](avatar-import.md) for failure semantics and limits.
+
+At source commit `39c61c9`, five import integration tests, fourteen existing
+glTF/document tests and 69 active desktop unit tests passed locally (one
+optional preview ignored). CPU and desktop Clippy passed with warnings denied.
+Named-widget checks exercise confirmation, cancellation, errors and a small
+window. Native OS pickers and GPU rendering were not exercised. No physics
+algorithm changed. Dense import remains synchronous; scene selection, scale
+conversion, texture import and animation remain unsupported.
+
+PR #63 supplies the template browser used beside this workflow. PR #29's
+command registry remains a separate contribution: review found a failing
+`cloth-fit` Clippy check and error propagation that needs correction before
+integration. Preserve its accepted ownership and consult issue #21.
+
 ## Construction preview follow-up — 23 October 2026
 
 PR #38 now includes an auto-scaled, read-only board-space diagram in the
