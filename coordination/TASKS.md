@@ -69,7 +69,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-UX-002](#exo-ux-002) — Add a searchable command palette | workspace | blocked | EXO-UX-001 | Not registered |
 | [EXO-UX-003](#exo-ux-003) — Persist workspace layouts and tool visibility | workspace | blocked | EXO-UX-001 | Not registered |
 | [EXO-UX-004](#exo-ux-004) — Add group 3D transforms and marquee selection | workspace | ready | EXO-CORE-001 | Not registered |
-| [EXO-UX-005](#exo-ux-005) — Create a provenance-aware garment template browser | workspace | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/22) |
+| [EXO-UX-005](#exo-ux-005) — Create a provenance-aware garment template browser | workspace | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/22) |
 | [EXO-UX-006](#exo-ux-006) — Expose a versioned headless authoring session adapter | automation | blocked | EXO-CORE-001, EXO-REV-005, EXO-UX-001 | Not registered |
 | [EXO-QA-001](#exo-qa-001) — Build public cross-editor behavioral fixtures | validation | done | EXO-CORE-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/54) |
 | [EXO-QA-002](#exo-qa-002) — Package a clean-machine Windows test release | release | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/23) |
@@ -81,7 +81,12 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-SEW-006](#exo-sew-006) — Expose cached sewing diagnostics in the native inspector | sewing | done | EXO-SEW-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/43) |
 | [EXO-QA-004](#exo-qa-004) — Exercise editor tools with a deterministic named-widget harness | validation | done | EXO-SEW-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/47) |
 | [EXO-CAD-010](#exo-cad-010) — Place a pattern point at the intersection of two reference edges | cad | done | EXO-CAD-001, EXO-CAD-002, EXO-QA-004 | [Issue](https://github.com/erythrofr/ClothCraft/issues/50) |
-| [EXO-IO-009](#exo-io-009) — Integrate static avatar import into the workspace | interchange | blocked | EXO-IO-007, EXO-UX-005 | [Issue](https://github.com/erythrofr/ClothCraft/issues/64) |
+| [EXO-CAD-011](#exo-cad-011) — Edit independent curve points and mirrored splits in the native 2D workspace | cad | blocked | EXO-REV-001, EXO-REV-002, EXO-CAD-003 | [Issue](https://github.com/erythrofr/ClothCraft/issues/68) |
+| [EXO-MFG-015](#exo-mfg-015) — Create and manage saved pattern measurements in the native 2D UI | manufacturing | blocked | EXO-REV-001, EXO-REV-002 | [Issue](https://github.com/erythrofr/ClothCraft/issues/69) |
+| [EXO-CAD-012](#exo-cad-012) — Add editable pattern text annotations to the native Piece inspector and board | cad | blocked | EXO-REV-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/70) |
+| [EXO-SEW-007](#exo-sew-007) — Preview and create a cut-and-sewn dart from the native pattern UI | sewing | blocked | EXO-REV-002 | [Issue](https://github.com/erythrofr/ClothCraft/issues/71) |
+| [EXO-PHY-004](#exo-phy-004) — Expose correctly timed contact and residual diagnostics in the native Simulation inspector | physics | review_existing | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/72) |
+| [EXO-IO-009](#exo-io-009) — Integrate static avatar import into the workspace | interchange | ready | EXO-IO-007, EXO-UX-005 | [Issue](https://github.com/erythrofr/ClothCraft/issues/64) |
 
 ## EXO-COORD-001
 
@@ -184,7 +189,7 @@ Status: review_existing. Dependencies: none.
 - https://github.com/erythrofr/ClothCraft/pull/1
 - https://github.com/erythrofr/ClothCraft/pull/6
 
-Existing proposals are not merged or independently validated by the inventory. Shared model edits need exclusive ownership.
+Existing proposals are not merged or independently validated by the inventory. Shared model edits need exclusive ownership. Existing PR #6 already proposes native notch/allowance controls, cutting-line display and SVG output; preserve that review instead of opening a duplicate implementation. Native text-label editing is separately scoped under EXO-CAD-012 after reconciliation.
 
 ## EXO-REV-002
 
@@ -216,8 +221,9 @@ Status: review_existing. Dependencies: none.
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/nativePatternExportPreparation.js
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/measurements.js
 - https://github.com/erythrofr/ClothCraft/pull/7
+- https://github.com/erythrofr/ClothCraft/pull/66
 
-PR7 touches physics as well as CAD. This task reviews authoring slices; it does not authorize promoting its solver changes.
+PR7 touches physics as well as CAD. This task reviews authoring slices; it does not authorize promoting its solver changes. PR #66 (e3994ae80c496eb3e6371309ccabb8e4b7bea3ab) is a later source-only candidate on the same old fork base; compare it rather than assuming it supplies native UI. Focused native UI follow-ups are EXO-CAD-011, EXO-MFG-015 and EXO-SEW-007. Diagnostics are separately scoped under EXO-PHY-004; the EXO session remains outside this owner-requested work.
 
 ## EXO-REV-003
 
@@ -783,7 +789,7 @@ Status: blocked. Dependencies: EXO-REV-002, EXO-MFG-004.
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/rust/exo_measurement_kernel/src/lib.rs
 - https://github.com/erythrofr/ClothCraft/pull/7
 
-Persistent POM schema is already proposed in PR7; do not invent a second representation.
+Persistent POM schema is already proposed in PR7; do not invent a second representation. EXO-MFG-015 is the separate single-size persistent pattern-measurement UI slice. Reuse its reviewed model/UI when extending to size/tolerance reports; do not block the single-size tool on grading.
 
 ## EXO-MFG-007
 
@@ -1589,7 +1595,7 @@ Current 2D group point/panel selection already exists; avoid replacing it.
 
 **Create a provenance-aware garment template browser**
 
-Status: ready. Dependencies: none.
+Status: done. Dependencies: none.
 
 **Files / directories**
 
@@ -1613,8 +1619,9 @@ Status: ready. Dependencies: none.
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/openSourcePatternToolCatalog.js
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/projectFileLibrary.js
+- https://github.com/erythrofr/ClothCraft/pull/63
 
-Owner-approved scope amendment: integrate through authoring_ui.rs and documents_ui.rs while atelier.rs remains reserved by EXO-UX-001. No solver changes.
+Owner-approved scope amendment: integrate through authoring_ui.rs and documents_ui.rs while atelier.rs remains reserved by EXO-UX-001. No solver changes. Completed in merged PR #63 at 92127e54 after all CI checks passed. Six original embedded templates, flat previews, native template JSON import and explicit safe document replacement; CPU named-widget tests cover cancel, confirmation, invalid avatar, keyboard focus and a small window. Native dialogs and GPU visual acceptance remain untested; examples are ungraded engineering fixtures.
 
 ## EXO-UX-006
 
@@ -1903,11 +1910,197 @@ Status: done. Dependencies: EXO-CAD-001, EXO-CAD-002, EXO-QA-004.
 
 Original Rust integration of an existing CPU primitive. No solver, serialized document schema, atelier.rs or command-registry edits; no upstream code/assets copied. Infinite reference lines, not segment-clamped intersection. Completed in merged PR #52. Merged after all 13 checks succeeded. 23 drawing-command and 59 editor tests passed; one optional preview ignored. Named-widget scenario exercises both reference menus, invalid/stale cases, Apply and exact undo. Desktop Clippy passed. Infinite straight lines only; no persistent constraints or GPU acceptance.
 
+## EXO-CAD-011
+
+**Edit independent curve points and mirrored splits in the native 2D workspace**
+
+Status: blocked. Dependencies: EXO-REV-001, EXO-REV-002, EXO-CAD-003.
+
+**Files / directories**
+
+- `src/garment/polygon.rs`
+- `src/garment/curves.rs`
+- `src/garment/domain.rs`
+- `src/garment/presets.rs`
+- `src/garment/shapes.rs`
+- `src/authoring.rs`
+- `src/authoring/geometry.rs`
+- `src/atelier/authoring_ui.rs`
+- `src/atelier/board.rs`
+- `tests/curve_point_authoring.rs`
+- `docs/authoring.md`
+- `docs/handoff.md`
+
+**Acceptance**
+
+- Expose Add/Edit/Remove curve point and Split at point on a selected named outer boundary in the native Piece inspector and 2D board, with millimetre input and visible handles/preview; do not substitute a freehand-new-panel tool.
+- Keep stable authored point/boundary identities and cubic geometry through split, including knot-to-vertex promotion and verified linked mirrored splits as one atomic edit.
+- Use the reviewed topology-reference mapping for partial/chain seams, measurements, target lengths and markings; reject ambiguous or unsupported edits with an actionable message and no mutation.
+- Prove cancel, invalid input, text focus, one-step undo/redo, JSON reopen and rotated-layout editing using real named egui controls plus independent curve geometry checks.
+- Preserve current linked-panel semantics, material rest metres and state invalidation; no EXO interface or session dependency.
+
+**Evidence and related contributions**
+
+- https://github.com/erythrofr/ClothCraft/pull/66
+- https://github.com/erythrofr/ClothCraft/issues/13
+- https://github.com/erythrofr/ClothCraft/pull/66
+
+Owner-requested native ClothCraft UI slice after reviewing PR #66. Work on a feature branch in NicTanghe/Hamerons_ClothCraft and submit a separate PR to erythrofr/ClothCraft:main. Exclude exo-session, the EXO application, print/hardware adapter fields and unrelated solver changes. Review existing contributions and preserve attribution; no permission to copy incompatible EXO source is implied. This issue is a proposed task until the catalog change is merged, a maintainer registers it, and the coordinator accepts a claim. Use the existing CPU named-widget harness; GPU/native-window acceptance remains opt-in. This is distinct from EXO-CAD-006/009 freehand stroke fitting. Do not add a second topology migration framework.
+
+## EXO-MFG-015
+
+**Create and manage saved pattern measurements in the native 2D UI**
+
+Status: blocked. Dependencies: EXO-REV-001, EXO-REV-002.
+
+**Files / directories**
+
+- `src/garment/polygon.rs`
+- `src/garment/domain.rs`
+- `src/garment/presets.rs`
+- `src/garment/shapes.rs`
+- `src/authoring.rs`
+- `src/authoring/geometry.rs`
+- `src/fitting.rs`
+- `src/atelier/measure.rs`
+- `src/atelier/authoring_ui.rs`
+- `src/atelier/board.rs`
+- `tests/persistent_pattern_measurements.rs`
+- `docs/authoring.md`
+- `docs/handoff.md`
+
+**Acceptance**
+
+- Extend the current temporary ruler with an explicit Save measurement workflow: choose two stations on one panel's named boundaries, give a label, and save a stable material-space measurement.
+- Show selectable saved measurements and their straight-line rest-space distance in millimetres; support rename/delete and display overlays using the compiled material boundaries.
+- Reuse the reviewed POM representation, with boundary arclength fractions and stable IDs; preserve or explicitly reject references through split, mirror, duplicate, delete and boolean operations.
+- Keep metadata-only changes from remeshing or disturbing the drape; cover history, v1/v2 compatibility and save/reopen.
+- Exercise create/rename/delete/cancel, invalid or stale references and keyboard focus through real named UI controls on CPU.
+- Scope this PR to a useful single-size pattern ruler; exclude body/geodesic measurements, draped lengths, grading and tolerance tables.
+
+**Evidence and related contributions**
+
+- https://github.com/erythrofr/ClothCraft/pull/66
+- https://github.com/erythrofr/ClothCraft/issues/13
+- https://github.com/erythrofr/ClothCraft/pull/7
+- https://github.com/erythrofr/ClothCraft/pull/66
+
+Owner-requested native ClothCraft UI slice after reviewing PR #66. Work on a feature branch in NicTanghe/Hamerons_ClothCraft and submit a separate PR to erythrofr/ClothCraft:main. Exclude exo-session, the EXO application, print/hardware adapter fields and unrelated solver changes. Review existing contributions and preserve attribution; no permission to copy incompatible EXO source is implied. This issue is a proposed task until the catalog change is merged, a maintainer registers it, and the coordinator accepts a claim. Use the existing CPU named-widget harness; GPU/native-window acceptance remains opt-in. This is the independently usable single-size subset of EXO-MFG-006; it does not depend on a graded-size run. The existing temporary ruler is not persistent POM editing.
+
+## EXO-CAD-012
+
+**Add editable pattern text annotations to the native Piece inspector and board**
+
+Status: blocked. Dependencies: EXO-REV-001.
+
+**Files / directories**
+
+- `src/garment/polygon.rs`
+- `src/garment/domain.rs`
+- `src/garment/presets.rs`
+- `src/garment/shapes.rs`
+- `src/authoring.rs`
+- `src/authoring/geometry.rs`
+- `src/fitting.rs`
+- `src/atelier/authoring_ui.rs`
+- `src/atelier/board.rs`
+- `tests/pattern_annotations.rs`
+- `docs/authoring.md`
+- `docs/handoff.md`
+
+**Acceptance**
+
+- Provide Add label, text/position editing and Delete in the native Piece inspector; show actual saved labels on the 2D board using panel layout transforms.
+- Use stable annotation IDs and local material coordinates from the reconciled markings model; do not introduce a parallel annotation representation.
+- Support undo/redo and JSON reopen, with explicit mirror/duplicate/delete behavior and finite, unit-aware position validation.
+- Keep labels as metadata: no mesh, mass, grain, sewing or drape changes when adding or editing text.
+- Use CPU named-widget scenarios for create/edit/delete/cancel, rotated layouts, invalid values and text-field keyboard ownership.
+
+**Evidence and related contributions**
+
+- https://github.com/erythrofr/ClothCraft/pull/1
+- https://github.com/erythrofr/ClothCraft/issues/12
+- https://github.com/erythrofr/ClothCraft/pull/66
+- https://github.com/erythrofr/ClothCraft/pull/1
+- https://github.com/erythrofr/ClothCraft/pull/66
+
+Owner-requested native ClothCraft UI slice after reviewing PR #66. Work on a feature branch in NicTanghe/Hamerons_ClothCraft and submit a separate PR to erythrofr/ClothCraft:main. Exclude exo-session, the EXO application, print/hardware adapter fields and unrelated solver changes. Review existing contributions and preserve attribution; no permission to copy incompatible EXO source is implied. This issue is a proposed task until the catalog change is merged, a maintainer registers it, and the coordinator accepts a claim. Use the existing CPU named-widget harness; GPU/native-window acceptance remains opt-in. PR #1 proposes storage/commands, but not native label editing. Notch and allowance UI is already proposed by PR #6 under issue #12; retain that existing review rather than duplicate it. Construction trims/BOM semantics remain EXO-SEW-002.
+
+## EXO-SEW-007
+
+**Preview and create a cut-and-sewn dart from the native pattern UI**
+
+Status: blocked. Dependencies: EXO-REV-002.
+
+**Files / directories**
+
+- `src/authoring.rs`
+- `src/authoring/geometry.rs`
+- `src/garment/polygon.rs`
+- `src/garment/seam.rs`
+- `src/atelier/authoring_ui.rs`
+- `src/atelier/board.rs`
+- `tests/physical_dart_authoring.rs`
+- `docs/authoring.md`
+- `docs/handoff.md`
+
+**Acceptance**
+
+- Select a supported unsewn straight boundary and expose Dart with intake position/width and depth in millimetres; show cut legs and apex before explicit Apply.
+- Apply one validated transaction that removes the triangular intake and creates the reversed dart-leg sewing relation in the existing implicit objective; preserve stable boundary references and mass/area accounting.
+- Reject unsupported curved/sewn/annotated boundaries, incompatible references, invalid or intersecting geometry, and failed compilation without altering the document.
+- Support Cancel, one-step undo/redo, save/reopen and coherent remeshing/cache invalidation; do not add a post-solver position projection.
+- Exercise real named UI controls on CPU and verify analytic cut area, seam-leg correspondence and unaffected panels. Describe this as a cut-and-sewn dart, not uncut fold mechanics or proven fit.
+
+**Evidence and related contributions**
+
+- https://github.com/erythrofr/ClothCraft/pull/7
+- https://github.com/erythrofr/ClothCraft/pull/66
+- https://github.com/erythrofr/ClothCraft/issues/13
+- https://github.com/erythrofr/ClothCraft/pull/7
+- https://github.com/erythrofr/ClothCraft/pull/66
+
+Owner-requested native ClothCraft UI slice after reviewing PR #66. Work on a feature branch in NicTanghe/Hamerons_ClothCraft and submit a separate PR to erythrofr/ClothCraft:main. Exclude exo-session, the EXO application, print/hardware adapter fields and unrelated solver changes. Review existing contributions and preserve attribution; no permission to copy incompatible EXO source is implied. This issue is a proposed task until the catalog change is merged, a maintainer registers it, and the coordinator accepts a claim. Use the existing CPU named-widget harness; GPU/native-window acceptance remains opt-in. No separate focused native dart UI PR was found. Do not bundle final-state diagnostic passes or GPU step rejection changes into this authoring slice.
+
+## EXO-PHY-004
+
+**Expose correctly timed contact and residual diagnostics in the native Simulation inspector**
+
+Status: review_existing. Dependencies: none.
+
+**Files / directories**
+
+- `src/vbd.rs`
+- `src/vbd/audit.rs`
+- `src/gpu_vbd.rs`
+- `src/atelier/worker.rs`
+- `src/atelier/chrome.rs`
+- `tests/vbd_final_diagnostics.rs`
+- `docs/solver-challenge.md`
+- `docs/handoff.md`
+
+**Acceptance**
+
+- Review the final-state diagnostic changes in PR #66 against current upstream, including its existing offline audit, directional bounds and sparse precision refinement; submit a separate focused diagnostic PR.
+- Provide an explicit native Simulation inspector action or opt-in sampling control showing accepted-state contact separation/count and free-DOF residual with units, sample time, freshness and backend availability.
+- Distinguish accepted-state measurements from pre-update contact detection and mixed-color gradients, and unconstrained residual from constrained equilibrium/KKT; never display an unavailable GPU value as zero.
+- Verify pinned/free normalization, inertia, seam and contact gradients with independent CPU oracles and state-preservation checks; include an actual named-widget control/presentation test.
+- Measure complete step overhead on matched CPU scenes and keep expensive resampling opt-in unless the performance gate supports a default change; distinguish compute, step and rendering time.
+- Preserve collision coverage, predictor, accepted trajectory and rejection policy. The proposed fixed 2 micrometre GPU rejection gate is a separate physics decision and is not authorized by this diagnostic UI task.
+
+**Evidence and related contributions**
+
+- https://github.com/erythrofr/ClothCraft/issues/13#issuecomment-6376032311
+- https://github.com/erythrofr/ClothCraft/pull/66
+- https://github.com/erythrofr/ClothCraft/pull/66
+
+Owner-requested native ClothCraft UI slice after reviewing PR #66. Work on a feature branch in NicTanghe/Hamerons_ClothCraft and submit a separate PR to erythrofr/ClothCraft:main. Exclude exo-session, the EXO application, print/hardware adapter fields and unrelated solver changes. Review existing contributions and preserve attribution; no permission to copy incompatible EXO source is implied. This issue is a proposed task until the catalog change is merged, a maintainer registers it, and the coordinator accepts a claim. Use the existing CPU named-widget harness; GPU/native-window acceptance remains opt-in. GPU runtime validation requires separate current-session authorization. Existing passive motion diagnostics and offline energy audit must be reused where possible.
+
 ## EXO-IO-009
 
 **Integrate static avatar import into the workspace**
 
-Status: blocked. Dependencies: EXO-IO-007, EXO-UX-005.
+Status: ready. Dependencies: EXO-IO-007, EXO-UX-005.
 
 **Files / directories**
 
@@ -1931,4 +2124,4 @@ Status: blocked. Dependencies: EXO-IO-007, EXO-UX-005.
 - https://github.com/erythrofr/ClothCraft/pull/62
 - https://github.com/erythrofr/ClothCraft/issues/64
 
-Wait for template-browser integration and a confirmed claim. Use documents_ui.rs instead of foreign-reserved atelier.rs. Geometry only: no rigging, animation, textures, guessed scale or collision repair.
+Template-browser dependency completed in PR #63. Obtain a confirmed claim before editing. Use documents_ui.rs instead of foreign-reserved atelier.rs. Geometry only: no rigging, animation, textures, guessed scale or collision repair.
