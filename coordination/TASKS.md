@@ -86,7 +86,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-CAD-012](#exo-cad-012) — Add editable pattern text annotations to the native Piece inspector and board | cad | blocked | EXO-REV-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/70) |
 | [EXO-SEW-007](#exo-sew-007) — Preview and create a cut-and-sewn dart from the native pattern UI | sewing | blocked | EXO-REV-002 | [Issue](https://github.com/erythrofr/ClothCraft/issues/71) |
 | [EXO-PHY-004](#exo-phy-004) — Expose correctly timed contact and residual diagnostics in the native Simulation inspector | physics | review_existing | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/72) |
-| [EXO-IO-009](#exo-io-009) — Integrate static avatar import into the workspace | interchange | ready | EXO-IO-007, EXO-UX-005 | [Issue](https://github.com/erythrofr/ClothCraft/issues/64) |
+| [EXO-IO-009](#exo-io-009) — Integrate static avatar import into the workspace | interchange | done | EXO-IO-007, EXO-UX-005 | [Issue](https://github.com/erythrofr/ClothCraft/issues/64) |
 
 ## EXO-COORD-001
 
@@ -2100,7 +2100,7 @@ Owner-requested native ClothCraft UI slice after reviewing PR #66. Work on a fea
 
 **Integrate static avatar import into the workspace**
 
-Status: ready. Dependencies: EXO-IO-007, EXO-UX-005.
+Status: done. Dependencies: EXO-IO-007, EXO-UX-005.
 
 **Files / directories**
 
@@ -2123,5 +2123,6 @@ Status: ready. Dependencies: EXO-IO-007, EXO-UX-005.
 
 - https://github.com/erythrofr/ClothCraft/pull/62
 - https://github.com/erythrofr/ClothCraft/issues/64
+- https://github.com/erythrofr/ClothCraft/pull/74
 
-Template-browser dependency completed in PR #63. Obtain a confirmed claim before editing. Use documents_ui.rs instead of foreign-reserved atelier.rs. Geometry only: no rigging, animation, textures, guessed scale or collision repair.
+Merged PR #74 at ea8ae2c implements native static avatar import with confirmation, owned canonical OBJ staging, portable save and worker-generation invalidation. All 12 required CI checks passed on source 39c61c9; CPU named-widget and format tests cover the task acceptance. Native OS picker/GPU acceptance remains untested. Geometry only: no rigging, animation, textures, guessed scale or collision repair; dense import is synchronous. See docs/avatar-import.md and issue #64 for evidence.
