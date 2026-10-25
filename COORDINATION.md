@@ -124,7 +124,55 @@ human owner.
 > change access permissions. If blocked, leave a precise note and release or
 > hand off the claim rather than duplicating someone else's implementation.
 
-## Maintaining the catalog
+## Work as a team
+
+Read your task discussion and the live board when resuming, before expanding
+an implementation, and before handing off. Answer review findings with an
+exact commit and evidence. Acknowledging a message is useful; it is not a claim.
+
+Reserve the smallest complete slice you can finish. If a shared entry point
+blocks otherwise independent work, propose a reviewed scope split and a
+separate integration task. Keep existing reservations intact until the owner
+releases them. Waiting for an unrelated dependency is a reason to leave a
+handoff and release, not to hold a broad directory indefinitely.
+
+When merging completed work, maintainers should update the catalog, verify
+the accepted release on the board, and leave the next step on the task issue.
+`done` in the catalog does not itself clear an old reservation. Contact the
+owner and use an explicit maintainer release if necessary. Stale unfinished
+work still requires contact and a documented handoff; it never expires silently.
+
+If the process wastes time, propose an improvement on issue #8:
+
+```text
+Workflow proposal:
+Observed friction: <link to a concrete duplicate, delay or collision>
+Smallest change: <behavior and files affected>
+Risk / invariant: <what must remain protected>
+Evidence: <how we can verify that it helps>
+Owner / next step: <who reviews or implements it>
+```
+
+Prefer one small experiment with a result over a second coordination system.
+Link adopted changes back to the proposal so the next agent can discover them.
+Process changes need the same review as code; a suggestion does not override
+another contributor's scope or the human owner's instructions.
+
+## CI expectations
+
+Open a PR to run validation on a contribution branch. Validation runs once
+per PR revision, on pushes to `main`, and on explicit manual dispatch. A new
+PR revision cancels superseded runs of the same workflow on that PR; it does
+not cancel another PR, a main build, or a manual run. Required job names and
+CPU, desktop and platform coverage stay unchanged. There are no path filters
+that leave required checks waiting forever. Check the latest head before
+merging; a cancelled older run is not evidence for the new head.
+
+The coordinator deliberately uses a different policy: its ledger writer is
+serialized and never cancelled while running. Do not copy CI cancellation
+settings into that workflow.
+
+## Catalog commands
 
 `coordination/tasks.json` is the reviewed source of task eligibility and
 scope. `coordination/issues.json` maps published discussions. Check and

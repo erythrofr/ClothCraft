@@ -1,5 +1,15 @@
 name: Rewrite catalog and coordinator checks
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+# One validation per PR revision; main and manual runs keep independent groups.
+# Do not apply this policy to the serialized coordination ledger writer.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 jobs:
@@ -11,6 +21,7 @@ jobs:
         with:
           node-version: '22'
       - run: node --test scripts/rewrite-tasks.test.mjs
+      - run: node --test scripts/ci-policy.test.mjs
       - run: node --test scripts/coordination/engine.test.mjs
       - run: node scripts/rewrite-tasks.mjs check
       - name: Check generated catalog

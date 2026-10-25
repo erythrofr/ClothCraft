@@ -6,6 +6,12 @@ on:
     branches: [main]
   pull_request:
 
+# One validation per PR revision; main and manual runs keep independent groups.
+# Do not apply this policy to the serialized coordination ledger writer.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
