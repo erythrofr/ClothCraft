@@ -182,6 +182,12 @@ fn print_pattern_svg_validated(template: &GarmentTemplate) -> Result<String, Str
     for panel in &template.panels {
         let mut min = DVec2::ZERO;
         let mut max = DVec2::new(panel.pattern.width, panel.pattern.height);
+        if !max.is_finite() || max.min_element() <= 0.0 || max.max_element() > 100.0 {
+            return Err(format!(
+                "Invalid printable dimensions for panel {}",
+                panel.id
+            ));
+        }
         // Control handles may extend a valid curve beyond the declared corner
         // bounds. Include the sampled contour so export never clips that bulge.
         if let Some(polygon) = &panel.polygon {

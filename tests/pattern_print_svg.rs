@@ -127,6 +127,9 @@ fn outward_curve_is_not_clipped_by_declared_corner_bounds() {
     assert!(svg.contains("height=\"586.000mm\""));
     assert!(svg.contains("translate(20.000 109.000)"));
     assert!(svg.contains("200.000 -75.000"));
+    // Expanding bounds with finite curve samples must not mask NaN metadata.
+    template.panels[0].pattern.width = f64::NAN;
+    assert!(export::print_pattern_svg(&template).is_err());
 }
 
 #[test]
