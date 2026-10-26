@@ -2292,13 +2292,14 @@ Status: ready. Dependencies: EXO-QA-004.
 
 - `src/atelier/authoring_smoke.rs`
 - `src/atelier/fabrics_ui.rs`
+- `src/atelier/documents_ui.rs`
 - `docs/native-appearance-acceptance.md`
 
 **Acceptance**
 
 - Reuse the opt-in native authoring smoke entrypoint and actual control responses for appearance Apply, pointer Undo/Redo and keyboard history. Missing candidate support or controls must fail explicitly, never skip to success.
 - Emit structured observations of authored optics, history availability, playing state, worker generation and x/v/time. Check paused state equality and preservation of an in-flight worker response; do not bypass the normal edit/history installer.
-- Exercise text keyboard ownership, restoration of default optics and isolated public-fixture save/reopen. Distinguish a dispatched event from a verified state change and fail on timeout, no-op or rejected history.
+- Exercise text keyboard ownership, restoration of default optics and isolated public-fixture save/reopen. The native smoke document adapter may select only fresh output-local fixture paths, reuse normal Save/Open installation, and bypass interactive recovery/file dialogs only for this explicit scenario. Preserve ordinary user document behavior and all other smoke modes. Distinguish a dispatched event from a verified state change and fail on timeout, no-op or rejected history.
 - Keep GPU execution opt-in and outside default CPU tests/CI. Document exact candidate revision, commands, partial failures and unverified visual appearance. Production fixes outside this scope require a separate coordinated handoff.
 
 **Evidence and related contributions**
@@ -2306,5 +2307,6 @@ Status: ready. Dependencies: EXO-QA-004.
 - https://github.com/erythrofr/ClothCraft/issues/135
 - https://github.com/erythrofr/ClothCraft/pull/128#issuecomment-6424222657
 - https://github.com/erythrofr/ClothCraft/pull/128
+- https://github.com/erythrofr/ClothCraft/pull/137
 
-QA implementation may be developed against the explicitly identified candidate branch without marking EXO-LOOK-001 complete or merging its feature. No authoring_ui.rs, authoring.rs, schema, renderer or solver edits; this scope avoids the active markings reservation. Register after this manifest amendment merges and wait for an accepted claim. Existing broad quick smoke failed at 17/23 actions and cannot establish optical history acceptance.
+QA implementation may be developed against the explicitly identified candidate branch without marking EXO-LOOK-001 complete or merging its feature. No authoring_ui.rs, authoring.rs, schema, renderer or solver edits; this scope avoids the active markings reservation. Register after this manifest amendment merges and wait for an accepted claim. The first draft #137 verifies 14 paused history/text-focus phases. Native Save/Open is not covered: document_tick returns before shortcuts in smoke mode. The added documents_ui.rs scope is limited to an isolated acceptance adapter and its CPU tests; do not remove the general smoke guard or open user dialogs. Release/reclaim after this amendment before editing the added path. Existing broad quick smoke failed at 17/23 actions and cannot establish optical history acceptance.
