@@ -194,8 +194,8 @@ normalize(-0.4, -0.8, 0.6), reflecting the fixed key light about the fixture's
 +Z normal. Target, distance and physical geometry are retained. This fixture
 assumes the public flat T-shirt; arbitrary panel orientations need another view.
 Other scenarios and the normal editor camera are unchanged. CPU validation checks
-the light/view half-vector aligns with +Z. New native captures are still required;
-the earlier pixel-identical images do not validate this new framing.
+the light/view half-vector aligns with +Z. The observed highlight comparison below records the subsequent native captures;
+the earlier pixel-identical images do not validate this framing.
 
 
 ### Observed highlight comparison
@@ -225,7 +225,7 @@ Both edit the same draft and require Apply appearance to commit. Harness keys
 are `appearance.color` and `appearance.color.red/green/blue`. A CPU pointer test
 changes red, checks unchanged green/blue/roughness and no premature commit, then
 applies once. This verifies control behavior, not rendered color or cross-fabric
-isolation. Native color rendering acceptance remains pending.
+isolation. The native color capture below records the subsequent rendering check.
 
 
 ### Native color capture
@@ -240,8 +240,8 @@ exited 0 with 4/4 gates. Red changed from 232 to 152 only on the final Apply;
 green=235, blue=240 and roughness=0.8 remained unchanged. The inspected screenshot
 shows cyan fabric and matching numeric controls. Twelve focused CPU appearance
 tests passed before the native run. This demonstrates the tested color edit and
-visible shared-fabric response; isolation of another fabric and diagnostic
-rendering cases remain unverified.
+visible shared-fabric response. The isolation and heatmap checks below provide
+separate evidence for those cases.
 
 
 ## Diagnostic heatmap comparison
@@ -259,3 +259,27 @@ optics. Inspected images show the strain view on both fabrics. The whole 3D
 viewport crop (x=59..772,y=86..939) has zero changed RGB pixels between them,
 demonstrating precedence over this color edit on the flat, unstrained fixture.
 This does not exercise a varying strain field or contact/marked-face overlays.
+
+
+## Independent-fabric control
+
+At `08b10d4`, a second fabric with identical mechanics and its own stable ID was
+assigned to a cloned public front panel, scaled to one quarter in rest space and
+placed at [0.35, 0.75, 0.38]. Original T-shirt panels retained their shared fabric.
+Cached state/signature were cleared before loading this public test fixture.
+The control silhouette was entirely visible; no private garment was used.
+
+Runs `output/appearance-isolation-visible-default-20261027-a` and
+`output/appearance-isolation-visible-color-20261027-a` exited 0 with 14/14 and
+4/4 gates respectively. Paused physics gates passed. The control crop
+(x=548..667, y=604..689) had zero changed RGB pixels; an edited garment sample
+(x=300..499, y=360..539) had 35,409 changed pixels, maximum channel difference 42.
+An earlier fixture clipped the control and is not used for full-panel evidence.
+
+## Integration
+
+Feature PR #128 merged as `ff5053b`. The harness branch incorporates that main
+revision without changing the tested appearance implementation. The sole merge
+conflict was in `fabrics_ui.rs`: main contained the original controls, while the
+harness added named targets and precise RGB inputs. The harness version was
+retained; no shader, worker, contact or physical material changes were added.

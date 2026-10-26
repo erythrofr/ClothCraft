@@ -63,15 +63,36 @@ and build architecture. The separate `.zip.sha256` covers the archive itself.
 
 The automated Windows workflow compiles binaries, runs CPU tests, verifies the
 ZIP checksums, extracts into a **directory containing spaces**, validates a
-bundled template, and writes/reopens a separate CPU example. The hosted CI
-runner does **not** open an interactive desktop or test a graphics adapter.
+bundled template, and writes/reopens a separate CPU example. It then runs the
+opt-in native launch/capture smoke from that extracted package:
+
+- First it runs the packaged `cloth-fit` headlessly to write a fitting project
+  and its assets. This is a CLI document write; no editor is open yet.
+- Then `--ui-smoke --project <that file>` opens the CLI-written project in the
+  actual editor, captures `ui.png`, and closes. The CLI also writes the launch
+  output project before the editor starts, so the check covers project
+  load/write plus native window launch/capture, not native Save or Export.
+
+A hosted runner is a fresh Windows environment, but it may expose a software
+adapter such as WARP. The smoke therefore does not certify a physical GPU,
+driver version, file-dialog interaction, clipboard/focus behavior or a normal
+desktop session. If no usable wgpu adapter or window is available, the smoke
+step fails; the CPU package checks remain valid evidence only.
+
+The longer `--ui-authoring-smoke` pointer suite is deliberately not part of
+the hosted check. Its fixed 40-55 second frame budget cannot complete at a
+supported editor layout on a software adapter; the 1100x700 minimum also makes
+its rectangle drag self-intersect. Run that suite manually on a
+hardware-accelerated Windows desktop before claiming full pointer/authoring
+acceptance.
 
 On an actual Windows desktop, perform the following before calling this a
 clean-machine GUI release:
 
 1. Extract into a new writable directory whose path contains spaces. Launch
    `Start ClothCraft.cmd` and record Windows version, CPU/GPU, driver and the
-   Git commit in `BUILD-INFO.txt`.
+   Git commit in `BUILD-INFO.txt`. Compare the adapter/backend with the one in
+   the hosted workflow log; a software adapter is not hardware acceptance.
 2. Open a sample garment, select and edit a panel, sew if applicable, then
    undo and redo. Confirm cancellation of Open and Save As dialogs does not
    modify the active document.
@@ -94,16 +115,35 @@ Microsoft C++ build toolchain. From the repository root:
 ```powershell
 cargo test --locked --no-default-features -j 2 -- --test-threads=2
 cargo build --locked --release -j 2 --features desktop --bin cloth-fit --bin marvelous-cloth --bin cloth-template
-.\scripts\package-windows.ps1 -Destination "$env:TEMP\ClothCraft Package With Spaces" -BinariesDirectory '.\target\release' -Verify
+.\scripts\package-windows.ps1 -Destination "$env:TEMP\ClothCraft Package With Spaces" -BinariesDirectory '.\target\release' -Verify -UiSmoke
 ```
 
 The packaging script never overwrites an existing staging folder or archive.
 With `-Verify`, it also refuses an existing `.verify` directory, verifies every
-extracted payload hash, and runs the CPU write/reopen check there. Verification
-files stay beside the archive for inspection. Destinations inside recursively
-copied asset/template folders are rejected. Package from freshly built binaries:
+extracted payload hash, and runs the CPU write/reopen check there. `-UiSmoke`
+requires `-Verify`. It uses the packaged CLI to write and load a fitting
+project, then launches the actual editor, opens that project, captures its
+window, and closes. It does not exercise native Save, Export or editing, and is
+not part of the ordinary CPU test suite. Verification files stay beside the
+archive for inspection. Destinations inside recursively copied
+asset/template folders are rejected. Package from freshly built binaries:
 the recorded source revision identifies the intended checkout, not a signed
 attestation of an arbitrary externally supplied executable.
 Use a new destination for each release. See
 [native platform validation](platform-validation.md) for the separate macOS,
 Linux and Windows CPU compile matrix and its remaining UI acceptance gaps.
+
+
+### Portable CI dependency reuse
+
+Automatic PR/main packaging shares the mandatory `build (windows-x86_64)` CPU
+suite on `windows-2025`; the `portable-windows` job still builds release binaries
+and verifies the extracted package and native launch/capture. Both checks must
+pass on the same revision. Standalone manual packaging runs its own CPU suite.
+A successful packaging job alone is not evidence that the separate CPU job ran.
+
+The portable workflow caches dependencies with a pinned action and a distinct
+release/OS/architecture/lockfile key. Only successful trusted main pushes save
+that cache. Workspace crates and executables are excluded; every run still
+builds the package and performs its verification. No cache hit skips acceptance,
+and no measured speedup is claimed until comparable hosted runs are available.

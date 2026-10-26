@@ -25,19 +25,43 @@ jobs:
     env:
       RAYON_NUM_THREADS: 2
       CARGO_INCREMENTAL: 0
+      WGPU_BACKEND: dx12
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      # Cache dependencies only; package executables are rebuilt on every run.
+      - name: Restore portable Rust dependency cache
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
+        with:
+          prefix-key: clothcraft-deps-v1
+          key: portable-windows-release-desktop-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock') }}
+          env-vars: ImageOS ImageVersion
+          cache-bin: "false"
+          cache-workspace-crates: "false"
+          cache-on-failure: "false"
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - name: Use a supported desktop resolution
+        shell: powershell
+        run: Set-DisplayResolution -Width 1920 -Height 1080 -Force
+      - name: Record the hosted Windows graphics adapter
+        run: |
+          $video = Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue |
+            Select-Object Name, DriverVersion, Status
+          $video | Format-Table -AutoSize | Out-String | Write-Host
+      # PR/main runs share the mandatory Windows CPU suite in build.yml on the
+      # same windows-2025 image. Standalone manual packaging still runs it.
       - name: Test the CPU core
+        if: github.event_name == 'workflow_dispatch'
         run: cargo test --locked --no-default-features -j 2 -- --test-threads=2
       - name: Build portable executables
         run: >-
           cargo build --locked --release -j 2 --features desktop
           --bin cloth-fit --bin marvelous-cloth --bin cloth-template
-      - name: Package, verify hashes and reopen from a directory with spaces
+      - name: Package, verify hashes and run native editor launch/capture from a path with spaces
+        timeout-minutes: 10
         run: |
           $destination = Join-Path $env:RUNNER_TEMP 'ClothCraft Portable Preview'
-          ./scripts/package-windows.ps1 -Destination $destination -Revision $env:GITHUB_SHA -Verify
+          ./scripts/package-windows.ps1 -Destination $destination -Revision $env:GITHUB_SHA -Verify -UiSmoke
           $refused = $false
           try {
             ./scripts/package-windows.ps1 -Destination $destination -Revision $env:GITHUB_SHA
@@ -46,6 +70,19 @@ jobs:
             $refused = $true
           }
           if (-not $refused) { throw 'Packaging unexpectedly overwrote an existing destination' }
+      - name: Upload native smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clothcraft-windows-native-smoke-evidence
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/ClothCraft Portable Preview.verify/ui-smoke
+            ${{ runner.temp }}/ClothCraft Portable Preview.verify/ui-project-seed
+            ${{ runner.temp }}/ClothCraft Portable Preview.verify/ui-smoke.out.log
+            ${{ runner.temp }}/ClothCraft Portable Preview.verify/ui-smoke.err.log
+            ${{ runner.temp }}/ClothCraft Portable Preview.verify/ui-project-seed.out.log
+            ${{ runner.temp }}/ClothCraft Portable Preview.verify/ui-project-seed.err.log
       - name: Upload portable preview and archive checksum
         uses: actions/upload-artifact@v4
         with:

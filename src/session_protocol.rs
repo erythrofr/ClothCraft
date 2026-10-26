@@ -12,11 +12,17 @@
 //! `commit` or `cancel` consumes it under the same guard. Successful direct edits,
 //! history moves and document replacement invalidate any previous prepared edit.
 //! Snapshot output is an editable template, not simulated state or a fitting file.
+//! `fabric` accepts panel, name, native FabricProperties and all_panels. It
+//! changes mechanical properties, unlike optical appearance; native validation
+//! and shared-fabric splitting apply. Units match the native template schema.
 use crate::{
     authoring::{self, Command, Edit, History},
     garment::{
-        GarmentTemplate, meshing::MeshingSettings, seam::BoundaryRef, shapes::MirrorAxis,
-        template::Placement,
+        GarmentTemplate,
+        meshing::MeshingSettings,
+        seam::BoundaryRef,
+        shapes::MirrorAxis,
+        template::{FabricProperties, Placement},
     },
 };
 use glam::DVec2;
@@ -47,6 +53,7 @@ const COMMANDS: &[&str] = &[
     "remove_seam",
     "place",
     "mirror",
+    "fabric",
 ];
 
 #[derive(Deserialize)]
@@ -59,6 +66,12 @@ struct Guard {
 #[derive(Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 enum WireCommand {
+    Fabric {
+        panel: String,
+        name: String,
+        properties: FabricProperties,
+        all_panels: bool,
+    },
     Layout {
         panel: String,
         origin: DVec2,
@@ -102,6 +115,17 @@ enum WireCommand {
 impl WireCommand {
     fn native(self) -> Command {
         match self {
+            Self::Fabric {
+                panel,
+                name,
+                properties,
+                all_panels,
+            } => Command::Fabric {
+                panel,
+                name,
+                properties,
+                all_panels,
+            },
             Self::Layout { panel, origin } => Command::Layout { panel, origin },
             Self::BoardTransform {
                 panel,

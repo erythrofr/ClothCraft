@@ -306,3 +306,39 @@ test('adapter refuses a fork repository', async () => {
   await assert.rejects(reconcileSnapshot(f.options), /noncanonical/);
   assert.equal(f.writes.length, 0);
 });
+
+
+test('malformed command help is actionable, bounded and cannot mutate reservations', () => {
+  const initial = run([register(1), comment(2, '/coord claim first')]);
+  const cases = [
+    ['claim', '<agent-label>'], ['heartbeat', '<agent-label>'],
+    ['review', '<agent-label>'], ['release', '<agent-label>'],
+    ['release-force', '<reason-code>'], ['register', 'EXO-AREA-001'],
+    ['status', ''],
+  ];
+  for (const [verb, arg] of cases) {
+    const inputs = [`/coord ${verb} first extra`, `/coord ${verb} $(secret)`];
+    if (arg) inputs.push(`/coord ${verb}`);
+    for (const body of inputs) {
+      const next = run([comment(3, body, {permission: 'maintain'})], initial);
+      const receipt = next.recent.at(-1);
+      assert.equal(receipt.accepted, false);
+      assert.ok(receipt.message.includes(`Use: \`/coord ${verb}${arg ? ` ${arg}` : ''}\`.`));
+      assert.ok(receipt.message.includes('#commands'));
+      assert.ok(!receipt.message.includes('$(secret)'));
+      assert.ok(receipt.message.length < 1000);
+      assert.deepEqual(next.tasks, initial.tasks);
+      assert.deepEqual(run([comment(3, body)], next), next);
+    }
+  }
+  for (const verb of ['constructor', '__proto__', 'toString', 'unknown-' + 'x'.repeat(2000), '']) {
+    const next = run([comment(3, `/coord ${verb}`)], initial);
+    assert.equal(next.recent.at(-1).accepted, false);
+    assert.ok(!next.recent.at(-1).message.includes('Use:'));
+    assert.ok(next.recent.at(-1).message.length < 1000);
+    assert.deepEqual(next.tasks, initial.tasks);
+  }
+  const edited = run([comment(3, '/coord release', {edited: true})], initial);
+  assert.match(edited.recent.at(-1).message, /edited/);
+  assert.deepEqual(edited.tasks, initial.tasks);
+});

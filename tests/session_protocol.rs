@@ -449,3 +449,100 @@ fn cli_interactive_pipes_preserve_transactions_and_recover_framing() {
     assert_eq!(eof["data"], stable);
     cli.finish();
 }
+
+#[test]
+fn mechanical_fabric_commands_preserve_transaction_and_shared_material_rules() {
+    use marvelous_cloth::authoring::{self, Command};
+    let mut session = Session::new().unwrap();
+    let initial = open(&mut session);
+    let hello = request(&mut session, json!({"op":"hello"}));
+    assert!(
+        hello["data"]["commands"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("fabric"))
+    );
+    let source: GarmentTemplate = serde_json::from_value(initial["template"].clone()).unwrap();
+    let mut properties = source.fabrics[0].properties.clone();
+    properties.density *= 1.5;
+    let command = json!({"kind":"fabric","panel":source.panels[0].id,"name":"Test fabric","properties":properties,"all_panels":false});
+    let prepared = request(
+        &mut session,
+        json!({"op":"prepare_edit","guard":guard(&initial),"command":command}),
+    );
+    assert_eq!(prepared["ok"], true, "{prepared}");
+    let pending = snapshot(&mut session);
+    assert_eq!(pending["template"], initial["template"]);
+    for field in ["density", "thickness"] {
+        let mut invalid = command.clone();
+        invalid["properties"][field] = json!(-1.);
+        let reply = request(
+            &mut session,
+            json!({"op":"edit","guard":guard(&pending),"command":invalid}),
+        );
+        assert_eq!(reply["ok"], false, "{reply}");
+        assert_eq!(snapshot(&mut session), pending);
+    }
+    let mut unknown = command.clone();
+    unknown["properties"]["unrecognized"] = json!(1);
+    assert_eq!(
+        request(
+            &mut session,
+            json!({"op":"edit","guard":guard(&pending),"command":unknown})
+        )["error"]["code"],
+        "unsupported_field"
+    );
+    assert_eq!(snapshot(&mut session), pending);
+    let cancelled = request(
+        &mut session,
+        json!({"op":"cancel","guard":guard(&pending),"change":prepared["data"]["change"]}),
+    );
+    assert_eq!(cancelled["data"], initial);
+    for all_panels in [false, true] {
+        let before = snapshot(&mut session);
+        let mut command = command.clone();
+        command["all_panels"] = json!(all_panels);
+        let prepared = request(
+            &mut session,
+            json!({"op":"prepare_edit","guard":guard(&before),"command":command}),
+        );
+        assert_eq!(prepared["ok"], true, "{prepared}");
+        let applied = request(
+            &mut session,
+            json!({"op":"commit","guard":guard(&before),"change":prepared["data"]["change"]}),
+        );
+        assert_eq!(applied["ok"], true, "{applied}");
+        let expected = authoring::apply(
+            &source,
+            Command::Fabric {
+                panel: source.panels[0].id.clone(),
+                name: "Test fabric".into(),
+                properties: properties.clone(),
+                all_panels,
+            },
+        )
+        .unwrap();
+        assert!(expected.reset_simulation);
+        assert_eq!(
+            applied["data"]["template"],
+            serde_json::to_value(&expected.template).unwrap()
+        );
+        let panels = &applied["data"]["template"]["panels"];
+        assert_eq!(panels[0]["fabric"] == panels[1]["fabric"], all_panels);
+        let undo = request(
+            &mut session,
+            json!({"op":"undo","guard":guard(&applied["data"])}),
+        );
+        assert_eq!(undo["data"]["template"], initial["template"]);
+        let redo = request(
+            &mut session,
+            json!({"op":"redo","guard":guard(&undo["data"])}),
+        );
+        assert_eq!(redo["data"]["template"], applied["data"]["template"]);
+        let undo = request(
+            &mut session,
+            json!({"op":"undo","guard":guard(&redo["data"])}),
+        );
+        assert_eq!(undo["data"]["template"], initial["template"]);
+    }
+}

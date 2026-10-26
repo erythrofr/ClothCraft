@@ -5,11 +5,15 @@ param(
     [Parameter(Mandatory = $true)][string]$Destination,
     [string]$BinariesDirectory = '',
     [string]$Revision = '',
-    [switch]$Verify
+    [switch]$Verify,
+    [switch]$UiSmoke
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+if ($UiSmoke -and -not $Verify) {
+    throw '-UiSmoke requires -Verify so it runs from a freshly extracted package.'
+}
 $repo = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 if (-not $BinariesDirectory) { $BinariesDirectory = Join-Path $repo 'target/release' }
 $binDir = [System.IO.Path]::GetFullPath($BinariesDirectory)
@@ -102,6 +106,31 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $archiveDigest = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
 [System.IO.File]::WriteAllText($zipHash, "$archiveDigest  $([System.IO.Path]::GetFileName($zip))`n", $utf8)
 
+function Invoke-PackagedClothFit {
+    param(
+        [Parameter(Mandatory = $true)][string]$Label,
+        [Parameter(Mandatory = $true)][string[]]$EditorArguments,
+        [int]$TimeoutSeconds = 180
+    )
+    $exe = Join-Path $verifyRoot 'cloth-fit.exe'
+    $stdout = Join-Path $verifyRoot "$Label.out.log"
+    $stderr = Join-Path $verifyRoot "$Label.err.log"
+    $quotedArguments = ($EditorArguments | ForEach-Object {
+        if ($_ -match '\s') { '"' + $_ + '"' } else { $_ }
+    }) -join ' '
+    $process = Start-Process -FilePath $exe -ArgumentList $quotedArguments `
+        -WorkingDirectory $verifyRoot -PassThru -NoNewWindow `
+        -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+    if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+        $process.Kill()
+        $process.WaitForExit()
+        throw "$Label timed out after $TimeoutSeconds seconds; see $stdout and $stderr"
+    }
+    if ($process.ExitCode -ne 0) {
+        throw "$Label failed with exit code $($process.ExitCode); see $stdout and $stderr"
+    }
+}
+
 if ($Verify) {
     $expected = (Get-Content -LiteralPath $zipHash -Raw).Substring(0, 64)
     if ((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) {
@@ -137,7 +166,39 @@ if ($Verify) {
     } finally {
         Pop-Location
     }
-    Write-Host "Verified $($seen.Count) payload hashes and extracted CPU example write/reopen. No GUI/GPU test."
+    Write-Host "Verified $($seen.Count) payload hashes and extracted CPU example write/reopen."
+
+    if ($UiSmoke) {
+        # This is an explicit, opt-in native-window check. It is not part of the
+        # ordinary CPU test suite and does not certify a particular GPU or driver.
+        $env:WGPU_BACKEND = 'dx12'
+        Push-Location -LiteralPath $verifyRoot
+        try {
+            # The CLI writes the output document before any editor starts. These
+            # files prove a CLI write/load plus a native launch/capture; they are
+            # not evidence of native Save or Export.
+            $seedOutput = Join-Path $verifyRoot 'ui-project-seed'
+            Invoke-PackagedClothFit -Label 'ui-project-seed' `
+                -EditorArguments @('--steps', '0', '--threads', '2', '--output', $seedOutput)
+            $seedProject = Join-Path $seedOutput 'fitting-project.json'
+            if (-not (Test-Path -LiteralPath $seedProject -PathType Leaf)) {
+                throw "CLI project seed did not write fitting-project.json in $seedOutput"
+            }
+
+            $launchOutput = Join-Path $verifyRoot 'ui-smoke'
+            Invoke-PackagedClothFit -Label 'ui-smoke' `
+                -EditorArguments @('--steps', '0', '--threads', '2', '--project', $seedProject, '--ui-smoke', '--output', $launchOutput)
+            foreach ($required in @('ui.png', 'fitting-project.json')) {
+                if (-not (Test-Path -LiteralPath (Join-Path $launchOutput $required) -PathType Leaf)) {
+                    throw "Editor launch/capture smoke did not produce $required in $launchOutput"
+                }
+            }
+            Write-Host 'CLI project seed/load and native editor window launch/capture passed.'
+            Write-Host 'Native Save/Export/edit is not exercised; adapter/driver certification is separate.'
+        } finally {
+            Pop-Location
+        }
+    }
 }
 Write-Host "Portable staging directory: $stage"
 Write-Host "Archive: $zip"
