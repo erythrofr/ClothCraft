@@ -63,6 +63,8 @@ mod view_controls;
 mod worker;
 #[path = "atelier/workspace.rs"]
 mod workspace;
+#[path = "atelier/workspace_profiles.rs"]
+mod workspace_profiles;
 use authoring_ui::{AuthoringUi, Tool};
 use worker::Work;
 
@@ -206,6 +208,8 @@ pub fn run(
                 output,
                 viewport: Viewport::new(render),
                 palette: Default::default(),
+                profiles: Default::default(),
+                tools_visible: true,
                 camera: camera(),
                 send: tx,
                 receive,
@@ -270,6 +274,8 @@ pub fn run(
     Ok(())
 }
 struct Atelier {
+    profiles: workspace_profiles::ProfileUi,
+    tools_visible: bool,
     palette: command_palette::Palette,
     cadence: perf::Cadence,
     simulation_error: Option<String>,
@@ -650,7 +656,14 @@ impl eframe::App for Atelier {
         }
         let previous_preferences = self.prefs.clone();
         let previous_simulation = self.settings.clone();
+        let profiles_blocked = self.profiles.open;
+        let profile_path = self.output.join(workspace_profiles::FILE_NAME);
+        let presentation = workspace_profiles::Snapshot::capture(&self.prefs, self.tools_visible);
+        if let Some(snapshot) = self.profiles.show(&ctx, &profile_path, &presentation) {
+            snapshot.apply(&mut self.prefs, &mut self.tools_visible);
+        }
         let can_open_palette = !ctx.egui_wants_keyboard_input()
+            && !profiles_blocked
             && ctx.memory(|m| m.top_modal_layer().is_none())
             && !self.settings_open
             && !self.authoring.radial.blocked
@@ -676,7 +689,7 @@ impl eframe::App for Atelier {
             self.palette.begin();
         }
         // Retain the barrier on the closing frame so Enter/click cannot reach a tool.
-        let palette_blocked = self.palette.open;
+        let palette_blocked = self.palette.open || profiles_blocked;
         let context = self.command_context();
         if let Some(command) = self.palette.show(&ctx, context) {
             self.invoke_command(command, &ctx);
@@ -771,6 +784,11 @@ impl eframe::App for Atelier {
                 }
                 ui.separator();
                 ui.menu_button("Workspace", |ui| {
+                    ui.checkbox(&mut self.tools_visible, "Tool rail");
+                    if ui.add_enabled(can_open_palette, egui::Button::new("Workspace profiles…")).clicked() {
+                        self.profiles.begin(&self.output.join(workspace_profiles::FILE_NAME));
+                        ui.close();
+                    }
                     let inspector = self.prefs.workspace.inspector_open;
                     if ui.selectable_label(inspector, "Properties inspector").clicked() {
                         self.invoke_command(commands::CommandId::ToggleInspector, &ctx);
@@ -837,12 +855,14 @@ impl eframe::App for Atelier {
                     .on_hover_text(&self.status);
             });
         });
-        egui::Panel::left("authoring-tools")
-            .exact_size(52.)
-            .resizable(false)
-            .show(ui, |ui| {
-                egui::ScrollArea::vertical().show(ui, |ui| self.authoring_toolbar(ui));
-            });
+        if self.tools_visible {
+            egui::Panel::left("authoring-tools")
+                .exact_size(52.)
+                .resizable(false)
+                .show(ui, |ui| {
+                    egui::ScrollArea::vertical().show(ui, |ui| self.authoring_toolbar(ui));
+                });
+        }
         egui::CentralPanel::default()
             .frame(egui::Frame::NONE.fill(ui.visuals().panel_fill))
             .show(ui, |ui| {
