@@ -161,6 +161,9 @@ pub struct GarmentTemplate {
     /// Editable two-piece relations, never a solver constraint.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mirror_links: Vec<MirrorLink>,
+    /// Authored world holds, identified by exact material coordinates.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pin_targets: Vec<super::pins::MaterialPinTarget>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -181,6 +184,10 @@ pub struct PanelRange {
 pub struct CompiledGarment {
     pub mesh: Mesh,
     pub initial_state: State,
+    /// Flat arrangement before authored world targets; not material rest shape.
+    pub arrangement_positions: Vec<DVec3>,
+    /// Legacy constraints before adding authored world targets.
+    pub legacy_pins: Vec<Option<DVec3>>,
     /// One orientation-bound material per panel, derived from shared fabric properties.
     pub materials: Vec<Material>,
     pub vertex_material: Vec<usize>,
@@ -226,10 +233,11 @@ impl GarmentTemplate {
             return Err("Unsupported garment template format/version".into());
         }
         if self.version == 1
-            && (self
-                .panels
-                .iter()
-                .any(|p| p.polygon.is_some() || !p.pin_points.is_empty())
+            && (!self.pin_targets.is_empty()
+                || self
+                    .panels
+                    .iter()
+                    .any(|p| p.polygon.is_some() || !p.pin_points.is_empty())
                 || self
                     .seams
                     .iter()
@@ -264,6 +272,8 @@ impl GarmentTemplate {
             f.properties.bind(0.0).validate()?;
         }
         let mut out = CompiledGarment {
+            arrangement_positions: vec![],
+            legacy_pins: vec![],
             mesh: Mesh {
                 uv: vec![],
                 triangles: vec![],
@@ -469,6 +479,12 @@ impl GarmentTemplate {
             }
             out.seams.push(seam);
         }
+        out.arrangement_positions = out.initial_state.x.clone();
+        out.legacy_pins = out.mesh.pins.clone();
+        for (i, target) in super::pins::resolve_targets(&out, &self.pin_targets)? {
+            out.mesh.pins[i] = Some(target);
+            out.initial_state.x[i] = target;
+        }
         Ok(out)
     }
 
@@ -480,6 +496,7 @@ impl GarmentTemplate {
             version: 1,
             name: "Two panels / nonmatching seam".into(),
             mirror_links: vec![],
+            pin_targets: vec![],
             fabrics: vec![Fabric {
                 id: "woven-demo".into(),
                 name: "Uncalibrated woven reference".into(),

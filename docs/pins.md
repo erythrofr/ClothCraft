@@ -9,16 +9,31 @@ current-state target capture and `garment::pins::resolve_targets`. The latter
 validates finite material/world coordinates, bounded target counts, exact
 unambiguous panel/UV identity, duplicate requests and existing pin conflicts
 without mutating the compiled mesh. Its record can round-trip through serde,
-but it is not yet part of the garment document or wired to native controls.
-Do not interpret this helper as completed persistence or a freeze tool.
+and `GarmentTemplate.pin_targets` now carries these optional version-2 records.
+Empty records are omitted, preserving legacy serialized fields. Compilation
+resolves targets and initializes held vertices at their world targets, while
+retaining the original arrangement and legacy constraints separately.
+`prepare_pin_edit` prepares a pin/release candidate without committing history;
+its caller must still run the physical initialization gate. `restore_checked`
+allows that gate to reject an undo/redo before consuming history. Native callers
+are not wired yet. This is not a completed pin/freeze tool.
+
+This initial branch rejects copying/pasting authored holds, mirroring or
+arranging held panels, and replacing a held garment. Clipboard capture can
+still include unrelated hold metadata; paste refuses it explicitly rather
+than dropping constraints. Filtering/remapping clipboard holds requires a
+separate scope amendment. Deleting a panel removes only that panel's targets.
+An individual pin survives a remesh only when its exact material vertex remains.
+Frozen-surface records and their topology validation are still pending.
 
 ## Current behavior
 
 `Panel.pin_points` identifies rest-mesh vertices by material coordinates.
 Compilation binds them to the panel's initial placement. Legacy rectangular
-corner pins behave similarly. `Edit::state_after` currently resets a panel
-when its compiled pins change. Exposing that behavior as “pin here” would
-return draped cloth to its arrangement, including on release.
+corner pins behave similarly. `Edit::state_after` still resets a panel when
+legacy pins, rest topology or arrangement change. Authored target changes
+instead preserve the compatible drape, set held targets/velocities and release
+from zero held velocity. Rest coordinates never come from the drape.
 
 The inspected EXO protocol at `352c6086b622` serializes pins and a locked flag;
 it does not establish a physical freeze algorithm. This design is independent

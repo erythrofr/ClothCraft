@@ -7,6 +7,121 @@ use marvelous_cloth::{
 };
 use std::sync::Arc;
 
+fn editable() -> GarmentTemplate {
+    let mut t = GarmentTemplate::two_panel_demo();
+    t.seams.clear();
+    for p in &mut t.panels {
+        p.pins.clear();
+        p.pattern.nx = 2;
+        p.pattern.ny = 2;
+    }
+    t
+}
+
+#[test]
+fn authored_pin_save_release_and_history_preserve_drape() {
+    use marvelous_cloth::authoring::{History, prepare_pin_edit};
+    let t = editable();
+    let g = t.compile().unwrap();
+    let mut state = g.initial_state.clone();
+    state.time = 3.5;
+    for (i, (x, v)) in state.x.iter_mut().zip(&mut state.v).enumerate() {
+        *x += DVec3::new(0.12, 0.3, 0.04);
+        *v = DVec3::X * (i as f64 + 1.) * 0.01;
+    }
+    let p = &g.panels[0];
+    let i = p.vertices.start;
+    let uv = g.mesh.uv[i];
+    let original = serde_json::to_string(&t).unwrap();
+    assert!(!original.contains("pin_targets"));
+    let (edit, held) = prepare_pin_edit(&t, &g, &state, &p.id, &[uv], true).unwrap();
+    assert_eq!(held.x, state.x);
+    assert_eq!(held.time, state.time);
+    assert_eq!(held.v[i], DVec3::ZERO);
+    assert_eq!(&held.v[i + 1..], &state.v[i + 1..]);
+    assert_eq!(edit.garment.mesh.uv, g.mesh.uv);
+    assert_eq!(edit.garment.mesh.masses, g.mesh.masses);
+    assert!(edit.reset_simulation);
+    let saved = serde_json::to_string(&edit.template).unwrap();
+    let reopened: GarmentTemplate = serde_json::from_str(&saved).unwrap();
+    let compiled = reopened.compile().unwrap();
+    assert_eq!(compiled.mesh.pins[i], Some(state.x[i]));
+    assert_eq!(compiled.initial_state.x[i], state.x[i]);
+    let mut history = History::default();
+    history.record(t.clone());
+    assert!(
+        history
+            .restore_checked(&reopened, false, |_| Err("Initialization rejected".into()))
+            .is_err()
+    );
+    assert!(history.can_undo());
+    assert!(!history.can_redo());
+    let undo = history
+        .restore_checked(&reopened, false, |_| Ok(()))
+        .unwrap();
+    let released = undo.state_after(&compiled, &held);
+    assert_eq!(released.x, held.x);
+    assert_eq!(released.v, held.v);
+    assert_eq!(released.time, held.time);
+    let (release, next) =
+        prepare_pin_edit(&reopened, &compiled, &held, &p.id, &[uv], false).unwrap();
+    assert!(release.template.pin_targets.is_empty());
+    assert_eq!(next.x, held.x);
+    assert_eq!(next.v, held.v);
+    assert_eq!(serde_json::to_string(&t).unwrap(), original);
+}
+
+#[test]
+fn pin_remesh_and_unsupported_copy_fail_without_dropping_holds() {
+    use marvelous_cloth::authoring::{
+        Command, apply, clipboard::PatternClipboard, prepare_pin_edit,
+    };
+    let t = editable();
+    let g = t.compile().unwrap();
+    let p = &g.panels[0];
+    let uv = g.mesh.uv[p.vertices.start + 4]; // Interior point of the 2x2 grid.
+    let (edit, _) = prepare_pin_edit(&t, &g, &g.initial_state, &p.id, &[uv], true).unwrap();
+    let mut refined = edit.template.clone();
+    refined.panels[0].pattern.nx = 4;
+    refined.panels[0].pattern.ny = 4;
+    assert!(refined.compile().is_ok());
+    refined.panels[0].pattern.nx = 3;
+    assert!(refined.compile().is_err());
+    let before = serde_json::to_string(&edit.template).unwrap();
+    assert!(
+        apply(
+            &edit.template,
+            Command::Duplicate {
+                panel: p.id.clone()
+            }
+        )
+        .is_err()
+    );
+    let clipboard = PatternClipboard::capture(&edit.template, std::slice::from_ref(&p.id)).unwrap();
+    assert!(
+        apply(
+            &t,
+            Command::Paste {
+                clipboard,
+                center: glam::DVec2::ZERO
+            }
+        )
+        .is_err()
+    );
+    let deleted = apply(
+        &edit.template,
+        Command::RemovePanel {
+            panel: p.id.clone(),
+        },
+    )
+    .unwrap();
+    assert!(deleted.template.pin_targets.is_empty());
+    assert_eq!(serde_json::to_string(&edit.template).unwrap(), before);
+    let mut invalid = edit.template.clone();
+    invalid.version = 1;
+    assert!(invalid.compile().is_err());
+}
+
 #[test]
 fn material_targets_resolve_exactly_without_mutating_constraints() {
     use marvelous_cloth::garment::pins::{MaterialPinTarget, resolve_targets};

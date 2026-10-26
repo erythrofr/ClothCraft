@@ -261,8 +261,9 @@ impl Edit {
             let a = old.vertices.clone();
             let b = new.vertices.clone();
             if previous.mesh.uv[a.clone()] != self.garment.mesh.uv[b.clone()]
-                || previous.initial_state.x[a.clone()] != self.garment.initial_state.x[b.clone()]
-                || previous.mesh.pins[a.clone()] != self.garment.mesh.pins[b.clone()]
+                || previous.arrangement_positions[a.clone()]
+                    != self.garment.arrangement_positions[b.clone()]
+                || previous.legacy_pins[a.clone()] != self.garment.legacy_pins[b.clone()]
                 || !previous.mesh.triangles[old.triangles.clone()]
                     .iter()
                     .map(|t| t.vertices.map(|i| i - a.start))
@@ -273,10 +274,66 @@ impl Edit {
                 continue;
             }
             next.x[b.clone()].copy_from_slice(&state.x[a.clone()]);
-            next.v[b].copy_from_slice(&state.v[a]);
+            next.v[b.clone()].copy_from_slice(&state.v[a.clone()]);
+            for (old_i, new_i) in a.zip(b) {
+                if let Some(target) = self.garment.mesh.pins[new_i] {
+                    next.x[new_i] = target;
+                    next.v[new_i] = DVec3::ZERO;
+                } else if previous.mesh.pins[old_i].is_some() {
+                    // A released hold never resurrects momentum from before pinning.
+                    next.v[new_i] = DVec3::ZERO;
+                }
+            }
         }
         next
     }
+}
+
+/// Prepare a pin/release transaction and continuous candidate state. The caller
+/// must run its physical initialization gate before recording or installing it.
+pub fn prepare_pin_edit(
+    source: &GarmentTemplate,
+    compiled: &CompiledGarment,
+    state: &State,
+    panel: &str,
+    selection: &[DVec2],
+    hold: bool,
+) -> Result<(Edit, State), String> {
+    use crate::garment::pins::MaterialPinTarget;
+    let captured = capture_pin_targets(source, compiled, state, panel, Some(selection))?;
+    if compiled
+        .mesh
+        .pins
+        .iter()
+        .zip(&state.x)
+        .any(|(pin, x)| pin.is_some_and(|target| target.distance(*x) > 1e-10))
+    {
+        return Err("Current state disagrees with existing pin targets".into());
+    }
+    let mut template = source.clone();
+    template
+        .pin_targets
+        .retain(|target| target.panel != panel || !selection.contains(&target.uv));
+    if hold {
+        template
+            .pin_targets
+            .extend(captured.into_iter().map(|(uv, world)| MaterialPinTarget {
+                panel: panel.to_owned(),
+                uv,
+                world,
+            }));
+        template.version = 2;
+    }
+    let garment = template.compile()?;
+    let edit = Edit {
+        reset_simulation: !same_physics(source, &template),
+        template,
+        garment,
+        selected: Some(panel.to_owned()),
+        new_point: None,
+    };
+    let next = edit.state_after(compiled, state);
+    Ok((edit, next))
 }
 
 /// Capture world targets without editing a document or applying constraints.
@@ -786,6 +843,32 @@ pub fn constructed_point(
 }
 
 pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String> {
+    let held = |id: &str| source.pin_targets.iter().any(|p| p.panel == id);
+    let unsupported_hold_copy = match &command {
+        Command::Duplicate { panel }
+        | Command::LinkedMirror { panel, .. }
+        | Command::Mirror { panel, .. }
+        | Command::Place { panel, .. } => held(panel),
+        Command::PlaceGroup { panels, .. } => panels.iter().any(|p| held(p)),
+        Command::Primitive { replace: true, .. } | Command::Polygon { replace: true, .. } => {
+            !source.pin_targets.is_empty()
+        }
+        Command::Paste { clipboard, .. } => {
+            // Clipboard target remapping is not implemented. Reject explicitly
+            // instead of allowing the existing panel-only paste to drop holds.
+            let value = serde_json::to_value(clipboard).map_err(|e| e.to_string())?;
+            value["template"]["pin_targets"]
+                .as_array()
+                .is_some_and(|p| !p.is_empty())
+        }
+        _ => false,
+    };
+    if unsupported_hold_copy {
+        return Err(
+            "Release authored pins before copying, mirroring, replacing or arranging held panels"
+                .into(),
+        );
+    }
     linked::check_command(source, &command)?;
     let mut template = source.clone();
     let mut selected = None;
@@ -1775,6 +1858,9 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
         }
     }
     linked::synchronize(source, &mut template)?;
+    template
+        .pin_targets
+        .retain(|target| template.panels.iter().any(|p| p.id == target.panel));
     let garment = template.compile()?;
     Ok(Edit {
         reset_simulation: !same_physics(source, &template),
@@ -1859,6 +1945,16 @@ impl History {
         !self.redo.is_empty()
     }
     pub fn restore(&mut self, current: &GarmentTemplate, redo: bool) -> Result<Edit, String> {
+        self.restore_checked(current, redo, |_| Ok(()))
+    }
+    /// Validate the complete candidate before consuming either history stack.
+    /// Native callers can reject physically invalid restored targets atomically.
+    pub fn restore_checked(
+        &mut self,
+        current: &GarmentTemplate,
+        redo: bool,
+        validate: impl FnOnce(&Edit) -> Result<(), String>,
+    ) -> Result<Edit, String> {
         let (from, to) = if redo {
             (&mut self.redo, &mut self.undo)
         } else {
@@ -1866,14 +1962,16 @@ impl History {
         };
         let template = from.last().ok_or("History is empty")?;
         let garment = template.compile()?;
-        let template = from.pop().unwrap();
-        to.push(current.clone());
-        Ok(Edit {
-            reset_simulation: !same_physics(current, &template),
-            template,
+        let edit = Edit {
+            reset_simulation: !same_physics(current, template),
+            template: template.clone(),
             garment,
             selected: None,
             new_point: None,
-        })
+        };
+        validate(&edit)?;
+        from.pop();
+        to.push(current.clone());
+        Ok(edit)
     }
 }
