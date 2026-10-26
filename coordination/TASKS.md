@@ -45,7 +45,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-MFG-012](#exo-mfg-012) — Export a revision-stamped HTML technical pack | manufacturing | blocked | EXO-MFG-006, EXO-MFG-011 | Not registered |
 | [EXO-MFG-013](#exo-mfg-013) — Add manufacturing preflight diagnostics | manufacturing | blocked | EXO-MFG-004, EXO-MFG-008, EXO-MFG-011 | Not registered |
 | [EXO-MFG-014](#exo-mfg-014) — Package consistent manufacturing artifacts | manufacturing | blocked | EXO-MFG-010, EXO-MFG-012, EXO-MFG-013, EXO-IO-003 | Not registered |
-| [EXO-IO-001](#exo-io-001) — Import a documented SVG pattern subset | interchange | ready | EXO-CORE-001 | Not registered |
+| [EXO-IO-001](#exo-io-001) — Import a documented SVG pattern subset | interchange | ready | EXO-CORE-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/99) |
 | [EXO-IO-002](#exo-io-002) — Import generic 2D DXF pattern entities | interchange | done | EXO-CORE-001 | Not registered |
 | [EXO-IO-003](#exo-io-003) — Export generic DXF cut and sewing geometry | interchange | blocked | EXO-REV-002, EXO-MFG-002 | Not registered |
 | [EXO-IO-004](#exo-io-004) — Add one industrial DXF dialect with independent fixtures | interchange | blocked | EXO-IO-002, EXO-IO-003, EXO-MFG-003 | Not registered |
@@ -64,7 +64,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-AV-001](#exo-av-001) — Define avatar landmarks and body measurements | avatar | done | EXO-CORE-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/56) |
 | [EXO-AV-002](#exo-av-002) — Add body-aware panel arrangement assistance | avatar | blocked | EXO-AV-001 | Not registered |
 | [EXO-AV-003](#exo-av-003) — Expose pin editing and an explicit freeze policy | avatar | ready | EXO-CORE-001 | Not registered |
-| [EXO-AV-004](#exo-av-004) — Show avatar collision coverage and initialization problems | avatar | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/20) |
+| [EXO-AV-004](#exo-av-004) — Show avatar collision coverage and initialization problems | avatar | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/20) |
 | [EXO-UX-001](#exo-ux-001) — Publish a typed command capability registry | workspace | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/21) |
 | [EXO-UX-002](#exo-ux-002) — Add a searchable command palette | workspace | blocked | EXO-UX-001 | Not registered |
 | [EXO-UX-003](#exo-ux-003) — Persist workspace layouts and tool visibility | workspace | blocked | EXO-UX-001 | Not registered |
@@ -1009,18 +1009,24 @@ Status: ready. Dependencies: EXO-CORE-001.
 - `src/garment/svg_import.rs`
 - `tests/svg_import.rs`
 - `src/garment/mod.rs`
+- `Cargo.toml`
+- `Cargo.lock`
+- `docs/svg-import.md`
 
 **Acceptance**
 
 - Parse explicit physical units/transforms and closed contours with a stated curve tolerance.
 - Reject external/script content and unsupported ambiguity; bound input resources.
 - Produce unsewn editable pieces and a loss report; never infer seams from nearby paths.
+- Measure curve tolerance after all transforms in metres; verify physical units, viewBox origin/aspect handling and reflected/nonuniform transforms against independent fixtures.
+- Explicitly handle or reject compound holes, open contours, nested viewports and unsupported style/clipping semantics; never silently import distorted or incomplete outlines.
+- Bound bytes, nesting, tokens, output points and piece count, and test invalid input rejection without external file/network resolution.
 
 **Evidence and related contributions**
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/svgPatternImport.js
 
-Original parser/adapter or license-compatible dependency; do not transplant browser SVG code.
+Issue #99 records the researched behavior and scope rationale. Independently implement over maintained, license-compatible XML/SVG token parsers; Cargo files are reserved only for these importer dependencies, not unrelated upgrades. Document exact versions/licenses and supported geometry in docs/svg-import.md. No browser SVG code is transplanted. Reader and editable-piece conversion are this task; a subsequent native confirmation/import workflow must make units and losses visible before changing a document. A reviewed scope amendment and accepted claim are required before implementation.
 
 ## EXO-IO-002
 
@@ -1481,7 +1487,7 @@ Core pin data already exists; dedicated editing and freeze semantics do not.
 
 **Show avatar collision coverage and initialization problems**
 
-Status: ready. Dependencies: none.
+Status: done. Dependencies: none.
 
 **Files / directories**
 
@@ -1503,8 +1509,9 @@ Status: ready. Dependencies: none.
 **Evidence and related contributions**
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/meshAvatarContact.js
+- https://github.com/erythrofr/ClothCraft/pull/96
 
-Scope refinement: register the pure CPU report through avatar.rs and the native inspector through chrome.rs, avoiding atelier.rs reserved by EXO-UX-001. Preserve current collision algorithms; separate local topology warnings from an actual initialization/separation check. No implementation before the reviewed scope is merged and a claim is accepted.
+Completed in PR #96, merged as 42addbc1c1c66aff5fe711112c3f6ed4685dc13b after seven green checks. Properties > Simulation exposes bounded asynchronous static-mesh inspection and the existing CPU VBD initialization gate, with explicit freshness and no live solver/cache mutation. Five CPU backend tests, 87 active desktop tests and strict Clippy passed; three named-widget tests exercise real jobs and failures. Topology is not an intersection/global-containment certificate; local sewing exclusions remain. Native GPU appearance was not tested. See docs/avatar-diagnostics.md and issue #20 for evidence and confirmed reservation release.
 
 ## EXO-UX-001
 

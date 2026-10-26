@@ -16,6 +16,8 @@ mod authoring_ui;
 mod board;
 #[path = "atelier/chrome.rs"]
 mod chrome;
+#[path = "atelier/commands.rs"]
+mod commands;
 #[path = "atelier/documents_ui.rs"]
 mod documents_ui;
 #[path = "atelier/drafting_ui.rs"]
@@ -61,6 +63,31 @@ mod worker;
 mod workspace;
 use authoring_ui::{AuthoringUi, Tool};
 use worker::Work;
+
+/// Export is not atomic across artifacts: an error may leave earlier files.
+/// Keep the fallible operation separate from status text so dispatch can report
+/// the real outcome and CPU tests can exercise disk failures without a renderer.
+fn export_session(
+    project: &FittingProject,
+    scene: &FittingScene,
+    settings: &VbdSettings,
+    output: &std::path::Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    std::fs::create_dir_all(output)?;
+    export::write_artifacts(&project.template, &scene.garment, &scene.state, output)?;
+    let mut p = project.clone();
+    p.state = Some(scene.state.clone());
+    p.simulation = Some(settings.clone());
+    p.save(&output.join("fitting-project.json"))?;
+    Ok(())
+}
+
+fn queue_work(sender: &mpsc::Sender<Work>, work: Work) -> Result<(), String> {
+    sender
+        .send(work)
+        .map_err(|_| "The simulation worker is unavailable".to_owned())
+}
+
 fn camera() -> Camera {
     Camera {
         yaw: 0.10,
@@ -293,10 +320,95 @@ struct Atelier {
     smoke_initial: Vec<glam::DVec3>,
 }
 impl Atelier {
-    fn step(&mut self, ctx: &egui::Context) {
-        self.submit(ctx, true);
+    /// The only live dispatch route for registry actions. All external
+    /// adapters must recheck this snapshot rather than trusting cached UI
+    /// availability from an earlier frame.
+    fn command_context(&self) -> commands::CapabilityContext {
+        commands::CapabilityContext {
+            document_loaded: !self.project.template.panels.is_empty(),
+            // Optimistic availability only: a channel can disconnect and
+            // storage can fail after this snapshot. Dispatch checks both.
+            worker_ready: true,
+            filesystem_ready: true,
+            playing: self.playing,
+            pending: self.pending,
+        }
     }
-    fn submit(&mut self, ctx: &egui::Context, once: bool) {
+
+    /// Success for simulation commands means a request was queued; worker
+    /// completion and solver errors arrive asynchronously. Synchronous actions
+    /// report their actual result, including compile and filesystem failures.
+    fn dispatch_command(
+        &mut self,
+        id: commands::CommandId,
+        ctx: &egui::Context,
+    ) -> Result<(), String> {
+        use commands::CommandId as Id;
+        commands::availability(id, self.command_context())
+            .map_err(|reason| reason.message().to_owned())?;
+        match id {
+            Id::ToggleSimulation => {
+                if self.playing {
+                    self.playing = false;
+                } else if self.prepare_simulation() {
+                    self.playing = true;
+                } else {
+                    return Err(self.status.clone());
+                }
+                if !self.submit(ctx, false) {
+                    return Err(self.status.clone());
+                }
+            }
+            Id::StepSimulation => {
+                if !self.prepare_simulation() {
+                    return Err(self.status.clone());
+                }
+                if !self.step(ctx) {
+                    return Err(self.status.clone());
+                }
+            }
+            Id::ResetSimulation => {
+                if !self.reset() {
+                    return Err(self.status.clone());
+                }
+            }
+            Id::ExportSession => {
+                if !self.export() {
+                    return Err(self.status.clone());
+                }
+            }
+            Id::SplitView => self.prefs.workspace.mode = layout::ViewMode::Split,
+            Id::GarmentView => self.prefs.workspace.mode = layout::ViewMode::Garment,
+            Id::PatternView => self.prefs.workspace.mode = layout::ViewMode::Patterns,
+            Id::ToggleInspector => {
+                self.prefs.workspace.inspector_open = !self.prefs.workspace.inspector_open;
+            }
+            Id::ResetLayout => self.prefs.workspace = Default::default(),
+            Id::OpenPreferences => self.settings_open = true,
+            Id::LoadTshirt => {
+                if !self.preset(GarmentKind::Tshirt) {
+                    return Err(self.status.clone());
+                }
+            }
+            Id::LoadDress => {
+                if !self.preset(GarmentKind::Dress) {
+                    return Err(self.status.clone());
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn invoke_command(&mut self, id: commands::CommandId, ctx: &egui::Context) {
+        if let Err(error) = self.dispatch_command(id, ctx) {
+            self.status = error;
+        }
+    }
+
+    fn step(&mut self, ctx: &egui::Context) -> bool {
+        self.submit(ctx, true)
+    }
+    fn submit(&mut self, ctx: &egui::Context, once: bool) -> bool {
         let scene = FittingScene {
             garment: self.scene.garment.clone(),
             collider: self.scene.collider.clone(),
@@ -304,9 +416,9 @@ impl Atelier {
             quasistatic: false,
             next_dt: self.settings.dt,
         };
-        self.pending = self
-            .send
-            .send(Work {
+        let sent = queue_work(
+            &self.send,
+            Work {
                 generation: self.generation,
                 playing: self.playing,
                 once,
@@ -315,9 +427,15 @@ impl Atelier {
                 grab: self.grab.clone(),
                 gpu: self.gpu,
                 ctx: ctx.clone(),
-            })
-            .is_ok()
-            && (self.playing || once);
+            },
+        );
+        self.pending = sent.is_ok() && (self.playing || once);
+        if let Err(error) = sent {
+            self.playing = false;
+            self.status = error;
+            return false;
+        }
+        true
     }
     fn load(&mut self, p: FittingProject) -> bool {
         match p.compile() {
@@ -367,19 +485,19 @@ impl Atelier {
             }
         }
     }
-    fn preset(&mut self, kind: GarmentKind) {
+    fn preset(&mut self, kind: GarmentKind) -> bool {
         self.load(FittingProject::basic(
             kind,
             2,
             self.project.avatar_path.clone(),
-        ));
+        ))
     }
-    fn reset(&mut self) {
+    fn reset(&mut self) -> bool {
         let mut p = self.project.clone();
         p.state = None;
         p.mesh_signature = None;
         p.prearrange = false;
-        self.load(p);
+        self.load(p)
     }
     fn remesh(&mut self) {
         let mut p = self.project.clone();
@@ -397,28 +515,17 @@ impl Atelier {
         }
         self.load(p);
     }
-    fn export(&mut self) {
+    fn export(&mut self) -> bool {
         if !self.commit_placement() {
-            return;
+            return false;
         }
-        let result = (|| -> Result<(), Box<dyn std::error::Error>> {
-            std::fs::create_dir_all(&self.output)?;
-            export::write_artifacts(
-                &self.project.template,
-                &self.scene.garment,
-                &self.scene.state,
-                &self.output,
-            )?;
-            let mut p = self.project.clone();
-            p.state = Some(self.scene.state.clone());
-            p.simulation = Some(self.settings.clone());
-            p.save(&self.output.join("fitting-project.json"))?;
-            Ok(())
-        })();
+        let result = export_session(&self.project, &self.scene, &self.settings, &self.output);
+        let succeeded = result.is_ok();
         self.status = result.map_or_else(
             |e| e.to_string(),
             |_| format!("Export: {}", self.output.display()),
         );
+        succeeded
     }
     fn pick_and_drag(&mut self, response: &egui::Response, rect: egui::Rect) {
         if response.drag_started_by(egui::PointerButton::Primary)
@@ -566,11 +673,7 @@ impl eframe::App for Atelier {
             && ctx.input(|i| i.key_pressed(egui::Key::Space))
             && !ctx.egui_wants_keyboard_input()
         {
-            if self.playing {
-                self.playing = false;
-            } else if self.prepare_simulation() {
-                self.playing = true;
-            }
+            self.invoke_command(commands::CommandId::ToggleSimulation, &ctx);
         }
         egui::Panel::top("toolbar").show(ui, |ui| {
             ui.horizontal(|ui| {
@@ -590,42 +693,54 @@ impl eframe::App for Atelier {
                 });
                 self.smoke_target("simulate", play.rect.center());
                 if play.clicked() {
-                    if self.playing {
-                        self.playing = false;
-                    } else if self.prepare_simulation() {
-                        self.playing = true;
-                    }
+                    self.invoke_command(commands::CommandId::ToggleSimulation, &ctx);
                 }
                 ui.menu_button("Simulation", |ui| {
-                    if ui.add_enabled(!self.pending && !self.playing, egui::Button::new("Advance one step")).clicked()
-                        && self.prepare_simulation() { self.step(&ctx); ui.close(); }
+                    let step = commands::CommandId::StepSimulation;
+                    let enabled = commands::availability(step, self.command_context());
+                    let reason = enabled.as_ref().err().map(|e| e.message());
+                    if ui.add_enabled(enabled.is_ok(), egui::Button::new("Advance one step"))
+                        .on_disabled_hover_text(reason.unwrap_or(""))
+                        .clicked() {
+                        self.invoke_command(step, &ctx);
+                        ui.close();
+                    }
                     if ui.button("Reset the flat arrangement").on_hover_text("Resets the drape of every panel").clicked() {
-                        self.reset(); ui.close();
+                        self.invoke_command(commands::CommandId::ResetSimulation, &ctx); ui.close();
                     }
                 });
                 ui.menu_button("File",|ui| self.document_menu(ui));
                 let export_button = ui.button("Export").on_hover_text("Saves the JSON project, the patterns, the OBJ garment and the previews into the session folder.");
                 self.smoke_target("export", export_button.rect.center());
                 if export_button.clicked() {
-                    self.export();
+                    self.invoke_command(commands::CommandId::ExportSession, &ctx);
                 }
                 ui.separator();
                 ui.menu_button("Workspace", |ui| {
-                    ui.checkbox(&mut self.prefs.workspace.inspector_open,"Properties inspector");
-                    for (mode,label) in [(layout::ViewMode::Split,"Split view"),(layout::ViewMode::Garment,"3D only"),(layout::ViewMode::Patterns,"2D only")] {
-                        ui.selectable_value(&mut self.prefs.workspace.mode,mode,label);
+                    let inspector = self.prefs.workspace.inspector_open;
+                    if ui.selectable_label(inspector, "Properties inspector").clicked() {
+                        self.invoke_command(commands::CommandId::ToggleInspector, &ctx);
+                    }
+                    for (mode, id, label) in [
+                        (layout::ViewMode::Split,commands::CommandId::SplitView,"Split view"),
+                        (layout::ViewMode::Garment,commands::CommandId::GarmentView,"3D only"),
+                        (layout::ViewMode::Patterns,commands::CommandId::PatternView,"2D only")
+                    ] {
+                        if ui.selectable_label(self.prefs.workspace.mode == mode, label).clicked() {
+                            self.invoke_command(id, &ctx);
+                        }
                     }
                     ui.separator();
-                    if ui.button("Reset layout").clicked() { self.prefs.workspace=Default::default(); ui.close(); }
-                    if ui.button("Preferences…").clicked() { self.settings_open=true; ui.close(); }
+                    if ui.button("Reset layout").clicked() { self.invoke_command(commands::CommandId::ResetLayout, &ctx); ui.close(); }
+                    if ui.button("Preferences…").clicked() { self.invoke_command(commands::CommandId::OpenPreferences, &ctx); ui.close(); }
                 });
                 ui.menu_button("Examples", |ui| {
                     if ui.button("T-shirt").clicked() {
-                        self.preset(GarmentKind::Tshirt);
+                        self.invoke_command(commands::CommandId::LoadTshirt, &ctx);
                         ui.close();
                     }
                     if ui.button("Dress").clicked() {
-                        self.preset(GarmentKind::Dress);
+                        self.invoke_command(commands::CommandId::LoadDress, &ctx);
                         ui.close();
                     }
                 });
@@ -796,5 +911,75 @@ impl eframe::App for Atelier {
             }
             ctx.request_repaint_after(Duration::from_millis(30));
         }
+    }
+}
+
+#[cfg(test)]
+mod command_action_tests {
+    use super::*;
+
+    #[test]
+    fn simulation_submission_reports_disconnection_without_running_a_solver() {
+        let dir = tempfile::tempdir().unwrap();
+        let avatar = dir.path().join("avatar.obj");
+        std::fs::write(&avatar, "v 0 0 -10\nv 1 0 -10\nv 0 1 -10\nf 1 2 3\n").unwrap();
+        let project = FittingProject::basic(GarmentKind::Dress, 1, avatar);
+        let scene = project.compile().unwrap();
+        let initial = serde_json::to_vec(&scene.state).unwrap();
+        let work = Work {
+            generation: 42,
+            scene,
+            settings: VbdSettings::default(),
+            grab: None,
+            gpu: false,
+            ctx: egui::Context::default(),
+            playing: false,
+            once: true,
+        };
+        let (send, receive) = mpsc::channel();
+        queue_work(&send, work).unwrap();
+        let received = receive.try_recv().unwrap();
+        assert!(received.once);
+        assert!(!received.playing);
+        assert_eq!(received.generation, 42);
+        assert_eq!(serde_json::to_vec(&received.scene.state).unwrap(), initial);
+        drop(receive);
+        assert_eq!(
+            queue_work(&send, received),
+            Err("The simulation worker is unavailable".into())
+        );
+    }
+
+    #[test]
+    fn export_reports_early_and_late_io_failures_and_preserves_live_state() {
+        let dir = tempfile::tempdir().unwrap();
+        let avatar = dir.path().join("avatar.obj");
+        std::fs::write(&avatar, "v 0 0 -10\nv 1 0 -10\nv 0 1 -10\nf 1 2 3\n").unwrap();
+        let project = FittingProject::basic(GarmentKind::Dress, 1, avatar);
+        let mut scene = project.compile().unwrap();
+        scene.state.time = 1.25;
+        scene.state.v[0] = glam::DVec3::new(0.1, 0.2, 0.3);
+        let state_before = serde_json::to_vec(&scene.state).unwrap();
+        let project_before = serde_json::to_vec(&project).unwrap();
+        let settings = VbdSettings::default();
+
+        let blocked = dir.path().join("not-a-directory");
+        std::fs::write(&blocked, "keep").unwrap();
+        assert!(export_session(&project, &scene, &settings, &blocked).is_err());
+        assert_eq!(std::fs::read_to_string(&blocked).unwrap(), "keep");
+
+        let late = dir.path().join("late-failure");
+        std::fs::create_dir_all(late.join("fitting-project.json")).unwrap();
+        assert!(export_session(&project, &scene, &settings, &late).is_err());
+
+        let valid = dir.path().join("valid");
+        export_session(&project, &scene, &settings, &valid).unwrap();
+        let restored = FittingProject::load(&valid.join("fitting-project.json")).unwrap();
+        assert_eq!(
+            serde_json::to_vec(restored.state.as_ref().unwrap()).unwrap(),
+            state_before
+        );
+        assert_eq!(serde_json::to_vec(&scene.state).unwrap(), state_before);
+        assert_eq!(serde_json::to_vec(&project).unwrap(), project_before);
     }
 }

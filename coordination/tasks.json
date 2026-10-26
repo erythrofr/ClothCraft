@@ -930,18 +930,24 @@
       "scope": [
         "src/garment/svg_import.rs",
         "tests/svg_import.rs",
-        "src/garment/mod.rs"
+        "src/garment/mod.rs",
+        "Cargo.toml",
+        "Cargo.lock",
+        "docs/svg-import.md"
       ],
       "acceptance": [
         "Parse explicit physical units/transforms and closed contours with a stated curve tolerance.",
         "Reject external/script content and unsupported ambiguity; bound input resources.",
-        "Produce unsewn editable pieces and a loss report; never infer seams from nearby paths."
+        "Produce unsewn editable pieces and a loss report; never infer seams from nearby paths.",
+        "Measure curve tolerance after all transforms in metres; verify physical units, viewBox origin/aspect handling and reflected/nonuniform transforms against independent fixtures.",
+        "Explicitly handle or reject compound holes, open contours, nested viewports and unsupported style/clipping semantics; never silently import distorted or incomplete outlines.",
+        "Bound bytes, nesting, tokens, output points and piece count, and test invalid input rejection without external file/network resolution."
       ],
       "evidence": [
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/svgPatternImport.js"
       ],
       "related_prs": [],
-      "notes": "Original parser/adapter or license-compatible dependency; do not transplant browser SVG code."
+      "notes": "Issue #99 records the researched behavior and scope rationale. Independently implement over maintained, license-compatible XML/SVG token parsers; Cargo files are reserved only for these importer dependencies, not unrelated upgrades. Document exact versions/licenses and supported geometry in docs/svg-import.md. No browser SVG code is transplanted. Reader and editable-piece conversion are this task; a subsequent native confirmation/import workflow must make units and losses visible before changing a document. A reviewed scope amendment and accepted claim are required before implementation."
     },
     {
       "id": "EXO-IO-002",
@@ -1411,7 +1417,7 @@
       "id": "EXO-AV-004",
       "title": "Show avatar collision coverage and initialization problems",
       "area": "avatar",
-      "status": "ready",
+      "status": "done",
       "depends_on": [],
       "scope": [
         "src/avatar/diagnostics.rs",
@@ -1431,8 +1437,8 @@
       "evidence": [
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/meshAvatarContact.js"
       ],
-      "related_prs": [],
-      "notes": "Scope refinement: register the pure CPU report through avatar.rs and the native inspector through chrome.rs, avoiding atelier.rs reserved by EXO-UX-001. Preserve current collision algorithms; separate local topology warnings from an actual initialization/separation check. No implementation before the reviewed scope is merged and a claim is accepted."
+      "related_prs": ["https://github.com/erythrofr/ClothCraft/pull/96"],
+      "notes": "Completed in PR #96, merged as 42addbc1c1c66aff5fe711112c3f6ed4685dc13b after seven green checks. Properties > Simulation exposes bounded asynchronous static-mesh inspection and the existing CPU VBD initialization gate, with explicit freshness and no live solver/cache mutation. Five CPU backend tests, 87 active desktop tests and strict Clippy passed; three named-widget tests exercise real jobs and failures. Topology is not an intersection/global-containment certificate; local sewing exclusions remain. Native GPU appearance was not tested. See docs/avatar-diagnostics.md and issue #20 for evidence and confirmed reservation release."
     },
     {
       "id": "EXO-UX-001",
