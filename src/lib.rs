@@ -23,6 +23,7 @@ pub mod project;
 /// Shared optional renderer; the numerical modules do not depend on this module.
 #[cfg(feature = "desktop")]
 pub mod render;
+pub mod session_protocol;
 pub mod solver;
 pub mod solver_lab;
 pub mod template_catalog;
