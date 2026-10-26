@@ -52,10 +52,17 @@ impl Atelier {
                     .cloned(),
             });
         }
+        let mut appearance_targets = Vec::new();
         let appearance_action = appearance_controls(
             ui,
             &mut self.authoring.fabric_draft.as_mut().unwrap().appearance,
+            &mut appearance_targets,
         );
+        for (name, rect) in appearance_targets {
+            if let Some(smoke) = &mut self.authoring_smoke {
+                smoke.target_rect(ui, name, rect);
+            }
+        }
         if let Some(appearance) = appearance_action {
             let fabric = fabric.id.clone();
             if self.project.template.fabric_appearance.get(&fabric) == appearance.as_ref() {
@@ -114,7 +121,10 @@ impl Atelier {
                     ui.small(PRESETS[i].evidence);
                     ui.hyperlink_to("Measurement source", PRESETS[i].source);
                 }
-                ui.text_edit_singleline(&mut d.name);
+                let name = ui.text_edit_singleline(&mut d.name);
+                if let Some(smoke) = &mut self.authoring_smoke {
+                    smoke.appearance_text_target(ui, &name);
+                }
                 let p = &mut d.properties;
                 let before_properties = p.clone();
                 let mut gsm = p.density * 1000.;
@@ -187,6 +197,7 @@ fn value(
 fn appearance_controls(
     ui: &mut egui::Ui,
     draft: &mut Option<marvelous_cloth::garment::appearance::FabricAppearance>,
+    targets: &mut Vec<(&'static str, egui::Rect)>,
 ) -> Option<Option<marvelous_cloth::garment::appearance::FabricAppearance>> {
     ui.strong("Fabric appearance");
     ui.small("Shared by panels using this fabric. Does not change its mechanics.");
@@ -194,6 +205,7 @@ fn appearance_controls(
     let enable = ui.checkbox(&mut custom, "Custom color and roughness");
     #[cfg(test)]
     super::authoring_smoke::widget_harness::named(ui, &enable, "appearance.enabled");
+    targets.push(("appearance.enabled", enable.rect));
     if enable.changed() {
         *draft = custom.then(Default::default);
     }
@@ -206,12 +218,18 @@ fn appearance_controls(
             ui.add(egui::Slider::new(&mut value.roughness, 0.0..=1.0).text("Roughness"));
         #[cfg(test)]
         super::authoring_smoke::widget_harness::named(ui, &roughness, "appearance.roughness");
-        #[cfg(not(test))]
-        let _ = roughness;
+        targets.push((
+            "appearance.roughness.low",
+            egui::Rect::from_center_size(
+                egui::pos2(roughness.rect.left() + 8., roughness.rect.center().y),
+                egui::vec2(4., 4.),
+            ),
+        ));
     }
     let apply = ui.button("Apply appearance");
     #[cfg(test)]
     super::authoring_smoke::widget_harness::named(ui, &apply, "appearance.apply");
+    targets.push(("appearance.apply", apply.rect));
     ui.separator();
     apply.clicked().then(|| draft.clone())
 }
@@ -228,7 +246,7 @@ mod appearance_tests {
             Option<marvelous_cloth::garment::appearance::FabricAppearance>,
             Vec<Option<marvelous_cloth::garment::appearance::FabricAppearance>>,
         )| {
-            if let Some(value) = appearance_controls(ui, &mut state.0) {
+            if let Some(value) = appearance_controls(ui, &mut state.0, &mut Vec::new()) {
                 state.1.push(value);
             }
         };

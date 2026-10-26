@@ -135,6 +135,7 @@ const WORKFLOW_ACTIONS: &[(&str, Vec2)] = &[
 ];
 
 pub(super) struct Smoke {
+    appearance: Option<AppearanceProbe>,
     panel_tools: bool,
     workflow: bool,
     quick: bool,
@@ -181,10 +182,18 @@ impl Smoke {
         }
     }
     pub(super) fn wants(&self, key: &str) -> bool {
+        if let Some(probe) = &self.appearance {
+            return APPEARANCE_ACTIONS
+                .get(probe.phase)
+                .is_some_and(|a| *a == key);
+        }
         self.actions().get(self.action).is_some_and(|a| a.0 == key)
     }
     pub fn new() -> Self {
         Self {
+            appearance: (std::env::var("CLOTHCRAFT_AUTHORING_SCENARIO").as_deref()
+                == Ok("appearance"))
+            .then(AppearanceProbe::default),
             panel_tools: std::env::var("CLOTHCRAFT_AUTHORING_SCENARIO").as_deref()
                 == Ok("panel-tools"),
             workflow: std::env::var("CLOTHCRAFT_AUTHORING_SCENARIO").as_deref() == Ok("workflow"),
@@ -217,10 +226,34 @@ impl Smoke {
             seam_removed: false,
         }
     }
+    pub(super) fn target_rect(&mut self, ui: &egui::Ui, name: &str, rect: egui::Rect) {
+        if ui.clip_rect().contains_rect(rect) && ui.is_rect_visible(rect) {
+            self.target(name, rect.center());
+        } else {
+            self.targets.remove(name);
+            if self.wants(name) {
+                ui.scroll_to_rect_animation(
+                    rect,
+                    Some(egui::Align::Center),
+                    egui::style::ScrollAnimation::none(),
+                );
+            }
+        }
+    }
+    pub(super) fn appearance_text_target(&mut self, ui: &egui::Ui, response: &egui::Response) {
+        self.target_rect(ui, "appearance.name", response.rect);
+        if let Some(probe) = &mut self.appearance {
+            probe.text_focused = response.has_focus();
+        }
+    }
     pub fn target(&mut self, name: &str, p: egui::Pos2) {
         self.targets.insert(name.into(), p);
     }
     pub fn input(&mut self, input: &mut egui::RawInput) {
+        if let Some(probe) = &mut self.appearance {
+            probe.input(input, &self.targets);
+            return;
+        }
         // Synthetic pointer/keyboard input belongs to this test viewport, even
         // when Windows leaves the owner's other application in the foreground.
         input.focused = true;
@@ -610,6 +643,14 @@ impl Atelier {
         }
     }
     pub(super) fn authoring_smoke_tick(&mut self) {
+        if self
+            .authoring_smoke
+            .as_ref()
+            .is_some_and(|s| s.appearance.is_some())
+        {
+            self.appearance_smoke_tick();
+            return;
+        }
         if self.authoring_smoke.as_ref().is_some_and(|s| s.panel_tools) {
             self.panel_smoke_tick();
             return;
@@ -791,6 +832,272 @@ impl Atelier {
             serde_json::to_string_pretty(&report).unwrap(),
         ) {
             eprintln!("Authoring smoke: {e}");
+        }
+    }
+}
+
+// This scenario advances only after observing the expected document transition.
+// Sending a click is not evidence that the application accepted it.
+const APPEARANCE_ACTIONS: [&str; 14] = [
+    "appearance.enabled",
+    "appearance.apply",
+    "undo",
+    "redo",
+    "appearance.roughness.low",
+    "appearance.apply",
+    "undo",
+    "redo",
+    "keyboard.undo",
+    "keyboard.redo",
+    "appearance.name",
+    "keyboard.text_undo",
+    "appearance.enabled",
+    "appearance.apply",
+];
+
+#[derive(Default)]
+struct AppearanceProbe {
+    phase: usize,
+    tick: usize,
+    ready: bool,
+    text_focused: bool,
+    origin: Option<egui::Pos2>,
+    baseline: Option<(Vec<glam::DVec3>, Vec<glam::DVec3>, f64, u64)>,
+    fabric: String,
+    original: Option<marvelous_cloth::garment::appearance::FabricAppearance>,
+    changed: Option<marvelous_cloth::garment::appearance::FabricAppearance>,
+    observations: Vec<serde_json::Value>,
+}
+impl AppearanceProbe {
+    fn input(&mut self, input: &mut egui::RawInput, targets: &BTreeMap<String, egui::Pos2>) {
+        input.focused = true;
+        if !self.ready || self.phase >= APPEARANCE_ACTIONS.len() {
+            return;
+        }
+        self.tick += 1;
+        let action = APPEARANCE_ACTIONS[self.phase];
+        if action.starts_with("keyboard.") {
+            let modifiers = egui::Modifiers {
+                ctrl: true,
+                command: true,
+                shift: action == "keyboard.redo",
+                ..Default::default()
+            };
+            if self.tick == 7 {
+                input
+                    .events
+                    .push(egui::Event::ModifiersChanged(egui::Modifiers::NONE));
+            }
+            if self.tick == 3 || self.tick == 6 {
+                input.events.push(egui::Event::ModifiersChanged(modifiers));
+                input.events.push(egui::Event::Key {
+                    key: egui::Key::Z,
+                    physical_key: Some(egui::Key::Z),
+                    pressed: self.tick == 3,
+                    repeat: false,
+                    modifiers,
+                });
+            }
+        } else {
+            if self.tick == 3 {
+                self.origin = targets.get(action).copied();
+            }
+            if let Some(pos) = self.origin
+                && (3..=6).contains(&self.tick)
+            {
+                input.events.push(egui::Event::PointerMoved(pos));
+                if self.tick == 3 || self.tick == 6 {
+                    input.events.push(egui::Event::PointerButton {
+                        pos,
+                        button: egui::PointerButton::Primary,
+                        pressed: self.tick == 3,
+                        modifiers: Default::default(),
+                    });
+                }
+            }
+        }
+    }
+}
+impl Atelier {
+    fn appearance_smoke_tick(&mut self) {
+        let Some(mut smoke) = self.authoring_smoke.take() else {
+            return;
+        };
+        let probe = smoke.appearance.as_mut().unwrap();
+        let mut failure = None;
+        if !probe.ready {
+            self.playing = false;
+            if !self.pending {
+                if !self.project.template.fabric_appearance.is_empty() {
+                    failure = Some("Use a public fixture with default appearance".to_owned());
+                } else {
+                    let panel = &self.project.template.panels[0];
+                    probe.fabric = panel.fabric.clone();
+                    self.authoring.selected = Some(panel.id.clone());
+                    self.inspector_tab = chrome::InspectorTab::Fabric;
+                    self.tools_visible = true;
+                    probe.baseline = Some((
+                        self.scene.state.x.clone(),
+                        self.scene.state.v.clone(),
+                        self.scene.state.time,
+                        self.generation,
+                    ));
+                    probe.ready = true;
+                }
+            }
+        } else if probe.tick >= 9 && probe.phase < APPEARANCE_ACTIONS.len() {
+            let current = self
+                .project
+                .template
+                .fabric_appearance
+                .get(&probe.fabric)
+                .cloned();
+            let (x, v, time, generation) = probe.baseline.as_ref().unwrap();
+            let preserved = self.scene.state.x == *x
+                && self.scene.state.v == *v
+                && self.scene.state.time == *time
+                && self.generation == *generation
+                && !self.playing
+                && !self.pending;
+            let transition = match probe.phase {
+                0 => current.is_none() && smoke.targets.contains_key("appearance.roughness.low"),
+                1 => {
+                    probe.original = current.clone();
+                    current.is_some()
+                }
+                2 => current.is_none() && self.authoring.history.can_redo(),
+                3 | 4 | 6 | 8 => current == probe.original,
+                5 => {
+                    let changed =
+                        current
+                            .as_ref()
+                            .zip(probe.original.as_ref())
+                            .is_some_and(|(a, b)| {
+                                a.roughness < b.roughness && a.color_srgb == b.color_srgb
+                            });
+                    if changed {
+                        probe.changed = current.clone();
+                    }
+                    changed
+                }
+                7 | 9 | 12 => current == probe.changed && current.is_some(),
+                10 | 11 => current == probe.changed && current.is_some() && probe.text_focused,
+                13 => current.is_none(),
+                _ => false,
+            };
+            probe.observations.push(serde_json::json!({
+                "phase":probe.phase,"action":APPEARANCE_ACTIONS[probe.phase],
+                "appearance":current,"expected_transition":transition,"physics_preserved":preserved,
+                "can_undo":self.authoring.history.can_undo(),"can_redo":self.authoring.history.can_redo(),
+                "playing":self.playing,"pending":self.pending,"generation":self.generation,
+                "time":self.scene.state.time,"status":self.status,"error":self.authoring.error,
+                "pointer_target_found":probe.origin.is_some(),"text_field_focused":probe.text_focused
+            }));
+            if transition && preserved {
+                probe.phase += 1;
+                probe.tick = 0;
+                probe.origin = None;
+            } else {
+                failure = Some(format!(
+                    "Appearance phase {} failed its state gate",
+                    probe.phase
+                ));
+            }
+        }
+        if smoke.start.elapsed().as_secs() > 30 {
+            failure = Some("Appearance scenario timed out".into());
+        }
+        let complete = probe.phase == APPEARANCE_ACTIONS.len();
+        if !smoke.finished && (complete || failure.is_some()) {
+            let report = serde_json::json!({"passed":complete && failure.is_none(),
+                "scenario":"appearance","scope":"paused pointer history, keyboard history and text ownership",
+                "completed_verified_actions":probe.phase,"expected_actions":APPEARANCE_ACTIONS.len(),
+                "observations":probe.observations,"failure":failure,
+                "remaining_acceptance":["in-flight worker", "save/reopen", "visual shading"]});
+            match std::fs::write(
+                self.output.join("authoring.json"),
+                serde_json::to_vec_pretty(&report).unwrap(),
+            ) {
+                Ok(()) => smoke.finished = true,
+                Err(error) => {
+                    eprintln!("Cannot write appearance report: {error}");
+                    smoke.finished = true;
+                }
+            }
+        }
+        self.authoring_smoke = Some(smoke);
+    }
+}
+
+#[cfg(test)]
+mod appearance_probe_tests {
+    use super::*;
+    #[test]
+    fn pointer_delivery_does_not_advance_an_unverified_phase() {
+        let mut probe = AppearanceProbe {
+            ready: true,
+            ..Default::default()
+        };
+        let targets = BTreeMap::from([("appearance.enabled".into(), egui::pos2(20., 30.))]);
+        let mut presses = 0;
+        let mut releases = 0;
+        for _ in 0..12 {
+            let mut input = egui::RawInput::default();
+            probe.input(&mut input, &targets);
+            for event in input.events {
+                if let egui::Event::PointerButton { pressed, .. } = event {
+                    if pressed {
+                        presses += 1;
+                    } else {
+                        releases += 1;
+                    }
+                }
+            }
+        }
+        assert_eq!((presses, releases), (1, 1));
+        assert_eq!(probe.phase, 0, "sending a click must not count as success");
+    }
+    #[test]
+    fn missing_target_never_injects_a_click_or_claims_progress() {
+        let mut probe = AppearanceProbe {
+            ready: true,
+            ..Default::default()
+        };
+        for _ in 0..12 {
+            let mut input = egui::RawInput::default();
+            probe.input(&mut input, &BTreeMap::new());
+            assert!(input.events.is_empty());
+        }
+        assert!(probe.origin.is_none());
+        assert_eq!(probe.phase, 0);
+    }
+    #[test]
+    fn keyboard_history_sends_and_releases_global_modifiers() {
+        for phase in [8, 9] {
+            let mut probe = AppearanceProbe {
+                ready: true,
+                phase,
+                ..Default::default()
+            };
+            let ctx = egui::Context::default();
+            let mut observed = false;
+            for tick in 1..=7 {
+                let mut input = egui::RawInput::default();
+                probe.input(&mut input, &BTreeMap::new());
+                let mut output = ctx.run_ui(input, |ui| {
+                    if tick == 3 {
+                        assert!(ui.input(|i| i.key_pressed(egui::Key::Z) && i.modifiers.command));
+                        assert_eq!(ui.input(|i| i.modifiers.shift), phase == 9);
+                        observed = true;
+                    }
+                    if tick == 7 {
+                        assert!(!ui.input(|i| i.modifiers.command));
+                    }
+                });
+                output.textures_delta.clear();
+            }
+            assert!(observed);
+            assert_eq!(probe.phase, phase);
         }
     }
 }
