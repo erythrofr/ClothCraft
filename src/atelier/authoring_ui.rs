@@ -646,6 +646,21 @@ impl Atelier {
     pub(super) fn edit(&mut self, command: Command) -> bool {
         match authoring::apply(&self.project.template, command) {
             Ok(edit) => {
+                if edit.reset_simulation
+                    && (!self.project.template.pin_targets.is_empty()
+                        || !self.project.template.frozen_panels.is_empty()
+                        || !edit.template.pin_targets.is_empty()
+                        || !edit.template.frozen_panels.is_empty())
+                    && let Err(error) = super::pins_ui::validate(
+                        &edit,
+                        &edit.state_after(&self.scene.garment, &self.scene.state),
+                        Some(&self.scene.collider.surface),
+                    )
+                {
+                    self.authoring.error = Some(error.clone());
+                    self.status = error;
+                    return false;
+                }
                 self.authoring.history.record(self.project.template.clone());
                 self.install_edit(edit);
                 true
@@ -663,7 +678,28 @@ impl Atelier {
         self.authoring.replace = false;
         self.authoring.draft.clear();
         self.authoring.tangents.clear();
-        match self.authoring.history.restore(&self.project.template, redo) {
+        let previous = self.scene.garment.clone();
+        let state = &self.scene.state;
+        let avatar = &self.scene.collider.surface;
+        let had_holds = !self.project.template.pin_targets.is_empty()
+            || !self.project.template.frozen_panels.is_empty();
+        match self
+            .authoring
+            .history
+            .restore_checked(&self.project.template, redo, |edit| {
+                if edit.reset_simulation
+                    && (had_holds
+                        || !edit.template.pin_targets.is_empty()
+                        || !edit.template.frozen_panels.is_empty())
+                {
+                    super::pins_ui::validate(
+                        edit,
+                        &edit.state_after(&previous, state),
+                        Some(avatar),
+                    )?;
+                }
+                Ok(())
+            }) {
             Ok(edit) => self.install_edit(edit),
             Err(e) => self.status = e,
         }
@@ -1075,6 +1111,7 @@ impl Atelier {
             return;
         };
         ui.label(&panel.name);
+        self.pin_properties(ui, &panel);
         if let Some(fabric) = self
             .project
             .template

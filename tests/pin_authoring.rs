@@ -19,6 +19,59 @@ fn editable() -> GarmentTemplate {
 }
 
 #[test]
+fn fitting_cache_roundtrip_includes_holds_and_preserves_empty_legacy_fields() {
+    use marvelous_cloth::{
+        authoring::prepare_freeze_edit, fitting::FittingProject, garment::presets::GarmentKind,
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let avatar = dir.path().join("avatar.obj");
+    std::fs::write(&avatar, "v 10 0 -10\nv 11 0 -10\nv 10 1 -10\nf 1 2 3\n").unwrap();
+    let file = dir.path().join("sample.clothcraft");
+    let mut project = FittingProject::basic(GarmentKind::Tshirt, 0, avatar);
+    project.template = editable();
+    let g = project.template.compile().unwrap();
+    project.state = Some(g.initial_state.clone());
+    project.save(&file).unwrap();
+    let old = FittingProject::load(&file).unwrap();
+    old.compile().unwrap();
+    let mut explicit_empty = serde_json::to_value(&old).unwrap();
+    explicit_empty["template"]["pin_targets"] = serde_json::json!([]);
+    explicit_empty["template"]["frozen_panels"] = serde_json::json!([]);
+    let explicit_empty: FittingProject = serde_json::from_value(explicit_empty).unwrap();
+    explicit_empty.compile().unwrap();
+    assert_eq!(
+        serde_json::to_vec(&old.template).unwrap(),
+        serde_json::to_vec(&explicit_empty.template).unwrap()
+    );
+    let (frozen, mut state) = prepare_freeze_edit(
+        &project.template,
+        &g,
+        &g.initial_state,
+        &g.panels[0].id,
+        true,
+    )
+    .unwrap();
+    state.time = 7.;
+    project.template = frozen.template;
+    project.state = Some(state.clone());
+    project.save(&file).unwrap();
+    let mut reopened = FittingProject::load(&file).unwrap();
+    let scene = reopened.compile().unwrap();
+    assert_eq!(scene.state.x, state.x);
+    assert_eq!(scene.state.v, state.v);
+    assert_eq!(scene.state.time, state.time);
+    assert_ne!(reopened.mesh_signature, old.mesh_signature);
+    reopened.template.frozen_panels[0].targets[0].world.x += 0.01;
+    assert!(
+        reopened
+            .compile()
+            .err()
+            .unwrap()
+            .contains("Stale fitting cache")
+    );
+}
+
+#[test]
 fn frozen_panel_roundtrip_rejects_remesh_and_releases_without_reset() {
     use marvelous_cloth::authoring::{prepare_freeze_edit, prepare_pin_edit};
     let mut t = editable();

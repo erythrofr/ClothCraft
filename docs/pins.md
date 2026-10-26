@@ -1,8 +1,24 @@
 # Pin and freeze implementation contract
 
-Status: design and scope for EXO-AV-003, issue #116. The native pin/freeze
-tool described here is not implemented yet. Do not advertise these controls
-until their production paths and acceptance tests exist.
+Status: implementation branch `codex/pin-acceptance`, EXO-AV-003, issue #116.
+Native inspector integration is implemented; a real-window acceptance run is
+still pending. Do not mark the task
+complete based on the CPU prerequisites alone.
+
+## Inspector controls
+
+Pause simulation, select a panel and open its Piece inspector. **Freeze panel**
+holds its current shape; **Unfreeze panel** releases the freeze while retaining
+individual pins. On polygon panels, selected contour points in the active panel
+can be pinned/unpinned. **Release panel pins** removes all authored individual
+pins on that panel. These controls leave legacy template pins unchanged.
+Cross-panel contour selection applies only to the active panel in this first UI.
+
+Controls are disabled while simulation/worker work or placement previews are
+active. Applying a hold and restoring holds through Undo/Redo runs the existing
+CPU VBD initialization check before consuming history or installing the edit.
+This is an explicit-action cost, never a per-repaint check. Initialization checks
+the candidate endpoint; it does not certify a continuous path for Undo moves.
 
 The `codex/pin-acceptance` implementation branch contains CPU prerequisites:
 current-state target capture and `garment::pins::resolve_targets`. The latter
@@ -15,8 +31,8 @@ resolves targets and initializes held vertices at their world targets, while
 retaining the original arrangement and legacy constraints separately.
 `prepare_pin_edit` prepares a pin/release candidate without committing history;
 its caller must still run the physical initialization gate. `restore_checked`
-allows that gate to reject an undo/redo before consuming history. Native callers
-are not wired yet. This is not a completed pin/freeze tool.
+allows that gate to reject an undo/redo before consuming history. The native
+inspector and held-document undo/redo paths now use this validation.
 
 This initial branch rejects copying/pasting authored holds, mirroring or
 arranging held panels, and replacing a held garment. Clipboard capture can
@@ -105,3 +121,11 @@ the edit. Add named-widget tests for the actual controls.
 
 CPU evidence does not replace a native-window check. GPU use remains opt-in.
 Keep solver, energy, contact kernels and worker algorithms unchanged.
+
+The branch passes 113 desktop CPU tests (one optional preview ignored), ten
+pin/freeze CPU fixtures and strict desktop Clippy. Fixtures include full fitting
+project save/reopen with cached x/v/time, hold-sensitive cache invalidation,
+empty-field serialization compatibility, physical freeze/release, named
+controls and avatar-initialization rejection. The widget fixture exercises the
+production controls and preparation gate; it does not instantiate a native
+window. The existing production installer/generation fixture remains separate.
