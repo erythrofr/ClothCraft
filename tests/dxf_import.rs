@@ -188,3 +188,49 @@ fn circle_is_closed_and_excessive_sampling_is_reported() {
     assert!(d.paths.is_empty());
     assert!(d.issues[0].reason.contains("budget"));
 }
+
+// Independently generated and read back with ezdxf 1.4.5 (MIT), 2026-10-26.
+// R2000, mm: LINE (10,20)->(110,220); LWPOLYLINE (0,0,b=2)->(100,0);
+// closed legacy POLYLINE rectangle 100 x 200. Entity export retains actual
+// handles, owner/subclass tags and padded codes. No Python dependency in CI.
+#[test]
+fn ezdxf_generated_entities_match_independent_arc_and_rectangle_geometry() {
+    let entities = "  0\nLINE\n  5\n2F\n330\n17\n100\nAcDbEntity\n  8\nSEW front\n100\nAcDbLine\n 10\n10.0\n 20\n20.0\n 30\n0.0\n 11\n110.0\n 21\n220.0\n 31\n0.0\n  0\nLWPOLYLINE\n  5\n30\n330\n17\n100\nAcDbEntity\n  8\nCUT major\n100\nAcDbPolyline\n 90\n2\n 70\n0\n 10\n0.0\n 20\n0.0\n 42\n2.0\n 10\n100.0\n 20\n0.0\n  0\nPOLYLINE\n  5\n31\n330\n17\n100\nAcDbEntity\n  8\nCUT legacy\n100\nAcDb2dPolyline\n 66\n1\n 10\n0.0\n 20\n0.0\n 30\n0.0\n 70\n1\n  0\nVERTEX\n  5\n33\n330\n31\n100\nAcDbEntity\n  8\nCUT legacy\n100\nAcDbVertex\n100\nAcDb2dVertex\n 10\n0.0\n 20\n0.0\n 30\n0.0\n 70\n0\n  0\nVERTEX\n  5\n34\n330\n31\n100\nAcDbEntity\n  8\nCUT legacy\n100\nAcDbVertex\n100\nAcDb2dVertex\n 10\n100.0\n 20\n0.0\n 30\n0.0\n 70\n0\n  0\nVERTEX\n  5\n35\n330\n31\n100\nAcDbEntity\n  8\nCUT legacy\n100\nAcDbVertex\n100\nAcDb2dVertex\n 10\n100.0\n 20\n200.0\n 30\n0.0\n 70\n0\n  0\nVERTEX\n  5\n36\n330\n31\n100\nAcDbEntity\n  8\nCUT legacy\n100\nAcDbVertex\n100\nAcDb2dVertex\n 10\n0.0\n 20\n200.0\n 30\n0.0\n 70\n0\n  0\nSEQEND\n  5\n32\n330\n17\n100\nAcDbEntity\n  8\nCUT legacy\n";
+    let d = read_ascii(&document(Some(4), entities), Options::default()).unwrap();
+    assert!(d.issues.is_empty(), "{:?}", d.issues);
+    assert_eq!(d.paths.len(), 3);
+    assert_eq!(d.paths[0].layer, "SEW front");
+    assert_eq!(
+        d.paths[0].points,
+        vec![DVec2::new(0.01, 0.02), DVec2::new(0.11, 0.22)]
+    );
+    let curve = &d.paths[1];
+    assert_eq!(curve.layer, "CUT major");
+    // Independent ezdxf virtual_entities(): center=(50,-37.5), radius=62.5 mm,
+    // CCW arc 143.13010235415598 -> 36.86989764584401 degrees (major arc).
+    let center = DVec2::new(0.05, -0.0375);
+    let radius = 0.0625;
+    assert_eq!(curve.points[0], DVec2::ZERO);
+    assert_eq!(*curve.points.last().unwrap(), DVec2::new(0.1, 0.));
+    assert!(curve.points.iter().any(|p| p.y < -0.099));
+    for p in &curve.points {
+        assert!((p.distance(center) - radius).abs() < 1e-12);
+    }
+    for s in curve.points.windows(2) {
+        assert!(radius - ((s[0] + s[1]) * 0.5).distance(center) <= 0.0001 + 1e-12);
+        assert!((s[0] - center).perp_dot(s[1] - center) > 0.);
+    }
+    let rect = &d.paths[2];
+    assert_eq!(rect.layer, "CUT legacy");
+    assert!(rect.closed);
+    assert_eq!(
+        rect.points,
+        vec![
+            DVec2::ZERO,
+            DVec2::new(0.1, 0.),
+            DVec2::new(0.1, 0.2),
+            DVec2::new(0., 0.2),
+            DVec2::ZERO
+        ]
+    );
+}
