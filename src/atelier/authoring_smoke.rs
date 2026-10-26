@@ -1239,11 +1239,17 @@ mod appearance_probe_tests {
         assert_eq!(probe.phase, 0);
     }
     #[test]
-    fn keyboard_history_sends_and_releases_global_modifiers() {
-        for phase in [8, 9] {
+    fn keyboard_history_and_documents_send_and_release_global_modifiers() {
+        for (phase, key, documents) in [
+            (8, egui::Key::Z, false),
+            (9, egui::Key::Z, false),
+            (16, egui::Key::S, true),
+            (19, egui::Key::O, true),
+        ] {
             let mut probe = AppearanceProbe {
                 ready: true,
                 phase,
+                documents,
                 ..Default::default()
             };
             let ctx = egui::Context::default();
@@ -1253,7 +1259,7 @@ mod appearance_probe_tests {
                 probe.input(&mut input, &BTreeMap::new());
                 let mut output = ctx.run_ui(input, |ui| {
                     if tick == 3 {
-                        assert!(ui.input(|i| i.key_pressed(egui::Key::Z) && i.modifiers.command));
+                        assert!(ui.input(|i| i.key_pressed(key) && i.modifiers.command));
                         assert_eq!(ui.input(|i| i.modifiers.shift), phase == 9);
                         observed = true;
                     }
