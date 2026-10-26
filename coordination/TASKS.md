@@ -1600,7 +1600,7 @@ Status: ready. Dependencies: EXO-UX-001.
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/studioCustomization.js
 - https://github.com/erythrofr/ClothCraft/pull/114
 
-PR #114 at da2f4ad implements named presentation profiles; CI/review pending, not merged yet. Five profile fixtures and 110 desktop CPU tests pass (one optional preview ignored), plus strict desktop Clippy. Scope and native-window acceptance limits are in the PR. Reservation released on #113; obtain a fresh accepted claim before follow-up edits. Do not duplicate the proposed profile store.
+PR #114 merged as fcc7356 after seven green checks at da2f4ad; named presentation profiles are implemented. Five profile fixtures and 110 desktop CPU tests pass (one optional preview ignored), plus strict desktop Clippy. Scope and native-window acceptance limits are in the PR. Reservation released on #113; obtain a fresh accepted claim before follow-up edits. Do not duplicate the proposed profile store.
 
 ## EXO-UX-004
 
