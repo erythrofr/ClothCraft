@@ -67,7 +67,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-AV-004](#exo-av-004) — Show avatar collision coverage and initialization problems | avatar | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/20) |
 | [EXO-UX-001](#exo-ux-001) — Publish a typed command capability registry | workspace | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/21) |
 | [EXO-UX-002](#exo-ux-002) — Add a searchable command palette | workspace | ready | EXO-UX-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/109) |
-| [EXO-UX-003](#exo-ux-003) — Persist workspace layouts and tool visibility | workspace | ready | EXO-UX-001 | Not registered |
+| [EXO-UX-003](#exo-ux-003) — Persist workspace layouts and tool visibility | workspace | ready | EXO-UX-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/113) |
 | [EXO-UX-004](#exo-ux-004) — Add group 3D transforms and marquee selection | workspace | ready | EXO-CORE-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/104) |
 | [EXO-UX-005](#exo-ux-005) — Create a provenance-aware garment template browser | workspace | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/22) |
 | [EXO-UX-006](#exo-ux-006) — Expose a versioned headless authoring session adapter | automation | ready | EXO-CORE-001, EXO-REV-005, EXO-UX-001 | Not registered |
@@ -1589,8 +1589,9 @@ Status: ready. Dependencies: EXO-UX-001.
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/workspaceProfiles.js
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/studioCustomization.js
+- https://github.com/erythrofr/ClothCraft/pull/114
 
-
+PR #114 at da2f4ad implements named presentation profiles; CI/review pending, not merged yet. Five profile fixtures and 110 desktop CPU tests pass (one optional preview ignored), plus strict desktop Clippy. Scope and native-window acceptance limits are in the PR. Reservation released on #113; obtain a fresh accepted claim before follow-up edits. Do not duplicate the proposed profile store.
 
 ## EXO-UX-004
 
@@ -1617,8 +1618,9 @@ Status: ready. Dependencies: EXO-CORE-001.
 **Evidence and related contributions**
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/meshSelection.js
+- https://github.com/erythrofr/ClothCraft/pull/111
 
-Implementation merged in #105 as 2f9f9c5 after seven green checks at 4a4340a: shared-pivot group placement and bounded visible/Alt-through marquee. Four backend fixtures and 95 desktop CPU tests passed (one optional preview ignored). docs/group-placement.md records usage, pivot, drape-reset and sampling limits. Keep this task open for complete Atelier preview cancellation/worker-generation acceptance: current tests execute backend/helpers/named input, not the full GPU-dependent app. Source reservation is released. Claim the remaining validation slice rather than duplicating the implemented feature; scope expansion for a headless installer requires review.
+Group placement merged in #105 as 2f9f9c5 after seven green checks: shared-pivot transforms and bounded visible/Alt-through marquee. Follow-up #111 merged as 07c4988: direct production cancellation/install CPU tests cover x/v/time restoration, history, group placement, invalid input, layout-only preservation and stale generation filtering. Full native pointer flow and concurrent worker timing remain separate acceptance; see docs/group-placement.md. Reservation released on #104. Claim the remaining validation slice rather than recreating the feature or transition fixture.
 
 ## EXO-UX-005
 
