@@ -1444,7 +1444,7 @@
       "id": "EXO-UX-001",
       "title": "Publish a typed command capability registry",
       "area": "workspace",
-      "status": "ready",
+      "status": "done",
       "depends_on": [],
       "scope": [
         "src/atelier/commands.rs",
@@ -1460,14 +1460,17 @@
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/workspaceCommandIndex.js",
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/clo7NativeToolCapabilities.js"
       ],
-      "related_prs": [],
-      "notes": ""
+      "related_prs": [
+        "https://github.com/erythrofr/ClothCraft/pull/29",
+        "https://github.com/erythrofr/ClothCraft/pull/97"
+      ],
+      "notes": "Completed through merged PR #97 (c558dc6), preserving Mikristian original authorship from #29. Twelve implemented native commands have typed metadata, availability reasons and checked runtime dispatch. All seven checks passed at a8c601f. CPU fixtures cover metadata, worker disconnect and export failures; native GPU window acceptance is not claimed. See docs/command-registry.md for queue/completion and undo/export limitations. The board confirms the reservation is released."
     },
     {
       "id": "EXO-UX-002",
       "title": "Add a searchable command palette",
       "area": "workspace",
-      "status": "blocked",
+      "status": "ready",
       "depends_on": [
         "EXO-UX-001"
       ],
@@ -1491,7 +1494,7 @@
       "id": "EXO-UX-003",
       "title": "Persist workspace layouts and tool visibility",
       "area": "workspace",
-      "status": "blocked",
+      "status": "ready",
       "depends_on": [
         "EXO-UX-001"
       ],
@@ -1573,7 +1576,7 @@
       "id": "EXO-UX-006",
       "title": "Expose a versioned headless authoring session adapter",
       "area": "automation",
-      "status": "blocked",
+      "status": "ready",
       "depends_on": [
         "EXO-CORE-001",
         "EXO-REV-005",

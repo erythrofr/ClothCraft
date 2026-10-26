@@ -65,12 +65,12 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-AV-002](#exo-av-002) — Add body-aware panel arrangement assistance | avatar | blocked | EXO-AV-001 | Not registered |
 | [EXO-AV-003](#exo-av-003) — Expose pin editing and an explicit freeze policy | avatar | ready | EXO-CORE-001 | Not registered |
 | [EXO-AV-004](#exo-av-004) — Show avatar collision coverage and initialization problems | avatar | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/20) |
-| [EXO-UX-001](#exo-ux-001) — Publish a typed command capability registry | workspace | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/21) |
-| [EXO-UX-002](#exo-ux-002) — Add a searchable command palette | workspace | blocked | EXO-UX-001 | Not registered |
-| [EXO-UX-003](#exo-ux-003) — Persist workspace layouts and tool visibility | workspace | blocked | EXO-UX-001 | Not registered |
+| [EXO-UX-001](#exo-ux-001) — Publish a typed command capability registry | workspace | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/21) |
+| [EXO-UX-002](#exo-ux-002) — Add a searchable command palette | workspace | ready | EXO-UX-001 | Not registered |
+| [EXO-UX-003](#exo-ux-003) — Persist workspace layouts and tool visibility | workspace | ready | EXO-UX-001 | Not registered |
 | [EXO-UX-004](#exo-ux-004) — Add group 3D transforms and marquee selection | workspace | ready | EXO-CORE-001 | Not registered |
 | [EXO-UX-005](#exo-ux-005) — Create a provenance-aware garment template browser | workspace | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/22) |
-| [EXO-UX-006](#exo-ux-006) — Expose a versioned headless authoring session adapter | automation | blocked | EXO-CORE-001, EXO-REV-005, EXO-UX-001 | Not registered |
+| [EXO-UX-006](#exo-ux-006) — Expose a versioned headless authoring session adapter | automation | ready | EXO-CORE-001, EXO-REV-005, EXO-UX-001 | Not registered |
 | [EXO-QA-001](#exo-qa-001) — Build public cross-editor behavioral fixtures | validation | done | EXO-CORE-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/54) |
 | [EXO-QA-002](#exo-qa-002) — Package a clean-machine Windows test release | release | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/23) |
 | [EXO-QA-003](#exo-qa-003) — Verify native macOS and Linux build paths | release | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/24) |
@@ -1517,7 +1517,7 @@ Completed in PR #96, merged as 42addbc1c1c66aff5fe711112c3f6ed4685dc13b after se
 
 **Publish a typed command capability registry**
 
-Status: ready. Dependencies: none.
+Status: done. Dependencies: none.
 
 **Files / directories**
 
@@ -1535,14 +1535,16 @@ Status: ready. Dependencies: none.
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/workspaceCommandIndex.js
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/clo7NativeToolCapabilities.js
+- https://github.com/erythrofr/ClothCraft/pull/29
+- https://github.com/erythrofr/ClothCraft/pull/97
 
-
+Completed through merged PR #97 (c558dc6), preserving Mikristian original authorship from #29. Twelve implemented native commands have typed metadata, availability reasons and checked runtime dispatch. All seven checks passed at a8c601f. CPU fixtures cover metadata, worker disconnect and export failures; native GPU window acceptance is not claimed. See docs/command-registry.md for queue/completion and undo/export limitations. The board confirms the reservation is released.
 
 ## EXO-UX-002
 
 **Add a searchable command palette**
 
-Status: blocked. Dependencies: EXO-UX-001.
+Status: ready. Dependencies: EXO-UX-001.
 
 **Files / directories**
 
@@ -1566,7 +1568,7 @@ Status: blocked. Dependencies: EXO-UX-001.
 
 **Persist workspace layouts and tool visibility**
 
-Status: blocked. Dependencies: EXO-UX-001.
+Status: ready. Dependencies: EXO-UX-001.
 
 **Files / directories**
 
@@ -1649,7 +1651,7 @@ Owner-approved scope amendment: integrate through authoring_ui.rs and documents_
 
 **Expose a versioned headless authoring session adapter**
 
-Status: blocked. Dependencies: EXO-CORE-001, EXO-REV-005, EXO-UX-001.
+Status: ready. Dependencies: EXO-CORE-001, EXO-REV-005, EXO-UX-001.
 
 **Files / directories**
 

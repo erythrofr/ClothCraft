@@ -1,5 +1,18 @@
 # Repository handoff
 
+## Native command registry — 26 October 2026
+
+PR #97 implements EXO-UX-001 with twelve typed commands routed through the
+existing native adapter. It preserves Mikristian's original contribution from
+#29 and adds accurate context, undo and failure behavior. All seven checks
+passed at `a8c601f` before merge `c558dc6`. The reservation is released.
+See [the command contract](command-registry.md) before implementing a palette
+or automation caller: availability is a snapshot, worker submission is not
+completion, and session export is not an atomic multi-file transaction.
+CPU tests cover metadata, channel failure and export side effects; native GPU
+window acceptance remains unclaimed. The dependent catalog tasks become
+eligible through this documentation update, not automatically assigned.
+
 ## Avatar collision diagnostics — 26 October 2026
 
 PR #96 implements EXO-AV-004. Properties → Simulation → Avatar collision
