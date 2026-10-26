@@ -45,7 +45,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-MFG-012](#exo-mfg-012) — Export a revision-stamped HTML technical pack | manufacturing | blocked | EXO-MFG-006, EXO-MFG-011 | Not registered |
 | [EXO-MFG-013](#exo-mfg-013) — Add manufacturing preflight diagnostics | manufacturing | blocked | EXO-MFG-004, EXO-MFG-008, EXO-MFG-011 | Not registered |
 | [EXO-MFG-014](#exo-mfg-014) — Package consistent manufacturing artifacts | manufacturing | blocked | EXO-MFG-010, EXO-MFG-012, EXO-MFG-013, EXO-IO-003 | Not registered |
-| [EXO-IO-001](#exo-io-001) — Import a documented SVG pattern subset | interchange | ready | EXO-CORE-001 | Not registered |
+| [EXO-IO-001](#exo-io-001) — Import a documented SVG pattern subset | interchange | ready | EXO-CORE-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/99) |
 | [EXO-IO-002](#exo-io-002) — Import generic 2D DXF pattern entities | interchange | done | EXO-CORE-001 | Not registered |
 | [EXO-IO-003](#exo-io-003) — Export generic DXF cut and sewing geometry | interchange | blocked | EXO-REV-002, EXO-MFG-002 | Not registered |
 | [EXO-IO-004](#exo-io-004) — Add one industrial DXF dialect with independent fixtures | interchange | blocked | EXO-IO-002, EXO-IO-003, EXO-MFG-003 | Not registered |
@@ -1009,18 +1009,24 @@ Status: ready. Dependencies: EXO-CORE-001.
 - `src/garment/svg_import.rs`
 - `tests/svg_import.rs`
 - `src/garment/mod.rs`
+- `Cargo.toml`
+- `Cargo.lock`
+- `docs/svg-import.md`
 
 **Acceptance**
 
 - Parse explicit physical units/transforms and closed contours with a stated curve tolerance.
 - Reject external/script content and unsupported ambiguity; bound input resources.
 - Produce unsewn editable pieces and a loss report; never infer seams from nearby paths.
+- Measure curve tolerance after all transforms in metres; verify physical units, viewBox origin/aspect handling and reflected/nonuniform transforms against independent fixtures.
+- Explicitly handle or reject compound holes, open contours, nested viewports and unsupported style/clipping semantics; never silently import distorted or incomplete outlines.
+- Bound bytes, nesting, tokens, output points and piece count, and test invalid input rejection without external file/network resolution.
 
 **Evidence and related contributions**
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/svgPatternImport.js
 
-Original parser/adapter or license-compatible dependency; do not transplant browser SVG code.
+Issue #99 records the researched behavior and scope rationale. Independently implement over maintained, license-compatible XML/SVG token parsers; Cargo files are reserved only for these importer dependencies, not unrelated upgrades. Document exact versions/licenses and supported geometry in docs/svg-import.md. No browser SVG code is transplanted. Reader and editable-piece conversion are this task; a subsequent native confirmation/import workflow must make units and losses visible before changing a document. A reviewed scope amendment and accepted claim are required before implementation.
 
 ## EXO-IO-002
 
