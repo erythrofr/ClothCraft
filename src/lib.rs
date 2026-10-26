@@ -17,6 +17,7 @@ pub mod math;
 pub mod model;
 pub mod motion;
 pub mod ogc;
+pub mod pattern_import;
 pub mod picking;
 pub mod project;
 /// Shared optional renderer; the numerical modules do not depend on this module.
