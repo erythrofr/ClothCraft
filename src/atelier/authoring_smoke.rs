@@ -181,11 +181,14 @@ impl Smoke {
             &ACTIONS
         }
     }
+    pub(super) fn tests_documents(&self) -> bool {
+        self.appearance
+            .as_ref()
+            .is_some_and(|probe| probe.documents)
+    }
     pub(super) fn wants(&self, key: &str) -> bool {
         if let Some(probe) = &self.appearance {
-            return APPEARANCE_ACTIONS
-                .get(probe.phase)
-                .is_some_and(|a| *a == key);
+            return probe.phase < probe.action_count() && probe.action() == key;
         }
         self.actions().get(self.action).is_some_and(|a| a.0 == key)
     }
@@ -193,6 +196,10 @@ impl Smoke {
         Self {
             appearance: match std::env::var("CLOTHCRAFT_AUTHORING_SCENARIO").as_deref() {
                 Ok("appearance") => Some(AppearanceProbe::default()),
+                Ok("appearance-documents") => Some(AppearanceProbe {
+                    documents: true,
+                    ..Default::default()
+                }),
                 Ok("appearance-worker") => Some(AppearanceProbe {
                     running: true,
                     ..Default::default()
@@ -871,6 +878,7 @@ struct AppearanceProbe {
     phase: usize,
     tick: usize,
     running: bool,
+    documents: bool,
     latest_pending: bool,
     latest_time: f64,
     dispatched: Option<(bool, f64)>,
@@ -885,8 +893,22 @@ struct AppearanceProbe {
     observations: Vec<serde_json::Value>,
 }
 impl AppearanceProbe {
+    fn action(&self) -> &'static str {
+        if self.documents && self.phase >= 14 {
+            [
+                "appearance.enabled",
+                "appearance.apply",
+                "keyboard.save",
+                "appearance.enabled",
+                "appearance.apply",
+                "keyboard.open",
+            ][self.phase - 14]
+        } else {
+            APPEARANCE_ACTIONS[self.phase]
+        }
+    }
     fn action_count(&self) -> usize {
-        if self.running {
+        if self.running || self.documents {
             APPEARANCE_ACTIONS.len()
         } else {
             14
@@ -901,7 +923,7 @@ impl AppearanceProbe {
         if self.tick == 3 {
             self.dispatched = Some((self.latest_pending, self.latest_time));
         }
-        let action = APPEARANCE_ACTIONS[self.phase];
+        let action = self.action();
         if action.starts_with("keyboard.") {
             let modifiers = egui::Modifiers {
                 ctrl: true,
@@ -917,8 +939,12 @@ impl AppearanceProbe {
             if self.tick == 3 || self.tick == 6 {
                 input.events.push(egui::Event::ModifiersChanged(modifiers));
                 input.events.push(egui::Event::Key {
-                    key: egui::Key::Z,
-                    physical_key: Some(egui::Key::Z),
+                    key: match action {
+                        "keyboard.save" => egui::Key::S,
+                        "keyboard.open" => egui::Key::O,
+                        _ => egui::Key::Z,
+                    },
+                    physical_key: None,
                     pressed: self.tick == 3,
                     repeat: false,
                     modifiers,
@@ -980,7 +1006,8 @@ impl Atelier {
                 .get(&probe.fabric)
                 .cloned();
             let (x, v, time, generation) = probe.baseline.as_ref().unwrap();
-            let live = probe.phase >= 14;
+            let live = probe.running && probe.phase >= 14;
+            let document_replacement = probe.documents && matches!(probe.phase, 16 | 19);
             let advanced = probe
                 .dispatched
                 .is_some_and(|(_, before)| self.scene.state.time > before);
@@ -988,8 +1015,8 @@ impl Atelier {
                 .garment
                 .as_ref()
                 .is_some_and(|before| std::sync::Arc::ptr_eq(before, &self.scene.garment));
-            let preserved = self.generation == *generation
-                && model_preserved
+            let preserved = self.generation == *generation + u64::from(document_replacement)
+                && (model_preserved || (probe.documents && probe.phase == 19))
                 && if live {
                     self.scene.state.time >= *time
                         && self
@@ -1008,45 +1035,76 @@ impl Atelier {
                         && !self.playing
                         && !self.pending
                 };
-            let transition = match probe.phase {
-                0 => current.is_none() && smoke.targets.contains_key("appearance.roughness.low"),
-                1 => {
-                    probe.original = current.clone();
-                    current.is_some()
-                }
-                2 => current.is_none() && self.authoring.history.can_redo(),
-                3 | 4 | 6 | 8 => current == probe.original,
-                5 => {
-                    let changed =
-                        current
-                            .as_ref()
-                            .zip(probe.original.as_ref())
-                            .is_some_and(|(a, b)| {
-                                a.roughness < b.roughness && a.color_srgb == b.color_srgb
-                            });
-                    if changed {
-                        probe.changed = current.clone();
+            let transition = if probe.documents && probe.phase >= 14 {
+                match probe.phase {
+                    14 => current.is_none(),
+                    15 | 17 => current == probe.original && current.is_some(),
+                    16 => {
+                        current == probe.original
+                            && !self.document.dirty
+                            && FittingProject::load(
+                                &self.output.join("appearance-acceptance.clothcraft.json"),
+                            )
+                            .is_ok_and(|saved| {
+                                saved.template.fabric_appearance
+                                    == self.project.template.fabric_appearance
+                                    && saved.state.is_some_and(|state| {
+                                        state.x == *x && state.v == *v && state.time == *time
+                                    })
+                            })
                     }
-                    changed
+                    18 => current.is_none(),
+                    19 => {
+                        current == probe.original
+                            && current.is_some()
+                            && !self.document.dirty
+                            && !self.authoring.history.can_undo()
+                    }
+                    _ => false,
                 }
-                7 | 9 | 12 => current == probe.changed && current.is_some(),
-                10 | 11 => current == probe.changed && current.is_some() && probe.text_focused,
-                13 => current.is_none(),
-                14 => current.is_none() && advanced,
-                15 => current.is_none(),
-                16 | 18 => {
-                    current == probe.original
-                        && current.is_some()
-                        && advanced
-                        && probe.dispatched.is_some_and(|(pending, _)| pending)
+            } else {
+                match probe.phase {
+                    0 => {
+                        current.is_none() && smoke.targets.contains_key("appearance.roughness.low")
+                    }
+                    1 => {
+                        probe.original = current.clone();
+                        current.is_some()
+                    }
+                    2 => current.is_none() && self.authoring.history.can_redo(),
+                    3 | 4 | 6 | 8 => current == probe.original,
+                    5 => {
+                        let changed =
+                            current
+                                .as_ref()
+                                .zip(probe.original.as_ref())
+                                .is_some_and(|(a, b)| {
+                                    a.roughness < b.roughness && a.color_srgb == b.color_srgb
+                                });
+                        if changed {
+                            probe.changed = current.clone();
+                        }
+                        changed
+                    }
+                    7 | 9 | 12 => current == probe.changed && current.is_some(),
+                    10 | 11 => current == probe.changed && current.is_some() && probe.text_focused,
+                    13 => current.is_none(),
+                    14 => current.is_none() && advanced,
+                    15 => current.is_none(),
+                    16 | 18 => {
+                        current == probe.original
+                            && current.is_some()
+                            && advanced
+                            && probe.dispatched.is_some_and(|(pending, _)| pending)
+                    }
+                    17 => {
+                        current.is_none()
+                            && advanced
+                            && probe.dispatched.is_some_and(|(pending, _)| pending)
+                    }
+                    19 => current == probe.original && current.is_some(),
+                    _ => false,
                 }
-                17 => {
-                    current.is_none()
-                        && advanced
-                        && probe.dispatched.is_some_and(|(pending, _)| pending)
-                }
-                19 => current == probe.original && current.is_some(),
-                _ => false,
             };
             // Wait for an actual worker response, not a fixed number of rendered frames.
             if live
@@ -1061,7 +1119,7 @@ impl Atelier {
                 return;
             }
             probe.observations.push(serde_json::json!({
-                "phase":probe.phase,"action":APPEARANCE_ACTIONS[probe.phase],
+                "phase":probe.phase,"action":probe.action(),
                 "appearance":current,"expected_transition":transition,"physics_preserved":preserved,"compiled_model_identity_preserved":model_preserved,
                 "can_undo":self.authoring.history.can_undo(),"can_redo":self.authoring.history.can_redo(),
                 "playing":self.playing,"pending":self.pending,"generation":self.generation,
@@ -1071,6 +1129,9 @@ impl Atelier {
                 "worker_time_at_dispatch":probe.dispatched.map(|d| d.1),"later_worker_state_observed":advanced
             }));
             if transition && preserved {
+                if document_replacement {
+                    probe.baseline.as_mut().unwrap().3 = self.generation;
+                }
                 probe.phase += 1;
                 probe.tick = 0;
                 probe.origin = None;
@@ -1089,10 +1150,10 @@ impl Atelier {
         let complete = probe.phase == probe.action_count();
         if !smoke.finished && (complete || failure.is_some()) {
             let report = serde_json::json!({"passed":complete && failure.is_none(),
-                "scenario":"appearance","scope":if probe.running { "paused history plus live worker continuity" } else { "paused pointer history, keyboard history and text ownership" },
+                "scenario":"appearance","document_scenario":probe.documents,"scope":if probe.documents { "paused history plus isolated native Save/Open" } else if probe.running { "paused history plus live worker continuity" } else { "paused pointer history, keyboard history and text ownership" },
                 "completed_verified_actions":probe.phase,"expected_actions":probe.action_count(),"worker_scenario":probe.running,
                 "observations":probe.observations,"failure":failure,
-                "remaining_acceptance":if probe.running { vec!["save/reopen", "visual shading"] } else { vec!["in-flight worker", "save/reopen", "visual shading"] }});
+                "remaining_acceptance":if probe.documents { vec!["in-flight worker", "visual shading"] } else if probe.running { vec!["save/reopen", "visual shading"] } else { vec!["in-flight worker", "save/reopen", "visual shading"] }});
             match std::fs::write(
                 self.output.join("authoring.json"),
                 serde_json::to_vec_pretty(&report).unwrap(),

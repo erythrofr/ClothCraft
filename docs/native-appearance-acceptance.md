@@ -117,3 +117,22 @@ unchanged and exact restoration of the expected optical values after Redo.
 Generation/time alone would not detect an accidental same-generation model
 replacement; merely accepting any nonempty appearance would miss wrong values.
 These checks are implemented, but live acceptance is still pending.
+
+## Isolated document extension (not yet accepted)
+
+After scope amendment #138, `appearance-documents` enables a separate 20-phase
+scenario. Its first 14 phases are the paused history probe. It then enables and
+applies optics, sends Ctrl+S, disables and applies default optics, and sends
+Ctrl+O to restore the saved appearance. Save/Open use the ordinary application
+transactions; only their fixture-path selection and recovery/dialog handling are
+adapted. The expected generation increments are checked, and reopening must
+restore exact x/v/time and clear document history. Open is deliberately allowed
+to replace the compiled model; appearance-only edits must retain its Arc.
+
+The adapter is reachable only in smoke mode with this explicit scenario. It
+atomically reserves `appearance-acceptance.clothcraft.json` under the requested
+output directory and refuses existing paths. Open only targets that reserved
+fixture and preflights the avatar, refusing missing assets instead of opening a
+picker. Ordinary documents and other smoke scenarios keep their existing paths.
+CPU tests cover output-local reservation, overwrite refusal and missing output
+folders. No successful native Save/Open run is claimed yet.

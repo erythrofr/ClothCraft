@@ -23,6 +23,7 @@ pub(super) struct DocumentUi {
     recovery: PathBuf,
     checked_recovery: bool,
     closing: bool,
+    smoke_fixture: Option<PathBuf>,
 }
 impl DocumentUi {
     fn dismiss_modals_for_close(&mut self, ctx: &egui::Context) {
@@ -49,6 +50,7 @@ impl DocumentUi {
             recovery: output.join(format!("recovery-{}.json", std::process::id())),
             checked_recovery: false,
             closing: false,
+            smoke_fixture: None,
         }
     }
 }
@@ -599,6 +601,39 @@ impl Atelier {
         ui.separator();
         self.export_information(ui);
     }
+    // Only the explicitly selected acceptance scenario reaches this adapter.
+    // It substitutes a fixture path for dialogs, not the Save/Open transactions.
+    fn appearance_document_smoke(&mut self, ctx: &egui::Context) {
+        let save = ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::S));
+        let open = ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::O));
+        if save {
+            if self.document.smoke_fixture.is_none() {
+                match reserve_appearance_fixture(&self.output) {
+                    Ok(path) => self.document.smoke_fixture = Some(path),
+                    Err(error) => {
+                        self.status = error;
+                        return;
+                    }
+                }
+            }
+            self.document.path = self.document.smoke_fixture.clone();
+            self.save_document(ctx, false);
+        } else if open {
+            let Some(path) = self.document.smoke_fixture.clone() else {
+                self.status = "Appearance fixture has not been saved".into();
+                return;
+            };
+            match FittingProject::load(&path) {
+                Ok(project) if project.avatar_path.is_file() => {
+                    self.open_document_path(path, false)
+                }
+                Ok(_) => {
+                    self.status = "Appearance fixture avatar is missing; no dialog opened".into()
+                }
+                Err(error) => self.status = format!("Appearance fixture cannot reopen: {error}"),
+            }
+        }
+    }
     pub(super) fn document_tick(&mut self, ctx: &egui::Context) {
         self.document.dismiss_modals_for_close(ctx);
         self.svg_import_tick(ctx);
@@ -618,6 +653,13 @@ impl Atelier {
             return;
         }
         if self.smoke {
+            if self
+                .authoring_smoke
+                .as_ref()
+                .is_some_and(|smoke| smoke.tests_documents())
+            {
+                self.appearance_document_smoke(ctx);
+            }
             return;
         }
         if !self.document.checked_recovery {
@@ -889,5 +931,38 @@ mod template_tests {
         assert_eq!(serde_json::to_vec(&case.project).unwrap(), original);
         assert_eq!(case.document.path, saved);
         assert!(Selection::external(b"invalid", "broken".into()).is_err());
+    }
+}
+
+// Atomically refuse an existing fixture, including a dangling symlink. The file
+// is reserved for this scenario before the ordinary atomic project writer runs.
+fn reserve_appearance_fixture(output: &std::path::Path) -> Result<PathBuf, String> {
+    let path = output.join("appearance-acceptance.clothcraft.json");
+    std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)
+        .map_err(|error| format!("Cannot reserve fresh appearance fixture: {error}"))?;
+    Ok(path)
+}
+
+#[cfg(test)]
+mod appearance_fixture_tests {
+    use super::*;
+    #[test]
+    fn reservation_is_output_local_and_never_overwrites_existing_bytes() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = reserve_appearance_fixture(dir.path()).unwrap();
+        assert_eq!(path.parent(), Some(dir.path()));
+        std::fs::write(&path, b"existing project").unwrap();
+        assert!(reserve_appearance_fixture(dir.path()).is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), b"existing project");
+    }
+    #[test]
+    fn missing_output_directory_fails_without_creating_a_fixture() {
+        let dir = tempfile::tempdir().unwrap();
+        let missing = dir.path().join("missing");
+        assert!(reserve_appearance_fixture(&missing).is_err());
+        assert!(!missing.exists());
     }
 }
