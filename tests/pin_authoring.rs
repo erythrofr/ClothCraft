@@ -8,6 +8,57 @@ use marvelous_cloth::{
 use std::sync::Arc;
 
 #[test]
+fn material_targets_resolve_exactly_without_mutating_constraints() {
+    use marvelous_cloth::garment::pins::{MaterialPinTarget, resolve_targets};
+    let mut g = panels(false);
+    let i = g.panels[0].vertices.start;
+    let target = MaterialPinTarget {
+        panel: g.panels[0].id.clone(),
+        uv: g.mesh.uv[i],
+        world: g.initial_state.x[i] + DVec3::Y,
+    };
+    let encoded = serde_json::to_string(&target).unwrap();
+    let loaded: MaterialPinTarget = serde_json::from_str(&encoded).unwrap();
+    assert_eq!(loaded, target);
+    let before = g.mesh.pins.clone();
+    assert_eq!(
+        resolve_targets(&g, &[loaded]).unwrap(),
+        vec![(i, target.world)]
+    );
+    assert_eq!(g.mesh.pins, before);
+    let j = g.panels[1].vertices.start;
+    let other = MaterialPinTarget {
+        panel: g.panels[1].id.clone(),
+        uv: g.mesh.uv[j],
+        world: g.initial_state.x[j],
+    };
+    assert_eq!(target.uv, other.uv);
+    assert_eq!(
+        resolve_targets(&g, &[target.clone(), other.clone()]).unwrap(),
+        vec![(i, target.world), (j, other.world)]
+    );
+    assert!(resolve_targets(&g, &vec![target.clone(); 65_537]).is_err());
+    assert!(resolve_targets(&g, &[target.clone(), target.clone()]).is_err());
+    let mut invalid = target.clone();
+    invalid.uv.x += 1e-8;
+    assert!(resolve_targets(&g, &[invalid]).is_err());
+    let mut invalid = target.clone();
+    invalid.world = DVec3::NAN;
+    assert!(resolve_targets(&g, &[invalid]).is_err());
+    let mut invalid = target.clone();
+    invalid.panel = "missing".into();
+    assert!(resolve_targets(&g, &[invalid]).is_err());
+    g.mesh.pins[i] = Some(target.world);
+    assert!(resolve_targets(&g, std::slice::from_ref(&target)).is_ok());
+    g.mesh.pins[i] = Some(target.world + DVec3::X);
+    assert!(resolve_targets(&g, std::slice::from_ref(&target)).is_err());
+    assert_eq!(g.mesh.pins[i], Some(target.world + DVec3::X));
+    g.mesh.pins[i] = None;
+    g.mesh.uv[i + 1] = g.mesh.uv[i];
+    assert!(resolve_targets(&g, &[target]).is_err());
+}
+
+#[test]
 fn capture_uses_material_identity_and_rejects_stale_or_ambiguous_input() {
     use marvelous_cloth::authoring::capture_pin_targets;
     let t = GarmentTemplate::two_panel_demo();

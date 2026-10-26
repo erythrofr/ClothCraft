@@ -8,6 +8,7 @@ pub mod embedding;
 pub mod export;
 pub mod freehand;
 pub mod meshing;
+pub mod pins;
 pub mod polygon;
 pub mod presets;
 pub mod production_metrics;

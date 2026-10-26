@@ -4,6 +4,14 @@ Status: design and scope for EXO-AV-003, issue #116. The native pin/freeze
 tool described here is not implemented yet. Do not advertise these controls
 until their production paths and acceptance tests exist.
 
+The `codex/pin-acceptance` implementation branch contains CPU prerequisites:
+current-state target capture and `garment::pins::resolve_targets`. The latter
+validates finite material/world coordinates, bounded target counts, exact
+unambiguous panel/UV identity, duplicate requests and existing pin conflicts
+without mutating the compiled mesh. Its record can round-trip through serde,
+but it is not yet part of the garment document or wired to native controls.
+Do not interpret this helper as completed persistence or a freeze tool.
+
 ## Current behavior
 
 `Panel.pin_points` identifies rest-mesh vertices by material coordinates.
