@@ -191,17 +191,20 @@ impl ImportUi {
                 preview(ui,d,&self.selected);
                 ui.small("Preview shows up to 128 paths with display-only sampling. Select closed outlines below.");
                 egui::ScrollArea::vertical().id_salt("dxf-paths").max_height(140.).show_rows(ui,22.,d.paths.len(),|ui,rows| {
+                    // Virtual rows require single-line labels even for long source metadata.
+                    ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
                     for i in rows {
                         let p=&d.paths[i]; let reason=pattern_import::contour_issue(p);
                         let mut checked=self.selected.contains(&i);
                         let r=ui.push_id(i,|ui|ui.add_enabled(reason.is_none(),egui::Checkbox::new(&mut checked,format!("{} · {} · {}{}",i+1,p.layer,p.entity,reason.map(|r|format!(" — {r}")).unwrap_or_default())))).inner;
+                        let r = r.on_hover_text(format!("Layer: {}\nEntity: {}\n{}", p.layer, p.entity, reason.unwrap_or("Closed panel outline")));
                         named(ui,&r,&format!("dxf.path.{i}"));
                         if r.changed() { if checked {self.selected.insert(i);} else {self.selected.remove(&i);} self.acknowledged=false; }
                     }
                 });
                 egui::CollapsingHeader::new(format!("Unsupported entities ({})",d.issues.len())).show(ui,|ui| {
                     egui::ScrollArea::vertical().id_salt("dxf-issues").max_height(120.).show_rows(ui,22.,d.issues.len(),|ui,rows| {
-                        for i in rows { let e=&d.issues[i]; ui.label(format!("{} · {}: {}",e.layer,e.entity,e.reason)); }
+                        for i in rows { let e=&d.issues[i]; let text=format!("{} · {}: {}",e.layer,e.entity,e.reason); ui.add(egui::Label::new(&text).truncate()).on_hover_text(text); }
                     });
                 });
             }
@@ -381,6 +384,26 @@ mod tests {
         assert_eq!(serde_json::to_vec(&c.project).unwrap(), before); // preparation is atomic
         assert!(!c.document.dirty);
     }
+    #[test]
+    fn long_layer_names_keep_contour_rows_selectable() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut c = fixture(dir.path(), 4);
+        let mut text = std::fs::read_to_string(&c.path).unwrap();
+        text = text.replace(
+            "\nCUT\n",
+            &format!("\n{}\n", "Front garment cutting outline ".repeat(30)),
+        );
+        std::fs::write(&c.path, text).unwrap();
+        let mut h = Harness::new(egui::vec2(760., 1000.));
+        frames(&mut h, &mut c);
+        h.click("dxf.choose", &mut c, &mut draw).unwrap();
+        frames(&mut h, &mut c);
+        h.click("dxf.path.0", &mut c, &mut draw).unwrap();
+        h.click("dxf.acknowledge", &mut c, &mut draw).unwrap();
+        h.click("dxf.confirm", &mut c, &mut draw).unwrap();
+        assert_eq!(c.confirms, 1);
+    }
+
     #[test]
     fn named_cancel_escape_and_invalid_mesh_do_not_prepare() {
         let dir = tempfile::tempdir().unwrap();
