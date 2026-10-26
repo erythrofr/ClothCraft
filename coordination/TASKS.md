@@ -65,12 +65,12 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-AV-002](#exo-av-002) — Add body-aware panel arrangement assistance | avatar | blocked | EXO-AV-001 | Not registered |
 | [EXO-AV-003](#exo-av-003) — Expose pin editing and an explicit freeze policy | avatar | ready | EXO-CORE-001 | Not registered |
 | [EXO-AV-004](#exo-av-004) — Show avatar collision coverage and initialization problems | avatar | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/20) |
-| [EXO-UX-001](#exo-ux-001) — Publish a typed command capability registry | workspace | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/21) |
-| [EXO-UX-002](#exo-ux-002) — Add a searchable command palette | workspace | blocked | EXO-UX-001 | Not registered |
-| [EXO-UX-003](#exo-ux-003) — Persist workspace layouts and tool visibility | workspace | blocked | EXO-UX-001 | Not registered |
+| [EXO-UX-001](#exo-ux-001) — Publish a typed command capability registry | workspace | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/21) |
+| [EXO-UX-002](#exo-ux-002) — Add a searchable command palette | workspace | ready | EXO-UX-001 | Not registered |
+| [EXO-UX-003](#exo-ux-003) — Persist workspace layouts and tool visibility | workspace | ready | EXO-UX-001 | Not registered |
 | [EXO-UX-004](#exo-ux-004) — Add group 3D transforms and marquee selection | workspace | ready | EXO-CORE-001 | Not registered |
 | [EXO-UX-005](#exo-ux-005) — Create a provenance-aware garment template browser | workspace | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/22) |
-| [EXO-UX-006](#exo-ux-006) — Expose a versioned headless authoring session adapter | automation | blocked | EXO-CORE-001, EXO-REV-005, EXO-UX-001 | Not registered |
+| [EXO-UX-006](#exo-ux-006) — Expose a versioned headless authoring session adapter | automation | ready | EXO-CORE-001, EXO-REV-005, EXO-UX-001 | Not registered |
 | [EXO-QA-001](#exo-qa-001) — Build public cross-editor behavioral fixtures | validation | done | EXO-CORE-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/54) |
 | [EXO-QA-002](#exo-qa-002) — Package a clean-machine Windows test release | release | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/23) |
 | [EXO-QA-003](#exo-qa-003) — Verify native macOS and Linux build paths | release | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/24) |
@@ -88,6 +88,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-PHY-004](#exo-phy-004) — Expose correctly timed contact and residual diagnostics in the native Simulation inspector | physics | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/72) |
 | [EXO-IO-009](#exo-io-009) — Integrate static avatar import into the workspace | interchange | done | EXO-IO-007, EXO-UX-005 | [Issue](https://github.com/erythrofr/ClothCraft/issues/64) |
 | [EXO-IO-010](#exo-io-010) — Import reviewed DXF contours as editable native panels | interchange | done | EXO-IO-002 | Not registered |
+| [EXO-IO-011](#exo-io-011) — Import reviewed SVG patterns in the native workspace | interchange | blocked | EXO-IO-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/103) |
 
 ## EXO-COORD-001
 
@@ -1517,7 +1518,7 @@ Completed in PR #96, merged as 42addbc1c1c66aff5fe711112c3f6ed4685dc13b after se
 
 **Publish a typed command capability registry**
 
-Status: ready. Dependencies: none.
+Status: done. Dependencies: none.
 
 **Files / directories**
 
@@ -1535,14 +1536,16 @@ Status: ready. Dependencies: none.
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/workspaceCommandIndex.js
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/clo7NativeToolCapabilities.js
+- https://github.com/erythrofr/ClothCraft/pull/29
+- https://github.com/erythrofr/ClothCraft/pull/97
 
-
+Completed through merged PR #97 (c558dc6), preserving Mikristian original authorship from #29. Twelve implemented native commands have typed metadata, availability reasons and checked runtime dispatch. All seven checks passed at a8c601f. CPU fixtures cover metadata, worker disconnect and export failures; native GPU window acceptance is not claimed. See docs/command-registry.md for queue/completion and undo/export limitations. The board confirms the reservation is released.
 
 ## EXO-UX-002
 
 **Add a searchable command palette**
 
-Status: blocked. Dependencies: EXO-UX-001.
+Status: ready. Dependencies: EXO-UX-001.
 
 **Files / directories**
 
@@ -1566,7 +1569,7 @@ Status: blocked. Dependencies: EXO-UX-001.
 
 **Persist workspace layouts and tool visibility**
 
-Status: blocked. Dependencies: EXO-UX-001.
+Status: ready. Dependencies: EXO-UX-001.
 
 **Files / directories**
 
@@ -1649,7 +1652,7 @@ Owner-approved scope amendment: integrate through authoring_ui.rs and documents_
 
 **Expose a versioned headless authoring session adapter**
 
-Status: blocked. Dependencies: EXO-CORE-001, EXO-REV-005, EXO-UX-001.
+Status: ready. Dependencies: EXO-CORE-001, EXO-REV-005, EXO-UX-001.
 
 **Files / directories**
 
@@ -2185,3 +2188,30 @@ Status: done. Dependencies: EXO-IO-002.
 - https://github.com/erythrofr/ClothCraft/pull/92
 
 Delivered by #92 as d98e889 after all seven checks passed at fb4e203. Five backend tests and 84 active desktop CPU tests passed locally, including four named-widget importer checks; strict Clippy passed. Explicit release accepted on #90 as receipt 6413296156. Uses the existing document/history installer and preserves unchanged-panel state. Native OS-picker/GPU visual acceptance remains unverified. Generic planar DXF only: no export, industrial AAMA/ASTM semantics, automatic holes, line joining or sewing inference. See docs/pattern-import.md.
+
+## EXO-IO-011
+
+**Import reviewed SVG patterns in the native workspace**
+
+Status: blocked. Dependencies: EXO-IO-001.
+
+**Files / directories**
+
+- `src/atelier/svg_import_ui.rs`
+- `src/atelier/documents_ui.rs`
+- `docs/svg-import.md`
+
+**Acceptance**
+
+- Expose File > Import SVG patterns with bounded local UTF-8 reading, source identity, physical dimensions, explicit curve tolerance, loss report and outline preview before applying. No external resource resolution or guessed scale.
+- Preview SVG +Y downward and let the user select outlines, an existing fabric and mesh spacing. Changing source or tolerance invalidates reviewed selection and acknowledgement; stale previews cannot apply.
+- Reuse garment::svg_import preparation and the existing authoring/history installer. Add stable unsewn panels in a separated arrangement; preserve existing rest geometry, materials, seams, avatar and unchanged-panel drape; invalidate stale worker responses and mark dirty.
+- Cancel, Escape, invalid input and failed compilation preserve document/history/generation. Respect current authoring drafts and the normal unsaved-window-close flow.
+- Use named-control CPU tests and real shared transactions for selection/acknowledgement, stale Apply, cancellation, one apply, rollback, drape preservation, undo/redo and portable save/reopen. Document native picker/GPU acceptance separately.
+
+**Evidence and related contributions**
+
+- https://github.com/erythrofr/ClothCraft/issues/103
+- https://github.com/erythrofr/ClothCraft/pull/101
+
+Native integration follow-up; do not duplicate the SVG parser or conversion. Private modal/document adapter tests may live alongside production modules like existing DXF harness tests. Register issue #103 after this scope merges, then wait for the reader dependency and an accepted claim. No source work is reserved by this manifest proposal.

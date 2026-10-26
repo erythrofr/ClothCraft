@@ -1444,7 +1444,7 @@
       "id": "EXO-UX-001",
       "title": "Publish a typed command capability registry",
       "area": "workspace",
-      "status": "ready",
+      "status": "done",
       "depends_on": [],
       "scope": [
         "src/atelier/commands.rs",
@@ -1460,14 +1460,17 @@
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/workspaceCommandIndex.js",
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/clo7NativeToolCapabilities.js"
       ],
-      "related_prs": [],
-      "notes": ""
+      "related_prs": [
+        "https://github.com/erythrofr/ClothCraft/pull/29",
+        "https://github.com/erythrofr/ClothCraft/pull/97"
+      ],
+      "notes": "Completed through merged PR #97 (c558dc6), preserving Mikristian original authorship from #29. Twelve implemented native commands have typed metadata, availability reasons and checked runtime dispatch. All seven checks passed at a8c601f. CPU fixtures cover metadata, worker disconnect and export failures; native GPU window acceptance is not claimed. See docs/command-registry.md for queue/completion and undo/export limitations. The board confirms the reservation is released."
     },
     {
       "id": "EXO-UX-002",
       "title": "Add a searchable command palette",
       "area": "workspace",
-      "status": "blocked",
+      "status": "ready",
       "depends_on": [
         "EXO-UX-001"
       ],
@@ -1491,7 +1494,7 @@
       "id": "EXO-UX-003",
       "title": "Persist workspace layouts and tool visibility",
       "area": "workspace",
-      "status": "blocked",
+      "status": "ready",
       "depends_on": [
         "EXO-UX-001"
       ],
@@ -1573,7 +1576,7 @@
       "id": "EXO-UX-006",
       "title": "Expose a versioned headless authoring session adapter",
       "area": "automation",
-      "status": "blocked",
+      "status": "ready",
       "depends_on": [
         "EXO-CORE-001",
         "EXO-REV-005",
@@ -2121,6 +2124,33 @@
       ],
       "related_prs": ["https://github.com/erythrofr/ClothCraft/pull/92"],
       "notes": "Delivered by #92 as d98e889 after all seven checks passed at fb4e203. Five backend tests and 84 active desktop CPU tests passed locally, including four named-widget importer checks; strict Clippy passed. Explicit release accepted on #90 as receipt 6413296156. Uses the existing document/history installer and preserves unchanged-panel state. Native OS-picker/GPU visual acceptance remains unverified. Generic planar DXF only: no export, industrial AAMA/ASTM semantics, automatic holes, line joining or sewing inference. See docs/pattern-import.md."
+    },
+    {
+      "id": "EXO-IO-011",
+      "title": "Import reviewed SVG patterns in the native workspace",
+      "area": "interchange",
+      "status": "blocked",
+      "depends_on": [
+        "EXO-IO-001"
+      ],
+      "scope": [
+        "src/atelier/svg_import_ui.rs",
+        "src/atelier/documents_ui.rs",
+        "docs/svg-import.md"
+      ],
+      "acceptance": [
+        "Expose File > Import SVG patterns with bounded local UTF-8 reading, source identity, physical dimensions, explicit curve tolerance, loss report and outline preview before applying. No external resource resolution or guessed scale.",
+        "Preview SVG +Y downward and let the user select outlines, an existing fabric and mesh spacing. Changing source or tolerance invalidates reviewed selection and acknowledgement; stale previews cannot apply.",
+        "Reuse garment::svg_import preparation and the existing authoring/history installer. Add stable unsewn panels in a separated arrangement; preserve existing rest geometry, materials, seams, avatar and unchanged-panel drape; invalidate stale worker responses and mark dirty.",
+        "Cancel, Escape, invalid input and failed compilation preserve document/history/generation. Respect current authoring drafts and the normal unsaved-window-close flow.",
+        "Use named-control CPU tests and real shared transactions for selection/acknowledgement, stale Apply, cancellation, one apply, rollback, drape preservation, undo/redo and portable save/reopen. Document native picker/GPU acceptance separately."
+      ],
+      "evidence": [
+        "https://github.com/erythrofr/ClothCraft/issues/103",
+        "https://github.com/erythrofr/ClothCraft/pull/101"
+      ],
+      "related_prs": [],
+      "notes": "Native integration follow-up; do not duplicate the SVG parser or conversion. Private modal/document adapter tests may live alongside production modules like existing DXF harness tests. Register issue #103 after this scope merges, then wait for the reader dependency and an accepted claim. No source work is reserved by this manifest proposal."
     }
   ]
 }

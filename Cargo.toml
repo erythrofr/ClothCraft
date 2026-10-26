@@ -18,6 +18,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 spade = "=2.15.1"
 i_overlay = "=9.0.1"
+quick-xml = "=0.41.0"
+svgtypes = "=0.16.1"
 tempfile = "3"
 rfd = { version = "0.17.2", optional = true }
 tracing = "0.1"
