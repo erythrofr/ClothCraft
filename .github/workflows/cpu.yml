@@ -14,7 +14,8 @@ permissions:
   contents: read
 jobs:
   cpu:
-    runs-on: ubuntu-latest
+    # Canonical Linux CPU suite; build.yml uses this same image for its artifacts.
+    runs-on: ubuntu-24.04
     env:
       RAYON_NUM_THREADS: 2
     steps:

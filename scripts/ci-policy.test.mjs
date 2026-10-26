@@ -25,6 +25,22 @@ test('coordinator retains its non-cancelling ledger writer and trusted checkout'
   assert.doesNotMatch(source, /cancel-in-progress: true/);
 });
 
+test('Linux has one canonical CPU suite, with standalone manual builds covered', () => {
+  const cpu = readFileSync(new URL('../.github/workflows/cpu.yml', import.meta.url), 'utf8').replaceAll('\r\n', '\n');
+  const build = readFileSync(new URL('../.github/workflows/build.yml', import.meta.url), 'utf8').replaceAll('\r\n', '\n');
+  const canonical = cpu.slice(cpu.indexOf('  cpu:'), cpu.indexOf('  desktop:'));
+  assert.match(canonical, /runs-on: ubuntu-24\.04/);
+  assert.match(canonical, /cargo test --locked --no-default-features -j 2 -- --test-threads=2/);
+  assert.doesNotMatch(canonical, /\n\s+if:/); // The canonical suite must not become conditional.
+  assert.match(build, /os: ubuntu-24\.04\s+artifact: linux-x86_64/);
+  const testStep = build.match(/      - name: Test the CPU core without graphics features\n[\s\S]*?(?=\n      (?:- |#)|$)/)?.[0];
+  assert.ok(testStep);
+  assert.match(testStep, /if: runner.os != 'Linux' \|\| github.event_name == 'workflow_dispatch'/);
+  assert.match(testStep, /cargo test --locked --no-default-features -j 2 -- --test-threads=2/);
+  assert.match(build, /fail-fast: false/);
+  assert.match(build, /Validate a shipped template with the built binary/);
+});
+
 test('dependency caches isolate jobs and lockfiles and never replace validation', () => {
   const keys = [];
   for (const name of ['cpu', 'build']) {

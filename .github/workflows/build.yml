@@ -67,6 +67,9 @@ jobs:
           cat dist/BUILD-ENVIRONMENT.txt >> "$GITHUB_STEP_SUMMARY"
 
       - name: Test the CPU core without graphics features
+        # Automatic Linux runs share the required cpu job in cpu.yml on the same
+        # image. A standalone manual build still executes its own CPU suite.
+        if: runner.os != 'Linux' || github.event_name == 'workflow_dispatch'
         run: cargo test --locked --no-default-features -j 2 -- --test-threads=2
 
       # eframe/winit need X11, Wayland and an OpenGL loader to LINK on Linux,
