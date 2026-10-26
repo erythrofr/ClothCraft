@@ -2,9 +2,9 @@
 
 This harness is a diagnostic candidate for EXO-QA-005, exercised against the
 unmerged appearance implementation in PR #128. It does not certify that feature
-or alter the solver. The current first slice covers paused appearance history;
-in-flight worker preservation and save/reopen remain to
-be implemented in this scenario.
+or alter the solver. Separate opt-in scenarios cover paused appearance history,
+live worker continuity, and isolated Save/Open. Their observed results and
+remaining visual acceptance limits are recorded below.
 
 ## Current scenario
 
@@ -28,7 +28,7 @@ deadline writes a failed report. Keyboard modifiers are explicitly released.
 `authoring.json` records each verified action, observed optical state,
 Undo/Redo availability, generation, pending/playing state, time, application
 status and errors. Its `scope` and `remaining_acceptance` fields delimit what
-was tested; `passed` applies only to this paused scenario. Pixel appearance,
+was tested; `passed` applies only to the selected scenario. Pixel appearance,
 shared-material visual coverage and full EXO-LOOK-001 acceptance remain separate.
 No private garment is required.
 
@@ -94,12 +94,13 @@ Inspection found that `documents_ui::document_tick` returns early whenever
 `self.smoke` is true, before processing document shortcuts. Therefore neither
 attempt establishes a production Save failure or a text-focus bug.
 
-The unsuccessful extension was removed; the retained scenario is the verified
-14-phase history/text-ownership probe. Native Save acceptance requires a scoped
-change to the smoke/document boundary that preserves dialog and recovery safety.
-Do not bypass this guard in the harness and call that normal UI acceptance.
+The unsuccessful extension was removed at that stage, retaining the verified
+14-phase history/text-ownership probe. Scope amendment #138 subsequently allowed
+the isolated document adapter described below, preserving the default smoke
+guard and ordinary document behavior. The failed attempts remain diagnostic
+evidence, separate from the later successful run.
 
-## Opt-in worker extension (not yet accepted)
+## Opt-in worker extension
 
 `CLOTHCRAFT_AUTHORING_SCENARIO=appearance-worker` appends six actions to the
 paused scenario: start simulation, stage custom optics, Apply, Undo, Redo, stop.
@@ -109,16 +110,16 @@ history require a pending dispatch followed by a later worker state in the same
 generation. Waiting for that state does not resend the click and is bounded by
 the scenario deadline. Nonfinite state, simulation errors or unexpected playback
 state fail acceptance. This is continuity evidence, not a physics benchmark or
-proof of collision robustness. Native execution of this extension remains
-unverified until a corresponding report is inspected.
+proof of collision robustness. The native execution result below applies to
+the exact tested revision and public fixture.
 
 The live probe additionally requires the compiled garment Arc identity to remain
 unchanged and exact restoration of the expected optical values after Redo.
 Generation/time alone would not detect an accidental same-generation model
 replacement; merely accepting any nonempty appearance would miss wrong values.
-These checks are implemented, but live acceptance is still pending.
+The native result below exercised these checks.
 
-## Isolated document extension (not yet accepted)
+## Isolated document extension
 
 After scope amendment #138, `appearance-documents` enables a separate 20-phase
 scenario. Its first 14 phases are the paused history probe. It then enables and
@@ -133,6 +134,33 @@ The adapter is reachable only in smoke mode with this explicit scenario. It
 atomically reserves `appearance-acceptance.clothcraft.json` under the requested
 output directory and refuses existing paths. Open only targets that reserved
 fixture. The ordinary loader refuses missing avatar assets before its picker
-when this explicit scenario is active; no separate preflight/load race exists. Ordinary documents and other smoke scenarios keep their existing paths.
+when this explicit scenario is active; no separate preflight/load race exists.
+Ordinary documents and other smoke scenarios keep their existing paths.
 CPU tests cover output-local reservation, overwrite refusal and missing output
-folders. No successful native Save/Open run is claimed yet.
+folders. The successful native run below uses this isolated path adapter;
+it does not certify interaction with the operating system file picker.
+
+
+## Native worker and document results — 2026-10-27
+
+Both scenarios ran on revision `e53931da8fd94483e8af601b608327d0f9b0f0fe`
+with owner authorization for short GPU-rendered window tests. The solver stayed
+on CPU with two threads. The public 40 mm T-shirt had 1,026 vertices and 1,838
+triangles. Both processes exited 0 and both reports recorded 20/20 verified
+transitions, including the initial paused history and text-focus checks.
+
+| Scenario | Observed result | Local evidence directory |
+|---|---|---|
+| `appearance-worker` | Apply/Undo/Redo dispatched with a worker request pending; later states advanced, generation stayed 0, model identity stayed unchanged and expected optics were restored. Final simulated time: 0.8 s. | `output/appearance-worker-20261027-a/` |
+| `appearance-documents` | Ctrl+S saved the isolated fixture; after disabling optics, Ctrl+O restored the saved appearance and exact paused x/v/time. Generation advanced to 1 on Save and 2 on Open; Open cleared history. | `output/appearance-documents-20261027-a/` |
+
+Each directory contains `authoring.json` and a final `ui.png`. Reproduce with
+the command above, substituting the scenario environment variable and a fresh
+output directory. The inspected worker capture shows the Fabric controls and
+rendered garment. It is not an intermediate color/roughness comparison.
+
+These results establish the tested history, continuity and persistence behavior,
+not complete EXO-LOOK-001 acceptance. Shared-material visual coverage, a visual
+comparison of different colors/roughness values, native picker interaction and
+the text editor's typed-text undo stack remain outside this evidence. The worker
+report is not a throughput measurement or proof of collision correctness.
