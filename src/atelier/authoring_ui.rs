@@ -182,6 +182,15 @@ impl DartDraft {
     pub(super) fn panel(&self) -> &str {
         &self.panel
     }
+
+    pub(super) fn boundary_start(
+        &self,
+        template: &marvelous_cloth::garment::GarmentTemplate,
+    ) -> Option<DVec2> {
+        dart_edge(template, &self.panel, &self.edge)
+            .ok()
+            .map(|points| points[0])
+    }
 }
 
 /// Real inspector controls, also exercised with the CPU egui event harness.
@@ -1493,6 +1502,26 @@ impl Atelier {
 #[cfg(test)]
 mod construction_tests {
     use super::*;
+
+    #[test]
+    fn named_widgets_dart_minimum_inspector_width_keeps_fields_and_actions_visible() {
+        use super::super::authoring_smoke::widget_harness::Harness;
+        let template = template();
+        let panel = &template.panels[0].id;
+        let mut draft = None;
+        let mut draw = |ui: &mut egui::Ui, draft: &mut Option<DartDraft>| {
+            assert!(dart_controls(ui, draft, &template, Some((panel, "edge_1"))).is_none());
+        };
+        let mut h = Harness::new(Vec2::new(240., 650.));
+        h.frame(&mut draft, &mut draw);
+        h.click("dart.open", &mut draft, &mut draw).unwrap();
+        for (name, value) in [("position", "200"), ("width", "20"), ("depth", "60")] {
+            h.replace_text(&format!("dart.{name}"), value, &mut draft, &mut draw)
+                .unwrap();
+        }
+        h.click("dart.cancel", &mut draft, &mut draw).unwrap();
+        assert!(draft.is_none());
+    }
 
     #[test]
     fn named_widgets_dart_preview_cancel_apply_history_and_reload() {

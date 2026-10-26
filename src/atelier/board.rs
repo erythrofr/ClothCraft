@@ -2745,6 +2745,22 @@ impl Atelier {
             let [left, apex, right] =
                 points.map(|p| board.screen(rect, origin + authoring::rotate_2d(p, angle)));
             let color = Color32::from_rgb(190, 60, 130);
+            if let Some(start) = draft.boundary_start(&self.project.template) {
+                let start = board.screen(rect, origin + authoring::rotate_2d(start, angle));
+                painter.circle_stroke(start, 5., Stroke::new(1.5, color));
+                painter.arrow(
+                    start,
+                    ((left - start) + (right - start)) * 0.5,
+                    Stroke::new(1., color),
+                );
+                painter.text(
+                    start + Vec2::new(8., 8.),
+                    egui::Align2::LEFT_TOP,
+                    "Edge start · 0 mm",
+                    egui::FontId::proportional(11.),
+                    color,
+                );
+            }
             painter.add(egui::Shape::convex_polygon(
                 vec![left, apex, right],
                 color.gamma_multiply(0.15),

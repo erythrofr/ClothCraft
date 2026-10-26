@@ -15,7 +15,9 @@ Launch `scripts/start-atelier.ps1`. All pieces share **one metric 2D board**, be
 In **Edit**, select a straight, unsewn polygon boundary in 2D or 3D. In the
 inspector, choose **Cut-and-sewn dart…**, then enter the intake center's distance
 from the edge start, intake width and inward depth in millimetres. The 2D board
-shows the proposed triangular cut, two legs and apex. The preview follows the
+shows the proposed triangular cut, two legs and apex. An **Edge start · 0 mm**
+marker and arrow identify the origin and direction of the center distance.
+The preview follows the
 panel's board placement and rotation; it never uses the draped shape.
 
 **Apply dart** removes that triangle and creates a reversed sewing relation
