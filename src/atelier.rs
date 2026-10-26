@@ -16,6 +16,8 @@ mod authoring_ui;
 mod board;
 #[path = "atelier/chrome.rs"]
 mod chrome;
+#[path = "atelier/command_palette.rs"]
+mod command_palette;
 #[path = "atelier/commands.rs"]
 mod commands;
 #[path = "atelier/documents_ui.rs"]
@@ -203,6 +205,7 @@ pub fn run(
                 scene,
                 output,
                 viewport: Viewport::new(render),
+                palette: Default::default(),
                 camera: camera(),
                 send: tx,
                 receive,
@@ -267,6 +270,7 @@ pub fn run(
     Ok(())
 }
 struct Atelier {
+    palette: command_palette::Palette,
     cadence: perf::Cadence,
     simulation_error: Option<String>,
     issue: issue_ui::IssueUi,
@@ -646,17 +650,54 @@ impl eframe::App for Atelier {
         }
         let previous_preferences = self.prefs.clone();
         let previous_simulation = self.settings.clone();
-        if let Some((tool, rotate)) = self.authoring.radial.show(
-            &ctx,
-            self.authoring.tool,
-            self.authoring.rotate,
-            self.authoring.selected.is_some(),
-        ) {
-            self.set_authoring_tool(tool, rotate);
+        let can_open_palette = !ctx.egui_wants_keyboard_input()
+            && ctx.memory(|m| m.top_modal_layer().is_none())
+            && !self.settings_open
+            && !self.authoring.radial.blocked
+            && !self.quick.blocked
+            && self.authoring.preview.is_none()
+            && !self.authoring.board.gesture_active()
+            && self.grab.is_none()
+            && self.authoring.drag.is_none()
+            && self.authoring.dart.is_none()
+            && self.authoring.draft.is_empty()
+            && self.authoring.ends.is_empty()
+            && self.authoring.sewing.start.is_none()
+            && self.authoring.sewing.sides.iter().all(Vec::is_empty);
+        let shortcut = egui::Modifiers {
+            command: true,
+            shift: true,
+            ..Default::default()
+        };
+        if can_open_palette
+            && !ctx.input(|i| i.pointer.any_down())
+            && ctx.input_mut(|i| i.consume_key(shortcut, egui::Key::P))
+        {
+            self.palette.begin();
         }
-        self.quick_actions(&ctx);
-        self.sewing_context(&ctx);
-        self.clipboard_shortcuts(&ctx);
+        // Retain the barrier on the closing frame so Enter/click cannot reach a tool.
+        let palette_blocked = self.palette.open;
+        let context = self.command_context();
+        if let Some(command) = self.palette.show(&ctx, context) {
+            self.invoke_command(command, &ctx);
+        }
+        if palette_blocked {
+            ui.disable();
+            self.authoring.radial.blocked = true;
+            self.quick.blocked = true;
+        } else {
+            if let Some((tool, rotate)) = self.authoring.radial.show(
+                &ctx,
+                self.authoring.tool,
+                self.authoring.rotate,
+                self.authoring.selected.is_some(),
+            ) {
+                self.set_authoring_tool(tool, rotate);
+            }
+            self.quick_actions(&ctx);
+            self.sewing_context(&ctx);
+            self.clipboard_shortcuts(&ctx);
+        }
         self.frames += 1;
         self.authoring.hover_edge = None;
         let done = self.receive.lock().unwrap().take();
@@ -694,6 +735,9 @@ impl eframe::App for Atelier {
                 ui.label(egui::RichText::new("ALPHA").small().color(Color32::GRAY))
                     .on_hover_text("Research prototype · most production features remain to be built");
                 ui.separator();
+                if command_palette::launch_button(ui, can_open_palette) {
+                    self.palette.begin();
+                }
                 let play = ui.button(if self.playing {
                     "⏸ Pause"
                 } else if self.authoring.ends.len() == 2 && !self.authoring.sewing.chain_mode {
@@ -758,7 +802,9 @@ impl eframe::App for Atelier {
             });
         });
         let mut changed = false;
-        settings::window(&ctx, &mut self.settings_open, &mut self.prefs, &mut changed);
+        if !palette_blocked {
+            settings::window(&ctx, &mut self.settings_open, &mut self.prefs, &mut changed);
+        }
         if changed {
             // Apply immediately rather than on the next start: the window edits
             // the live `Preferences`, so anything less would leave the theme
