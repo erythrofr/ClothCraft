@@ -84,9 +84,10 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-CAD-011](#exo-cad-011) — Edit independent curve points and mirrored splits in the native 2D workspace | cad | blocked | EXO-REV-001, EXO-REV-002, EXO-CAD-003 | [Issue](https://github.com/erythrofr/ClothCraft/issues/68) |
 | [EXO-MFG-015](#exo-mfg-015) — Create and manage saved pattern measurements in the native 2D UI | manufacturing | blocked | EXO-REV-001, EXO-REV-002 | [Issue](https://github.com/erythrofr/ClothCraft/issues/69) |
 | [EXO-CAD-012](#exo-cad-012) — Add editable pattern text annotations to the native Piece inspector and board | cad | blocked | EXO-REV-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/70) |
-| [EXO-SEW-007](#exo-sew-007) — Preview and create a cut-and-sewn dart from the native pattern UI | sewing | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/71) |
+| [EXO-SEW-007](#exo-sew-007) — Preview and create a cut-and-sewn dart from the native pattern UI | sewing | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/71) |
 | [EXO-PHY-004](#exo-phy-004) — Expose correctly timed contact and residual diagnostics in the native Simulation inspector | physics | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/72) |
 | [EXO-IO-009](#exo-io-009) — Integrate static avatar import into the workspace | interchange | done | EXO-IO-007, EXO-UX-005 | [Issue](https://github.com/erythrofr/ClothCraft/issues/64) |
+| [EXO-IO-010](#exo-io-010) — Import reviewed DXF contours as editable native panels | interchange | blocked | EXO-IO-002 | Not registered |
 
 ## EXO-COORD-001
 
@@ -1042,8 +1043,9 @@ Status: ready. Dependencies: EXO-CORE-001.
 **Evidence and related contributions**
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/dxf.js
+- https://github.com/erythrofr/ClothCraft/pull/88
 
-
+Geometry adapter #88 is in review under issue #87; not yet completed. Native import UX and conversion to editable panels are separately scoped as EXO-IO-010. Generic geometry parsing is not AAMA/ASTM support.
 
 ## EXO-IO-003
 
@@ -2038,7 +2040,7 @@ Owner-requested native ClothCraft UI slice after reviewing PR #66. Work on a fea
 
 **Preview and create a cut-and-sewn dart from the native pattern UI**
 
-Status: ready. Dependencies: none.
+Status: done. Dependencies: none.
 
 **Files / directories**
 
@@ -2068,8 +2070,9 @@ Status: ready. Dependencies: none.
 - https://github.com/erythrofr/ClothCraft/pull/7
 - https://github.com/erythrofr/ClothCraft/pull/66
 - https://github.com/erythrofr/ClothCraft/pull/80
+- https://github.com/erythrofr/ClothCraft/pull/85
 
-Backend prerequisite delivered by PR #80 (main e727f2c): Command::DartCutSew, ordinary v2 geometry/seams, complete chain-reference protection, analytic area/mass, save/reload and history regression checks. This UI slice no longer waits for unrelated persistent POM/cutline work in EXO-REV-002; that broad task remains incomplete. Use the existing transaction and CPU named-widget harness. Preserve rejection of sewn/curved/targeted boundaries, holes/internal lines and linked mirrors; no uncut fold mechanics or solver changes. Keep docs/authoring.md current and publish the handoff on issue #71 instead of reserving shared docs/handoff.md. Check overlapping claims (especially markings) before editing; ready means eligible, not assigned. Original contributor attribution from #80 must be retained.
+Backend #80 and native UI #85 merged (d0c6e6c). All seven CI checks passed on 7577480. CPU desktop suite: 80 passed, one optional ignored; 18 authoring/dart regressions passed. Named-control tests cover Apply/Cancel, stale selection, narrow inspector, analytic mass, serialization and undo/redo. Cut-and-sewn darts only; unsupported geometry remains rejected. No native GPU/window visual acceptance claimed. Issue #71 records the handoff and accepted release.
 
 ## EXO-PHY-004
 
@@ -2138,3 +2141,34 @@ Status: done. Dependencies: EXO-IO-007, EXO-UX-005.
 - https://github.com/erythrofr/ClothCraft/pull/74
 
 Merged PR #74 at ea8ae2c implements native static avatar import with confirmation, owned canonical OBJ staging, portable save and worker-generation invalidation. All 12 required CI checks passed on source 39c61c9; CPU named-widget and format tests cover the task acceptance. Native OS picker/GPU acceptance remains untested. Geometry only: no rigging, animation, textures, guessed scale or collision repair; dense import is synchronous. See docs/avatar-import.md and issue #64 for evidence.
+
+## EXO-IO-010
+
+**Import reviewed DXF contours as editable native panels**
+
+Status: blocked. Dependencies: EXO-IO-002.
+
+**Files / directories**
+
+- `src/pattern_import.rs`
+- `src/lib.rs`
+- `src/atelier/pattern_import_ui.rs`
+- `src/atelier/documents_ui.rs`
+- `src/atelier/authoring_ui.rs`
+- `tests/pattern_import.rs`
+- `docs/pattern-import.md`
+
+**Acceptance**
+
+- Expose local DXF selection, explicit source scale/units and a bounded 2D preview with layer, entity, closure and unsupported-entity information before confirmation. Missing units require user input; never silently guess.
+- Let the user explicitly select closed contours to create unsewn editable panels. Keep cut/sew source paths separate; reject ambiguous nested, overlapping or self-intersecting contours rather than guessing holes, seams or manufacturing semantics. Open paths remain visible as excluded geometry.
+- Prepare and validate the complete addition before changing the active garment. Allocate stable panel/boundary IDs, preserve existing rest geometry, seams, fabrics and avatar, and append the selected panels as one undoable edit. Explain the dependent drape reset before Apply.
+- Cancel, invalid files and compilation failures preserve document/history/worker generation. Successful Apply marks dirty, resets dependent caches and discards stale worker responses. Save/reopen and undo/redo preserve imported material dimensions.
+- Use named UI controls and production transactions on CPU to exercise scale confirmation, contour selection, losses, Cancel, one Apply, failure rollback, existing-panel preservation and save/reload. Include independent DXF fixtures and document generic-DXF limitations; do not claim industrial dialect support.
+
+**Evidence and related contributions**
+
+- https://github.com/erythrofr/ClothCraft/pull/88
+- https://github.com/erythrofr/ClothCraft/issues/87
+
+Proposed follow-up, not an accepted assignment. Wait for the parser prerequisite to merge and be marked done, then register and claim through the live coordinator. Reuse the existing document menu adapter and named-widget harness; do not touch the reserved src/atelier.rs entrypoint. Unsupported import data must be reviewable before mutation. No DXF export, sewing inference, automatic line stitching, AAMA/ASTM or solver work in this slice.
