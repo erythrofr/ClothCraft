@@ -217,7 +217,12 @@ impl Smoke {
                     ..Default::default()
                 }),
                 _ => None,
-            },
+            }
+            .map(|mut probe| {
+                probe.heatmap =
+                    std::env::var("CLOTHCRAFT_APPEARANCE_HEATMAP").as_deref() == Ok("1");
+                probe
+            }),
             panel_tools: std::env::var("CLOTHCRAFT_AUTHORING_SCENARIO").as_deref()
                 == Ok("panel-tools"),
             workflow: std::env::var("CLOTHCRAFT_AUTHORING_SCENARIO").as_deref() == Ok("workflow"),
@@ -910,6 +915,7 @@ struct AppearanceProbe {
     running: bool,
     documents: bool,
     capture: Option<AppearanceCapture>,
+    heatmap: bool,
     latest_pending: bool,
     latest_time: f64,
     dispatched: Option<(bool, f64)>,
@@ -1056,6 +1062,9 @@ impl Atelier {
                         self.prefs.viewport.floor = false;
                         self.prefs.viewport.grid = false;
                         self.prefs.viewport.shadow = false;
+                    }
+                    if probe.heatmap {
+                        self.heat = true;
                     }
                     probe.ready = true;
                 }
@@ -1226,7 +1235,7 @@ impl Atelier {
         let complete = probe.phase == probe.action_count();
         if !smoke.finished && (complete || failure.is_some()) {
             let report = serde_json::json!({"passed":complete && failure.is_none(),
-                "scenario":"appearance","capture_variant":probe.capture.map(|c| format!("{c:?}")),"document_scenario":probe.documents,"scope":if probe.capture.is_some() { "paused appearance capture fixture; visual inspection required" } else if probe.documents { "paused history plus isolated native Save/Open" } else if probe.running { "paused history plus live worker continuity" } else { "paused pointer history, keyboard history and text ownership" },
+                "scenario":"appearance","heatmap":probe.heatmap,"capture_variant":probe.capture.map(|c| format!("{c:?}")),"document_scenario":probe.documents,"scope":if probe.capture.is_some() { "paused appearance capture fixture; visual inspection required" } else if probe.documents { "paused history plus isolated native Save/Open" } else if probe.running { "paused history plus live worker continuity" } else { "paused pointer history, keyboard history and text ownership" },
                 "completed_verified_actions":probe.phase,"expected_actions":probe.action_count(),"worker_scenario":probe.running,
                 "observations":probe.observations,"failure":failure,
                 "remaining_acceptance":if probe.capture.is_some() { vec!["visual comparison", "full history", "in-flight worker", "save/reopen"] } else if probe.documents { vec!["in-flight worker", "visual shading"] } else if probe.running { vec!["save/reopen", "visual shading"] } else { vec!["in-flight worker", "save/reopen", "visual shading"] }});

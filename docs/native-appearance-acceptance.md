@@ -242,3 +242,20 @@ shows cyan fabric and matching numeric controls. Twelve focused CPU appearance
 tests passed before the native run. This demonstrates the tested color edit and
 visible shared-fabric response; isolation of another fabric and diagnostic
 rendering cases remain unverified.
+
+
+## Diagnostic heatmap comparison
+
+Set `CLOTHCRAFT_APPEARANCE_HEATMAP=1` together with an appearance scenario to
+start its strain view. This option only affects the explicit appearance smoke
+probe; it is ignored by normal launches and other smoke families. Reports record
+`heatmap`. It does not change the physical state or material properties.
+
+Native runs at `08b10d4` plus this option used the public two-fabric visible-control
+fixture. `output/appearance-heat-default-20261027-a/` and
+`output/appearance-heat-color-20261027-a/` both exited 0 (14/14 and 4/4 gates).
+The color run committed [152,235,240] while the default run restored absent
+optics. Inspected images show the strain view on both fabrics. The whole 3D
+viewport crop (x=59..772,y=86..939) has zero changed RGB pixels between them,
+demonstrating precedence over this color edit on the flat, unstrained fixture.
+This does not exercise a varying strain field or contact/marked-face overlays.
