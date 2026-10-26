@@ -1,5 +1,28 @@
 # Repository handoff
 
+## Native DXF pattern import — 26 October 2026
+
+PR #92 implements EXO-IO-010 on top of the generic reader from #88.
+File → Import DXF patterns reviews source units, layers, closure and excluded
+entities before appending selected outlines as ordinary unsewn panels. Changing
+units or chord tolerance invalidates the previous reviewed selection. CAD +Y
+maps to decreasing material V. Nested, touching and overlapping selected paths
+are rejected instead of inferred as holes or cut/sew alternatives.
+
+Preparation compiles the whole garment before recording one undo entry; the
+existing installer preserves unchanged panels and invalidates dependent caches.
+The source file is no longer needed after saving. The six-file implementation
+and limitations are described in [pattern import](pattern-import.md).
+
+Merged as `d98e889a454ea049124259e275e5de8bfdc2bc48` after seven green checks
+on `fb4e203e5098393d6a9d08ca294af40b8331eff2`, including portable Windows
+packaging. Local checks: five backend tests, 84 active desktop CPU tests
+(one optional preview ignored) and strict Clippy passed. Four named-widget
+tests cover actual controls, including a long-layer-name regression. Native
+OS picker/GPU visual acceptance remains unverified. No solver changes or
+industrial DXF support are implied. The reservation was explicitly released
+and confirmed on issue #90 before merge.
+
 ## Static avatar import — 25 October 2026
 
 PR #74 implements EXO-IO-009: File → Import avatar accepts static OBJ, glTF
