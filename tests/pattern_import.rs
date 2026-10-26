@@ -43,6 +43,30 @@ fn prepare(
 }
 
 #[test]
+fn asymmetric_cad_outline_keeps_its_up_direction() {
+    let t = template();
+    let e = prepare(
+        &t,
+        "0\nLWPOLYLINE\n8\nCUT\n90\n3\n70\n1\n10\n0\n20\n0\n10\n100\n20\n0\n10\n0\n20\n200\n",
+        &[0],
+    )
+    .unwrap();
+    let p = e.template.panels.last().unwrap().polygon.as_ref().unwrap();
+    for expected in [
+        glam::DVec2::new(0., 0.2),
+        glam::DVec2::new(0.1, 0.2),
+        glam::DVec2::ZERO,
+    ] {
+        assert!(p.points.iter().any(|v| v.distance(expected) < 1e-12));
+    }
+    assert!(
+        !p.points
+            .iter()
+            .any(|v| v.distance(glam::DVec2::new(0.1, 0.)) < 1e-12)
+    );
+}
+
+#[test]
 fn append_preserves_existing_panels_seams_and_drape_and_adds_expected_area() {
     let t = template();
     let before = serde_json::to_value(&t).unwrap();

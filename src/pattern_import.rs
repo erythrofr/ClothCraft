@@ -160,7 +160,8 @@ pub fn prepare(
             .fold(DVec2::splat(f64::NEG_INFINITY), DVec2::max);
         let size = hi - lo;
         for p in &mut points {
-            *p -= lo;
+            // CAD uses +Y up; material V maps downward in the editor.
+            *p = glam::DVec2::new(p.x - lo.x, hi.y - p.y);
         }
         if domain::area(&points) < 0. {
             points.reverse();

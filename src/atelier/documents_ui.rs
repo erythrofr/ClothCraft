@@ -4,12 +4,15 @@ use rfd::{FileDialog, MessageButtons, MessageDialog, MessageDialogResult};
 use std::time::Instant;
 #[path = "avatar_import_ui.rs"]
 mod avatar_import_ui;
+#[path = "pattern_import_ui.rs"]
+mod pattern_import_ui;
 #[path = "template_browser.rs"]
 mod template_browser;
 
 pub(super) struct DocumentUi {
     browser: template_browser::Browser,
     avatar_import: avatar_import_ui::ImportUi,
+    pattern_import: pattern_import_ui::ImportUi,
     staged_avatar: Option<marvelous_cloth::avatar_import::StagedAvatar>,
     path: Option<PathBuf>,
     pub dirty: bool,
@@ -24,6 +27,7 @@ impl DocumentUi {
             // Let the ordinary Save/Discard/Cancel close flow run below.
             // A modal's early return must not bypass dirty-document protection.
             self.avatar_import = Default::default();
+            self.pattern_import = Default::default();
             self.browser.open = false;
             self.browser.confirming = false;
         }
@@ -32,6 +36,7 @@ impl DocumentUi {
         Self {
             browser: Default::default(),
             avatar_import: Default::default(),
+            pattern_import: Default::default(),
             staged_avatar: None,
             dirty: path.is_none() || modified,
             path,
@@ -60,6 +65,29 @@ fn install_avatar(
     document.dirty = true;
     *generation += 1;
 }
+fn prepare_pattern_edit(
+    import: &pattern_import_ui::ImportUi,
+    project: &FittingProject,
+    scene: &FittingScene,
+) -> Result<marvelous_cloth::authoring::Edit, String> {
+    // Separate the new row along X from both the current drape and the avatar.
+    // Use current positions, not only the original arrangement.
+    let right = scene
+        .state
+        .x
+        .iter()
+        .chain(scene.collider.surface.vertices.iter())
+        .map(|p| p.x)
+        .fold(0., f64::max);
+    let thickness = project
+        .template
+        .fabrics
+        .iter()
+        .map(|f| f.properties.thickness)
+        .fold(0., f64::max);
+    let origin = glam::DVec3::new(right + 0.2 + scene.collider.clearance + thickness, 1.5, 0.5);
+    import.prepare(&project.template, origin)
+}
 fn install_template(
     prepared: marvelous_cloth::template_catalog::Prepared,
     project: &mut FittingProject,
@@ -76,6 +104,49 @@ fn install_template(
     document.browser = Default::default();
 }
 impl Atelier {
+    fn open_pattern_import(&mut self) {
+        if self.authoring.preview.is_some() || self.has_document_draft() {
+            self.status = "Finish or cancel the current drawing, placement or sewing before importing patterns".into();
+            return;
+        }
+        self.playing = false;
+        self.document.pattern_import.begin(&self.project.template);
+    }
+    fn pattern_import_tick(&mut self, ctx: &egui::Context) {
+        use pattern_import_ui::Action;
+        match self
+            .document
+            .pattern_import
+            .show(ctx, &self.project.template)
+        {
+            Some(Action::Choose) => {
+                if let Some(path) = FileDialog::new()
+                    .set_title("Import DXF patterns")
+                    .add_filter("ASCII DXF", &["dxf"])
+                    .pick_file()
+                {
+                    self.document.pattern_import.choose(&path);
+                }
+            }
+            Some(Action::Cancel) => self.document.pattern_import = Default::default(),
+            Some(Action::Confirm) => {
+                match prepare_pattern_edit(
+                    &self.document.pattern_import,
+                    &self.project,
+                    &self.scene,
+                ) {
+                    Ok(edit) => {
+                        self.authoring.history.record(self.project.template.clone());
+                        self.install_edit(edit);
+                        self.document.pattern_import = Default::default();
+                        self.status = "DXF panels added · move and sew them in the workspace · Undo is available".into();
+                    }
+                    Err(error) => self.document.pattern_import.error = Some(error),
+                }
+            }
+            None => {}
+        }
+    }
     fn open_avatar_import(&mut self, ctx: &egui::Context) {
         // Pause controls without changing generation or rewinding the worker.
         // Cancelling the importer is not a document replacement.
@@ -441,6 +512,7 @@ impl Atelier {
     pub(super) fn document_menu(&mut self, ui: &mut egui::Ui) {
         let ctx = ui.ctx().clone();
         for (label, action) in [
+            ("Import DXF patterns…", 7),
             ("Import avatar…", 6),
             ("Templates…", 5),
             ("New project…", 0),
@@ -462,6 +534,7 @@ impl Atelier {
                     }
                     4 => self.open_document(&ctx, true),
                     6 => self.open_avatar_import(&ctx),
+                    7 => self.open_pattern_import(),
                     _ => self.open_template_browser(&ctx),
                 }
             }
@@ -471,6 +544,10 @@ impl Atelier {
     }
     pub(super) fn document_tick(&mut self, ctx: &egui::Context) {
         self.document.dismiss_modals_for_close(ctx);
+        self.pattern_import_tick(ctx);
+        if self.document.pattern_import.open {
+            return;
+        }
         self.avatar_import_tick(ctx);
         if self.document.avatar_import.open {
             return;
