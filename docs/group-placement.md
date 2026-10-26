@@ -55,10 +55,18 @@ and exact zero-motion behavior. The desktop CPU suite at that revision passed
 and selection helpers, cloth/avatar occlusion, near-plane clipping, budget
 refusal, named-canvas pointer/Escape input and focus-loss cancellation.
 
-These tests do not instantiate the complete GPU-backed Atelier. Final preview
-restoration and worker-generation wiring were source-reviewed, not exercised
-as a complete native interaction test. Task EXO-UX-004 remains open for that
-acceptance; native appearance also needs an explicitly authorized window run.
+PR #111, merged as `07c4988`, subsequently exposed the existing production
+editor transitions to direct CPU tests. The fixture exercises preview x/v/time
+restoration, cancellation without history changes, group placement installation,
+undo, invalid-input rejection and layout-only edits that preserve the compiled
+mesh and physical state. It also calls the production generation filter to
+reject stale worker results. The combined desktop CPU suite at #114's
+`da2f4ad` passed 110 tests, with one optional preview ignored.
+
+These tests do not instantiate the complete GPU-backed Atelier or reproduce
+concurrent worker timing. The full native pointer-to-preview-to-install path
+and appearance still need an explicitly authorized window run. Task EXO-UX-004
+remains open for that acceptance; direct transition tests are already present.
 Do not duplicate the implemented transform or selection algorithms.
 
 ```powershell

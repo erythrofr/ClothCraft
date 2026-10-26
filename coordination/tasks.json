@@ -1516,8 +1516,10 @@
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/workspaceProfiles.js",
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/studioCustomization.js"
       ],
-      "related_prs": [],
-      "notes": ""
+      "related_prs": [
+        "https://github.com/erythrofr/ClothCraft/pull/114"
+      ],
+      "notes": "PR #114 at da2f4ad implements named presentation profiles; CI/review pending, not merged yet. Five profile fixtures and 110 desktop CPU tests pass (one optional preview ignored), plus strict desktop Clippy. Scope and native-window acceptance limits are in the PR. Reservation released on #113; obtain a fresh accepted claim before follow-up edits. Do not duplicate the proposed profile store."
     },
     {
       "id": "EXO-UX-004",
@@ -1530,7 +1532,7 @@
       "scope": [
         "src/atelier/selection.rs",
         "src/atelier/gizmo.rs",
-          "src/atelier/authoring_ui.rs",
+        "src/atelier/authoring_ui.rs",
         "src/authoring.rs",
         "tests/group_placement.rs",
         "src/atelier.rs"
@@ -1538,14 +1540,16 @@
       "acceptance": [
         "Define visible-only versus through selection and the group transform pivot.",
         "Commit one transaction, preserving each panel rest shape and explicit drape reset policy.",
-          "Test cancel/undo, linked pairs, hidden geometry and generation invalidation.",
-          "For remaining headless acceptance, extract the existing CPU install/cancel transitions behind thin Atelier wrappers and test those production functions. Preserve reset/selection/history semantics; do not create a test-only replacement installer or change physics."
+        "Test cancel/undo, linked pairs, hidden geometry and generation invalidation.",
+        "For remaining headless acceptance, extract the existing CPU install/cancel transitions behind thin Atelier wrappers and test those production functions. Preserve reset/selection/history semantics; do not create a test-only replacement installer or change physics."
       ],
       "evidence": [
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/meshSelection.js"
       ],
-      "related_prs": [],
-        "notes": "Implementation merged in #105 as 2f9f9c5 after seven green checks at 4a4340a: shared-pivot group placement and bounded visible/Alt-through marquee. Four backend fixtures and 95 desktop CPU tests passed (one optional preview ignored). docs/group-placement.md records usage, pivot, drape-reset and sampling limits. Keep this task open for complete Atelier preview cancellation/worker-generation acceptance: current tests execute backend/helpers/named input, not the full GPU-dependent app. Source reservation is released. Claim the remaining validation slice rather than duplicating the implemented feature; scope expansion for a headless installer requires review."
+      "related_prs": [
+        "https://github.com/erythrofr/ClothCraft/pull/111"
+      ],
+      "notes": "Group placement merged in #105 as 2f9f9c5 after seven green checks: shared-pivot transforms and bounded visible/Alt-through marquee. Follow-up #111 merged as 07c4988: direct production cancellation/install CPU tests cover x/v/time restoration, history, group placement, invalid input, layout-only preservation and stale generation filtering. Full native pointer flow and concurrent worker timing remain separate acceptance; see docs/group-placement.md. Reservation released on #104. Claim the remaining validation slice rather than recreating the feature or transition fixture."
     },
     {
       "id": "EXO-UX-005",
