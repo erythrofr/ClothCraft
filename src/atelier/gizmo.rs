@@ -3,7 +3,7 @@ use super::{
     authoring_ui::{Tool, segment_distance},
     *,
 };
-use glam::DVec3;
+use glam::{DQuat, DVec3, EulerRot};
 use marvelous_cloth::{authoring, garment::template::Placement};
 
 pub(super) struct Drag {
@@ -18,6 +18,18 @@ pub(super) struct Drag {
     vector: DVec3,
     /// Screen tangent fallback for a ring viewed edge-on.
     screen_rotation: Option<Vec2>,
+    group: Vec<String>,
+    group_translation: DVec3,
+    group_rotation: DQuat,
+}
+fn orientation(p: &Placement) -> DQuat {
+    let r = p.rotation_degrees * (std::f64::consts::PI / 180.);
+    DQuat::from_euler(EulerRot::XYZ, r.x, r.y, r.z)
+}
+fn world_motion(start: &Placement, next: &Placement, center: DVec3) -> (DVec3, DQuat) {
+    let rotation = (orientation(next) * orientation(start).inverse()).normalize();
+    let translation = next.translation - center - rotation * (start.translation - center);
+    (translation, rotation)
 }
 const AXES: [DVec3; 3] = [DVec3::X, DVec3::Y, DVec3::Z];
 const COLORS: [Color32; 3] = [
@@ -72,8 +84,31 @@ impl Atelier {
             .preview
             .clone()
             .unwrap_or_else(|| panel.placement.clone());
-        let pivot = DVec3::new(panel.pattern.width * 0.5, -panel.pattern.height * 0.5, 0.);
-        let center = placement.transform(pivot);
+        let mut pivot = DVec3::new(panel.pattern.width * 0.5, -panel.pattern.height * 0.5, 0.);
+        let mut center = placement.transform(pivot);
+        let ids = self.selected_panels();
+        if ids.len() > 1 {
+            // Equal panel weighting: the mean of arranged material-box centres.
+            center = self
+                .project
+                .template
+                .panels
+                .iter()
+                .filter(|p| ids.contains(&p.id))
+                .map(|p| {
+                    p.placement.transform(DVec3::new(
+                        p.pattern.width * 0.5,
+                        -p.pattern.height * 0.5,
+                        0.,
+                    ))
+                })
+                .sum::<DVec3>()
+                / ids.len() as f64;
+            if let Some(drag) = &self.authoring.drag {
+                center = drag.center + drag.group_translation;
+            }
+            pivot = orientation(&placement).inverse() * (center - placement.translation);
+        }
         Some((
             placement,
             pivot,
@@ -129,6 +164,9 @@ impl Atelier {
                         radius,
                         rotate,
                         vector,
+                        group: self.selected_panels(),
+                        group_translation: DVec3::ZERO,
+                        group_rotation: DQuat::IDENTITY,
                         screen_rotation: (rotate
                             && (dir.dot(*axis).abs() < 0.08 || vector.length_squared() < 1e-8))
                             .then_some(Vec2::new(-screen_axis.y, screen_axis.x)),
@@ -173,11 +211,79 @@ impl Atelier {
                 Some(p)
             };
             if let Some(p) = placement {
-                self.preview_placement(p);
+                if drag.group.len() > 1 {
+                    let (translation, rotation) = world_motion(&drag.start, &p, drag.center);
+                    let pivot = drag.center;
+                    let ids = drag.group.clone();
+                    let placements: Result<Vec<_>, _> = self
+                        .project
+                        .template
+                        .panels
+                        .iter()
+                        .filter(|panel| ids.contains(&panel.id))
+                        .map(|panel| {
+                            authoring::transform_placement(
+                                &panel.placement,
+                                pivot,
+                                translation,
+                                rotation,
+                            )
+                            .map(|placement| (panel.id.clone(), placement))
+                        })
+                        .collect();
+                    match placements {
+                        Ok(placements) => {
+                            self.preview_placement(p);
+                            for (id, placement) in placements {
+                                if let Some(panel) = self
+                                    .scene
+                                    .garment
+                                    .panels
+                                    .iter()
+                                    .find(|panel| panel.id == id)
+                                {
+                                    for i in panel.vertices.clone() {
+                                        let uv = self.scene.garment.mesh.uv[i];
+                                        self.scene.state.x[i] =
+                                            placement.transform(DVec3::new(uv.x, -uv.y, 0.));
+                                        self.scene.state.v[i] = DVec3::ZERO;
+                                    }
+                                }
+                            }
+                            if let Some(drag) = self.authoring.drag.as_mut() {
+                                drag.group_translation = translation;
+                                drag.group_rotation = rotation;
+                            }
+                        }
+                        Err(error) => {
+                            self.cancel_preview();
+                            self.status = error;
+                        }
+                    }
+                } else {
+                    self.preview_placement(p);
+                }
             }
         }
         if response.drag_stopped_by(egui::PointerButton::Primary) && self.authoring.drag.is_some() {
-            self.commit_placement();
+            let group = self
+                .authoring
+                .drag
+                .as_ref()
+                .filter(|drag| drag.group.len() > 1)
+                .map(|drag| authoring::Command::PlaceGroup {
+                    panels: drag.group.clone(),
+                    pivot: drag.center,
+                    translation: drag.group_translation,
+                    rotation: drag.group_rotation,
+                });
+            if let Some(command) = group {
+                if self.authoring.preview.is_some() && !self.edit(command) {
+                    self.cancel_preview();
+                }
+            } else {
+                self.commit_placement();
+            }
             self.authoring.drag = None;
         }
         if response.clicked()
@@ -202,11 +308,9 @@ impl Atelier {
             if self.scene.collider.occludes_ray(origin, dir, best - 1e-5) {
                 selected = None;
             }
-            if let Some(id) = selected
-                && self.authoring.selected.as_ref() != Some(&id)
-            {
+            if let Some(id) = selected {
                 self.cancel_preview();
-                self.authoring.selected = Some(id);
+                self.select_panel(id, response.ctx.input(|i| i.modifiers.shift));
             }
         }
     }
@@ -214,6 +318,13 @@ impl Atelier {
         if self.authoring.tool != Tool::Place {
             return;
         }
+        let count = self.selected_panels().len();
+        ui.painter().with_clip_rect(rect).text(
+            rect.left_bottom() + Vec2::new(12., -12.),
+            egui::Align2::LEFT_BOTTOM,
+            format!("{count} selected · Shift-click to add/remove · placement resets selected panels to flat"),
+            egui::FontId::proportional(12.), Color32::LIGHT_GRAY,
+        );
         let Some((_, _, center, radius)) = self.gizmo_basis() else {
             return;
         };
@@ -290,5 +401,38 @@ impl Atelier {
             }
         }
         painter.circle_filled(screen_center, 4., Color32::GOLD);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rotated_primary_handle_defines_one_world_motion_for_the_whole_group() {
+        let primary = Placement {
+            translation: DVec3::new(0.3, 1.2, -0.2),
+            rotation_degrees: DVec3::new(20., 70., -15.),
+        };
+        let other = Placement {
+            translation: DVec3::new(-0.2, 0.7, 0.4),
+            rotation_degrees: DVec3::new(-60., 10., 120.),
+        };
+        let center = DVec3::new(0.1, 0.9, 0.2);
+        let local_pivot = orientation(&primary).inverse() * (center - primary.translation);
+        let next = authoring::rotate_about(&primary, local_pivot, DVec3::Z, 0.6);
+        let (translation, rotation) = world_motion(&primary, &next, center);
+        assert!(translation.length() < 1e-12);
+        let transformed =
+            authoring::transform_placement(&other, center, translation, rotation).unwrap();
+        for p in [DVec3::ZERO, DVec3::new(0.2, -0.4, 0.)] {
+            let expected = center + DQuat::from_rotation_z(0.6) * (other.transform(p) - center);
+            assert!(transformed.transform(p).distance(expected) < 1e-12);
+        }
+        let mut moved = primary.clone();
+        moved.translation += DVec3::new(0.4, 0., 0.);
+        let (delta, rotation) = world_motion(&primary, &moved, center);
+        assert!(delta.distance(DVec3::new(0.4, 0., 0.)) < 1e-12);
+        assert!(rotation.abs_diff_eq(DQuat::IDENTITY, 1e-12));
     }
 }
