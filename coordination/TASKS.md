@@ -66,7 +66,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-AV-003](#exo-av-003) — Expose pin editing and an explicit freeze policy | avatar | ready | EXO-CORE-001 | Not registered |
 | [EXO-AV-004](#exo-av-004) — Show avatar collision coverage and initialization problems | avatar | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/20) |
 | [EXO-UX-001](#exo-ux-001) — Publish a typed command capability registry | workspace | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/21) |
-| [EXO-UX-002](#exo-ux-002) — Add a searchable command palette | workspace | ready | EXO-UX-001 | Not registered |
+| [EXO-UX-002](#exo-ux-002) — Add a searchable command palette | workspace | ready | EXO-UX-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/109) |
 | [EXO-UX-003](#exo-ux-003) — Persist workspace layouts and tool visibility | workspace | ready | EXO-UX-001 | Not registered |
 | [EXO-UX-004](#exo-ux-004) — Add group 3D transforms and marquee selection | workspace | ready | EXO-CORE-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/104) |
 | [EXO-UX-005](#exo-ux-005) — Create a provenance-aware garment template browser | workspace | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/22) |
@@ -1563,8 +1563,9 @@ Status: ready. Dependencies: EXO-UX-001.
 **Evidence and related contributions**
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/workspaceCommandIndex.js
+- https://github.com/erythrofr/ClothCraft/pull/110
 
-
+Native palette merged in #110 as 742b4ef after seven green checks at d38e3d0. Commands button and Ctrl/Cmd+Shift+P search the existing registry; five CPU widget fixtures and 104 desktop tests passed (one optional preview ignored). docs/command-registry.md documents usage and limits. Keep the remaining native input-isolation/dispatch acceptance explicit; do not duplicate the implemented palette. Reservation released on #109.
 
 ## EXO-UX-003
 
@@ -2216,5 +2217,6 @@ Status: ready. Dependencies: EXO-IO-001.
 
 - https://github.com/erythrofr/ClothCraft/issues/103
 - https://github.com/erythrofr/ClothCraft/pull/101
+- https://github.com/erythrofr/ClothCraft/pull/107
 
-Native integration follow-up registered as issue #103. Reuse the merged SVG parser/prepared conversion and the existing document/history installer; no second reader or coordinate convention. Private modal/document adapter tests may live alongside production modules like the DXF harness. Obtain an accepted claim before editing. Native OS picker/GPU acceptance is separate from CPU helper/widget evidence.
+Native SVG adapter merged in #107 as 260646b after seven green checks at 3771fa9. Bounded source review, dimensions, outline selection, material/mesh choice and atomic preparation use the existing reader/installer. Four adapter fixtures cover controls, rollback, drape, history and portable reopen; 93 desktop CPU tests passed (one optional preview ignored). docs/svg-import.md records supported behavior. Full native interaction/installer acceptance remains separate; do not duplicate the merged dialog. Reservation released on #103.

@@ -1489,8 +1489,10 @@
       "evidence": [
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/workspaceCommandIndex.js"
       ],
-      "related_prs": [],
-      "notes": ""
+      "related_prs": [
+        "https://github.com/erythrofr/ClothCraft/pull/110"
+      ],
+      "notes": "Native palette merged in #110 as 742b4ef after seven green checks at d38e3d0. Commands button and Ctrl/Cmd+Shift+P search the existing registry; five CPU widget fixtures and 104 desktop tests passed (one optional preview ignored). docs/command-registry.md documents usage and limits. Keep the remaining native input-isolation/dispatch acceptance explicit; do not duplicate the implemented palette. Reservation released on #109."
     },
     {
       "id": "EXO-UX-003",
@@ -2153,8 +2155,10 @@
         "https://github.com/erythrofr/ClothCraft/issues/103",
         "https://github.com/erythrofr/ClothCraft/pull/101"
       ],
-      "related_prs": [],
-      "notes": "Native integration follow-up registered as issue #103. Reuse the merged SVG parser/prepared conversion and the existing document/history installer; no second reader or coordinate convention. Private modal/document adapter tests may live alongside production modules like the DXF harness. Obtain an accepted claim before editing. Native OS picker/GPU acceptance is separate from CPU helper/widget evidence."
+      "related_prs": [
+        "https://github.com/erythrofr/ClothCraft/pull/107"
+      ],
+      "notes": "Native SVG adapter merged in #107 as 260646b after seven green checks at 3771fa9. Bounded source review, dimensions, outline selection, material/mesh choice and atomic preparation use the existing reader/installer. Four adapter fixtures cover controls, rollback, drape, history and portable reopen; 93 desktop CPU tests passed (one optional preview ignored). docs/svg-import.md records supported behavior. Full native interaction/installer acceptance remains separate; do not duplicate the merged dialog. Reservation released on #103."
     }
   ]
 }

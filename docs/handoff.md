@@ -1,5 +1,20 @@
 # Repository handoff
 
+## Native SVG import and command palette — 26 October 2026
+
+PR #107 merged as `260646b` after seven green checks at `3771fa9` and exposes
+File → Import SVG patterns. [SVG import](svg-import.md) documents selection,
+units, conversion losses, atomic preparation and CPU widget/save-reopen checks.
+This supersedes the earlier reader-only UI status below. EXO-IO-011 (#103)
+retains the full native interaction/installer acceptance boundary.
+
+PR #110 merged as `742b4ef` after seven green checks at `d38e3d0`. The
+[command palette](command-registry.md#find-a-command) searches twelve existing
+commands through the shared checked adapter. EXO-UX-002 (#109) retains native
+input-isolation acceptance; CPU palette fixtures are already implemented.
+Both source reservations are released. Review the merged code and remaining
+evidence before claiming work, rather than creating duplicate integrations.
+
 ## Group placement integration — 26 October 2026
 
 PR #105 merged as `2f9f9c5` after seven successful checks at `4a4340a`.
