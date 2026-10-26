@@ -13,6 +13,7 @@ pub mod presets;
 pub mod production_metrics;
 pub mod seam;
 pub mod shapes;
+pub mod svg_import;
 pub mod template;
 
 pub use template::{CompiledGarment, GarmentTemplate};
