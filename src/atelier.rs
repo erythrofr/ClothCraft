@@ -634,6 +634,9 @@ impl eframe::App for Atelier {
     }
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
+        if self.authoring.tool != Tool::Place {
+            self.authoring.selection.placement_marquee = None;
+        }
         let previous_preferences = self.prefs.clone();
         let previous_simulation = self.settings.clone();
         if let Some((tool, rotate)) = self.authoring.radial.show(

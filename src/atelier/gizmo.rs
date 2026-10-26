@@ -118,10 +118,16 @@ impl Atelier {
     }
     pub(super) fn place_interaction(&mut self, response: &egui::Response, rect: egui::Rect) {
         if self.authoring.tool != Tool::Place {
+            self.authoring.selection.placement_marquee = None;
             return;
         }
         if response.ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
             self.cancel_preview();
+            super::selection::marquee_input(
+                &mut self.authoring.selection.placement_marquee,
+                response,
+                false,
+            );
             return;
         }
         if response.drag_started_by(egui::PointerButton::Primary)
@@ -175,6 +181,11 @@ impl Atelier {
             }
             self.authoring.drag = hit;
         }
+        let completed_marquee = super::selection::marquee_input(
+            &mut self.authoring.selection.placement_marquee,
+            response,
+            self.authoring.drag.is_none(),
+        );
         if response.dragged_by(egui::PointerButton::Primary)
             && let (Some(drag), Some(pointer)) =
                 (&self.authoring.drag, response.interact_pointer_pos())
@@ -286,6 +297,9 @@ impl Atelier {
             }
             self.authoring.drag = None;
         }
+        if let Some(gesture) = completed_marquee {
+            self.finish_placement_marquee(rect, gesture);
+        }
         if response.clicked()
             && let Some(pointer) = response.interact_pointer_pos()
         {
@@ -319,10 +333,37 @@ impl Atelier {
             return;
         }
         let count = self.selected_panels().len();
+        if let Some(gesture) = &self.authoring.selection.placement_marquee {
+            let box_rect = egui::Rect::from_two_pos(gesture.start, gesture.end).intersect(rect);
+            let color = if gesture.through {
+                Color32::GOLD
+            } else {
+                Color32::LIGHT_BLUE
+            };
+            let painter = ui.painter().with_clip_rect(rect);
+            painter.rect_filled(box_rect, 0., color.gamma_multiply(0.12));
+            painter.rect_stroke(
+                box_rect,
+                0.,
+                Stroke::new(1.5, color),
+                egui::StrokeKind::Inside,
+            );
+            painter.text(
+                box_rect.left_top(),
+                egui::Align2::LEFT_BOTTOM,
+                if gesture.through {
+                    "Through selection"
+                } else {
+                    "Visible surfaces"
+                },
+                egui::FontId::proportional(12.),
+                color,
+            );
+        }
         ui.painter().with_clip_rect(rect).text(
             rect.left_bottom() + Vec2::new(12., -12.),
             egui::Align2::LEFT_BOTTOM,
-            format!("{count} selected · Shift-click to add/remove · placement resets selected panels to flat"),
+            format!("{count} selected · Shift: add/remove · Alt: through\nDrag outside handles to box select · placement resets selected drape"),
             egui::FontId::proportional(12.), Color32::LIGHT_GRAY,
         );
         let Some((_, _, center, radius)) = self.gizmo_basis() else {

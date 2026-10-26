@@ -85,9 +85,251 @@ pub(super) struct Selection {
     pub garment_rect: Option<egui::Rect>,
     pub clipboard: Option<PatternClipboard>,
     pub paste_count: u32,
+    pub placement_marquee: Option<PlacementMarquee>,
+}
+
+pub(super) struct PlacementMarquee {
+    pub start: egui::Pos2,
+    pub end: egui::Pos2,
+    pub through: bool,
+    pub add: bool,
+}
+
+pub(super) fn marquee_input(
+    gesture: &mut Option<PlacementMarquee>,
+    response: &egui::Response,
+    allow_start: bool,
+) -> Option<PlacementMarquee> {
+    if response.ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+        *gesture = None;
+        return None;
+    }
+    if allow_start
+        && response.drag_started_by(egui::PointerButton::Primary)
+        && let Some(start) = response.ctx.input(|i| i.pointer.press_origin())
+    {
+        *gesture = Some(PlacementMarquee {
+            start,
+            end: start,
+            through: response.ctx.input(|i| i.modifiers.alt),
+            add: response.ctx.input(|i| i.modifiers.shift),
+        });
+    }
+    if let Some(gesture) = gesture.as_mut()
+        && let Some(pointer) = response.interact_pointer_pos()
+    {
+        gesture.end = pointer;
+    }
+    if response.drag_stopped_by(egui::PointerButton::Primary) {
+        gesture.take()
+    } else {
+        None
+    }
+}
+
+// Clip before perspective division, including triangles crossing the near plane.
+fn clip_triangle(triangle: [glam::DVec4; 3]) -> Vec<glam::DVec4> {
+    if triangle.iter().any(|p| !p.is_finite()) {
+        return vec![];
+    }
+    let mut polygon = triangle.to_vec();
+    for plane in 0..6 {
+        let distance = |p: glam::DVec4| match plane {
+            0 => p.w + p.x,
+            1 => p.w - p.x,
+            2 => p.w + p.y,
+            3 => p.w - p.y,
+            4 => p.z,
+            _ => p.w - p.z,
+        };
+        let mut next = vec![];
+        for i in 0..polygon.len() {
+            let a = polygon[i];
+            let b = polygon[(i + 1) % polygon.len()];
+            let da = distance(a);
+            let db = distance(b);
+            if da >= 0. {
+                next.push(a);
+            }
+            if (da >= 0.) != (db >= 0.) {
+                next.push(a + (b - a) * (da / (da - db)));
+            }
+        }
+        polygon = next;
+        if polygon.is_empty() {
+            break;
+        }
+    }
+    polygon
+}
+
+/// Visible mode samples a bounded CPU depth buffer (up to 512 by 512).
+/// Through mode tests projected triangle overlap without an occlusion test.
+/// None is an occluder such as the avatar, never a selectable panel.
+fn select_rect(
+    matrix: glam::Mat4,
+    viewport: egui::Rect,
+    region: egui::Rect,
+    through: bool,
+    triangles: impl IntoIterator<Item = (Option<usize>, [glam::DVec3; 3])>,
+) -> Result<BTreeSet<usize>, String> {
+    let region = region.intersect(viewport);
+    if !region.is_positive() || !viewport.is_finite() || !matrix.is_finite() {
+        return Ok(BTreeSet::new());
+    }
+    let width = region.width().ceil().clamp(1., 512.) as usize;
+    let height = region.height().ceil().clamp(1., 512.) as usize;
+    let mut depth = vec![f64::INFINITY; width * height];
+    let mut owners = vec![None; width * height];
+    let mut selected = BTreeSet::new();
+    let mut work = 0usize;
+    let matrix = matrix.as_dmat4();
+    for (owner, triangle) in triangles {
+        if through && owner.is_none() {
+            continue;
+        }
+        let polygon = clip_triangle(triangle.map(|p| matrix * p.extend(1.)));
+        if polygon.len() < 3 || polygon.iter().any(|p| !p.is_finite() || p.w <= 0.) {
+            continue;
+        }
+        let screen: Vec<_> = polygon
+            .iter()
+            .map(|p| {
+                let q = p.truncate() / p.w;
+                glam::DVec3::new(
+                    f64::from(viewport.center().x) + q.x * f64::from(viewport.width()) * 0.5,
+                    f64::from(viewport.center().y) - q.y * f64::from(viewport.height()) * 0.5,
+                    q.z,
+                )
+            })
+            .collect();
+        for i in 1..screen.len() - 1 {
+            let tri = [screen[0], screen[i], screen[i + 1]];
+            let pos = tri.map(|p| egui::pos2(p.x as f32, p.y as f32));
+            if !triangle_in_rect(pos, region) {
+                continue;
+            }
+            if through {
+                selected.insert(owner.unwrap());
+                continue;
+            }
+            let bounds = egui::Rect::from_points(&pos).intersect(region);
+            let grid = |p: egui::Pos2| {
+                glam::DVec2::new(
+                    f64::from((p.x - region.left()) / region.width()) * width as f64,
+                    f64::from((p.y - region.top()) / region.height()) * height as f64,
+                )
+            };
+            let lo = grid(bounds.min);
+            let hi = grid(bounds.max);
+            let x0 = lo.x.floor().max(0.) as usize;
+            let x1 = (hi.x.ceil() as usize).min(width);
+            let y0 = lo.y.floor().max(0.) as usize;
+            let y1 = (hi.y.ceil() as usize).min(height);
+            work = work.saturating_add((x1 - x0) * (y1 - y0));
+            if work > 30_000_000 {
+                return Err("Visible selection exceeded its work budget; use a smaller rectangle or Alt for through selection".into());
+            }
+            let a = tri[0].truncate();
+            let b = tri[1].truncate();
+            let c = tri[2].truncate();
+            let area = (b - a).perp_dot(c - a);
+            if area.abs() < 1e-12 {
+                continue;
+            }
+            for y in y0..y1 {
+                for x in x0..x1 {
+                    let p = glam::DVec2::new(
+                        f64::from(region.left())
+                            + (x as f64 + 0.5) * f64::from(region.width()) / width as f64,
+                        f64::from(region.top())
+                            + (y as f64 + 0.5) * f64::from(region.height()) / height as f64,
+                    );
+                    let u = (b - p).perp_dot(c - p) / area;
+                    let v = (c - p).perp_dot(a - p) / area;
+                    let w = 1. - u - v;
+                    if u < -1e-10 || v < -1e-10 || w < -1e-10 {
+                        continue;
+                    }
+                    let z = u * tri[0].z + v * tri[1].z + w * tri[2].z;
+                    let index = y * width + x;
+                    if z < depth[index] || (owner.is_none() && z <= depth[index] + 1e-12) {
+                        depth[index] = z;
+                        owners[index] = owner;
+                    }
+                }
+            }
+        }
+    }
+    if !through {
+        selected.extend(owners.into_iter().flatten());
+    }
+    Ok(selected)
 }
 
 impl Atelier {
+    pub(super) fn finish_placement_marquee(
+        &mut self,
+        viewport: egui::Rect,
+        gesture: PlacementMarquee,
+    ) {
+        let garment = &self.scene.garment;
+        let state = &self.scene.state;
+        let cloth = garment.panels.iter().enumerate().flat_map(|(index, p)| {
+            garment.mesh.triangles[p.triangles.clone()]
+                .iter()
+                .map(move |t| (Some(index), t.vertices.map(|v| state.x[v])))
+        });
+        let surface = &self.scene.collider.surface;
+        let avatar = surface
+            .triangles
+            .iter()
+            .map(|t| (None, t.map(|v| surface.vertices[v])));
+        match select_rect(
+            self.camera.matrix(viewport.width() / viewport.height()),
+            viewport,
+            egui::Rect::from_two_pos(gesture.start, gesture.end),
+            gesture.through,
+            cloth.chain(avatar),
+        ) {
+            Ok(indices) => {
+                let mut selected: BTreeSet<_> = if gesture.add {
+                    self.selected_panels().into_iter().collect()
+                } else {
+                    BTreeSet::new()
+                };
+                selected.extend(
+                    indices
+                        .into_iter()
+                        .map(|i| self.scene.garment.panels[i].id.clone()),
+                );
+                self.authoring.selected = self
+                    .authoring
+                    .selected
+                    .take()
+                    .filter(|id| selected.contains(id))
+                    .or_else(|| selected.iter().next().cloned());
+                self.authoring.selection.panels = selected;
+                self.authoring.edge = None;
+                self.authoring.anchor = None;
+                self.authoring.board.selection.clear();
+                self.authoring.board.selection_panel = None;
+                self.authoring.board.point_groups.clear();
+                self.authoring.selection.seam = None;
+                self.authoring.selection.seam_card = None;
+                self.status = format!(
+                    "{} panels selected · {} · group placement resets selected drape",
+                    self.selected_panels().len(),
+                    if gesture.through {
+                        "through"
+                    } else {
+                        "visible surface samples"
+                    }
+                );
+            }
+            Err(error) => self.status = error,
+        }
+    }
     pub(super) fn paint_selected_points_3d(&self, ui: &egui::Ui, rect: egui::Rect) {
         if self.authoring.tool != Tool::Edit {
             return;
@@ -490,6 +732,165 @@ fn triangle_in_rect(triangle: [egui::Pos2; 3], rect: egui::Rect) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn named_canvas_finishes_once_and_escape_cancels_without_a_selection() {
+        use super::super::authoring_smoke::widget_harness::{Harness, named};
+        #[derive(Default)]
+        struct Case {
+            gesture: Option<PlacementMarquee>,
+            completed: Vec<PlacementMarquee>,
+            allow: bool,
+        }
+        fn draw(ui: &mut egui::Ui, c: &mut Case) {
+            let (_, response) =
+                ui.allocate_exact_size(Vec2::splat(200.), egui::Sense::click_and_drag());
+            response.request_focus();
+            named(ui, &response, "placement.canvas");
+            if let Some(g) = marquee_input(&mut c.gesture, &response, c.allow) {
+                c.completed.push(g);
+            }
+        }
+        let mut c = Case {
+            allow: true,
+            ..Default::default()
+        };
+        let mut h = Harness::new(Vec2::splat(400.));
+        h.frame(&mut c, &mut draw);
+        h.drag(
+            "placement.canvas",
+            Vec2::new(30., 40.),
+            3,
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert_eq!(c.completed.len(), 1);
+        assert!((c.completed[0].end - c.completed[0].start - Vec2::new(30., 40.)).length() < 1e-4);
+        assert!(!c.completed[0].through && !c.completed[0].add);
+        assert!(c.gesture.is_none());
+        c.gesture = Some(PlacementMarquee {
+            start: egui::Pos2::ZERO,
+            end: egui::pos2(20., 30.),
+            through: true,
+            add: true,
+        });
+        h.key(
+            "placement.canvas",
+            egui::Key::Escape,
+            egui::Modifiers::NONE,
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert!(c.gesture.is_none());
+        assert_eq!(c.completed.len(), 1);
+        c.allow = false; // An active gizmo owns the drag, so it cannot also box-select.
+        h.drag(
+            "placement.canvas",
+            Vec2::new(30., 40.),
+            3,
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert_eq!(c.completed.len(), 1);
+    }
+    fn face(z: f64) -> [glam::DVec3; 3] {
+        [
+            glam::DVec3::new(-0.8, -0.8, z),
+            glam::DVec3::new(0.8, -0.8, z),
+            glam::DVec3::new(0., 0.8, z),
+        ]
+    }
+    #[test]
+    fn visible_marquee_respects_cloth_and_avatar_depth_while_through_is_explicit() {
+        let rect = egui::Rect::from_min_size(egui::Pos2::ZERO, Vec2::splat(100.));
+        let cloth = [(Some(0), face(0.2)), (Some(1), face(0.6))];
+        assert_eq!(
+            select_rect(glam::Mat4::IDENTITY, rect, rect, false, cloth).unwrap(),
+            BTreeSet::from([0])
+        );
+        let blocked = cloth.into_iter().chain([(None, face(0.1))]);
+        assert!(
+            select_rect(glam::Mat4::IDENTITY, rect, rect, false, blocked.clone())
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(
+            select_rect(glam::Mat4::IDENTITY, rect, rect, true, blocked).unwrap(),
+            BTreeSet::from([0, 1])
+        );
+        assert!(
+            select_rect(
+                glam::Mat4::IDENTITY,
+                rect,
+                rect,
+                false,
+                [(Some(0), face(-0.5))]
+            )
+            .unwrap()
+            .is_empty()
+        );
+    }
+    #[test]
+    fn near_plane_clipping_keeps_crossing_occluders_and_geometric_bounds() {
+        use glam::DVec3 as V;
+        let rect = egui::Rect::from_min_size(egui::Pos2::ZERO, Vec2::splat(100.));
+        let avatar = [
+            V::new(-1., -1., -0.2),
+            V::new(1., -1., 0.2),
+            V::new(1., 1., 0.2),
+        ];
+        let cloth = [
+            V::new(0.4, -0.6, 0.7),
+            V::new(0.6, -0.6, 0.7),
+            V::new(0.5, -0.4, 0.7),
+        ];
+        assert_eq!(
+            select_rect(glam::Mat4::IDENTITY, rect, rect, false, [(Some(0), cloth)]).unwrap(),
+            BTreeSet::from([0])
+        );
+        assert!(
+            select_rect(
+                glam::Mat4::IDENTITY,
+                rect,
+                rect,
+                false,
+                [(Some(0), cloth), (None, avatar)]
+            )
+            .unwrap()
+            .is_empty()
+        );
+        let clipped = clip_triangle(avatar.map(|p| p.extend(1.)));
+        assert!(clipped.len() >= 3);
+        assert!(clipped.iter().all(|p| p.z >= -1e-12 && p.z <= p.w + 1e-12));
+        let corner = egui::Rect::from_min_size(egui::pos2(0., 0.), Vec2::splat(5.));
+        assert!(
+            select_rect(
+                glam::Mat4::IDENTITY,
+                rect,
+                corner,
+                true,
+                [(Some(0), face(0.5))]
+            )
+            .unwrap()
+            .is_empty()
+        );
+    }
+    #[test]
+    fn excessive_overdraw_reports_failure_instead_of_partial_selection() {
+        let rect = egui::Rect::from_min_size(egui::Pos2::ZERO, Vec2::splat(512.));
+        assert!(
+            select_rect(
+                glam::Mat4::IDENTITY,
+                rect,
+                rect,
+                false,
+                std::iter::repeat_n((Some(0), face(0.5)), 1000)
+            )
+            .is_err()
+        );
+    }
     #[test]
     fn concave_lasso_selects_edges_and_interior_but_not_empty_corners() {
         let p = |x, y| egui::pos2(x, y);
