@@ -109,6 +109,13 @@ pub enum Command {
         panel: String,
         placement: Placement,
     },
+    /// One world-space rigid transform about a shared pivot; material UVs stay fixed.
+    PlaceGroup {
+        panels: Vec<String>,
+        pivot: DVec3,
+        translation: DVec3,
+        rotation: DQuat,
+    },
     Shape {
         panel: String,
         polygon: PolygonPattern,
@@ -1043,6 +1050,30 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
                 .placement = placement;
             selected = Some(panel);
         }
+        Command::PlaceGroup {
+            panels,
+            pivot,
+            translation,
+            rotation,
+        } => {
+            if panels.is_empty() || panels.len() > template.panels.len() {
+                return Err("Select existing panels for group placement".into());
+            }
+            let mut seen = std::collections::BTreeSet::new();
+            for id in &panels {
+                if !seen.insert(id) {
+                    return Err("Group placement contains a duplicate panel".into());
+                }
+                let panel = template
+                    .panels
+                    .iter_mut()
+                    .find(|p| &p.id == id)
+                    .ok_or("Group placement panel not found")?;
+                panel.placement =
+                    transform_placement(&panel.placement, pivot, translation, rotation)?;
+            }
+            selected = panels.first().cloned();
+        }
         Command::Shape { panel, polygon } => {
             let index = template
                 .panels
@@ -1682,6 +1713,47 @@ pub fn rotate_about(placement: &Placement, pivot: DVec3, axis: DVec3, angle: f64
         translation: placement.transform(pivot) - new * pivot,
         rotation_degrees: DVec3::new(x, y, z) * 180. / std::f64::consts::PI,
     }
+}
+
+/// Compose a world-space rigid motion with a panel arrangement. The quaternion
+/// must be unit length; invalid transforms fail rather than scaling cloth.
+pub fn transform_placement(
+    placement: &Placement,
+    pivot: DVec3,
+    translation: DVec3,
+    rotation: DQuat,
+) -> Result<Placement, String> {
+    if !pivot.is_finite()
+        || !translation.is_finite()
+        || !rotation.is_finite()
+        || (rotation.length_squared() - 1.).abs() > 1e-10
+        || !placement.translation.is_finite()
+        || !placement.rotation_degrees.is_finite()
+    {
+        return Err("Group placement requires a finite rigid transform".into());
+    }
+    if rotation == DQuat::IDENTITY || rotation == -DQuat::IDENTITY {
+        let next = placement.translation + translation;
+        if !next.is_finite() {
+            return Err("Group placement exceeds finite coordinates".into());
+        }
+        return Ok(Placement {
+            translation: next,
+            ..placement.clone()
+        });
+    }
+    let rotation = rotation.normalize();
+    let r = placement.rotation_degrees * (std::f64::consts::PI / 180.);
+    let orientation = rotation * DQuat::from_euler(EulerRot::XYZ, r.x, r.y, r.z);
+    let (x, y, z) = orientation.to_euler(EulerRot::XYZ);
+    let result = Placement {
+        translation: pivot + rotation * (placement.translation - pivot) + translation,
+        rotation_degrees: DVec3::new(x, y, z) * (180. / std::f64::consts::PI),
+    };
+    if !result.translation.is_finite() || !result.rotation_degrees.is_finite() {
+        return Err("Group placement exceeds finite coordinates".into());
+    }
+    Ok(result)
 }
 
 /// History stores editable templates, never GPU resources or transient indices.
