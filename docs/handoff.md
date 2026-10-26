@@ -1,5 +1,24 @@
 # Repository handoff
 
+## Avatar collision diagnostics — 26 October 2026
+
+PR #96 implements EXO-AV-004. Properties → Simulation → Avatar collision
+diagnostics inspects the actual static collision surface and optionally checks
+the captured cloth state through an independent CPU VBD constructor. No solver
+step, cache warming, geometry repair or collision approximation is introduced.
+The bounded background request reports freshness, source identity, referenced
+bounds and topology warnings. See [coverage and limitations](avatar-diagnostics.md).
+Passing initialization does not certify global containment or static avatar
+self-intersections; the existing sewing exclusions still apply.
+
+Merged as `42addbc1c1c66aff5fe711112c3f6ed4685dc13b` after all seven checks
+passed at `0438b63cd41a036ec9b4bde245dd6d97ebb90e0b`. Local evidence: five
+CPU backend tests, 87 active desktop tests (one optional preview ignored) and
+strict Clippy passed. Three named-widget tests cover real asynchronous jobs,
+pause requirements, stale samples, failed initialization and disconnect/retry.
+No native GPU/window appearance claim. Issue #20 records the accepted release;
+the catalog completion is maintained separately from file ownership.
+
 ## Native DXF pattern import — 26 October 2026
 
 PR #92 implements EXO-IO-010 on top of the generic reader from #88.

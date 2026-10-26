@@ -1411,7 +1411,7 @@
       "id": "EXO-AV-004",
       "title": "Show avatar collision coverage and initialization problems",
       "area": "avatar",
-      "status": "ready",
+      "status": "done",
       "depends_on": [],
       "scope": [
         "src/avatar/diagnostics.rs",
@@ -1431,8 +1431,8 @@
       "evidence": [
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/meshAvatarContact.js"
       ],
-      "related_prs": [],
-      "notes": "Scope refinement: register the pure CPU report through avatar.rs and the native inspector through chrome.rs, avoiding atelier.rs reserved by EXO-UX-001. Preserve current collision algorithms; separate local topology warnings from an actual initialization/separation check. No implementation before the reviewed scope is merged and a claim is accepted."
+      "related_prs": [96],
+      "notes": "Completed in PR #96, merged as 42addbc1c1c66aff5fe711112c3f6ed4685dc13b after seven green checks. Properties > Simulation exposes bounded asynchronous static-mesh inspection and the existing CPU VBD initialization gate, with explicit freshness and no live solver/cache mutation. Five CPU backend tests, 87 active desktop tests and strict Clippy passed; three named-widget tests exercise real jobs and failures. Topology is not an intersection/global-containment certificate; local sewing exclusions remain. Native GPU appearance was not tested. See docs/avatar-diagnostics.md and issue #20 for evidence and confirmed reservation release."
     },
     {
       "id": "EXO-UX-001",

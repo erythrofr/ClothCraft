@@ -64,7 +64,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-AV-001](#exo-av-001) — Define avatar landmarks and body measurements | avatar | done | EXO-CORE-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/56) |
 | [EXO-AV-002](#exo-av-002) — Add body-aware panel arrangement assistance | avatar | blocked | EXO-AV-001 | Not registered |
 | [EXO-AV-003](#exo-av-003) — Expose pin editing and an explicit freeze policy | avatar | ready | EXO-CORE-001 | Not registered |
-| [EXO-AV-004](#exo-av-004) — Show avatar collision coverage and initialization problems | avatar | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/20) |
+| [EXO-AV-004](#exo-av-004) — Show avatar collision coverage and initialization problems | avatar | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/20) |
 | [EXO-UX-001](#exo-ux-001) — Publish a typed command capability registry | workspace | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/21) |
 | [EXO-UX-002](#exo-ux-002) — Add a searchable command palette | workspace | blocked | EXO-UX-001 | Not registered |
 | [EXO-UX-003](#exo-ux-003) — Persist workspace layouts and tool visibility | workspace | blocked | EXO-UX-001 | Not registered |
@@ -1481,7 +1481,7 @@ Core pin data already exists; dedicated editing and freeze semantics do not.
 
 **Show avatar collision coverage and initialization problems**
 
-Status: ready. Dependencies: none.
+Status: done. Dependencies: none.
 
 **Files / directories**
 
@@ -1504,7 +1504,7 @@ Status: ready. Dependencies: none.
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/meshAvatarContact.js
 
-Scope refinement: register the pure CPU report through avatar.rs and the native inspector through chrome.rs, avoiding atelier.rs reserved by EXO-UX-001. Preserve current collision algorithms; separate local topology warnings from an actual initialization/separation check. No implementation before the reviewed scope is merged and a claim is accepted.
+Completed in PR #96, merged as 42addbc1c1c66aff5fe711112c3f6ed4685dc13b after seven green checks. Properties > Simulation exposes bounded asynchronous static-mesh inspection and the existing CPU VBD initialization gate, with explicit freshness and no live solver/cache mutation. Five CPU backend tests, 87 active desktop tests and strict Clippy passed; three named-widget tests exercise real jobs and failures. Topology is not an intersection/global-containment certificate; local sewing exclusions remain. Native GPU appearance was not tested. See docs/avatar-diagnostics.md and issue #20 for evidence and confirmed reservation release.
 
 ## EXO-UX-001
 
