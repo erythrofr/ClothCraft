@@ -2154,7 +2154,6 @@ Status: blocked. Dependencies: EXO-IO-002.
 - `src/lib.rs`
 - `src/atelier/pattern_import_ui.rs`
 - `src/atelier/documents_ui.rs`
-- `src/atelier/authoring_ui.rs`
 - `tests/pattern_import.rs`
 - `docs/pattern-import.md`
 
@@ -2171,4 +2170,4 @@ Status: blocked. Dependencies: EXO-IO-002.
 - https://github.com/erythrofr/ClothCraft/pull/88
 - https://github.com/erythrofr/ClothCraft/issues/87
 
-Proposed follow-up, not an accepted assignment. Wait for the parser prerequisite to merge and be marked done, then register and claim through the live coordinator. Reuse the existing document menu adapter and named-widget harness; do not touch the reserved src/atelier.rs entrypoint. Unsupported import data must be reviewable before mutation. No DXF export, sewing inference, automatic line stitching, AAMA/ASTM or solver work in this slice.
+Proposed follow-up, not an accepted assignment. Wait for the parser prerequisite to merge and be marked done, then register and claim through the live coordinator. Reuse the existing document menu adapter and named-widget harness; do not touch the reserved src/atelier.rs entrypoint. Unsupported import data must be reviewable before mutation. No DXF export, sewing inference, automatic line stitching, AAMA/ASTM or solver work in this slice. Existing History::record and Atelier::install_edit are callable from documents_ui.rs; reuse them rather than reserving or editing authoring_ui.rs. Edit::state_after preserves unchanged panels while rebuilding dependent caches.
