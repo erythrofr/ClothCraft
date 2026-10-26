@@ -226,3 +226,19 @@ are `appearance.color` and `appearance.color.red/green/blue`. A CPU pointer test
 changes red, checks unchanged green/blue/roughness and no premature commit, then
 applies once. This verifies control behavior, not rendered color or cross-fabric
 isolation. Native color rendering acceptance remains pending.
+
+
+### Native color capture
+
+`appearance-color` runs four actions: enable optics, Apply, drag the named red
+byte control, Apply. The third gate requires unchanged committed optics; the
+fourth requires reduced red with unchanged green/blue/roughness. All gates
+require exact paused physics preservation. It retains the normal front view.
+
+The local run `output/appearance-color-20261027-a/` (ab02cfb plus this scenario)
+exited 0 with 4/4 gates. Red changed from 232 to 152 only on the final Apply;
+green=235, blue=240 and roughness=0.8 remained unchanged. The inspected screenshot
+shows cyan fabric and matching numeric controls. Twelve focused CPU appearance
+tests passed before the native run. This demonstrates the tested color edit and
+visible shared-fabric response; isolation of another fabric and diagnostic
+rendering cases remain unverified.

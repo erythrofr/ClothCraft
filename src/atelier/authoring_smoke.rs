@@ -196,6 +196,10 @@ impl Smoke {
         Self {
             appearance: match std::env::var("CLOTHCRAFT_AUTHORING_SCENARIO").as_deref() {
                 Ok("appearance") => Some(AppearanceProbe::default()),
+                Ok("appearance-color") => Some(AppearanceProbe {
+                    capture: Some(AppearanceCapture::Color),
+                    ..Default::default()
+                }),
                 Ok("appearance-matte") => Some(AppearanceProbe {
                     capture: Some(AppearanceCapture::Matte),
                     ..Default::default()
@@ -881,8 +885,9 @@ const APPEARANCE_ACTIONS: [&str; 20] = [
     "simulate",
 ];
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum AppearanceCapture {
+    Color,
     Matte,
     Glossy,
 }
@@ -920,7 +925,14 @@ struct AppearanceProbe {
 }
 impl AppearanceProbe {
     fn action(&self) -> &'static str {
-        if self.documents && self.phase >= 14 {
+        if self.capture == Some(AppearanceCapture::Color) {
+            [
+                "appearance.enabled",
+                "appearance.apply",
+                "appearance.color.red",
+                "appearance.apply",
+            ][self.phase]
+        } else if self.documents && self.phase >= 14 {
             [
                 "appearance.enabled",
                 "appearance.apply",
@@ -937,6 +949,7 @@ impl AppearanceProbe {
         if let Some(capture) = self.capture {
             // End only after Apply has passed its ordinary document/physics gate.
             return match capture {
+                AppearanceCapture::Color => 4,
                 AppearanceCapture::Matte => 2,
                 AppearanceCapture::Glossy => 6,
             };
@@ -990,6 +1003,11 @@ impl AppearanceProbe {
             if let Some(pos) = self.origin
                 && (3..=6).contains(&self.tick)
             {
+                let pos = if action == "appearance.color.red" && self.tick >= 4 {
+                    pos + egui::vec2(-40.0 * (self.tick - 3) as f32, 0.0)
+                } else {
+                    pos
+                };
                 input.events.push(egui::Event::PointerMoved(pos));
                 if self.tick == 3 || self.tick == 6 {
                     input.events.push(egui::Event::PointerButton {
@@ -1028,7 +1046,10 @@ impl Atelier {
                         self.scene.state.time,
                         self.generation,
                     ));
-                    if probe.capture.is_some() {
+                    if matches!(
+                        probe.capture,
+                        Some(AppearanceCapture::Matte | AppearanceCapture::Glossy)
+                    ) {
                         appearance_capture_camera(&mut self.camera);
                         // The reflected-light eye is below the floor plane.
                         // Hide presentation-only occluders, not physical contacts.
@@ -1076,7 +1097,21 @@ impl Atelier {
                         && !self.playing
                         && !self.pending
                 };
-            let transition = if probe.documents && probe.phase >= 14 {
+            let transition = if probe.capture == Some(AppearanceCapture::Color) && probe.phase >= 2
+            {
+                if probe.phase == 2 {
+                    current == probe.original
+                } else {
+                    current
+                        .as_ref()
+                        .zip(probe.original.as_ref())
+                        .is_some_and(|(now, before)| {
+                            now.color_srgb[0] < before.color_srgb[0]
+                                && now.color_srgb[1..] == before.color_srgb[1..]
+                                && now.roughness == before.roughness
+                        })
+                }
+            } else if probe.documents && probe.phase >= 14 {
                 match probe.phase {
                     14 => current.is_none(),
                     15 | 17 => current == probe.original && current.is_some(),
@@ -1237,6 +1272,30 @@ mod appearance_probe_tests {
         }
         assert_eq!((presses, releases), (1, 1));
         assert_eq!(probe.phase, 0, "sending a click must not count as success");
+    }
+    #[test]
+    fn color_capture_drags_a_named_channel_without_claiming_success() {
+        let mut probe = AppearanceProbe {
+            capture: Some(AppearanceCapture::Color),
+            ready: true,
+            phase: 2,
+            ..Default::default()
+        };
+        let targets = BTreeMap::from([("appearance.color.red".into(), egui::pos2(200., 30.))]);
+        let mut positions = Vec::new();
+        for _ in 0..8 {
+            let mut input = egui::RawInput::default();
+            probe.input(&mut input, &targets);
+            for event in input.events {
+                if let egui::Event::PointerMoved(pos) = event {
+                    positions.push(pos);
+                }
+            }
+        }
+        assert_eq!(probe.action_count(), 4);
+        assert_eq!(positions.first(), Some(&egui::pos2(200., 30.)));
+        assert_eq!(positions.last(), Some(&egui::pos2(80., 30.)));
+        assert_eq!(probe.phase, 2);
     }
     #[test]
     fn appearance_capture_camera_exposes_the_fixed_light_reflection() {
