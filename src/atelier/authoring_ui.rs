@@ -622,120 +622,26 @@ impl Atelier {
         }
     }
 
+    fn editor_transition(&mut self) -> EditorTransition<'_> {
+        EditorTransition {
+            authoring: &mut self.authoring,
+            project: &mut self.project,
+            scene: &mut self.scene,
+            issue: &mut self.issue,
+            dirty: &mut self.document.dirty,
+            generation: &mut self.generation,
+            playing: &mut self.playing,
+            pending: &mut self.pending,
+            metrics: &mut self.metrics,
+            grab: &mut self.grab,
+            drag_plane: &mut self.drag_plane,
+            simulation_error: &mut self.simulation_error,
+            status: &mut self.status,
+            dt: self.settings.dt,
+        }
+    }
     pub(super) fn install_edit(&mut self, edit: Edit) {
-        self.authoring.dart = None;
-        self.simulation_error = None;
-        self.document.dirty = true;
-        self.authoring.sewing = Default::default();
-        if edit.reset_simulation {
-            self.issue.invalidate();
-            self.scene.state = edit.state_after(&self.scene.garment, &self.scene.state);
-        }
-        let point_order_unchanged = |id: &str| {
-            let old = self
-                .project
-                .template
-                .panels
-                .iter()
-                .find(|p| p.id == id)
-                .and_then(|p| p.polygon.as_ref());
-            let new = edit
-                .template
-                .panels
-                .iter()
-                .find(|p| p.id == id)
-                .and_then(|p| p.polygon.as_ref());
-            matches!((old, new), (Some(a), Some(b)) if a.edges == b.edges && a.points.len() == b.points.len())
-        };
-        let point_groups = self
-            .authoring
-            .board
-            .point_selections()
-            .into_iter()
-            .filter(|(id, _)| point_order_unchanged(id))
-            .collect();
-        let point_selection = self
-            .authoring
-            .board
-            .selection_panel
-            .as_ref()
-            .filter(|id| point_order_unchanged(id))
-            .map(|id| (id.clone(), self.authoring.board.selection.clone()));
-        if self
-            .authoring
-            .anchor
-            .as_ref()
-            .is_some_and(|(id, _)| !point_order_unchanged(id))
-        {
-            self.authoring.anchor = None;
-        }
-        self.project.template = edit.template;
-        self.authoring
-            .selection
-            .panels
-            .retain(|id| self.project.template.panels.iter().any(|p| &p.id == id));
-        self.project.state = None;
-        self.project.mesh_signature = None;
-        self.project.prearrange = false;
-        if edit.reset_simulation {
-            self.scene.garment = std::sync::Arc::new(edit.garment);
-        }
-        self.authoring.board.clear_preview();
-        self.authoring.board.point_groups = point_groups;
-        if let Some((id, indices)) = point_selection {
-            self.authoring.board.selection_panel = Some(id);
-            self.authoring.board.selection = indices;
-        }
-        self.scene.next_dt = self.settings.dt;
-        self.generation += 1;
-        self.playing = false;
-        self.pending = false;
-        self.metrics = None;
-        self.grab = None;
-        self.drag_plane = None;
-        self.authoring.preview = None;
-        self.authoring.preview_state = None;
-        self.authoring.error = None;
-        self.authoring.fabric_draft = None;
-        self.authoring.drag = None;
-        // Force the numeric fields to re-read the edited geometry next frame.
-        self.authoring.numeric_panel = None;
-        self.authoring.numeric_anchor = None;
-        self.authoring.target_edge = None;
-        self.authoring.ends.clear();
-        self.authoring.edge = self.authoring.edge.take().filter(|edge| {
-            self.scene.garment.panels.iter().any(|p| {
-                p.id == edge.panel
-                    && edge
-                        .edge
-                        .as_ref()
-                        .is_some_and(|name| p.boundaries.contains_key(name))
-            })
-        });
-        let inserted = edit.new_point.zip(edit.selected.clone());
-        if let Some(id) = edit.selected {
-            self.authoring.selected = Some(id);
-        }
-        if !self
-            .project
-            .template
-            .panels
-            .iter()
-            .any(|p| Some(&p.id) == self.authoring.selected.as_ref())
-        {
-            self.authoring.selected = self.project.template.panels.first().map(|p| p.id.clone());
-        }
-        // A split selects its new point, so the user keeps editing where they are.
-        if let Some((index, id)) = inserted {
-            self.authoring.board.select_point(id.clone(), index, false);
-            self.authoring.anchor = Some((id, index));
-        }
-        self.status = if edit.reset_simulation {
-            "Edit applied · unchanged panels retained · ready to simulate"
-        } else {
-            "2D layout changed · 3D state preserved"
-        }
-        .into();
+        self.editor_transition().install(edit);
     }
     pub(super) fn edit(&mut self, command: Command) -> bool {
         match authoring::apply(&self.project.template, command) {
@@ -763,13 +669,7 @@ impl Atelier {
         }
     }
     pub(super) fn cancel_preview(&mut self) {
-        if self.authoring.preview.take().is_some() {
-            if let Some(state) = self.authoring.preview_state.take() {
-                self.scene.state = state;
-            }
-            self.generation += 1;
-        }
-        self.authoring.drag = None;
+        self.editor_transition().cancel_preview();
     }
     pub(super) fn preview_placement(&mut self, placement: Placement) {
         let Some(id) = self.authoring.selected.as_ref() else {
@@ -1504,6 +1404,151 @@ impl Atelier {
     }
 }
 
+/// Borrowed CPU state used by the real editor and headless transition fixtures.
+/// Does not own or construct a viewport, device or simulation worker.
+pub(super) struct EditorTransition<'a> {
+    pub authoring: &'a mut AuthoringUi,
+    pub project: &'a mut FittingProject,
+    pub scene: &'a mut FittingScene,
+    pub issue: &'a mut super::issue_ui::IssueUi,
+    pub dirty: &'a mut bool,
+    pub generation: &'a mut u64,
+    pub playing: &'a mut bool,
+    pub pending: &'a mut bool,
+    pub metrics: &'a mut Option<VbdMetrics>,
+    pub grab: &'a mut Option<Grab>,
+    pub drag_plane: &'a mut Option<(DVec3, DVec3)>,
+    pub simulation_error: &'a mut Option<String>,
+    pub status: &'a mut String,
+    pub dt: f64,
+}
+impl EditorTransition<'_> {
+    pub(super) fn install(&mut self, edit: Edit) {
+        self.authoring.dart = None;
+        *self.simulation_error = None;
+        *self.dirty = true;
+        self.authoring.sewing = Default::default();
+        if edit.reset_simulation {
+            self.issue.invalidate();
+            self.scene.state = edit.state_after(&self.scene.garment, &self.scene.state);
+        }
+        let point_order_unchanged = |id: &str| {
+            let old = self
+                .project
+                .template
+                .panels
+                .iter()
+                .find(|p| p.id == id)
+                .and_then(|p| p.polygon.as_ref());
+            let new = edit
+                .template
+                .panels
+                .iter()
+                .find(|p| p.id == id)
+                .and_then(|p| p.polygon.as_ref());
+            matches!((old, new), (Some(a), Some(b)) if a.edges == b.edges && a.points.len() == b.points.len())
+        };
+        let point_groups = self
+            .authoring
+            .board
+            .point_selections()
+            .into_iter()
+            .filter(|(id, _)| point_order_unchanged(id))
+            .collect();
+        let point_selection = self
+            .authoring
+            .board
+            .selection_panel
+            .as_ref()
+            .filter(|id| point_order_unchanged(id))
+            .map(|id| (id.clone(), self.authoring.board.selection.clone()));
+        if self
+            .authoring
+            .anchor
+            .as_ref()
+            .is_some_and(|(id, _)| !point_order_unchanged(id))
+        {
+            self.authoring.anchor = None;
+        }
+        self.project.template = edit.template;
+        self.authoring
+            .selection
+            .panels
+            .retain(|id| self.project.template.panels.iter().any(|p| &p.id == id));
+        self.project.state = None;
+        self.project.mesh_signature = None;
+        self.project.prearrange = false;
+        if edit.reset_simulation {
+            self.scene.garment = std::sync::Arc::new(edit.garment);
+        }
+        self.authoring.board.clear_preview();
+        self.authoring.board.point_groups = point_groups;
+        if let Some((id, indices)) = point_selection {
+            self.authoring.board.selection_panel = Some(id);
+            self.authoring.board.selection = indices;
+        }
+        self.scene.next_dt = self.dt;
+        *self.generation += 1;
+        *self.playing = false;
+        *self.pending = false;
+        *self.metrics = None;
+        *self.grab = None;
+        *self.drag_plane = None;
+        self.authoring.preview = None;
+        self.authoring.preview_state = None;
+        self.authoring.error = None;
+        self.authoring.fabric_draft = None;
+        self.authoring.drag = None;
+        // Force the numeric fields to re-read the edited geometry next frame.
+        self.authoring.numeric_panel = None;
+        self.authoring.numeric_anchor = None;
+        self.authoring.target_edge = None;
+        self.authoring.ends.clear();
+        self.authoring.edge = self.authoring.edge.take().filter(|edge| {
+            self.scene.garment.panels.iter().any(|p| {
+                p.id == edge.panel
+                    && edge
+                        .edge
+                        .as_ref()
+                        .is_some_and(|name| p.boundaries.contains_key(name))
+            })
+        });
+        let inserted = edit.new_point.zip(edit.selected.clone());
+        if let Some(id) = edit.selected {
+            self.authoring.selected = Some(id);
+        }
+        if !self
+            .project
+            .template
+            .panels
+            .iter()
+            .any(|p| Some(&p.id) == self.authoring.selected.as_ref())
+        {
+            self.authoring.selected = self.project.template.panels.first().map(|p| p.id.clone());
+        }
+        // A split selects its new point, so the user keeps editing where they are.
+        if let Some((index, id)) = inserted {
+            self.authoring.board.select_point(id.clone(), index, false);
+            self.authoring.anchor = Some((id, index));
+        }
+        *self.status = if edit.reset_simulation {
+            "Edit applied · unchanged panels retained · ready to simulate"
+        } else {
+            "2D layout changed · 3D state preserved"
+        }
+        .into();
+    }
+    pub(super) fn cancel_preview(&mut self) {
+        if self.authoring.preview.take().is_some() {
+            if let Some(state) = self.authoring.preview_state.take() {
+                self.scene.state = state;
+            }
+            *self.generation += 1;
+        }
+        self.authoring.drag = None;
+    }
+}
+
 #[cfg(test)]
 mod construction_tests {
     use super::*;
@@ -2084,5 +2129,162 @@ mod construction_tests {
             ..reference
         };
         assert!(construction_preview_points(&t, &target, &missing, local).is_none());
+    }
+}
+
+#[cfg(test)]
+mod transition_tests {
+    use super::*;
+    #[test]
+    fn production_cancel_restore_and_install_reset_are_cpu_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let avatar = dir.path().join("avatar.obj");
+        std::fs::write(&avatar, "v 10 0 -10\nv 11 0 -10\nv 10 1 -10\nf 1 2 3\n").unwrap();
+        let mut project = FittingProject::basic(GarmentKind::Tshirt, 0, avatar);
+        let mut scene = project.compile().unwrap();
+        for x in &mut scene.state.x {
+            *x += DVec3::new(0.01, 0.02, 0.03);
+        }
+        scene.state.v.fill(DVec3::new(0.2, 0.3, 0.4));
+        scene.state.time = 4.;
+        let saved = scene.state.clone();
+        let original = serde_json::to_vec(&project.template).unwrap();
+        let mut authoring = AuthoringUi::default();
+        let mut issue = super::super::issue_ui::IssueUi::default();
+        let mut dirty = false;
+        let mut generation = 12;
+        let mut playing = false;
+        let mut pending = true;
+        let mut metrics = None;
+        let mut grab = None;
+        let mut plane = Some((DVec3::ZERO, DVec3::Y));
+        let mut error = Some("old error".into());
+        let mut status = String::new();
+        let mut state = EditorTransition {
+            authoring: &mut authoring,
+            project: &mut project,
+            scene: &mut scene,
+            issue: &mut issue,
+            dirty: &mut dirty,
+            generation: &mut generation,
+            playing: &mut playing,
+            pending: &mut pending,
+            metrics: &mut metrics,
+            grab: &mut grab,
+            drag_plane: &mut plane,
+            simulation_error: &mut error,
+            status: &mut status,
+            dt: 1. / 60.,
+        };
+        state.authoring.preview = Some(state.project.template.panels[0].placement.clone());
+        state.authoring.preview_state = Some(saved.clone());
+        state.scene.state.x.fill(DVec3::ZERO);
+        state.cancel_preview();
+        assert_eq!(state.scene.state.x, saved.x);
+        assert_eq!(state.scene.state.v, saved.v);
+        assert_eq!(state.scene.state.time, saved.time);
+        assert_eq!(*state.generation, 13);
+        assert!(!*state.dirty);
+        assert!(state.authoring.preview_state.is_none());
+        assert_eq!(
+            serde_json::to_vec(&state.project.template).unwrap(),
+            original
+        );
+        assert!(
+            state
+                .authoring
+                .history
+                .restore(&state.project.template, false)
+                .is_err()
+        );
+        state.cancel_preview();
+        assert_eq!(*state.generation, 13); // An idle cancel is a no-op.
+        let command = Command::PlaceGroup {
+            panels: state
+                .project
+                .template
+                .panels
+                .iter()
+                .take(2)
+                .map(|p| p.id.clone())
+                .collect(),
+            pivot: DVec3::new(0., 1., 0.),
+            translation: DVec3::new(0.1, 0.05, 0.02),
+            rotation: glam::DQuat::from_rotation_y(0.3),
+        };
+        let edit = authoring::apply(&state.project.template, command).unwrap();
+        let expected = edit.state_after(&state.scene.garment, &state.scene.state);
+        state
+            .authoring
+            .history
+            .record(state.project.template.clone());
+        state.install(edit);
+        assert_eq!(state.scene.state.x, expected.x);
+        assert_eq!(state.scene.state.v, expected.v);
+        assert_eq!(state.scene.state.time, expected.time);
+        assert_eq!(*state.generation, 14);
+        let response = |generation| {
+            Some(super::super::worker::Done {
+                generation,
+                had_grab: false,
+                result: Err("test response".into()),
+            })
+        };
+        assert!(super::super::current_worker_result(response(12), *state.generation).is_none());
+        assert!(super::super::current_worker_result(response(13), *state.generation).is_none());
+        assert!(super::super::current_worker_result(response(14), *state.generation).is_some());
+        assert!(*state.dirty);
+        assert!(!*state.playing && !*state.pending);
+        assert!(state.simulation_error.is_none());
+        assert!(state.drag_plane.is_none());
+        assert!(state.project.state.is_none() && state.project.mesh_signature.is_none());
+        assert!(!state.project.prearrange);
+        assert_eq!(state.scene.next_dt, 1. / 60.);
+        let undo = state
+            .authoring
+            .history
+            .restore(&state.project.template, false)
+            .unwrap();
+        state.install(undo);
+        assert_eq!(
+            serde_json::to_vec(&state.project.template).unwrap(),
+            original
+        );
+        assert_eq!(*state.generation, 15);
+        assert!(super::super::current_worker_result(response(14), *state.generation).is_none());
+        let unchanged = serde_json::to_vec(&state.project.template).unwrap();
+        let invalid = authoring::apply(
+            &state.project.template,
+            Command::PlaceGroup {
+                panels: vec!["missing-panel".into()],
+                pivot: DVec3::ZERO,
+                translation: DVec3::X,
+                rotation: glam::DQuat::IDENTITY,
+            },
+        );
+        assert!(invalid.is_err());
+        assert_eq!(*state.generation, 15);
+        assert_eq!(
+            serde_json::to_vec(&state.project.template).unwrap(),
+            unchanged
+        );
+        let old_mesh = state.scene.garment.clone();
+        let old_state = state.scene.state.clone();
+        let layout = authoring::apply(
+            &state.project.template,
+            Command::BoardTransform {
+                panel: state.project.template.panels[0].id.clone(),
+                origin: DVec2::new(2., 3.),
+                rotation_degrees: 37.,
+            },
+        )
+        .unwrap();
+        assert!(!layout.reset_simulation);
+        state.install(layout);
+        assert!(std::sync::Arc::ptr_eq(&old_mesh, &state.scene.garment));
+        assert_eq!(state.scene.state.x, old_state.x);
+        assert_eq!(state.scene.state.v, old_state.v);
+        assert_eq!(state.scene.state.time, old_state.time);
+        assert_eq!(*state.generation, 16);
     }
 }

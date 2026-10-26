@@ -329,6 +329,10 @@ struct Atelier {
     smoke_captured: bool,
     smoke_initial: Vec<glam::DVec3>,
 }
+/// Retired worker generations cannot overwrite an edit or a restored preview.
+fn current_worker_result(done: Option<worker::Done>, generation: u64) -> Option<worker::Done> {
+    done.filter(|d| d.generation == generation)
+}
 impl Atelier {
     /// The only live dispatch route for registry actions. All external
     /// adapters must recheck this snapshot rather than trusting cached UI
@@ -714,7 +718,7 @@ impl eframe::App for Atelier {
         self.frames += 1;
         self.authoring.hover_edge = None;
         let done = self.receive.lock().unwrap().take();
-        if let Some(done) = done.filter(|d| d.generation == self.generation) {
+        if let Some(done) = current_worker_result(done, self.generation) {
             self.pending = false;
             match done.result {
                 Ok((state, m)) => {
