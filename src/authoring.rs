@@ -276,10 +276,11 @@ impl Edit {
             next.x[b.clone()].copy_from_slice(&state.x[a.clone()]);
             next.v[b.clone()].copy_from_slice(&state.v[a.clone()]);
             for (old_i, new_i) in a.zip(b) {
-                if let Some(target) = self.garment.mesh.pins[new_i] {
+                if self.garment.authored_holds[new_i] {
+                    let target = self.garment.mesh.pins[new_i].expect("compiled authored target");
                     next.x[new_i] = target;
                     next.v[new_i] = DVec3::ZERO;
-                } else if previous.mesh.pins[old_i].is_some() {
+                } else if previous.authored_holds[old_i] {
                     // A released hold never resurrects momentum from before pinning.
                     next.v[new_i] = DVec3::ZERO;
                 }
@@ -412,6 +413,9 @@ pub fn capture_pin_targets(
     if fresh.mesh.uv != compiled.mesh.uv
         || fresh.initial_state.x != compiled.initial_state.x
         || fresh.mesh.pins != compiled.mesh.pins
+        || fresh.arrangement_positions != compiled.arrangement_positions
+        || fresh.legacy_pins != compiled.legacy_pins
+        || fresh.authored_holds != compiled.authored_holds
         || !fresh.mesh.triangles.iter().map(|t| t.vertices).eq(compiled
             .mesh
             .triangles

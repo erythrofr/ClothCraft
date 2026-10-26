@@ -122,10 +122,17 @@ the edit. Add named-widget tests for the actual controls.
 CPU evidence does not replace a native-window check. GPU use remains opt-in.
 Keep solver, energy, contact kernels and worker algorithms unchanged.
 
-The branch passes 113 desktop CPU tests (one optional preview ignored), ten
+The branch passes 113 desktop CPU tests (one optional preview ignored), eleven
 pin/freeze CPU fixtures and strict desktop Clippy. Fixtures include full fitting
 project save/reopen with cached x/v/time, hold-sensitive cache invalidation,
 empty-field serialization compatibility, physical freeze/release, named
 controls and avatar-initialization rejection. The widget fixture exercises the
 production controls and preparation gate; it does not instantiate a native
-window. The existing production installer/generation fixture remains separate.
+window. The production installer/generation fixture also covers freeze, rejected
+avatar initialization during Undo, successful release and stale worker results.
+
+CI caught a compatibility regression in the first PR revision: state restoration
+reapplied unchanged legacy pins during copying. Explicit compiled authored-hold
+membership now limits restoration to the new constraints, including authored
+targets which coincide with legacy pins. The existing clipboard test remains
+unchanged and is part of the regression gate.

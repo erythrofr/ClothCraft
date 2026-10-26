@@ -2323,5 +2323,94 @@ mod transition_tests {
         assert_eq!(state.scene.state.v, old_state.v);
         assert_eq!(state.scene.state.time, old_state.time);
         assert_eq!(*state.generation, 16);
+        // Exercise holds through the real installer, not a stand-in assignment.
+        let panel = state.project.template.panels[0].id.clone();
+        let before_freeze = state.scene.state.clone();
+        let template_before = serde_json::to_vec(&state.project.template).unwrap();
+        let (freeze, candidate) = authoring::prepare_freeze_edit(
+            &state.project.template,
+            &state.scene.garment,
+            &state.scene.state,
+            &panel,
+            true,
+        )
+        .unwrap();
+        super::super::pins_ui::validate(&freeze, &candidate, Some(&state.scene.collider.surface))
+            .unwrap();
+        state
+            .authoring
+            .history
+            .record(state.project.template.clone());
+        state.install(freeze);
+        assert_eq!(*state.generation, 17);
+        assert_eq!(state.scene.state.x, before_freeze.x);
+        assert_eq!(state.scene.state.time, before_freeze.time);
+        let held = state
+            .scene
+            .garment
+            .panels
+            .iter()
+            .find(|p| p.id == panel)
+            .unwrap()
+            .vertices
+            .clone();
+        for i in 0..state.scene.state.v.len() {
+            assert_eq!(
+                state.scene.state.v[i],
+                if held.contains(&i) {
+                    DVec3::ZERO
+                } else {
+                    before_freeze.v[i]
+                }
+            );
+        }
+        assert!(super::super::current_worker_result(response(16), *state.generation).is_none());
+        assert_eq!(state.project.template.frozen_panels.len(), 1);
+
+        // An invalid endpoint must not pop Undo or install a new generation.
+        let t = state.scene.garment.mesh.triangles[0].vertices;
+        let touching = marvelous_cloth::avatar::SurfaceMesh {
+            vertices: t.map(|i| state.scene.state.x[i]).to_vec(),
+            triangles: vec![[0, 1, 2]],
+        };
+        let previous = state.scene.garment.clone();
+        let frozen_state = state.scene.state.clone();
+        let rejected =
+            state
+                .authoring
+                .history
+                .restore_checked(&state.project.template, false, |edit| {
+                    super::super::pins_ui::validate(
+                        edit,
+                        &edit.state_after(&previous, &frozen_state),
+                        Some(&touching),
+                    )
+                });
+        assert!(rejected.is_err());
+        assert_eq!(*state.generation, 17);
+        assert_eq!(state.scene.state.x, frozen_state.x);
+        assert_eq!(state.scene.state.v, frozen_state.v);
+        assert_eq!(state.project.template.frozen_panels.len(), 1);
+        let undo = state
+            .authoring
+            .history
+            .restore_checked(&state.project.template, false, |edit| {
+                super::super::pins_ui::validate(
+                    edit,
+                    &edit.state_after(&previous, &frozen_state),
+                    Some(&state.scene.collider.surface),
+                )
+            })
+            .unwrap();
+        state.install(undo);
+        assert_eq!(*state.generation, 18);
+        assert!(super::super::current_worker_result(response(17), *state.generation).is_none());
+        assert_eq!(
+            serde_json::to_vec(&state.project.template).unwrap(),
+            template_before
+        );
+        assert_eq!(state.scene.state.x, frozen_state.x);
+        assert_eq!(state.scene.state.v, frozen_state.v);
+        assert_eq!(state.scene.state.time, frozen_state.time);
     }
 }

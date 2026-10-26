@@ -19,6 +19,45 @@ fn editable() -> GarmentTemplate {
 }
 
 #[test]
+fn authored_hold_coincident_with_legacy_pin_remains_distinguishable() {
+    use marvelous_cloth::authoring::prepare_pin_edit;
+    let t = GarmentTemplate::two_panel_demo();
+    let g = t.compile().unwrap();
+    let i = g.mesh.pins.iter().position(Option::is_some).unwrap();
+    let panel = g.panels.iter().find(|p| p.vertices.contains(&i)).unwrap();
+    let mut state = g.initial_state.clone();
+    state.v[i] = DVec3::X;
+    assert!(!g.authored_holds[i]);
+    let (pin, state) = prepare_pin_edit(&t, &g, &state, &panel.id, &[g.mesh.uv[i]], true).unwrap();
+    assert!(pin.garment.authored_holds[i]);
+    assert!(
+        marvelous_cloth::authoring::capture_pin_targets(
+            &pin.template,
+            &g,
+            &state,
+            &panel.id,
+            Some(&[g.mesh.uv[i]])
+        )
+        .is_err()
+    ); // Effective positions match, but constraint ownership is stale.
+    assert_eq!(pin.garment.mesh.pins[i], pin.garment.legacy_pins[i]);
+    assert_eq!(state.v[i], DVec3::ZERO);
+    let (release, state) = prepare_pin_edit(
+        &pin.template,
+        &pin.garment,
+        &state,
+        &panel.id,
+        &[g.mesh.uv[i]],
+        false,
+    )
+    .unwrap();
+    assert!(!release.garment.authored_holds[i]);
+    assert_eq!(release.garment.mesh.pins[i], g.mesh.pins[i]);
+    assert_eq!(state.x[i], g.initial_state.x[i]);
+    assert_eq!(state.v[i], DVec3::ZERO);
+}
+
+#[test]
 fn fitting_cache_roundtrip_includes_holds_and_preserves_empty_legacy_fields() {
     use marvelous_cloth::{
         authoring::prepare_freeze_edit, fitting::FittingProject, garment::presets::GarmentKind,

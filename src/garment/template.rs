@@ -190,6 +190,8 @@ pub struct CompiledGarment {
     pub arrangement_positions: Vec<DVec3>,
     /// Legacy constraints before adding authored world targets.
     pub legacy_pins: Vec<Option<DVec3>>,
+    /// Membership remains explicit when an authored target coincides with a legacy pin.
+    pub authored_holds: Vec<bool>,
     /// One orientation-bound material per panel, derived from shared fabric properties.
     pub materials: Vec<Material>,
     pub vertex_material: Vec<usize>,
@@ -277,6 +279,7 @@ impl GarmentTemplate {
         let mut out = CompiledGarment {
             arrangement_positions: vec![],
             legacy_pins: vec![],
+            authored_holds: vec![],
             mesh: Mesh {
                 uv: vec![],
                 triangles: vec![],
@@ -484,11 +487,14 @@ impl GarmentTemplate {
         }
         out.arrangement_positions = out.initial_state.x.clone();
         out.legacy_pins = out.mesh.pins.clone();
+        out.authored_holds = vec![false; out.mesh.uv.len()];
         for (i, target) in super::pins::resolve_targets(&out, &self.pin_targets)? {
+            out.authored_holds[i] = true;
             out.mesh.pins[i] = Some(target);
             out.initial_state.x[i] = target;
         }
         for (i, target) in super::pins::resolve_frozen(&out, &self.frozen_panels)? {
+            out.authored_holds[i] = true;
             out.mesh.pins[i] = Some(target);
             out.initial_state.x[i] = target;
         }
