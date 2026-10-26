@@ -1601,6 +1601,7 @@ Status: ready. Dependencies: EXO-CORE-001.
 
 - `src/atelier/selection.rs`
 - `src/atelier/gizmo.rs`
+- `src/atelier/authoring_ui.rs`
 - `src/authoring.rs`
 - `tests/group_placement.rs`
 - `src/atelier.rs`
@@ -1610,6 +1611,7 @@ Status: ready. Dependencies: EXO-CORE-001.
 - Define visible-only versus through selection and the group transform pivot.
 - Commit one transaction, preserving each panel rest shape and explicit drape reset policy.
 - Test cancel/undo, linked pairs, hidden geometry and generation invalidation.
+- For remaining headless acceptance, extract the existing CPU install/cancel transitions behind thin Atelier wrappers and test those production functions. Preserve reset/selection/history semantics; do not create a test-only replacement installer or change physics.
 
 **Evidence and related contributions**
 
