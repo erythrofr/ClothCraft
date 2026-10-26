@@ -46,7 +46,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-MFG-013](#exo-mfg-013) — Add manufacturing preflight diagnostics | manufacturing | blocked | EXO-MFG-004, EXO-MFG-008, EXO-MFG-011 | Not registered |
 | [EXO-MFG-014](#exo-mfg-014) — Package consistent manufacturing artifacts | manufacturing | blocked | EXO-MFG-010, EXO-MFG-012, EXO-MFG-013, EXO-IO-003 | Not registered |
 | [EXO-IO-001](#exo-io-001) — Import a documented SVG pattern subset | interchange | ready | EXO-CORE-001 | Not registered |
-| [EXO-IO-002](#exo-io-002) — Import generic 2D DXF pattern entities | interchange | ready | EXO-CORE-001 | Not registered |
+| [EXO-IO-002](#exo-io-002) — Import generic 2D DXF pattern entities | interchange | done | EXO-CORE-001 | Not registered |
 | [EXO-IO-003](#exo-io-003) — Export generic DXF cut and sewing geometry | interchange | blocked | EXO-REV-002, EXO-MFG-002 | Not registered |
 | [EXO-IO-004](#exo-io-004) — Add one industrial DXF dialect with independent fixtures | interchange | blocked | EXO-IO-002, EXO-IO-003, EXO-MFG-003 | Not registered |
 | [EXO-IO-005](#exo-io-005) — Support OBJ and MTL material-aware round trips | interchange | blocked | EXO-LOOK-001 | Not registered |
@@ -87,7 +87,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-SEW-007](#exo-sew-007) — Preview and create a cut-and-sewn dart from the native pattern UI | sewing | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/71) |
 | [EXO-PHY-004](#exo-phy-004) — Expose correctly timed contact and residual diagnostics in the native Simulation inspector | physics | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/72) |
 | [EXO-IO-009](#exo-io-009) — Integrate static avatar import into the workspace | interchange | done | EXO-IO-007, EXO-UX-005 | [Issue](https://github.com/erythrofr/ClothCraft/issues/64) |
-| [EXO-IO-010](#exo-io-010) — Import reviewed DXF contours as editable native panels | interchange | blocked | EXO-IO-002 | Not registered |
+| [EXO-IO-010](#exo-io-010) — Import reviewed DXF contours as editable native panels | interchange | ready | EXO-IO-002 | Not registered |
 
 ## EXO-COORD-001
 
@@ -1026,7 +1026,7 @@ Original parser/adapter or license-compatible dependency; do not transplant brow
 
 **Import generic 2D DXF pattern entities**
 
-Status: ready. Dependencies: EXO-CORE-001.
+Status: done. Dependencies: EXO-CORE-001.
 
 **Files / directories**
 
@@ -1045,7 +1045,7 @@ Status: ready. Dependencies: EXO-CORE-001.
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/dxf.js
 - https://github.com/erythrofr/ClothCraft/pull/88
 
-Geometry adapter #88 is in review under issue #87; not yet completed. Native import UX and conversion to editable panels are separately scoped as EXO-IO-010. Generic geometry parsing is not AAMA/ASTM support.
+PR #88 merged after all seven CI checks passed at 7948994. Ten locked CPU tests and strict Clippy passed, including an independently generated ezdxf 1.4.5 fixture; a separate full-file smoke read 17,738 bytes with three paths, explicit millimetre units and no issues. ASCII planar geometry adapter only; no native picker, automatic stitching, block transforms or industrial dialect semantics. Issue #87 records the evidence and accepted scope release. Native panel conversion/UI is EXO-IO-010.
 
 ## EXO-IO-003
 
@@ -2146,7 +2146,7 @@ Merged PR #74 at ea8ae2c implements native static avatar import with confirmatio
 
 **Import reviewed DXF contours as editable native panels**
 
-Status: blocked. Dependencies: EXO-IO-002.
+Status: ready. Dependencies: EXO-IO-002.
 
 **Files / directories**
 
@@ -2170,4 +2170,4 @@ Status: blocked. Dependencies: EXO-IO-002.
 - https://github.com/erythrofr/ClothCraft/pull/88
 - https://github.com/erythrofr/ClothCraft/issues/87
 
-Proposed follow-up, not an accepted assignment. Wait for the parser prerequisite to merge and be marked done, then register and claim through the live coordinator. Reuse the existing document menu adapter and named-widget harness; do not touch the reserved src/atelier.rs entrypoint. Unsupported import data must be reviewable before mutation. No DXF export, sewing inference, automatic line stitching, AAMA/ASTM or solver work in this slice. Existing History::record and Atelier::install_edit are callable from documents_ui.rs; reuse them rather than reserving or editing authoring_ui.rs. Edit::state_after preserves unchanged panels while rebuilding dependent caches.
+Parser prerequisite #88 is merged. Ready means eligible, not assigned: register and claim through the live coordinator after this catalog change merges. Reuse the existing document menu adapter and named-widget harness; do not touch the reserved src/atelier.rs entrypoint. Unsupported import data must be reviewable before mutation. No DXF export, sewing inference, automatic line stitching, AAMA/ASTM or solver work in this slice. Existing History::record and Atelier::install_edit are callable from documents_ui.rs; reuse them rather than reserving or editing authoring_ui.rs. Edit::state_after preserves unchanged panels while rebuilding dependent caches.

@@ -947,7 +947,7 @@
       "id": "EXO-IO-002",
       "title": "Import generic 2D DXF pattern entities",
       "area": "interchange",
-      "status": "ready",
+      "status": "done",
       "depends_on": [
         "EXO-CORE-001"
       ],
@@ -967,7 +967,7 @@
       "related_prs": [
         "https://github.com/erythrofr/ClothCraft/pull/88"
       ],
-      "notes": "Geometry adapter #88 is in review under issue #87; not yet completed. Native import UX and conversion to editable panels are separately scoped as EXO-IO-010. Generic geometry parsing is not AAMA/ASTM support."
+      "notes": "PR #88 merged after all seven CI checks passed at 7948994. Ten locked CPU tests and strict Clippy passed, including an independently generated ezdxf 1.4.5 fixture; a separate full-file smoke read 17,738 bytes with three paths, explicit millimetre units and no issues. ASCII planar geometry adapter only; no native picker, automatic stitching, block transforms or industrial dialect semantics. Issue #87 records the evidence and accepted scope release. Native panel conversion/UI is EXO-IO-010."
     },
     {
       "id": "EXO-IO-003",
@@ -2084,7 +2084,7 @@
       "id": "EXO-IO-010",
       "title": "Import reviewed DXF contours as editable native panels",
       "area": "interchange",
-      "status": "blocked",
+      "status": "ready",
       "depends_on": [
         "EXO-IO-002"
       ],
@@ -2108,7 +2108,7 @@
         "https://github.com/erythrofr/ClothCraft/issues/87"
       ],
       "related_prs": [],
-      "notes": "Proposed follow-up, not an accepted assignment. Wait for the parser prerequisite to merge and be marked done, then register and claim through the live coordinator. Reuse the existing document menu adapter and named-widget harness; do not touch the reserved src/atelier.rs entrypoint. Unsupported import data must be reviewable before mutation. No DXF export, sewing inference, automatic line stitching, AAMA/ASTM or solver work in this slice. Existing History::record and Atelier::install_edit are callable from documents_ui.rs; reuse them rather than reserving or editing authoring_ui.rs. Edit::state_after preserves unchanged panels while rebuilding dependent caches."
+      "notes": "Parser prerequisite #88 is merged. Ready means eligible, not assigned: register and claim through the live coordinator after this catalog change merges. Reuse the existing document menu adapter and named-widget harness; do not touch the reserved src/atelier.rs entrypoint. Unsupported import data must be reviewable before mutation. No DXF export, sewing inference, automatic line stitching, AAMA/ASTM or solver work in this slice. Existing History::record and Atelier::install_edit are callable from documents_ui.rs; reuse them rather than reserving or editing authoring_ui.rs. Edit::state_after preserves unchanged panels while rebuilding dependent caches."
     }
   ]
 }
