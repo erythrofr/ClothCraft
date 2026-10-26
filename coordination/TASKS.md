@@ -84,7 +84,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-CAD-011](#exo-cad-011) — Edit independent curve points and mirrored splits in the native 2D workspace | cad | blocked | EXO-REV-001, EXO-REV-002, EXO-CAD-003 | [Issue](https://github.com/erythrofr/ClothCraft/issues/68) |
 | [EXO-MFG-015](#exo-mfg-015) — Create and manage saved pattern measurements in the native 2D UI | manufacturing | blocked | EXO-REV-001, EXO-REV-002 | [Issue](https://github.com/erythrofr/ClothCraft/issues/69) |
 | [EXO-CAD-012](#exo-cad-012) — Add editable pattern text annotations to the native Piece inspector and board | cad | blocked | EXO-REV-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/70) |
-| [EXO-SEW-007](#exo-sew-007) — Preview and create a cut-and-sewn dart from the native pattern UI | sewing | blocked | EXO-REV-002 | [Issue](https://github.com/erythrofr/ClothCraft/issues/71) |
+| [EXO-SEW-007](#exo-sew-007) — Preview and create a cut-and-sewn dart from the native pattern UI | sewing | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/71) |
 | [EXO-PHY-004](#exo-phy-004) — Expose correctly timed contact and residual diagnostics in the native Simulation inspector | physics | review_existing | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/72) |
 | [EXO-IO-009](#exo-io-009) — Integrate static avatar import into the workspace | interchange | done | EXO-IO-007, EXO-UX-005 | [Issue](https://github.com/erythrofr/ClothCraft/issues/64) |
 
@@ -228,8 +228,9 @@ Status: review_existing. Dependencies: none.
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/measurements.js
 - https://github.com/erythrofr/ClothCraft/pull/7
 - https://github.com/erythrofr/ClothCraft/pull/66
+- https://github.com/erythrofr/ClothCraft/pull/80
 
-PR7 touches physics as well as CAD. This task reviews authoring slices; it does not authorize promoting its solver changes. PR #66 (e3994ae80c496eb3e6371309ccabb8e4b7bea3ab) is a later source-only candidate on the same old fork base; compare it rather than assuming it supplies native UI. Focused native UI follow-ups are EXO-CAD-011, EXO-MFG-015 and EXO-SEW-007. Diagnostics are separately scoped under EXO-PHY-004; the EXO session remains outside this owner-requested work.
+PR7 touches physics as well as CAD. This task reviews authoring slices; it does not authorize promoting its solver changes. PR #66 (e3994ae80c496eb3e6371309ccabb8e4b7bea3ab) is a later source-only candidate on the same old fork base; compare it rather than assuming it supplies native UI. Focused native UI follow-ups are EXO-CAD-011, EXO-MFG-015 and EXO-SEW-007. Diagnostics are separately scoped under EXO-PHY-004; the EXO session remains outside this owner-requested work. Partial delivery: #80 merged the isolated DartCutSew transaction with full chain protection and seven focused tests; it did not deliver persistent POMs or manufacturing cutlines. Native dart UI is tracked separately in EXO-SEW-007. Do not re-import the old unsafe split migration or count this broad review task as done.
 
 ## EXO-REV-003
 
@@ -2037,7 +2038,7 @@ Owner-requested native ClothCraft UI slice after reviewing PR #66. Work on a fea
 
 **Preview and create a cut-and-sewn dart from the native pattern UI**
 
-Status: blocked. Dependencies: EXO-REV-002.
+Status: ready. Dependencies: none.
 
 **Files / directories**
 
@@ -2049,7 +2050,6 @@ Status: blocked. Dependencies: EXO-REV-002.
 - `src/atelier/board.rs`
 - `tests/physical_dart_authoring.rs`
 - `docs/authoring.md`
-- `docs/handoff.md`
 
 **Acceptance**
 
@@ -2064,10 +2064,12 @@ Status: blocked. Dependencies: EXO-REV-002.
 - https://github.com/erythrofr/ClothCraft/pull/7
 - https://github.com/erythrofr/ClothCraft/pull/66
 - https://github.com/erythrofr/ClothCraft/issues/13
+- https://github.com/erythrofr/ClothCraft/pull/80
 - https://github.com/erythrofr/ClothCraft/pull/7
 - https://github.com/erythrofr/ClothCraft/pull/66
+- https://github.com/erythrofr/ClothCraft/pull/80
 
-Owner-requested native ClothCraft UI slice after reviewing PR #66. Work on a feature branch in NicTanghe/Hamerons_ClothCraft and submit a separate PR to erythrofr/ClothCraft:main. Exclude exo-session, the EXO application, print/hardware adapter fields and unrelated solver changes. Review existing contributions and preserve attribution; no permission to copy incompatible EXO source is implied. This issue is a proposed task until the catalog change is merged, a maintainer registers it, and the coordinator accepts a claim. Use the existing CPU named-widget harness; GPU/native-window acceptance remains opt-in. No separate focused native dart UI PR was found. Do not bundle final-state diagnostic passes or GPU step rejection changes into this authoring slice.
+Backend prerequisite delivered by PR #80 (main e727f2c): Command::DartCutSew, ordinary v2 geometry/seams, complete chain-reference protection, analytic area/mass, save/reload and history regression checks. This UI slice no longer waits for unrelated persistent POM/cutline work in EXO-REV-002; that broad task remains incomplete. Use the existing transaction and CPU named-widget harness. Preserve rejection of sewn/curved/targeted boundaries, holes/internal lines and linked mirrors; no uncut fold mechanics or solver changes. Keep docs/authoring.md current and publish the handoff on issue #71 instead of reserving shared docs/handoff.md. Check overlapping claims (especially markings) before editing; ready means eligible, not assigned. Original contributor attribution from #80 must be retained.
 
 ## EXO-PHY-004
 
