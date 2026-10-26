@@ -3,6 +3,7 @@
 pub mod curves;
 pub mod diagnostics;
 pub mod domain;
+pub mod dxf_import;
 pub mod embedding;
 pub mod export;
 pub mod freehand;
