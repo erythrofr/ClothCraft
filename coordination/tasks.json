@@ -27,6 +27,31 @@
       "notes": "Completed 22 October: 30 offline coordinator tests and 5 catalog tests pass. Live registration, claim, duplicate rejection, heartbeat, review and explicit release succeeded; hub observed with zero active claims. See docs/rewrite-hub-validation.md and issue #9. The coordinator does not wake remote agents."
     },
     {
+      "id": "EXO-COORD-002",
+      "title": "Explain malformed reservation commands without changing ownership",
+      "area": "coordination",
+      "status": "ready",
+      "depends_on": [
+        "EXO-COORD-001"
+      ],
+      "scope": [
+        "scripts/coordination/engine.mjs",
+        "scripts/coordination/engine.test.mjs",
+        "docs/agent-coordination-protocol.md"
+      ],
+      "acceptance": [
+        "Recognized malformed verbs report exact accepted syntax and the Commands documentation link; unknown verbs use bounded help without echoing arbitrary input.",
+        "Reducer tests prove malformed commands do not change ownership, heartbeat, phase or scopes, including missing labels, extra arguments and malformed release-force.",
+        "Preserve strict parsing, valid commands, edited-comment rejection, authorization and deterministic replay. Never infer identity or expire reservations automatically."
+      ],
+      "evidence": [
+        "https://github.com/erythrofr/ClothCraft/issues/8#issuecomment-6419823081",
+        "https://github.com/erythrofr/ClothCraft/issues/129"
+      ],
+      "related_prs": [],
+      "notes": "Measured follow-up to rejected release/review commands with omitted agent labels. Separate from completed EXO-COORD-001. Register issue #129 after this manifest amendment merges, then obtain an accepted claim before editing source. No CI permissions, lease expiry, GPU or application changes."
+    },
+    {
       "id": "EXO-CORE-001",
       "title": "Agree editor, document and solver ownership contract",
       "area": "architecture",

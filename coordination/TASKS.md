@@ -11,6 +11,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | Task | Area | Status | Dependencies | Discussion |
 |---|---|---|---|---|
 | [EXO-COORD-001](#exo-coord-001) — Verify live task claim, heartbeat and release coordination | coordination | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/9) |
+| [EXO-COORD-002](#exo-coord-002) — Explain malformed reservation commands without changing ownership | coordination | ready | EXO-COORD-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/129) |
 | [EXO-CORE-001](#exo-core-001) — Agree editor, document and solver ownership contract | architecture | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/10) |
 | [EXO-CORE-002](#exo-core-002) — Record provenance and licensing for candidate contributions | provenance | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/11) |
 | [EXO-REV-001](#exo-rev-001) — Reconcile the two notch and allowance contributions | review | review_existing | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/12) |
@@ -112,6 +113,31 @@ Status: done. Dependencies: none.
 - https://github.com/erythrofr/ClothCraft/blob/main/COORDINATION.md
 
 Completed 22 October: 30 offline coordinator tests and 5 catalog tests pass. Live registration, claim, duplicate rejection, heartbeat, review and explicit release succeeded; hub observed with zero active claims. See docs/rewrite-hub-validation.md and issue #9. The coordinator does not wake remote agents.
+
+## EXO-COORD-002
+
+**Explain malformed reservation commands without changing ownership**
+
+Status: ready. Dependencies: EXO-COORD-001.
+
+**Files / directories**
+
+- `scripts/coordination/engine.mjs`
+- `scripts/coordination/engine.test.mjs`
+- `docs/agent-coordination-protocol.md`
+
+**Acceptance**
+
+- Recognized malformed verbs report exact accepted syntax and the Commands documentation link; unknown verbs use bounded help without echoing arbitrary input.
+- Reducer tests prove malformed commands do not change ownership, heartbeat, phase or scopes, including missing labels, extra arguments and malformed release-force.
+- Preserve strict parsing, valid commands, edited-comment rejection, authorization and deterministic replay. Never infer identity or expire reservations automatically.
+
+**Evidence and related contributions**
+
+- https://github.com/erythrofr/ClothCraft/issues/8#issuecomment-6419823081
+- https://github.com/erythrofr/ClothCraft/issues/129
+
+Measured follow-up to rejected release/review commands with omitted agent labels. Separate from completed EXO-COORD-001. Register issue #129 after this manifest amendment merges, then obtain an accepted claim before editing source. No CI permissions, lease expiry, GPU or application changes.
 
 ## EXO-CORE-001
 
