@@ -73,7 +73,7 @@ impl Palette {
         }
         let mut command = None;
         let mut cancel = false;
-        egui::Modal::new(egui::Id::new("command-palette")).show(ctx, |ui| {
+        let modal = egui::Modal::new(egui::Id::new("command-palette")).show(ctx, |ui| {
             ui.set_width((ctx.content_rect().width() - 64.).clamp(200., 520.));
             ui.heading("Commands");
             ui.small("Search actions · ↑ ↓ navigate · Enter run · Esc close");
@@ -149,6 +149,7 @@ impl Palette {
             named(ui, &close, "palette.close");
             cancel |= close.clicked();
         });
+        cancel |= modal.should_close();
         if cancel {
             command = None;
         }
@@ -243,6 +244,62 @@ mod tests {
         frames(&mut h, &mut c);
         assert_eq!(c.commands, vec![CommandId::StepSimulation]);
         assert!(!c.palette.open);
+    }
+    #[test]
+    fn backdrop_click_cancels_without_dispatch_or_click_through() {
+        let mut c = case();
+        let ctx = egui::Context::default();
+        let mut underlying_clicks = 0;
+        let mut frame = |events| {
+            let mut output = ctx.run_ui(
+                egui::RawInput {
+                    screen_rect: Some(egui::Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        egui::vec2(900., 900.),
+                    )),
+                    focused: true,
+                    events,
+                    ..Default::default()
+                },
+                |ui| {
+                    egui::CentralPanel::default().show(ui, |ui| {
+                        if ui
+                            .put(
+                                egui::Rect::from_min_size(
+                                    egui::pos2(10., 10.),
+                                    egui::vec2(80., 30.),
+                                ),
+                                egui::Button::new("Behind"),
+                            )
+                            .clicked()
+                        {
+                            underlying_clicks += 1;
+                        }
+                        draw(ui, &mut c);
+                    });
+                },
+            );
+            output.textures_delta.clear(); // CPU-only input test has no renderer.
+        };
+        for _ in 0..3 {
+            frame(vec![]);
+        }
+        let pos = egui::pos2(30., 25.);
+        for pressed in [true, false] {
+            frame(vec![
+                egui::Event::PointerMoved(pos),
+                egui::Event::PointerButton {
+                    pos,
+                    button: egui::PointerButton::Primary,
+                    pressed,
+                    modifiers: egui::Modifiers::NONE,
+                },
+            ]);
+        }
+        frame(vec![]);
+        assert!(!c.palette.open);
+        assert!(c.commands.is_empty());
+        assert_eq!(underlying_clicks, 0);
     }
     #[test]
     fn escape_cancels_without_request() {
