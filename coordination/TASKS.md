@@ -11,7 +11,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | Task | Area | Status | Dependencies | Discussion |
 |---|---|---|---|---|
 | [EXO-COORD-001](#exo-coord-001) — Verify live task claim, heartbeat and release coordination | coordination | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/9) |
-| [EXO-COORD-002](#exo-coord-002) — Explain malformed reservation commands without changing ownership | coordination | ready | EXO-COORD-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/129) |
+| [EXO-COORD-002](#exo-coord-002) — Explain malformed reservation commands without changing ownership | coordination | done | EXO-COORD-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/129) |
 | [EXO-CORE-001](#exo-core-001) — Agree editor, document and solver ownership contract | architecture | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/10) |
 | [EXO-CORE-002](#exo-core-002) — Record provenance and licensing for candidate contributions | provenance | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/11) |
 | [EXO-REV-001](#exo-rev-001) — Reconcile the two notch and allowance contributions | review | review_existing | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/12) |
@@ -118,7 +118,7 @@ Completed 22 October: 30 offline coordinator tests and 5 catalog tests pass. Liv
 
 **Explain malformed reservation commands without changing ownership**
 
-Status: ready. Dependencies: EXO-COORD-001.
+Status: done. Dependencies: EXO-COORD-001.
 
 **Files / directories**
 
@@ -136,8 +136,9 @@ Status: ready. Dependencies: EXO-COORD-001.
 
 - https://github.com/erythrofr/ClothCraft/issues/8#issuecomment-6419823081
 - https://github.com/erythrofr/ClothCraft/issues/129
+- https://github.com/erythrofr/ClothCraft/pull/132
 
-Measured follow-up to rejected release/review commands with omitted agent labels. Separate from completed EXO-COORD-001. Register issue #129 after this manifest amendment merges, then obtain an accepted claim before editing source. No CI permissions, lease expiry, GPU or application changes.
+Delivered by #132 at f691a465 after all seven hosted checks passed at ff3e690. All 43 coordinator/catalog/CI-policy tests passed. Live malformed status comment 6423988589 returned the exact correction syntax and protocol link; the complete tasks state was identical before and after. Evidence: issue #129 comment 6424009052. Strict grammar, authorization, edited-comment rejection and reservation ownership remain unchanged. No automatic expiry or takeover.
 
 ## EXO-CORE-001
 
@@ -1269,7 +1270,7 @@ Status: ready. Dependencies: EXO-CORE-001.
 - https://github.com/erythrofr/ClothCraft/issues/126
 - https://github.com/erythrofr/ClothCraft/pull/128
 
-Draft #128 at 654fd9d implements shared solid color/roughness controls and actual shader binding, preserving live drape/worker state for optical edits and undo/redo. Full local CPU gate and all seven hosted checks passed; native-window appearance acceptance awaits GPU authorization. Texture/normal assets and material-space texture transforms remain unsupported. Task stays incomplete. Review the open PR and docs/fabric-appearance.md before claiming follow-up work; the claim on #126 is released. Independent Rust/WGSL implementation, no upstream code or assets imported.
+Draft #128 at 654fd9d implements shared solid color/roughness controls and actual shader binding, with CPU tests of live drape/worker preservation for optical edits and undo/redo. Full local CPU gate and all seven hosted checks passed. A short authorized native test confirmed staged color application during simulation without a drape reset, but Undo did not respond in that interaction path; native undo/redo and conclusive roughness acceptance remain unresolved (PR comment 6423958356). CPU installer tests alone do not validate those interactions. Texture/normal assets and material-space texture transforms remain unsupported. Task stays incomplete. Review the open PR and docs/fabric-appearance.md before claiming follow-up work; the claim on #126 is released. Independent Rust/WGSL implementation, no upstream code or assets imported.
 
 ## EXO-LOOK-002
 

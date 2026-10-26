@@ -30,7 +30,7 @@
       "id": "EXO-COORD-002",
       "title": "Explain malformed reservation commands without changing ownership",
       "area": "coordination",
-      "status": "ready",
+      "status": "done",
       "depends_on": [
         "EXO-COORD-001"
       ],
@@ -48,8 +48,10 @@
         "https://github.com/erythrofr/ClothCraft/issues/8#issuecomment-6419823081",
         "https://github.com/erythrofr/ClothCraft/issues/129"
       ],
-      "related_prs": [],
-      "notes": "Measured follow-up to rejected release/review commands with omitted agent labels. Separate from completed EXO-COORD-001. Register issue #129 after this manifest amendment merges, then obtain an accepted claim before editing source. No CI permissions, lease expiry, GPU or application changes."
+      "related_prs": [
+        "https://github.com/erythrofr/ClothCraft/pull/132"
+      ],
+      "notes": "Delivered by #132 at f691a465 after all seven hosted checks passed at ff3e690. All 43 coordinator/catalog/CI-policy tests passed. Live malformed status comment 6423988589 returned the exact correction syntax and protocol link; the complete tasks state was identical before and after. Evidence: issue #129 comment 6424009052. Strict grammar, authorization, edited-comment rejection and reservation ownership remain unchanged. No automatic expiry or takeover."
     },
     {
       "id": "EXO-CORE-001",
@@ -1197,7 +1199,7 @@
       "related_prs": [
         "https://github.com/erythrofr/ClothCraft/pull/128"
       ],
-      "notes": "Draft #128 at 654fd9d implements shared solid color/roughness controls and actual shader binding, preserving live drape/worker state for optical edits and undo/redo. Full local CPU gate and all seven hosted checks passed; native-window appearance acceptance awaits GPU authorization. Texture/normal assets and material-space texture transforms remain unsupported. Task stays incomplete. Review the open PR and docs/fabric-appearance.md before claiming follow-up work; the claim on #126 is released. Independent Rust/WGSL implementation, no upstream code or assets imported."
+      "notes": "Draft #128 at 654fd9d implements shared solid color/roughness controls and actual shader binding, with CPU tests of live drape/worker preservation for optical edits and undo/redo. Full local CPU gate and all seven hosted checks passed. A short authorized native test confirmed staged color application during simulation without a drape reset, but Undo did not respond in that interaction path; native undo/redo and conclusive roughness acceptance remain unresolved (PR comment 6423958356). CPU installer tests alone do not validate those interactions. Texture/normal assets and material-space texture transforms remain unsupported. Task stays incomplete. Review the open PR and docs/fabric-appearance.md before claiming follow-up work; the claim on #126 is released. Independent Rust/WGSL implementation, no upstream code or assets imported."
     },
     {
       "id": "EXO-LOOK-002",
