@@ -7,6 +7,51 @@ use marvelous_cloth::{
 };
 use std::sync::Arc;
 
+#[test]
+fn capture_uses_material_identity_and_rejects_stale_or_ambiguous_input() {
+    use marvelous_cloth::authoring::capture_pin_targets;
+    let t = GarmentTemplate::two_panel_demo();
+    let g = t.compile().unwrap();
+    let mut s = g.initial_state.clone();
+    for x in &mut s.x {
+        *x += DVec3::new(0.2, 0.1, -0.3);
+    }
+    let before = serde_json::to_vec(&s).unwrap();
+    let panel = &g.panels[0];
+    let i = panel.vertices.start;
+    let uv = g.mesh.uv[i];
+    assert_eq!(
+        capture_pin_targets(&t, &g, &s, &panel.id, Some(&[uv])).unwrap(),
+        vec![(uv, s.x[i])]
+    );
+    let full = capture_pin_targets(&t, &g, &s, &panel.id, None).unwrap();
+    assert_eq!(full.len(), panel.vertices.len());
+    for ((uv, world), i) in full.iter().zip(panel.vertices.clone()) {
+        assert_eq!(*uv, g.mesh.uv[i]);
+        assert_eq!(*world, s.x[i]);
+    }
+    assert!(capture_pin_targets(&t, &g, &s, &panel.id, Some(&[])).is_err());
+    assert!(capture_pin_targets(&t, &g, &s, &panel.id, Some(&[uv, uv])).is_err());
+    assert!(capture_pin_targets(&t, &g, &s, &panel.id, Some(&[glam::DVec2::NAN])).is_err());
+    assert!(
+        capture_pin_targets(
+            &t,
+            &g,
+            &s,
+            &panel.id,
+            Some(&[uv + glam::DVec2::splat(1e-6)])
+        )
+        .is_err()
+    );
+    assert!(capture_pin_targets(&t, &g, &s, "missing", None).is_err());
+    let mut stale = t.clone();
+    stale.panels[0].placement.translation += DVec3::X;
+    assert!(capture_pin_targets(&stale, &g, &s, &panel.id, None).is_err());
+    assert_eq!(serde_json::to_vec(&s).unwrap(), before);
+    s.v[0] = DVec3::NAN;
+    assert!(capture_pin_targets(&t, &g, &s, &panel.id, None).is_err());
+}
+
 fn panels(stacked: bool) -> CompiledGarment {
     let mut t = GarmentTemplate::two_panel_demo();
     t.seams.clear();

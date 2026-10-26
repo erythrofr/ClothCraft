@@ -279,6 +279,88 @@ impl Edit {
     }
 }
 
+/// Capture world targets without editing a document or applying constraints.
+/// `None` captures the complete panel; a selection contains exact material UVs
+/// obtained from its compiled mesh (not arbitrary coordinates or mesh indices).
+/// Call only on an explicit action: validation recompiles the source once.
+pub fn capture_pin_targets(
+    source: &GarmentTemplate,
+    compiled: &CompiledGarment,
+    state: &State,
+    panel: &str,
+    selected_uvs: Option<&[DVec2]>,
+) -> Result<Vec<(DVec2, DVec3)>, String> {
+    const MAX_TARGETS: usize = 65_536;
+    let n = compiled.mesh.uv.len();
+    if state.x.len() != n
+        || state.v.len() != n
+        || !state.time.is_finite()
+        || state.x.iter().chain(&state.v).any(|v| !v.is_finite())
+    {
+        return Err("Pin capture requires a finite state matching the compiled garment".into());
+    }
+    let fresh = source.compile()?;
+    if fresh.mesh.uv != compiled.mesh.uv
+        || fresh.initial_state.x != compiled.initial_state.x
+        || fresh.mesh.pins != compiled.mesh.pins
+        || !fresh.mesh.triangles.iter().map(|t| t.vertices).eq(compiled
+            .mesh
+            .triangles
+            .iter()
+            .map(|t| t.vertices))
+        || !fresh
+            .panels
+            .iter()
+            .map(|p| (&p.id, &p.vertices))
+            .eq(compiled.panels.iter().map(|p| (&p.id, &p.vertices)))
+    {
+        return Err("Pin capture source is stale; rebuild the garment before capturing".into());
+    }
+    let range = compiled
+        .panels
+        .iter()
+        .find(|p| p.id == panel)
+        .ok_or("Select an existing panel for pin capture")?
+        .vertices
+        .clone();
+    let count = selected_uvs.map_or(range.len(), <[DVec2]>::len);
+    if count == 0 || count > MAX_TARGETS {
+        return Err("Capture between 1 and 65536 material targets at a time".into());
+    }
+    // Canonicalize signed zero. Other values are exact compiled coordinates;
+    // no nearest-vertex fallback may silently move a requested attachment.
+    let key = |uv: DVec2| [uv.x, uv.y].map(|v| if v == 0. { 0 } else { v.to_bits() });
+    let mut vertices = std::collections::BTreeMap::new();
+    for i in range.clone() {
+        let uv = compiled.mesh.uv[i];
+        if !uv.is_finite() || vertices.insert(key(uv), i).is_some() {
+            return Err("Panel contains ambiguous material vertices".into());
+        }
+    }
+    let mut used = std::collections::BTreeSet::new();
+    let ids = if let Some(points) = selected_uvs {
+        points
+            .iter()
+            .map(|uv| {
+                if !uv.is_finite() || !used.insert(key(*uv)) {
+                    return Err(
+                        "Pin selection contains non-finite or duplicate coordinates".to_string()
+                    );
+                }
+                vertices.get(&key(*uv)).copied().ok_or_else(|| {
+                    "Pin selection must identify exact compiled material vertices".into()
+                })
+            })
+            .collect::<Result<Vec<_>, String>>()?
+    } else {
+        range.collect()
+    };
+    Ok(ids
+        .into_iter()
+        .map(|i| (compiled.mesh.uv[i], state.x[i]))
+        .collect())
+}
+
 pub fn layout(template: &GarmentTemplate, index: usize) -> DVec2 {
     template.panels[index].layout_2d.unwrap_or_else(|| {
         DVec2::new(
