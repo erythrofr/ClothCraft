@@ -1503,6 +1503,7 @@ Status: done. Dependencies: none.
 **Evidence and related contributions**
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/meshAvatarContact.js
+- https://github.com/erythrofr/ClothCraft/pull/96
 
 Completed in PR #96, merged as 42addbc1c1c66aff5fe711112c3f6ed4685dc13b after seven green checks. Properties > Simulation exposes bounded asynchronous static-mesh inspection and the existing CPU VBD initialization gate, with explicit freshness and no live solver/cache mutation. Five CPU backend tests, 87 active desktop tests and strict Clippy passed; three named-widget tests exercise real jobs and failures. Topology is not an intersection/global-containment certificate; local sewing exclusions remain. Native GPU appearance was not tested. See docs/avatar-diagnostics.md and issue #20 for evidence and confirmed reservation release.
 
