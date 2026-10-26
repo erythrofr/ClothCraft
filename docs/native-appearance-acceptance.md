@@ -111,3 +111,9 @@ the scenario deadline. Nonfinite state, simulation errors or unexpected playback
 state fail acceptance. This is continuity evidence, not a physics benchmark or
 proof of collision robustness. Native execution of this extension remains
 unverified until a corresponding report is inspected.
+
+The live probe additionally requires the compiled garment Arc identity to remain
+unchanged and exact restoration of the expected optical values after Redo.
+Generation/time alone would not detect an accidental same-generation model
+replacement; merely accepting any nonempty appearance would miss wrong values.
+These checks are implemented, but live acceptance is still pending.

@@ -878,6 +878,7 @@ struct AppearanceProbe {
     text_focused: bool,
     origin: Option<egui::Pos2>,
     baseline: Option<(Vec<glam::DVec3>, Vec<glam::DVec3>, f64, u64)>,
+    garment: Option<std::sync::Arc<marvelous_cloth::garment::CompiledGarment>>,
     fabric: String,
     original: Option<marvelous_cloth::garment::appearance::FabricAppearance>,
     changed: Option<marvelous_cloth::garment::appearance::FabricAppearance>,
@@ -961,6 +962,7 @@ impl Atelier {
                     self.authoring.selected = Some(panel.id.clone());
                     self.inspector_tab = chrome::InspectorTab::Fabric;
                     self.tools_visible = true;
+                    probe.garment = Some(self.scene.garment.clone());
                     probe.baseline = Some((
                         self.scene.state.x.clone(),
                         self.scene.state.v.clone(),
@@ -982,7 +984,12 @@ impl Atelier {
             let advanced = probe
                 .dispatched
                 .is_some_and(|(_, before)| self.scene.state.time > before);
+            let model_preserved = probe
+                .garment
+                .as_ref()
+                .is_some_and(|before| std::sync::Arc::ptr_eq(before, &self.scene.garment));
             let preserved = self.generation == *generation
+                && model_preserved
                 && if live {
                     self.scene.state.time >= *time
                         && self
@@ -1028,7 +1035,8 @@ impl Atelier {
                 14 => current.is_none() && advanced,
                 15 => current.is_none(),
                 16 | 18 => {
-                    current.is_some()
+                    current == probe.original
+                        && current.is_some()
                         && advanced
                         && probe.dispatched.is_some_and(|(pending, _)| pending)
                 }
@@ -1037,7 +1045,7 @@ impl Atelier {
                         && advanced
                         && probe.dispatched.is_some_and(|(pending, _)| pending)
                 }
-                19 => current.is_some(),
+                19 => current == probe.original && current.is_some(),
                 _ => false,
             };
             // Wait for an actual worker response, not a fixed number of rendered frames.
@@ -1054,7 +1062,7 @@ impl Atelier {
             }
             probe.observations.push(serde_json::json!({
                 "phase":probe.phase,"action":APPEARANCE_ACTIONS[probe.phase],
-                "appearance":current,"expected_transition":transition,"physics_preserved":preserved,
+                "appearance":current,"expected_transition":transition,"physics_preserved":preserved,"compiled_model_identity_preserved":model_preserved,
                 "can_undo":self.authoring.history.can_undo(),"can_redo":self.authoring.history.can_redo(),
                 "playing":self.playing,"pending":self.pending,"generation":self.generation,
                 "time":self.scene.state.time,"status":self.status,"error":self.authoring.error,
