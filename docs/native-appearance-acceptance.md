@@ -98,3 +98,16 @@ The unsuccessful extension was removed; the retained scenario is the verified
 14-phase history/text-ownership probe. Native Save acceptance requires a scoped
 change to the smoke/document boundary that preserves dialog and recovery safety.
 Do not bypass this guard in the harness and call that normal UI acceptance.
+
+## Opt-in worker extension (not yet accepted)
+
+`CLOTHCRAFT_AUTHORING_SCENARIO=appearance-worker` appends six actions to the
+paused scenario: start simulation, stage custom optics, Apply, Undo, Redo, stop.
+The ordinary appearance scenario remains 14 actions. The extension records
+pending state and simulation time when each input is dispatched; Apply and
+history require a pending dispatch followed by a later worker state in the same
+generation. Waiting for that state does not resend the click and is bounded by
+the scenario deadline. Nonfinite state, simulation errors or unexpected playback
+state fail acceptance. This is continuity evidence, not a physics benchmark or
+proof of collision robustness. Native execution of this extension remains
+unverified until a corresponding report is inspected.

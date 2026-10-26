@@ -191,9 +191,14 @@ impl Smoke {
     }
     pub fn new() -> Self {
         Self {
-            appearance: (std::env::var("CLOTHCRAFT_AUTHORING_SCENARIO").as_deref()
-                == Ok("appearance"))
-            .then(AppearanceProbe::default),
+            appearance: match std::env::var("CLOTHCRAFT_AUTHORING_SCENARIO").as_deref() {
+                Ok("appearance") => Some(AppearanceProbe::default()),
+                Ok("appearance-worker") => Some(AppearanceProbe {
+                    running: true,
+                    ..Default::default()
+                }),
+                _ => None,
+            },
             panel_tools: std::env::var("CLOTHCRAFT_AUTHORING_SCENARIO").as_deref()
                 == Ok("panel-tools"),
             workflow: std::env::var("CLOTHCRAFT_AUTHORING_SCENARIO").as_deref() == Ok("workflow"),
@@ -838,7 +843,7 @@ impl Atelier {
 
 // This scenario advances only after observing the expected document transition.
 // Sending a click is not evidence that the application accepted it.
-const APPEARANCE_ACTIONS: [&str; 14] = [
+const APPEARANCE_ACTIONS: [&str; 20] = [
     "appearance.enabled",
     "appearance.apply",
     "undo",
@@ -853,12 +858,22 @@ const APPEARANCE_ACTIONS: [&str; 14] = [
     "keyboard.text_undo",
     "appearance.enabled",
     "appearance.apply",
+    "simulate",
+    "appearance.enabled",
+    "appearance.apply",
+    "undo",
+    "redo",
+    "simulate",
 ];
 
 #[derive(Default)]
 struct AppearanceProbe {
     phase: usize,
     tick: usize,
+    running: bool,
+    latest_pending: bool,
+    latest_time: f64,
+    dispatched: Option<(bool, f64)>,
     ready: bool,
     text_focused: bool,
     origin: Option<egui::Pos2>,
@@ -869,12 +884,22 @@ struct AppearanceProbe {
     observations: Vec<serde_json::Value>,
 }
 impl AppearanceProbe {
+    fn action_count(&self) -> usize {
+        if self.running {
+            APPEARANCE_ACTIONS.len()
+        } else {
+            14
+        }
+    }
     fn input(&mut self, input: &mut egui::RawInput, targets: &BTreeMap<String, egui::Pos2>) {
         input.focused = true;
-        if !self.ready || self.phase >= APPEARANCE_ACTIONS.len() {
+        if !self.ready || self.phase >= self.action_count() {
             return;
         }
         self.tick += 1;
+        if self.tick == 3 {
+            self.dispatched = Some((self.latest_pending, self.latest_time));
+        }
         let action = APPEARANCE_ACTIONS[self.phase];
         if action.starts_with("keyboard.") {
             let modifiers = egui::Modifiers {
@@ -945,7 +970,7 @@ impl Atelier {
                     probe.ready = true;
                 }
             }
-        } else if probe.tick >= 9 && probe.phase < APPEARANCE_ACTIONS.len() {
+        } else if probe.tick >= 9 && probe.phase < probe.action_count() {
             let current = self
                 .project
                 .template
@@ -953,12 +978,29 @@ impl Atelier {
                 .get(&probe.fabric)
                 .cloned();
             let (x, v, time, generation) = probe.baseline.as_ref().unwrap();
-            let preserved = self.scene.state.x == *x
-                && self.scene.state.v == *v
-                && self.scene.state.time == *time
-                && self.generation == *generation
-                && !self.playing
-                && !self.pending;
+            let live = probe.phase >= 14;
+            let advanced = probe
+                .dispatched
+                .is_some_and(|(_, before)| self.scene.state.time > before);
+            let preserved = self.generation == *generation
+                && if live {
+                    self.scene.state.time >= *time
+                        && self
+                            .scene
+                            .state
+                            .x
+                            .iter()
+                            .chain(&self.scene.state.v)
+                            .all(|p| p.is_finite())
+                        && self.simulation_error.is_none()
+                        && self.playing == (probe.phase != 19)
+                } else {
+                    self.scene.state.x == *x
+                        && self.scene.state.v == *v
+                        && self.scene.state.time == *time
+                        && !self.playing
+                        && !self.pending
+                };
             let transition = match probe.phase {
                 0 => current.is_none() && smoke.targets.contains_key("appearance.roughness.low"),
                 1 => {
@@ -983,15 +1025,42 @@ impl Atelier {
                 7 | 9 | 12 => current == probe.changed && current.is_some(),
                 10 | 11 => current == probe.changed && current.is_some() && probe.text_focused,
                 13 => current.is_none(),
+                14 => current.is_none() && advanced,
+                15 => current.is_none(),
+                16 | 18 => {
+                    current.is_some()
+                        && advanced
+                        && probe.dispatched.is_some_and(|(pending, _)| pending)
+                }
+                17 => {
+                    current.is_none()
+                        && advanced
+                        && probe.dispatched.is_some_and(|(pending, _)| pending)
+                }
+                19 => current.is_some(),
                 _ => false,
             };
+            // Wait for an actual worker response, not a fixed number of rendered frames.
+            if live
+                && matches!(probe.phase, 14 | 16 | 17 | 18)
+                && preserved
+                && !advanced
+                && smoke.start.elapsed().as_secs() <= 30
+            {
+                probe.latest_pending = self.pending;
+                probe.latest_time = self.scene.state.time;
+                self.authoring_smoke = Some(smoke);
+                return;
+            }
             probe.observations.push(serde_json::json!({
                 "phase":probe.phase,"action":APPEARANCE_ACTIONS[probe.phase],
                 "appearance":current,"expected_transition":transition,"physics_preserved":preserved,
                 "can_undo":self.authoring.history.can_undo(),"can_redo":self.authoring.history.can_redo(),
                 "playing":self.playing,"pending":self.pending,"generation":self.generation,
                 "time":self.scene.state.time,"status":self.status,"error":self.authoring.error,
-                "pointer_target_found":probe.origin.is_some(),"text_field_focused":probe.text_focused
+                "pointer_target_found":probe.origin.is_some(),"text_field_focused":probe.text_focused,
+                "worker_pending_at_dispatch":probe.dispatched.map(|d| d.0),
+                "worker_time_at_dispatch":probe.dispatched.map(|d| d.1),"later_worker_state_observed":advanced
             }));
             if transition && preserved {
                 probe.phase += 1;
@@ -1007,13 +1076,15 @@ impl Atelier {
         if smoke.start.elapsed().as_secs() > 30 {
             failure = Some("Appearance scenario timed out".into());
         }
-        let complete = probe.phase == APPEARANCE_ACTIONS.len();
+        probe.latest_pending = self.pending;
+        probe.latest_time = self.scene.state.time;
+        let complete = probe.phase == probe.action_count();
         if !smoke.finished && (complete || failure.is_some()) {
             let report = serde_json::json!({"passed":complete && failure.is_none(),
-                "scenario":"appearance","scope":"paused pointer history, keyboard history and text ownership",
-                "completed_verified_actions":probe.phase,"expected_actions":APPEARANCE_ACTIONS.len(),
+                "scenario":"appearance","scope":if probe.running { "paused history plus live worker continuity" } else { "paused pointer history, keyboard history and text ownership" },
+                "completed_verified_actions":probe.phase,"expected_actions":probe.action_count(),"worker_scenario":probe.running,
                 "observations":probe.observations,"failure":failure,
-                "remaining_acceptance":["in-flight worker", "save/reopen", "visual shading"]});
+                "remaining_acceptance":if probe.running { vec!["save/reopen", "visual shading"] } else { vec!["in-flight worker", "save/reopen", "visual shading"] }});
             match std::fs::write(
                 self.output.join("authoring.json"),
                 serde_json::to_vec_pretty(&report).unwrap(),
@@ -1056,6 +1127,33 @@ mod appearance_probe_tests {
         }
         assert_eq!((presses, releases), (1, 1));
         assert_eq!(probe.phase, 0, "sending a click must not count as success");
+    }
+    #[test]
+    fn worker_actions_are_opt_in_and_capture_dispatch_state() {
+        let mut paused = AppearanceProbe {
+            ready: true,
+            phase: 14,
+            ..Default::default()
+        };
+        let mut input = egui::RawInput::default();
+        paused.input(&mut input, &BTreeMap::new());
+        assert!(input.events.is_empty());
+        assert_eq!(paused.action_count(), 14);
+        let mut running = AppearanceProbe {
+            ready: true,
+            running: true,
+            phase: 16,
+            latest_pending: true,
+            latest_time: 0.25,
+            ..Default::default()
+        };
+        let targets = BTreeMap::from([("appearance.apply".into(), egui::pos2(20., 30.))]);
+        for _ in 0..3 {
+            running.input(&mut egui::RawInput::default(), &targets);
+        }
+        assert_eq!(running.action_count(), 20);
+        assert_eq!(running.dispatched, Some((true, 0.25)));
+        assert_eq!(running.phase, 16, "dispatch is not a worker response");
     }
     #[test]
     fn missing_target_never_injects_a_click_or_claims_progress() {
