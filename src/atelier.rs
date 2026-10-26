@@ -634,6 +634,13 @@ impl eframe::App for Atelier {
     }
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
+        if !ctx.input(|i| i.focused) {
+            // A hidden/blurred viewport must not retain an unfinished placement.
+            // Existing cancellation restores the captured drape and invalidates
+            // stale worker responses; it does not record an authoring edit.
+            self.cancel_preview();
+            self.authoring.selection.placement_marquee = None;
+        }
         if self.authoring.tool != Tool::Place {
             self.authoring.selection.placement_marquee = None;
         }

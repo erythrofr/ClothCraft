@@ -100,7 +100,10 @@ pub(super) fn marquee_input(
     response: &egui::Response,
     allow_start: bool,
 ) -> Option<PlacementMarquee> {
-    if response.ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+    if response
+        .ctx
+        .input(|i| !i.focused || i.key_pressed(egui::Key::Escape))
+    {
         *gesture = None;
         return None;
     }
@@ -732,6 +735,40 @@ fn triangle_in_rect(triangle: [egui::Pos2; 3], rect: egui::Rect) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn focus_loss_discards_an_active_marquee_without_committing() {
+        let ctx = egui::Context::default();
+        let mut gesture = Some(PlacementMarquee {
+            start: egui::pos2(20., 20.),
+            end: egui::pos2(60., 60.),
+            through: false,
+            add: false,
+        });
+        let mut commits = 0;
+        let mut output = ctx.run_ui(
+            egui::RawInput {
+                focused: false,
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    Vec2::splat(300.),
+                )),
+                ..Default::default()
+            },
+            |ui| {
+                egui::CentralPanel::default().show(ui, |ui| {
+                    let (_, response) =
+                        ui.allocate_exact_size(Vec2::splat(200.), egui::Sense::click_and_drag());
+                    assert!(!response.ctx.input(|i| i.focused));
+                    if marquee_input(&mut gesture, &response, true).is_some() {
+                        commits += 1;
+                    }
+                });
+            },
+        );
+        output.textures_delta.clear();
+        assert_eq!(commits, 0);
+        assert!(gesture.is_none());
+    }
     #[test]
     fn named_canvas_finishes_once_and_escape_cancels_without_a_selection() {
         use super::super::authoring_smoke::widget_harness::{Harness, named};
