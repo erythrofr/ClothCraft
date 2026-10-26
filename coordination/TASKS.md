@@ -90,6 +90,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-IO-009](#exo-io-009) — Integrate static avatar import into the workspace | interchange | done | EXO-IO-007, EXO-UX-005 | [Issue](https://github.com/erythrofr/ClothCraft/issues/64) |
 | [EXO-IO-010](#exo-io-010) — Import reviewed DXF contours as editable native panels | interchange | done | EXO-IO-002 | Not registered |
 | [EXO-IO-011](#exo-io-011) — Import reviewed SVG patterns in the native workspace | interchange | ready | EXO-IO-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/103) |
+| [EXO-QA-005](#exo-qa-005) — Trace native appearance history through actual UI controls | validation | ready | EXO-QA-004 | [Issue](https://github.com/erythrofr/ClothCraft/issues/135) |
 
 ## EXO-COORD-001
 
@@ -2275,3 +2276,30 @@ Status: ready. Dependencies: EXO-IO-001.
 - https://github.com/erythrofr/ClothCraft/pull/107
 
 Native SVG adapter merged in #107 as 260646b after seven green checks at 3771fa9. Bounded source review, dimensions, outline selection, material/mesh choice and atomic preparation use the existing reader/installer. Four adapter fixtures cover controls, rollback, drape, history and portable reopen; 93 desktop CPU tests passed (one optional preview ignored). docs/svg-import.md records supported behavior. Full native interaction/installer acceptance remains separate; do not duplicate the merged dialog. Reservation released on #103.
+
+## EXO-QA-005
+
+**Trace native appearance history through actual UI controls**
+
+Status: ready. Dependencies: EXO-QA-004.
+
+**Files / directories**
+
+- `src/atelier/authoring_smoke.rs`
+- `src/atelier/fabrics_ui.rs`
+- `docs/native-appearance-acceptance.md`
+
+**Acceptance**
+
+- Reuse the opt-in native authoring smoke entrypoint and actual control responses for appearance Apply, pointer Undo/Redo and keyboard history. Missing candidate support or controls must fail explicitly, never skip to success.
+- Emit structured observations of authored optics, history availability, playing state, worker generation and x/v/time. Check paused state equality and preservation of an in-flight worker response; do not bypass the normal edit/history installer.
+- Exercise text keyboard ownership, restoration of default optics and isolated public-fixture save/reopen. Distinguish a dispatched event from a verified state change and fail on timeout, no-op or rejected history.
+- Keep GPU execution opt-in and outside default CPU tests/CI. Document exact candidate revision, commands, partial failures and unverified visual appearance. Production fixes outside this scope require a separate coordinated handoff.
+
+**Evidence and related contributions**
+
+- https://github.com/erythrofr/ClothCraft/issues/135
+- https://github.com/erythrofr/ClothCraft/pull/128#issuecomment-6424222657
+- https://github.com/erythrofr/ClothCraft/pull/128
+
+QA implementation may be developed against the explicitly identified candidate branch without marking EXO-LOOK-001 complete or merging its feature. No authoring_ui.rs, authoring.rs, schema, renderer or solver edits; this scope avoids the active markings reservation. Register after this manifest amendment merges and wait for an accepted claim. Existing broad quick smoke failed at 17/23 actions and cannot establish optical history acceptance.
