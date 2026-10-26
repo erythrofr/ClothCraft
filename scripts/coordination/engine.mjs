@@ -6,6 +6,14 @@ const ID = /^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+$/;
 const AGENT = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/;
 const LOGIN = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,38}(?:\[bot\])?$/;
 const PERMISSIONS = new Set(['admin', 'maintain', 'write']);
+const COMMANDS_URL = 'https://github.com/erythrofr/ClothCraft/blob/main/docs/agent-coordination-protocol.md#commands';
+// Fixed help strings only: never reflect arbitrary comment text in receipts.
+const COMMAND_USAGE = new Map([
+  ['status', '/coord status'],
+  ['register', '/coord register EXO-AREA-001'],
+  ...['claim', 'heartbeat', 'release', 'review'].map(verb => [verb, `/coord ${verb} <agent-label>`]),
+  ['release-force', '/coord release-force <reason-code>'],
+]);
 const STATUSES = new Set(['ready', 'blocked', 'review_existing', 'done']);
 const natural = (n) => Number.isSafeInteger(n) && n >= 0;
 const positive = (n) => natural(n) && n > 0;
@@ -102,7 +110,7 @@ export function parseCommand(body) {
     (['claim', 'heartbeat', 'release', 'review'].includes(verb) &&
       AGENT.test(arg ?? '') && !extra.length) ||
     (verb === 'release-force' && AGENT.test(arg ?? '') && !extra.length);
-  return valid ? {verb, arg} : {verb: 'invalid'};
+  return valid ? {verb, arg} : {verb: 'invalid', usage: COMMAND_USAGE.get(verb) ?? null};
 }
 
 export function reduceComments(previous, manifest, comments, hubIssue) {
@@ -128,7 +136,7 @@ export function reduceComments(previous, manifest, comments, hubIssue) {
       continue;
     }
     if (command.verb === 'invalid') {
-      receipt(false, 'Malformed command. See the coordination protocol.');
+      receipt(false, `Malformed command. ${command.usage ? `Use: \`${command.usage}\`. ` : ''}Post a new comment; see ${COMMANDS_URL}`);
       continue;
     }
     if (command.verb === 'status') {
