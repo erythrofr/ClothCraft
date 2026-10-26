@@ -1,8 +1,41 @@
 # SVG pattern geometry import
 
 `garment::svg_import` provides a CPU reader and a prepared authoring edit.
-It does not yet add an import dialog to the desktop application. It is not an
-SVG renderer or a sewing-pattern interchange standard.
+The desktop adapter exposes this through **File → Import SVG patterns…**.
+It is not an SVG renderer or a sewing-pattern interchange standard.
+
+## Native review workflow
+
+Choose a local UTF-8 SVG (at most 3 MiB). The dialog shows its path, outline
+count, physical contour dimensions in millimetres, conversion losses and a
+positive-Y-down preview. Select the intended contours, choose an existing
+fabric and mesh spacing, then acknowledge the losses and click **Add panels**.
+Nothing is selected automatically. Preview strokes are sampled for display;
+the prepared edit uses the complete parsed geometry.
+
+Changing curve tolerance immediately discards the reviewed contours and
+acknowledgement. Click **Update preview** and review again. Choosing another
+source also clears the review; cancelling the OS picker keeps the current
+review. The source is a bounded in-memory snapshot, so changes made externally
+require choosing the file again. Mesh spacing is separate from curve tolerance.
+
+New panels are arranged to the right of the current cloth and avatar. Existing
+unchanged panels retain their drape. Apply uses the ordinary history and edit
+installer, rebuilding dependent state and invalidating stale worker responses.
+Cancel and Escape discard the dialog; invalid parsing or preparation does not
+change the document. Finish active drawing/sewing/placement drafts first.
+
+CPU widget tests exercise the real modal and prepared-edit adapter. They do
+not instantiate the full GPU-backed Atelier or automate the native OS picker;
+native appearance and final installer wiring require separate acceptance.
+Four CPU adapter fixtures cover named selection/acknowledgement and stale
+Apply, physical dimensions and separated placement, existing drape preservation,
+one-step undo/redo, portable save/reopen, invalid source/input budgets, Escape,
+failed compilation rollback and the unsaved-window-close flag. Run them with:
+
+```powershell
+cargo test --locked --features desktop -j 2 --bin cloth-fit svg_import_ui -- --test-threads=2
+```
 
 ## Integration contract
 
@@ -94,6 +127,5 @@ Consulted specifications:
 - [SVG coordinate systems and transforms](https://www.w3.org/TR/SVG2/coords.html)
 - [SVG elliptical arc implementation notes](https://www.w3.org/TR/SVG/implnote.html)
 
-Next slice: a preview/selection dialog that displays dimensions and losses,
-then commits through authoring history. Do not advertise a desktop SVG import
-workflow before that integration is implemented and tested.
+The native adapter lives in `atelier/svg_import_ui.rs` and
+`atelier/documents_ui.rs`; it reuses this reader rather than parsing SVG again.

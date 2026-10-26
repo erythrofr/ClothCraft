@@ -6,6 +6,8 @@ use std::time::Instant;
 mod avatar_import_ui;
 #[path = "pattern_import_ui.rs"]
 mod pattern_import_ui;
+#[path = "svg_import_ui.rs"]
+mod svg_import_ui;
 #[path = "template_browser.rs"]
 mod template_browser;
 
@@ -13,6 +15,7 @@ pub(super) struct DocumentUi {
     browser: template_browser::Browser,
     avatar_import: avatar_import_ui::ImportUi,
     pattern_import: pattern_import_ui::ImportUi,
+    svg_import: svg_import_ui::ImportUi,
     staged_avatar: Option<marvelous_cloth::avatar_import::StagedAvatar>,
     path: Option<PathBuf>,
     pub dirty: bool,
@@ -28,6 +31,7 @@ impl DocumentUi {
             // A modal's early return must not bypass dirty-document protection.
             self.avatar_import = Default::default();
             self.pattern_import = Default::default();
+            self.svg_import = Default::default();
             self.browser.open = false;
             self.browser.confirming = false;
         }
@@ -37,6 +41,7 @@ impl DocumentUi {
             browser: Default::default(),
             avatar_import: Default::default(),
             pattern_import: Default::default(),
+            svg_import: Default::default(),
             staged_avatar: None,
             dirty: path.is_none() || modified,
             path,
@@ -70,6 +75,22 @@ fn prepare_pattern_edit(
     project: &FittingProject,
     scene: &FittingScene,
 ) -> Result<marvelous_cloth::authoring::Edit, String> {
+    import.prepare(
+        &project.template,
+        pattern_arrangement_origin(project, scene),
+    )
+}
+fn prepare_svg_edit(
+    import: &svg_import_ui::ImportUi,
+    project: &FittingProject,
+    scene: &FittingScene,
+) -> Result<marvelous_cloth::authoring::Edit, String> {
+    import.prepare(
+        &project.template,
+        pattern_arrangement_origin(project, scene),
+    )
+}
+fn pattern_arrangement_origin(project: &FittingProject, scene: &FittingScene) -> glam::DVec3 {
     // Separate the new row along X from both the current drape and the avatar.
     // Use current positions, not only the original arrangement.
     let right = scene
@@ -85,8 +106,7 @@ fn prepare_pattern_edit(
         .iter()
         .map(|f| f.properties.thickness)
         .fold(0., f64::max);
-    let origin = glam::DVec3::new(right + 0.2 + scene.collider.clearance + thickness, 1.5, 0.5);
-    import.prepare(&project.template, origin)
+    glam::DVec3::new(right + 0.2 + scene.collider.clearance + thickness, 1.5, 0.5)
 }
 fn install_template(
     prepared: marvelous_cloth::template_catalog::Prepared,
@@ -104,6 +124,41 @@ fn install_template(
     document.browser = Default::default();
 }
 impl Atelier {
+    fn open_svg_import(&mut self) {
+        if self.authoring.preview.is_some() || self.has_document_draft() {
+            self.status = "Finish or cancel the current drawing, placement or sewing before importing patterns".into();
+            return;
+        }
+        self.playing = false;
+        self.document.svg_import.begin(&self.project.template);
+    }
+    fn svg_import_tick(&mut self, ctx: &egui::Context) {
+        use svg_import_ui::Action;
+        match self.document.svg_import.show(ctx, &self.project.template) {
+            Some(Action::Choose) => {
+                if let Some(path) = FileDialog::new()
+                    .set_title("Import SVG patterns")
+                    .add_filter("SVG", &["svg"])
+                    .pick_file()
+                {
+                    self.document.svg_import.choose(&path);
+                }
+            }
+            Some(Action::Cancel) => self.document.svg_import = Default::default(),
+            Some(Action::Confirm) => {
+                match prepare_svg_edit(&self.document.svg_import, &self.project, &self.scene) {
+                    Ok(edit) => {
+                        self.authoring.history.record(self.project.template.clone());
+                        self.install_edit(edit);
+                        self.document.svg_import = Default::default();
+                        self.status = "SVG panels added · move and sew them in the workspace · Undo is available".into();
+                    }
+                    Err(error) => self.document.svg_import.error = Some(error),
+                }
+            }
+            None => {}
+        }
+    }
     fn open_pattern_import(&mut self) {
         if self.authoring.preview.is_some() || self.has_document_draft() {
             self.status = "Finish or cancel the current drawing, placement or sewing before importing patterns".into();
@@ -512,6 +567,7 @@ impl Atelier {
     pub(super) fn document_menu(&mut self, ui: &mut egui::Ui) {
         let ctx = ui.ctx().clone();
         for (label, action) in [
+            ("Import SVG patterns…", 8),
             ("Import DXF patterns…", 7),
             ("Import avatar…", 6),
             ("Templates…", 5),
@@ -535,6 +591,7 @@ impl Atelier {
                     4 => self.open_document(&ctx, true),
                     6 => self.open_avatar_import(&ctx),
                     7 => self.open_pattern_import(),
+                    8 => self.open_svg_import(),
                     _ => self.open_template_browser(&ctx),
                 }
             }
@@ -544,6 +601,10 @@ impl Atelier {
     }
     pub(super) fn document_tick(&mut self, ctx: &egui::Context) {
         self.document.dismiss_modals_for_close(ctx);
+        self.svg_import_tick(ctx);
+        if self.document.svg_import.open {
+            return;
+        }
         self.pattern_import_tick(ctx);
         if self.document.pattern_import.open {
             return;
