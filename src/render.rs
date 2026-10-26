@@ -18,11 +18,38 @@ pub struct DrawModel<'a> {
     pub mesh: &'a Mesh,
     pub state: &'a State,
     pub materials: &'a [Material],
+    pub optics: Option<&'a [Option<crate::garment::appearance::FabricAppearance>]>,
     pub sphere: Option<&'a Sphere>,
     pub avatar: Option<&'a SurfaceMesh>,
     pub collider: Option<&'a dyn Collider>,
     pub seams: &'a [CompiledSeam],
 }
+const VERTEX_FLOATS: usize = 15;
+
+fn cloth_surface(
+    appearance: Option<&crate::garment::appearance::FabricAppearance>,
+    marked: bool,
+    contact: bool,
+    strain: Option<f64>,
+) -> ([f32; 3], f32) {
+    if marked {
+        return ([1.0, 0.23, 0.10], -1.);
+    }
+    if contact {
+        return ([1.0, 0.2, 0.25], -1.);
+    }
+    if let Some(strain) = strain {
+        let v = (strain / 0.1).clamp(0., 1.) as f32;
+        return (
+            [0.15 + 0.8 * v, 0.75 * (1.0 - v) + 0.15, 0.95 * (1.0 - v)],
+            -1.,
+        );
+    }
+    appearance.map_or(([0.91, 0.92, 0.94], -1.), |a| {
+        (a.linear_color(), a.roughness as f32)
+    })
+}
+
 struct Timers {
     query: wgpu::QuerySet,
     resolve: wgpu::Buffer,
@@ -447,7 +474,7 @@ impl Viewport {
             label: Some("cloth-lit-wireframe"),
             source: wgpu::ShaderSource::Wgsl(include_str!("cloth.wgsl").into()),
         });
-        let attrs = wgpu::vertex_attr_array![0=>Float32x4,1=>Float32x3,2=>Float32x4,3=>Float32x3];
+        let attrs = wgpu::vertex_attr_array![0=>Float32x4,1=>Float32x3,2=>Float32x4,3=>Float32x3,4=>Float32];
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("cloth-viewport"),
             layout: None,
@@ -456,7 +483,7 @@ impl Viewport {
                 entry_point: Some("vs_main"),
                 compilation_options: Default::default(),
                 buffers: &[Some(wgpu::VertexBufferLayout {
-                    array_stride: 56,
+                    array_stride: (VERTEX_FLOATS * std::mem::size_of::<f32>()) as u64,
                     step_mode: wgpu::VertexStepMode::Vertex,
                     attributes: &attrs,
                 })],
@@ -516,7 +543,7 @@ impl Viewport {
         let color_texture = Self::target(device, [1, 1], false, 1);
         let view_uniform = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("camera matrix"),
-            size: 64,
+            size: 80,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -585,6 +612,7 @@ impl Viewport {
                 mesh,
                 state,
                 materials: std::slice::from_ref(&p.material),
+                optics: None,
                 sphere: p.sphere.as_ref(),
                 avatar: None,
                 collider: p.sphere.as_ref().map(|s| s as &dyn Collider),
@@ -609,6 +637,7 @@ impl Viewport {
             mesh,
             state,
             materials,
+            optics,
             sphere,
             avatar,
             collider,
@@ -656,6 +685,16 @@ impl Viewport {
             0,
             bytemuck::cast_slice(&matrix.to_cols_array()),
         );
+        let eye = if camera.orthographic {
+            camera.direction().extend(0.)
+        } else {
+            camera.eye().extend(1.)
+        };
+        self.render_state.queue.write_buffer(
+            &self.view_uniform,
+            64,
+            bytemuck::cast_slice(&eye.to_array()),
+        );
         self.environment.update(
             &self.render_state.queue,
             matrix,
@@ -675,26 +714,30 @@ impl Viewport {
         for n in &mut smooth {
             *n = n.normalize_or_zero();
         }
-        let mut triangle =
-            |points: [Vec3; 3], color: [f32; 3], wire: bool, normals: Option<[Vec3; 3]>| {
-                let normal = (points[1] - points[0])
-                    .cross(points[2] - points[0])
-                    .normalize_or_zero();
-                if normal.length_squared() < 0.5 {
-                    return;
-                }
-                for (i, p) in points.into_iter().enumerate() {
-                    data.extend_from_slice(&p.extend(1.0).to_array());
-                    data.extend_from_slice(&normals.map_or(normal, |n| n[i]).to_array());
-                    data.extend_from_slice(&color);
-                    data.push(if wire { 1.0 } else { 0.0 });
-                    data.extend_from_slice(&[
-                        if i == 0 { 1.0 } else { 0.0 },
-                        if i == 1 { 1.0 } else { 0.0 },
-                        if i == 2 { 1.0 } else { 0.0 },
-                    ]);
-                }
-            };
+        let mut triangle = |points: [Vec3; 3],
+                            color: [f32; 3],
+                            wire: bool,
+                            normals: Option<[Vec3; 3]>,
+                            roughness: f32| {
+            let normal = (points[1] - points[0])
+                .cross(points[2] - points[0])
+                .normalize_or_zero();
+            if normal.length_squared() < 0.5 {
+                return;
+            }
+            for (i, p) in points.into_iter().enumerate() {
+                data.extend_from_slice(&p.extend(1.0).to_array());
+                data.extend_from_slice(&normals.map_or(normal, |n| n[i]).to_array());
+                data.extend_from_slice(&color);
+                data.push(if wire { 1.0 } else { 0.0 });
+                data.extend_from_slice(&[
+                    if i == 0 { 1.0 } else { 0.0 },
+                    if i == 1 { 1.0 } else { 0.0 },
+                    if i == 2 { 1.0 } else { 0.0 },
+                ]);
+                data.push(roughness);
+            }
+        };
         for (face, t) in mesh.triangles.iter().enumerate() {
             let material = &materials[t.material];
             let strain = if heat {
@@ -705,27 +748,27 @@ impl Viewport {
             } else {
                 0.
             };
-            let v = (strain / 0.1).clamp(0.0, 1.0) as f32;
             let contact = contacts
                 && collider.is_some_and(|s| {
                     t.vertices
                         .iter()
                         .any(|i| s.penetration(state.x[*i], material.thickness) > 0.0)
                 });
-            let color = if marked_faces.is_some_and(|faces| faces.contains(&face)) {
-                [1.0, 0.23, 0.10]
-            } else if contact {
-                [1.0, 0.2, 0.25]
-            } else if heat {
-                [0.15 + 0.8 * v, 0.75 * (1.0 - v) + 0.15, 0.95 * (1.0 - v)]
-            } else {
-                [0.91, 0.92, 0.94]
-            };
+            let appearance = optics
+                .and_then(|values| values.get(t.material))
+                .and_then(Option::as_ref);
+            let (color, roughness) = cloth_surface(
+                appearance,
+                marked_faces.is_some_and(|faces| faces.contains(&face)),
+                contact,
+                heat.then_some(strain),
+            );
             triangle(
                 t.vertices.map(|i| state.x[i].as_vec3()),
                 color,
                 wire,
                 Some(t.vertices.map(|i| smooth[i])),
+                roughness,
             );
         }
         for seam in seams {
@@ -745,8 +788,8 @@ impl Viewport {
                 for pair in points.windows(2) {
                     let [a, b] = [pair[0], pair[1]];
                     let d = (b - a).cross(Vec3::Z).normalize_or_zero() * 0.0013;
-                    triangle([a - d, a + d, b + d], [1.0, 0.72, 0.22], false, None);
-                    triangle([a - d, b + d, b - d], [1.0, 0.72, 0.22], false, None);
+                    triangle([a - d, a + d, b + d], [1.0, 0.72, 0.22], false, None, -1.);
+                    triangle([a - d, b + d, b - d], [1.0, 0.72, 0.22], false, None, -1.);
                 }
             }
         }
@@ -766,8 +809,8 @@ impl Viewport {
                         point(i, j + 1),
                         point(i + 1, j + 1),
                     ];
-                    triangle([a, c, b], [0.38, 0.4, 0.46], false, None);
-                    triangle([b, c, d], [0.38, 0.4, 0.46], false, None);
+                    triangle([a, c, b], [0.38, 0.4, 0.46], false, None, -1.);
+                    triangle([b, c, d], [0.38, 0.4, 0.46], false, None, -1.);
                 }
             }
         }
@@ -796,10 +839,10 @@ impl Viewport {
                     for (i, v) in p.into_iter().enumerate() {
                         body.extend_from_slice(&v.extend(1.).to_array());
                         body.extend_from_slice(&normals[t[i]].to_array());
-                        body.extend_from_slice(&[0.46, 0.47, 0.49, 0., 0., 0., 0.]);
+                        body.extend_from_slice(&[0.46, 0.47, 0.49, 0., 0., 0., 0., -1.]);
                     }
                 }
-                self.avatar_count = (body.len() / 14) as u32;
+                self.avatar_count = (body.len() / VERTEX_FLOATS) as u32;
                 self.avatar_key = key;
                 self.avatar_buffer = Some(device.create_buffer_init(
                     &wgpu::util::BufferInitDescriptor {
@@ -866,7 +909,7 @@ impl Viewport {
             pass.set_pipeline(&self.pipeline);
             pass.set_bind_group(0, &self.view_bind, &[]);
             pass.set_vertex_buffer(0, self.vertices.slice(..));
-            pass.draw(0..(data.len() / 14) as u32, 0..1);
+            pass.draw(0..(data.len() / VERTEX_FLOATS) as u32, 0..1);
             if let Some(body) = &self.avatar_buffer {
                 pass.set_vertex_buffer(0, body.slice(..));
                 pass.draw(0..self.avatar_count, 0..1);
@@ -1321,5 +1364,29 @@ mod tests {
             camera.orthographic,
             "the projection choice survives a reset"
         );
+    }
+    #[test]
+    fn diagnostic_overlays_keep_precedence_over_custom_optics() {
+        let optics = crate::garment::appearance::FabricAppearance {
+            color_srgb: [255, 0, 0],
+            roughness: 0.3,
+        };
+        assert_eq!(
+            cloth_surface(None, false, false, None),
+            ([0.91, 0.92, 0.94], -1.)
+        );
+        assert_eq!(
+            cloth_surface(Some(&optics), false, false, None),
+            ([1., 0., 0.], 0.3)
+        );
+        assert_eq!(
+            cloth_surface(Some(&optics), true, true, Some(0.1)),
+            ([1., 0.23, 0.10], -1.)
+        );
+        assert_eq!(
+            cloth_surface(Some(&optics), false, true, Some(0.1)),
+            ([1., 0.2, 0.25], -1.)
+        );
+        assert_eq!(cloth_surface(Some(&optics), false, false, Some(0.1)).1, -1.);
     }
 }

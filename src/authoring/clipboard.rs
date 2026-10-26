@@ -44,6 +44,9 @@ impl PatternClipboard {
         template
             .fabrics
             .retain(|f| template.panels.iter().any(|p| p.fabric == f.id));
+        template
+            .fabric_appearance
+            .retain(|id, _| template.fabrics.iter().any(|f| &f.id == id));
         let mut lo = DVec2::splat(f64::INFINITY);
         let mut hi = DVec2::splat(f64::NEG_INFINITY);
         for p in &template.panels {
@@ -141,17 +144,22 @@ impl PatternClipboard {
         let shift = DVec3::new(max_x + 0.15 - min_x, 0., 0.);
         let mut fabrics = BTreeMap::new();
         for f in &self.template.fabrics {
-            let id = if let Some(existing) = target
-                .fabrics
-                .iter()
-                .find(|v| v.properties == f.properties && v.name == f.name)
-            {
+            let id = if let Some(existing) = target.fabrics.iter().find(|v| {
+                v.properties == f.properties
+                    && v.name == f.name
+                    && target.fabric_appearance.get(&v.id)
+                        == self.template.fabric_appearance.get(&f.id)
+            }) {
                 existing.id.clone()
             } else {
+                let optics = self.template.fabric_appearance.get(&f.id).cloned();
                 let mut f = f.clone();
                 f.id = unused_id("fabric", target.fabrics.iter().map(|f| f.id.clone()));
                 let id = f.id.clone();
                 target.fabrics.push(f);
+                if let Some(optics) = optics {
+                    target.fabric_appearance.insert(id.clone(), optics);
+                }
                 id
             };
             fabrics.insert(f.id.clone(), id);

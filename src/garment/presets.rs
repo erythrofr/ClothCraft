@@ -161,6 +161,7 @@ pub fn basic(kind: GarmentKind, subdivisions: u32) -> GarmentTemplate {
         frozen_panels: vec![],
         version: 2,
         name: format!("{} / MakeHuman 1.75 m engineering fixture", kind.name()),
+        fabric_appearance: Default::default(),
         fabrics: vec![Fabric {
             id: "woven-reference".into(),
             name: "Uncalibrated woven reference".into(),

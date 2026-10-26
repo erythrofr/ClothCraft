@@ -1461,6 +1461,14 @@ pub(super) struct EditorTransition<'a> {
 }
 impl EditorTransition<'_> {
     pub(super) fn install(&mut self, edit: Edit) {
+        if authoring::only_appearance_changed(&self.project.template, &edit.template) {
+            self.project.template = edit.template;
+            *self.dirty = true;
+            self.authoring.fabric_draft = None;
+            self.authoring.error = None;
+            *self.status = "Fabric appearance updated".into();
+            return;
+        }
         self.authoring.dart = None;
         *self.simulation_error = None;
         *self.dirty = true;
@@ -2213,6 +2221,78 @@ mod transition_tests {
             status: &mut status,
             dt: 1. / 60.,
         };
+        // A visual edit must not discard an in-flight worker response or its
+        // drape, including when history restores the original appearance.
+        let retained_mesh = state.scene.garment.clone();
+        *state.playing = true;
+        state.project.state = Some(saved.clone());
+        state.project.mesh_signature = Some("retained-cache".into());
+        let optics = authoring::apply(
+            &state.project.template,
+            Command::FabricAppearance {
+                fabric: state.project.template.fabrics[0].id.clone(),
+                appearance: Some(Default::default()),
+            },
+        )
+        .unwrap();
+        assert!(!optics.reset_simulation);
+        state
+            .authoring
+            .history
+            .record(state.project.template.clone());
+        state.install(optics);
+        assert!(*state.playing && *state.pending);
+        assert_eq!(*state.generation, 12);
+        assert!(std::sync::Arc::ptr_eq(&retained_mesh, &state.scene.garment));
+        assert_eq!(state.scene.state.x, saved.x);
+        assert_eq!(state.scene.state.v, saved.v);
+        assert_eq!(state.scene.state.time, saved.time);
+        let undo = state
+            .authoring
+            .history
+            .restore(&state.project.template, false)
+            .unwrap();
+        state.install(undo);
+        assert!(*state.playing && *state.pending);
+        assert_eq!(*state.generation, 12);
+        assert_eq!(
+            state.project.mesh_signature.as_deref(),
+            Some("retained-cache")
+        );
+        assert_eq!(state.project.state.as_ref().unwrap().x, saved.x);
+        assert_eq!(
+            serde_json::to_vec(&state.project.template).unwrap(),
+            original
+        );
+        for redo in [true, false] {
+            let edit = state
+                .authoring
+                .history
+                .restore(&state.project.template, redo)
+                .unwrap();
+            state.install(edit);
+            assert!(*state.playing && *state.pending);
+            assert_eq!(*state.generation, 12);
+            assert!(std::sync::Arc::ptr_eq(&retained_mesh, &state.scene.garment));
+            assert_eq!(state.scene.state.x, saved.x);
+            assert_eq!(state.scene.state.v, saved.v);
+            assert_eq!(state.scene.state.time, saved.time);
+        }
+        assert!(
+            super::super::current_worker_result(
+                Some(super::super::worker::Done {
+                    generation: 12,
+                    had_grab: false,
+                    result: Err("in-flight response".into()),
+                }),
+                *state.generation
+            )
+            .is_some()
+        );
+        state.project.state = None;
+        state.project.mesh_signature = None;
+        *state.playing = false;
+        *state.dirty = false;
         state.authoring.preview = Some(state.project.template.panels[0].placement.clone());
         state.authoring.preview_state = Some(saved.clone());
         state.scene.state.x.fill(DVec3::ZERO);

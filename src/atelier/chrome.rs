@@ -400,6 +400,8 @@ impl Atelier {
             self.camera.garment_interact(&response);
         }
         let size = rect.size() * ctx.pixels_per_point();
+        let optics =
+            marvelous_cloth::garment::appearance::bind(&self.project.template, &self.scene.garment);
         let texture = self.viewport.draw_scene(
             [size.x as u32, size.y as u32],
             &self.camera,
@@ -412,6 +414,7 @@ impl Atelier {
                 mesh: &self.scene.garment.mesh,
                 state: &self.scene.state,
                 materials: &self.scene.garment.materials,
+                optics: Some(&optics),
                 sphere: None,
                 avatar: Some(&self.scene.collider.surface),
                 collider: None,

@@ -156,6 +156,9 @@ pub struct GarmentTemplate {
     pub version: u32,
     pub name: String,
     pub fabrics: Vec<Fabric>,
+    /// Optional visual metadata keyed by stable fabric ID, excluded from physics.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub fabric_appearance: BTreeMap<String, super::appearance::FabricAppearance>,
     pub panels: Vec<Panel>,
     pub seams: Vec<SeamSpec>,
     /// Editable two-piece relations, never a solver constraint.
@@ -272,6 +275,12 @@ impl GarmentTemplate {
                     return Err("Mirror links require distinct polygon panels, with at most one partner per panel".into());
                 }
             }
+        }
+        for (id, appearance) in &self.fabric_appearance {
+            if !self.fabrics.iter().any(|f| &f.id == id) {
+                return Err(format!("Appearance references missing fabric {id}"));
+            }
+            appearance.validate()?;
         }
         for f in &self.fabrics {
             f.properties.bind(0.0).validate()?;
@@ -511,6 +520,7 @@ impl GarmentTemplate {
             mirror_links: vec![],
             pin_targets: vec![],
             frozen_panels: vec![],
+            fabric_appearance: Default::default(),
             fabrics: vec![Fabric {
                 id: "woven-demo".into(),
                 name: "Uncalibrated woven reference".into(),

@@ -2,6 +2,20 @@
 #[test]
 fn viewport_shader_validates_without_gpu() {
     let module = naga::front::wgsl::parse_str(include_str!("../src/cloth.wgsl")).unwrap();
+    let view = module
+        .types
+        .iter()
+        .find(|(_, ty)| ty.name.as_deref() == Some("View"))
+        .unwrap()
+        .1;
+    let naga::TypeInner::Struct { span, ref members } = view.inner else {
+        panic!("View uniform must be a struct")
+    };
+    assert_eq!(span, 80);
+    assert_eq!(
+        members.iter().map(|m| m.offset).collect::<Vec<_>>(),
+        [0, 64]
+    );
     naga::valid::Validator::new(
         naga::valid::ValidationFlags::all(),
         naga::valid::Capabilities::empty(),

@@ -58,6 +58,7 @@ async fn run_async(scene: &FittingScene, output: &Path) -> Result<(), Box<dyn st
             [1200, 1200],
             &camera,
             DrawModel {
+                optics: None,
                 marked_faces: None,
                 mesh: &scene.garment.mesh,
                 state: &scene.state,
@@ -87,6 +88,7 @@ async fn run_async(scene: &FittingScene, output: &Path) -> Result<(), Box<dyn st
             [1200, 1200],
             &camera,
             DrawModel {
+                optics: None,
                 marked_faces: None,
                 mesh: &scene.garment.mesh,
                 state: &scene.state,

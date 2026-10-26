@@ -226,6 +226,10 @@ pub enum Command {
     RemoveSeam {
         seam: String,
     },
+    FabricAppearance {
+        fabric: String,
+        appearance: Option<crate::garment::appearance::FabricAppearance>,
+    },
     Fabric {
         panel: String,
         name: String,
@@ -556,6 +560,7 @@ pub fn same_physics(a: &GarmentTemplate, b: &GarmentTemplate) -> bool {
     let without_layout = |t: &GarmentTemplate| {
         let mut t = t.clone();
         t.mirror_links.clear();
+        t.fabric_appearance.clear();
         for p in &mut t.panels {
             p.layout_2d = None;
             p.layout_rotation_degrees = 0.;
@@ -568,6 +573,18 @@ pub fn same_physics(a: &GarmentTemplate, b: &GarmentTemplate) -> bool {
         serde_json::to_vec(&t).unwrap()
     };
     without_layout(a) == without_layout(b)
+}
+/// A strict appearance-only change, distinct from other nonphysical board edits.
+pub fn only_appearance_changed(a: &GarmentTemplate, b: &GarmentTemplate) -> bool {
+    if a.fabric_appearance == b.fabric_appearance {
+        return false;
+    }
+    let strip = |source: &GarmentTemplate| {
+        let mut t = source.clone();
+        t.fabric_appearance.clear();
+        serde_json::to_vec(&t).unwrap()
+    };
+    strip(a) == strip(b)
 }
 pub fn rotate_2d(p: DVec2, degrees: f64) -> DVec2 {
     let (s, c) = degrees.to_radians().sin_cos();
@@ -1194,6 +1211,24 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
                 ratio,
             )?)
         }
+        Command::FabricAppearance { fabric, appearance } => {
+            if !template.fabrics.iter().any(|f| f.id == fabric) {
+                return Err("Fabric not found".into());
+            }
+            if let Some(appearance) = appearance {
+                appearance.validate()?;
+                template
+                    .fabric_appearance
+                    .insert(fabric.clone(), appearance);
+            } else {
+                template.fabric_appearance.remove(&fabric);
+            }
+            selected = template
+                .panels
+                .iter()
+                .find(|p| p.fabric == fabric)
+                .map(|p| p.id.clone());
+        }
         Command::Fabric {
             panel,
             name,
@@ -1218,6 +1253,9 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
                 > 1;
             let id = if shared && !all_panels {
                 let id = unused_id("fabric", template.fabrics.iter().map(|f| f.id.clone()));
+                if let Some(optics) = template.fabric_appearance.get(&old_id).cloned() {
+                    template.fabric_appearance.insert(id.clone(), optics);
+                }
                 template.fabrics.push(Fabric {
                     id: id.clone(),
                     name,

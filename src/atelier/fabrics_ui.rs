@@ -13,6 +13,7 @@ pub(super) struct FabricDraft {
     extension: [f64; 2],
     preset: Option<usize>,
     all_panels: bool,
+    appearance: Option<marvelous_cloth::garment::appearance::FabricAppearance>,
 }
 impl Atelier {
     pub(super) fn fabric_properties(&mut self, ui: &mut egui::Ui, panel: &Panel) {
@@ -43,7 +44,26 @@ impl Atelier {
                     .iter()
                     .position(|p| p.properties() == fabric.properties),
                 all_panels: false,
+                appearance: self
+                    .project
+                    .template
+                    .fabric_appearance
+                    .get(&fabric.id)
+                    .cloned(),
             });
+        }
+        let appearance_action = appearance_controls(
+            ui,
+            &mut self.authoring.fabric_draft.as_mut().unwrap().appearance,
+        );
+        if let Some(appearance) = appearance_action {
+            let fabric = fabric.id.clone();
+            if self.project.template.fabric_appearance.get(&fabric) == appearance.as_ref() {
+                self.status = "Fabric appearance is unchanged".into();
+                return;
+            }
+            self.edit(Command::FabricAppearance { fabric, appearance });
+            return;
         }
         let panel_mass: f64 = self
             .scene
@@ -162,4 +182,67 @@ fn value(
         .changed()
     })
     .inner
+}
+
+fn appearance_controls(
+    ui: &mut egui::Ui,
+    draft: &mut Option<marvelous_cloth::garment::appearance::FabricAppearance>,
+) -> Option<Option<marvelous_cloth::garment::appearance::FabricAppearance>> {
+    ui.strong("Fabric appearance");
+    ui.small("Shared by panels using this fabric. Does not change its mechanics.");
+    let mut custom = draft.is_some();
+    let enable = ui.checkbox(&mut custom, "Custom color and roughness");
+    #[cfg(test)]
+    super::authoring_smoke::widget_harness::named(ui, &enable, "appearance.enabled");
+    if enable.changed() {
+        *draft = custom.then(Default::default);
+    }
+    if let Some(value) = draft {
+        ui.horizontal(|ui| {
+            ui.label("Color (sRGB)");
+            ui.color_edit_button_srgb(&mut value.color_srgb);
+        });
+        let roughness =
+            ui.add(egui::Slider::new(&mut value.roughness, 0.0..=1.0).text("Roughness"));
+        #[cfg(test)]
+        super::authoring_smoke::widget_harness::named(ui, &roughness, "appearance.roughness");
+        #[cfg(not(test))]
+        let _ = roughness;
+    }
+    let apply = ui.button("Apply appearance");
+    #[cfg(test)]
+    super::authoring_smoke::widget_harness::named(ui, &apply, "appearance.apply");
+    ui.separator();
+    apply.clicked().then(|| draft.clone())
+}
+
+#[cfg(test)]
+mod appearance_tests {
+    use super::super::authoring_smoke::widget_harness::Harness;
+    use super::*;
+    #[test]
+    fn named_appearance_controls_stage_before_explicit_apply() {
+        let mut state = (None, Vec::new());
+        let mut draw = |ui: &mut egui::Ui,
+                        state: &mut (
+            Option<marvelous_cloth::garment::appearance::FabricAppearance>,
+            Vec<Option<marvelous_cloth::garment::appearance::FabricAppearance>>,
+        )| {
+            if let Some(value) = appearance_controls(ui, &mut state.0) {
+                state.1.push(value);
+            }
+        };
+        let mut h = Harness::new(egui::vec2(800., 600.));
+        h.frame(&mut state, &mut draw);
+        h.click("appearance.enabled", &mut state, &mut draw)
+            .unwrap();
+        assert!(state.0.is_some());
+        assert!(state.1.is_empty());
+        h.click("appearance.apply", &mut state, &mut draw).unwrap();
+        assert_eq!(state.1, vec![state.0.clone()]);
+        h.click("appearance.enabled", &mut state, &mut draw)
+            .unwrap();
+        h.click("appearance.apply", &mut state, &mut draw).unwrap();
+        assert_eq!(state.1.last(), Some(&None));
+    }
 }
