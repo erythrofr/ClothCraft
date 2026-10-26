@@ -1419,8 +1419,9 @@ Status: ready. Dependencies: EXO-CORE-001.
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/createStageEnvironment.js
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/sceneCameraViewport.js
+- https://github.com/erythrofr/ClothCraft/pull/121
 
-
+Camera and viewport presentation snapshots merged in #121 as 1f56c2d after seven successful checks at 6d7168a. Workspace > Presentation saves/restores bounded validated JSON independently of garment and solver state; three named-control/persistence fixtures passed within 113 desktop CPU tests. Native parent-menu interaction remains unverified. Lighting only identifies the fixed rig: editable lights, HDRI assets and decorative geometry are not implemented. Task remains incomplete; do not duplicate the existing snapshot implementation. See issue #120 and the merged PR for acceptance boundaries.
 
 ## EXO-LOOK-008
 
@@ -1778,8 +1779,9 @@ Status: ready. Dependencies: none.
 **Evidence and related contributions**
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/docs/EXO_RELEASE_STATUS.md
+- https://github.com/erythrofr/ClothCraft/pull/82
 
-
+ Follow-up #82 merged as 8d57f745 after all seven checks passed at 8a6014b. The extracted-package native launch/capture step completed on hosted Windows (job 121735456975); exact-head PowerShell syntax was also checked locally. This proves CLI project write/load and native launch/capture, not native Save, Export, editing, dialogs, clipboard or physical GPU certification. EXO-QA-002 remains incomplete. Check the live board: merging this increment did not release the contributor reservation.
 
 ## EXO-QA-003
 
