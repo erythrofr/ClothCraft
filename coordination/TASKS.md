@@ -1485,21 +1485,26 @@ Status: ready. Dependencies: none.
 
 **Files / directories**
 
+- `src/avatar/diagnostics.rs`
+- `src/avatar.rs`
 - `src/atelier/avatar_diagnostics.rs`
+- `src/atelier/chrome.rs`
 - `tests/avatar_diagnostics.rs`
-- `src/atelier.rs`
+- `docs/avatar-diagnostics.md`
 
 **Acceptance**
 
 - Report actual collider geometry identity, bounds and supported static-mesh assumptions.
 - Show diagnostics separately from cosmetic avatar appearance.
 - No collision approximations may be silently substituted to improve appearance/performance.
+- Expose a read-only native inspection action with explicit freshness, coverage and unavailable checks; no per-frame mesh analysis or mutation of the solver/contact cache.
+- Exercise closed, open, nonmanifold and inconsistently oriented fixtures plus named-widget refresh/staleness behavior on CPU; topology checks must not be described as proof of no intersections or valid initial separation.
 
 **Evidence and related contributions**
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/meshAvatarContact.js
 
-
+Scope refinement: register the pure CPU report through avatar.rs and the native inspector through chrome.rs, avoiding atelier.rs reserved by EXO-UX-001. Preserve current collision algorithms; separate local topology warnings from an actual initialization/separation check. No implementation before the reviewed scope is merged and a claim is accepted.
 
 ## EXO-UX-001
 
