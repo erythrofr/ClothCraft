@@ -887,6 +887,17 @@ enum AppearanceCapture {
     Glossy,
 }
 
+// Capture fixture only: the public flat panel has a +Z normal. Put the
+// orthographic eye on the fixed key light's reflected direction so roughness
+// changes are visible instead of rounding to the same 8-bit front-view color.
+fn appearance_capture_camera(camera: &mut marvelous_cloth::render::Camera) {
+    let direction = glam::Vec3::new(-0.4, -0.8, 0.6).normalize();
+    camera.yaw = direction.x.atan2(direction.z);
+    camera.pitch = direction.y.asin();
+    camera.orthographic = true;
+    camera.pending_frame = None;
+}
+
 #[derive(Default)]
 struct AppearanceProbe {
     phase: usize,
@@ -1017,6 +1028,9 @@ impl Atelier {
                         self.scene.state.time,
                         self.generation,
                     ));
+                    if probe.capture.is_some() {
+                        appearance_capture_camera(&mut self.camera);
+                    }
                     probe.ready = true;
                 }
             }
@@ -1218,6 +1232,20 @@ mod appearance_probe_tests {
         }
         assert_eq!((presses, releases), (1, 1));
         assert_eq!(probe.phase, 0, "sending a click must not count as success");
+    }
+    #[test]
+    fn appearance_capture_camera_exposes_the_fixed_light_reflection() {
+        let mut camera = marvelous_cloth::render::Camera::default();
+        let target = camera.target;
+        let distance = camera.distance;
+        appearance_capture_camera(&mut camera);
+        let light = glam::Vec3::new(0.4, 0.8, 0.6).normalize();
+        let half = (light + camera.direction()).normalize();
+        assert!(half.distance(glam::Vec3::Z) < 1e-6);
+        assert!(camera.orthographic);
+        assert_eq!(camera.target, target);
+        assert_eq!(camera.distance, distance);
+        assert!(camera.pending_frame.is_none());
     }
     #[test]
     fn appearance_capture_stops_after_apply_without_later_input() {

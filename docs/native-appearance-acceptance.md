@@ -180,3 +180,19 @@ short fixture sequences. A captured image is not a visual acceptance result;
 inspect both images and their optical values before drawing a conclusion.
 These variants do not replace the full history, worker or document scenarios.
 No native execution of these new variants has been verified yet.
+
+
+### Highlight framing
+
+The initial front-view captures at `e3c18ac` passed their state gates but produced
+identical 3D viewport pixels. A CPU evaluation of the shader's flat-panel/front
+view explains this: roughness 0.8 and 0.0 both round to RGB (188, 191, 195).
+This is not evidence that roughness reaches every rendered surface correctly.
+
+The paired capture variants now use the same orthographic view toward
+normalize(-0.4, -0.8, 0.6), reflecting the fixed key light about the fixture's
++Z normal. Target, distance and physical geometry are retained. This fixture
+assumes the public flat T-shirt; arbitrary panel orientations need another view.
+Other scenarios and the normal editor camera are unchanged. CPU validation checks
+the light/view half-vector aligns with +Z. New native captures are still required;
+the earlier pixel-identical images do not validate this new framing.
