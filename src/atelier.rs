@@ -54,6 +54,8 @@ mod selection;
 mod settings;
 #[path = "atelier/sewing_ui.rs"]
 mod sewing_ui;
+#[path = "atelier/stage_settings.rs"]
+mod stage_settings;
 #[cfg(test)]
 #[path = "atelier/ui_preview.rs"]
 mod ui_preview;
@@ -789,6 +791,14 @@ impl eframe::App for Atelier {
                 ui.separator();
                 ui.menu_button("Workspace", |ui| {
                     ui.checkbox(&mut self.tools_visible, "Tool rail");
+                    ui.menu_button("Presentation", |ui| {
+                        if let Some(action) = stage_settings::controls(ui, can_open_palette) {
+                            let path = self.output.join(stage_settings::FILE_NAME);
+                            self.status = stage_settings::execute(action, &path, &mut self.camera, &mut self.prefs.viewport)
+                                .unwrap_or_else(|e| format!("Presentation: {e}"));
+                            ui.close();
+                        }
+                    });
                     if ui.add_enabled(can_open_palette, egui::Button::new("Workspace profiles…")).clicked() {
                         self.profiles.begin(&self.output.join(workspace_profiles::FILE_NAME));
                         ui.close();
