@@ -29,6 +29,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      # Cache dependencies only; package executables are rebuilt on every run.
+      - name: Restore portable Rust dependency cache
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
+        with:
+          prefix-key: clothcraft-deps-v1
+          key: portable-windows-release-desktop-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock') }}
+          env-vars: ImageOS ImageVersion
+          cache-bin: "false"
+          cache-workspace-crates: "false"
+          cache-on-failure: "false"
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - name: Use a supported desktop resolution
         shell: powershell
         run: Set-DisplayResolution -Width 1920 -Height 1080 -Force
@@ -37,7 +48,10 @@ jobs:
           $video = Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue |
             Select-Object Name, DriverVersion, Status
           $video | Format-Table -AutoSize | Out-String | Write-Host
+      # PR/main runs share the mandatory Windows CPU suite in build.yml on the
+      # same windows-2025 image. Standalone manual packaging still runs it.
       - name: Test the CPU core
+        if: github.event_name == 'workflow_dispatch'
         run: cargo test --locked --no-default-features -j 2 -- --test-threads=2
       - name: Build portable executables
         run: >-

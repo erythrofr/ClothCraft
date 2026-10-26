@@ -132,3 +132,18 @@ attestation of an arbitrary externally supplied executable.
 Use a new destination for each release. See
 [native platform validation](platform-validation.md) for the separate macOS,
 Linux and Windows CPU compile matrix and its remaining UI acceptance gaps.
+
+
+### Portable CI dependency reuse
+
+Automatic PR/main packaging shares the mandatory `build (windows-x86_64)` CPU
+suite on `windows-2025`; the `portable-windows` job still builds release binaries
+and verifies the extracted package and native launch/capture. Both checks must
+pass on the same revision. Standalone manual packaging runs its own CPU suite.
+A successful packaging job alone is not evidence that the separate CPU job ran.
+
+The portable workflow caches dependencies with a pinned action and a distinct
+release/OS/architecture/lockfile key. Only successful trusted main pushes save
+that cache. Workspace crates and executables are excluded; every run still
+builds the package and performs its verification. No cache hit skips acceptance,
+and no measured speedup is claimed until comparable hosted runs are available.
