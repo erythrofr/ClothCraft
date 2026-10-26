@@ -71,7 +71,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-UX-003](#exo-ux-003) — Persist workspace layouts and tool visibility | workspace | ready | EXO-UX-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/113) |
 | [EXO-UX-004](#exo-ux-004) — Add group 3D transforms and marquee selection | workspace | ready | EXO-CORE-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/104) |
 | [EXO-UX-005](#exo-ux-005) — Create a provenance-aware garment template browser | workspace | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/22) |
-| [EXO-UX-006](#exo-ux-006) — Expose a versioned headless authoring session adapter | automation | ready | EXO-CORE-001, EXO-REV-005, EXO-UX-001 | Not registered |
+| [EXO-UX-006](#exo-ux-006) — Expose a versioned headless authoring session adapter | automation | done | EXO-CORE-001, EXO-REV-005, EXO-UX-001 | Not registered |
 | [EXO-QA-001](#exo-qa-001) — Build public cross-editor behavioral fixtures | validation | done | EXO-CORE-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/54) |
 | [EXO-QA-002](#exo-qa-002) — Package a clean-machine Windows test release | release | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/23) |
 | [EXO-QA-003](#exo-qa-003) — Verify native macOS and Linux build paths | release | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/24) |
@@ -1267,8 +1267,9 @@ Status: ready. Dependencies: EXO-CORE-001.
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/fabricSurfaceModel.js
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/fabricPbrAppearance.js
 - https://github.com/erythrofr/ClothCraft/issues/126
+- https://github.com/erythrofr/ClothCraft/pull/128
 
-Implementation not started. Issue #126 records current fixed cloth color and the integrated appearance scope. Work remains independent Rust; upstream references are behavioral evidence, not a code/assets import grant. Claim only after this scope is merged and accepted on the live board. Leave texture/PBR capabilities explicitly incomplete until rendered and validated.
+Draft #128 at 654fd9d implements shared solid color/roughness controls and actual shader binding, preserving live drape/worker state for optical edits and undo/redo. Full local CPU gate and all seven hosted checks passed; native-window appearance acceptance awaits GPU authorization. Texture/normal assets and material-space texture transforms remain unsupported. Task stays incomplete. Review the open PR and docs/fabric-appearance.md before claiming follow-up work; the claim on #126 is released. Independent Rust/WGSL implementation, no upstream code or assets imported.
 
 ## EXO-LOOK-002
 
@@ -1500,7 +1501,7 @@ Status: blocked. Dependencies: EXO-AV-001.
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/patternBodyArrangement.js
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/autoFitPlacement.js
 
-
+Dependencies are now satisfied, but scope/behavior review is still required before promotion. Existing Command::Place and Placement already define metre translation and Rx*Ry*Rz rotation of local (u,-v,0); reuse these transactions. Named body landmarks, persistence and avatar-replacement invalidation are not supplied by generic placement. Specify whether anchors are authored or derived before choosing schema paths; persistent anchors may require a reviewed fitting-document scope expansion. Initial separation must use the actual avatar/cloth validation path, not a bounds-only clearance promise. Account for open appearance PR #128 before editing the shared garment module. No implementation claim yet.
 
 ## EXO-AV-003
 
@@ -1709,7 +1710,7 @@ Owner-approved scope amendment: integrate through authoring_ui.rs and documents_
 
 **Expose a versioned headless authoring session adapter**
 
-Status: ready. Dependencies: EXO-CORE-001, EXO-REV-005, EXO-UX-001.
+Status: done. Dependencies: EXO-CORE-001, EXO-REV-005, EXO-UX-001.
 
 **Files / directories**
 
@@ -1729,8 +1730,11 @@ Status: ready. Dependencies: EXO-CORE-001, EXO-REV-005, EXO-UX-001.
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/docs/EXO_RUST_CONVERSION_STATUS_2026-10-18.md
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/clothcraftApiClient.js
 - https://github.com/erythrofr/ClothCraft/pull/7
+- https://github.com/erythrofr/ClothCraft/pull/123
+- https://github.com/erythrofr/ClothCraft/pull/125
+- https://github.com/erythrofr/ClothCraft/pull/131
 
-Evaluate existing exo-session proposal first; use one canonical adapter rather than competing protocols.
+Scoped headless adapter acceptance completed by merged #123, #125 and #131 (latest 64443ee). The canonical cloth-session JSON-lines process routes ten advertised commands to native transactional authoring with guarded session/revision, preparation/cancellation, undo/redo and bounded framing. Eight CPU protocol tests, real interactive process acceptance and strict Clippy passed; all seven CI checks passed before #131 merged. Earlier handoffs kept the broader automation effort open for live-editor attachment and packaging; those remain unsupported, but are outside this task's three declared headless acceptance criteria and file scope. This completion does not claim full native-command coverage, live UI control, physics execution or distributable packaging. Read #122 before extending the existing adapter; do not create a competing protocol. Claim release is confirmed.
 
 ## EXO-QA-001
 
