@@ -3,6 +3,8 @@ use super::*;
 use crate::render::appearance::{AntiAliasing, Appearance};
 use layout::ViewMode;
 use marvelous_cloth::vbd::{FinalDiagnostics, FinalDiagnosticsBackend};
+#[path = "avatar_diagnostics.rs"]
+mod avatar_diagnostics;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum InspectorTab {
@@ -213,6 +215,9 @@ impl Atelier {
                     }
                 }
                 InspectorTab::Simulation => {
+                    ui.collapsing("Avatar collision diagnostics", |ui| {
+                        avatar_diagnostics::show(ui, &self.scene, &self.settings, self.generation, self.playing, self.pending);
+                    });
                     ui.strong("Mesh resolution");
                     ui.add(egui::Slider::new(&mut self.mesh_mm, 8.0..=60.0).text("mm"));
                     if ui.button("Remesh").clicked() {

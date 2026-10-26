@@ -1,6 +1,7 @@
 //! Static OBJ avatar and BVH-accelerated vertex/surface penalty.
 //! Sign uses local oriented normals: reliable near an oriented surface, not a
 //! global inside/outside oracle for arbitrary open/intersecting meshes. No CCD.
+pub mod diagnostics;
 use crate::{contact::Collider, energy::Element};
 use glam::{DMat3, DVec3};
 use std::{fs, path::Path, sync::Arc};
