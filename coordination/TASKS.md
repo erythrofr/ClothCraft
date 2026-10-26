@@ -85,7 +85,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-MFG-015](#exo-mfg-015) — Create and manage saved pattern measurements in the native 2D UI | manufacturing | blocked | EXO-REV-001, EXO-REV-002 | [Issue](https://github.com/erythrofr/ClothCraft/issues/69) |
 | [EXO-CAD-012](#exo-cad-012) — Add editable pattern text annotations to the native Piece inspector and board | cad | blocked | EXO-REV-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/70) |
 | [EXO-SEW-007](#exo-sew-007) — Preview and create a cut-and-sewn dart from the native pattern UI | sewing | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/71) |
-| [EXO-PHY-004](#exo-phy-004) — Expose correctly timed contact and residual diagnostics in the native Simulation inspector | physics | review_existing | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/72) |
+| [EXO-PHY-004](#exo-phy-004) — Expose correctly timed contact and residual diagnostics in the native Simulation inspector | physics | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/72) |
 | [EXO-IO-009](#exo-io-009) — Integrate static avatar import into the workspace | interchange | done | EXO-IO-007, EXO-UX-005 | [Issue](https://github.com/erythrofr/ClothCraft/issues/64) |
 
 ## EXO-COORD-001
@@ -2075,7 +2075,7 @@ Backend prerequisite delivered by PR #80 (main e727f2c): Command::DartCutSew, or
 
 **Expose correctly timed contact and residual diagnostics in the native Simulation inspector**
 
-Status: review_existing. Dependencies: none.
+Status: done. Dependencies: none.
 
 **Files / directories**
 
@@ -2101,9 +2101,12 @@ Status: review_existing. Dependencies: none.
 
 - https://github.com/erythrofr/ClothCraft/issues/13#issuecomment-6376032311
 - https://github.com/erythrofr/ClothCraft/pull/66
+- https://github.com/erythrofr/ClothCraft/pull/76
+- https://github.com/erythrofr/ClothCraft/issues/72#issuecomment-6411088338
 - https://github.com/erythrofr/ClothCraft/pull/66
+- https://github.com/erythrofr/ClothCraft/pull/76
 
-Owner-requested native ClothCraft UI slice after reviewing PR #66. Work on a feature branch in NicTanghe/Hamerons_ClothCraft and submit a separate PR to erythrofr/ClothCraft:main. Exclude exo-session, the EXO application, print/hardware adapter fields and unrelated solver changes. Review existing contributions and preserve attribution; no permission to copy incompatible EXO source is implied. This issue is a proposed task until the catalog change is merged, a maintainer registers it, and the coordinator accepts a claim. Use the existing CPU named-widget harness; GPU/native-window acceptance remains opt-in. GPU runtime validation requires separate current-session authorization. Existing passive motion diagnostics and offline energy audit must be reused where possible.
+Delivered by FireflyTheReal in PR #76, merged as b4f8a89680b3a7dcb052ef640262ce1d2e275aa1 after seven green CI checks. Sample final state is an explicit one-shot action: accepted-position contact detection and free-DOF backward-Euler residual, units, physical time, cost, backend and freshness. Requests/results carry generation and request IDs. Five independent numerical tests and seven desktop CPU transport/presentation tests passed in maintainer review; state and next-step trajectory preservation are covered. The contributor recorded matched CPU step/sample timings in docs/solver-challenge.md; sampling stays opt-in and its cost remains outside step_ms. GPU-accepted states use a labelled CPU audit, never fabricated GPU residuals or timings. Native GPU/window runtime acceptance was not performed in this review. This completes the scoped diagnostic implementation and CPU acceptance, not a jitter fix, KKT certificate or changed collision/rejection policy. Broad #66 solver changes remain unmerged. Handoff and release are recorded on issue #72.
 
 ## EXO-IO-009
 

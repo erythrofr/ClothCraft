@@ -2012,7 +2012,7 @@
       "id": "EXO-PHY-004",
       "title": "Expose correctly timed contact and residual diagnostics in the native Simulation inspector",
       "area": "physics",
-      "status": "review_existing",
+      "status": "done",
       "depends_on": [],
       "scope": [
         "src/vbd.rs",
@@ -2034,12 +2034,15 @@
       ],
       "evidence": [
         "https://github.com/erythrofr/ClothCraft/issues/13#issuecomment-6376032311",
-        "https://github.com/erythrofr/ClothCraft/pull/66"
+        "https://github.com/erythrofr/ClothCraft/pull/66",
+        "https://github.com/erythrofr/ClothCraft/pull/76",
+        "https://github.com/erythrofr/ClothCraft/issues/72#issuecomment-6411088338"
       ],
       "related_prs": [
-        "https://github.com/erythrofr/ClothCraft/pull/66"
+        "https://github.com/erythrofr/ClothCraft/pull/66",
+        "https://github.com/erythrofr/ClothCraft/pull/76"
       ],
-      "notes": "Owner-requested native ClothCraft UI slice after reviewing PR #66. Work on a feature branch in NicTanghe/Hamerons_ClothCraft and submit a separate PR to erythrofr/ClothCraft:main. Exclude exo-session, the EXO application, print/hardware adapter fields and unrelated solver changes. Review existing contributions and preserve attribution; no permission to copy incompatible EXO source is implied. This issue is a proposed task until the catalog change is merged, a maintainer registers it, and the coordinator accepts a claim. Use the existing CPU named-widget harness; GPU/native-window acceptance remains opt-in. GPU runtime validation requires separate current-session authorization. Existing passive motion diagnostics and offline energy audit must be reused where possible."
+      "notes": "Delivered by FireflyTheReal in PR #76, merged as b4f8a89680b3a7dcb052ef640262ce1d2e275aa1 after seven green CI checks. Sample final state is an explicit one-shot action: accepted-position contact detection and free-DOF backward-Euler residual, units, physical time, cost, backend and freshness. Requests/results carry generation and request IDs. Five independent numerical tests and seven desktop CPU transport/presentation tests passed in maintainer review; state and next-step trajectory preservation are covered. The contributor recorded matched CPU step/sample timings in docs/solver-challenge.md; sampling stays opt-in and its cost remains outside step_ms. GPU-accepted states use a labelled CPU audit, never fabricated GPU residuals or timings. Native GPU/window runtime acceptance was not performed in this review. This completes the scoped diagnostic implementation and CPU acceptance, not a jitter fix, KKT certificate or changed collision/rejection policy. Broad #66 solver changes remain unmerged. Handoff and release are recorded on issue #72."
     },
     {
       "id": "EXO-IO-009",
