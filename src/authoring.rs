@@ -300,11 +300,43 @@ pub fn prepare_pin_edit(
     selection: &[DVec2],
     hold: bool,
 ) -> Result<(Edit, State), String> {
+    prepare_pin_group_edit(
+        source,
+        compiled,
+        state,
+        &std::collections::BTreeMap::from([(panel.to_owned(), selection.to_vec())]),
+        hold,
+    )
+}
+
+/// One atomic pin edit across panels. Source freshness and the final candidate
+/// are each compiled once, independently of the number of selected panels.
+pub fn prepare_pin_group_edit(
+    source: &GarmentTemplate,
+    compiled: &CompiledGarment,
+    state: &State,
+    selections: &std::collections::BTreeMap<String, Vec<DVec2>>,
+    hold: bool,
+) -> Result<(Edit, State), String> {
     use crate::garment::pins::MaterialPinTarget;
-    if source.frozen_panels.iter().any(|p| p.panel == panel) {
+    let count = selections
+        .values()
+        .try_fold(0usize, |n, points| n.checked_add(points.len()));
+    if selections.is_empty()
+        || selections.len() > 128
+        || selections.values().any(Vec::is_empty)
+        || !count.is_some_and(|n| (1..=65_536).contains(&n))
+    {
+        return Err("Select 1..65536 material points on 1..128 panels".into());
+    }
+    if source
+        .frozen_panels
+        .iter()
+        .any(|p| selections.contains_key(&p.panel))
+    {
         return Err("Release the frozen panel before editing individual pins".into());
     }
-    let captured = capture_pin_targets(source, compiled, state, panel, Some(selection))?;
+    validate_pin_source(source, compiled, state)?;
     if compiled
         .mesh
         .pins
@@ -314,18 +346,30 @@ pub fn prepare_pin_edit(
     {
         return Err("Current state disagrees with existing pin targets".into());
     }
+    let mut captured = Vec::with_capacity(count.unwrap());
+    let mut keys = std::collections::BTreeMap::new();
+    for (panel, points) in selections {
+        let targets = capture_panel_targets(compiled, state, panel, Some(points))?;
+        keys.insert(
+            panel.as_str(),
+            targets
+                .iter()
+                .map(|(uv, _)| pin_uv_key(*uv))
+                .collect::<std::collections::BTreeSet<_>>(),
+        );
+        captured.extend(targets.into_iter().map(|(uv, world)| MaterialPinTarget {
+            panel: panel.clone(),
+            uv,
+            world,
+        }));
+    }
     let mut template = source.clone();
-    template
-        .pin_targets
-        .retain(|target| target.panel != panel || !selection.contains(&target.uv));
+    template.pin_targets.retain(|target| {
+        keys.get(target.panel.as_str())
+            .is_none_or(|selected| !selected.contains(&pin_uv_key(target.uv)))
+    });
     if hold {
-        template
-            .pin_targets
-            .extend(captured.into_iter().map(|(uv, world)| MaterialPinTarget {
-                panel: panel.to_owned(),
-                uv,
-                world,
-            }));
+        template.pin_targets.extend(captured);
         template.version = 2;
     }
     let garment = template.compile()?;
@@ -333,7 +377,7 @@ pub fn prepare_pin_edit(
         reset_simulation: !same_physics(source, &template),
         template,
         garment,
-        selected: Some(panel.to_owned()),
+        selected: selections.keys().next().cloned(),
         new_point: None,
     };
     let next = edit.state_after(compiled, state);
@@ -400,7 +444,15 @@ pub fn capture_pin_targets(
     panel: &str,
     selected_uvs: Option<&[DVec2]>,
 ) -> Result<Vec<(DVec2, DVec3)>, String> {
-    const MAX_TARGETS: usize = 65_536;
+    validate_pin_source(source, compiled, state)?;
+    capture_panel_targets(compiled, state, panel, selected_uvs)
+}
+
+fn validate_pin_source(
+    source: &GarmentTemplate,
+    compiled: &CompiledGarment,
+    state: &State,
+) -> Result<(), String> {
     let n = compiled.mesh.uv.len();
     if state.x.len() != n
         || state.v.len() != n
@@ -429,6 +481,21 @@ pub fn capture_pin_targets(
     {
         return Err("Pin capture source is stale; rebuild the garment before capturing".into());
     }
+    Ok(())
+}
+
+fn pin_uv_key(uv: DVec2) -> [u64; 2] {
+    [uv.x, uv.y].map(|v| if v == 0. { 0 } else { v.to_bits() })
+}
+
+/// The caller has already checked source freshness and state dimensions.
+fn capture_panel_targets(
+    compiled: &CompiledGarment,
+    state: &State,
+    panel: &str,
+    selected_uvs: Option<&[DVec2]>,
+) -> Result<Vec<(DVec2, DVec3)>, String> {
+    const MAX_TARGETS: usize = 65_536;
     let range = compiled
         .panels
         .iter()
@@ -442,7 +509,7 @@ pub fn capture_pin_targets(
     }
     // Canonicalize signed zero. Other values are exact compiled coordinates;
     // no nearest-vertex fallback may silently move a requested attachment.
-    let key = |uv: DVec2| [uv.x, uv.y].map(|v| if v == 0. { 0 } else { v.to_bits() });
+    let key = pin_uv_key;
     let mut vertices = std::collections::BTreeMap::new();
     for i in range.clone() {
         let uv = compiled.mesh.uv[i];

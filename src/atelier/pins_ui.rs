@@ -6,7 +6,7 @@ use marvelous_cloth::{
     garment::{CompiledGarment, GarmentTemplate},
     model::State,
 };
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Action {
@@ -21,16 +21,20 @@ fn controls(
     ui: &mut egui::Ui,
     available: bool,
     frozen: bool,
+    selection_frozen: bool,
     points: usize,
     pins: usize,
 ) -> Option<Action> {
     ui.separator();
     ui.strong("Pins and freeze");
     ui.small(format!(
-        "Active panel · {points} selected contour points · {pins} authored pins"
+        "Selection: {points} contour points | Active panel: {pins} authored pins"
     ));
     if !available {
         ui.small("Pause simulation and finish placement before editing holds.");
+    }
+    if selection_frozen {
+        ui.small("Unfreeze selected panels before editing their individual pins.");
     }
     let mut action = None;
     ui.horizontal_wrapped(|ui| {
@@ -39,13 +43,13 @@ fn controls(
                 "pins.pin",
                 "Pin selected",
                 Action::Pin,
-                points > 0 && !frozen,
+                points > 0 && !selection_frozen,
             ),
             (
                 "pins.unpin",
                 "Unpin selected",
                 Action::Unpin,
-                points > 0 && !frozen,
+                points > 0 && !selection_frozen,
             ),
             (
                 "pins.release",
@@ -75,10 +79,10 @@ fn prepare(
     garment: &CompiledGarment,
     state: &State,
     avatar: Option<&marvelous_cloth::avatar::SurfaceMesh>,
-    request: (&str, &[DVec2], Action),
+    request: (&str, &BTreeMap<String, Vec<DVec2>>, Action),
 ) -> Result<authoring::Edit, String> {
     let (panel, points, action) = request;
-    let (edit, candidate) = match action {
+    let (mut edit, candidate) = match action {
         Action::Freeze | Action::Thaw => authoring::prepare_freeze_edit(
             template,
             garment,
@@ -86,11 +90,10 @@ fn prepare(
             panel,
             action == Action::Freeze,
         )?,
-        Action::Pin | Action::Unpin => authoring::prepare_pin_edit(
+        Action::Pin | Action::Unpin => authoring::prepare_pin_group_edit(
             template,
             garment,
             state,
-            panel,
             points,
             action == Action::Pin,
         )?,
@@ -104,6 +107,7 @@ fn prepare(
             authoring::prepare_pin_edit(template, garment, state, panel, &points, false)?
         }
     };
+    edit.selected = Some(panel.to_owned());
     validate(&edit, &candidate, avatar)?;
     Ok(edit)
 }
@@ -118,33 +122,55 @@ pub(super) fn validate(
         .map(|_| ())
 }
 
+/// Resolve every selected contour index or reject the entire selection.
+fn selected_material_points(
+    template: &GarmentTemplate,
+    groups: &BTreeMap<String, Vec<usize>>,
+) -> Result<BTreeMap<String, Vec<DVec2>>, String> {
+    groups
+        .iter()
+        .map(|(id, indices)| {
+            let polygon = template
+                .panels
+                .iter()
+                .find(|p| &p.id == id)
+                .and_then(|p| p.polygon.as_ref())
+                .ok_or_else(|| format!("Selected panel {id} has no editable contour"))?;
+            let points = indices
+                .iter()
+                .map(|i| {
+                    polygon
+                        .points
+                        .get(*i)
+                        .copied()
+                        .ok_or_else(|| format!("Selected contour point {i} on {id} is stale"))
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok((id.clone(), points))
+        })
+        .collect()
+}
+
 impl Atelier {
     pub(super) fn pin_properties(
         &mut self,
         ui: &mut egui::Ui,
         panel: &marvelous_cloth::garment::template::Panel,
     ) {
-        let mut indices = if self.authoring.board.selection_panel.as_deref() == Some(&panel.id) {
-            self.authoring.board.selection.clone()
-        } else {
-            vec![]
-        };
-        if indices.is_empty()
+        let mut groups = self.authoring.board.point_selections();
+        if groups.is_empty()
             && let Some((id, i)) = &self.authoring.anchor
-            && id == &panel.id
         {
-            indices.push(*i);
+            groups.insert(id.clone(), vec![*i]);
         }
-        let points: Vec<_> = panel
-            .polygon
-            .as_ref()
-            .map(|p| {
-                indices
-                    .iter()
-                    .filter_map(|i| p.points.get(*i).copied())
-                    .collect()
-            })
-            .unwrap_or_default();
+        let points = selected_material_points(&self.project.template, &groups);
+        let count = groups.values().map(Vec::len).sum();
+        let selection_frozen = self
+            .project
+            .template
+            .frozen_panels
+            .iter()
+            .any(|p| groups.contains_key(&p.panel));
         let frozen = self
             .project
             .template
@@ -163,14 +189,24 @@ impl Atelier {
             && self.authoring.preview.is_none()
             && self.authoring.board.shape.is_none()
             && self.authoring.board.group_shapes.is_empty();
-        if let Some(action) = controls(ui, available, frozen, points.len(), pins) {
-            match prepare(
-                &self.project.template,
-                &self.scene.garment,
-                &self.scene.state,
-                Some(&self.scene.collider.surface),
-                (&panel.id, &points, action),
-            ) {
+        if let Some(action) = controls(ui, available, frozen, selection_frozen, count, pins) {
+            let result = (|| {
+                // Full-panel actions do not depend on contour selection validity.
+                let empty = BTreeMap::new();
+                let points = if matches!(action, Action::Pin | Action::Unpin) {
+                    points.as_ref().map_err(Clone::clone)?
+                } else {
+                    &empty
+                };
+                prepare(
+                    &self.project.template,
+                    &self.scene.garment,
+                    &self.scene.state,
+                    Some(&self.scene.collider.surface),
+                    (&panel.id, points, action),
+                )
+            })();
+            match result {
                 Ok(edit) if edit.reset_simulation => {
                     self.authoring.history.record(self.project.template.clone());
                     self.install_edit(edit);
@@ -232,13 +268,17 @@ mod tests {
             .iter()
             .filter(|p| p.panel == panel)
             .count();
-        if let Some(action) = controls(ui, c.available, frozen, c.selected.len(), pins) {
+        if let Some(action) = controls(ui, c.available, frozen, frozen, c.selected.len(), pins) {
             match prepare(
                 &c.template,
                 &c.garment,
                 &c.state,
                 None,
-                (&panel, &c.selected, action),
+                (
+                    &panel,
+                    &BTreeMap::from([(panel.clone(), c.selected.clone())]),
+                    action,
+                ),
             ) {
                 Ok(edit) => {
                     c.state = edit.state_after(&c.garment, &c.state);
@@ -304,12 +344,72 @@ mod tests {
                 &c.garment,
                 &c.state,
                 Some(&avatar),
-                (&c.template.panels[0].id, &[], Action::Freeze)
+                (&c.template.panels[0].id, &BTreeMap::new(), Action::Freeze)
             )
             .is_err()
         );
         assert_eq!(serde_json::to_vec(&c.state).unwrap(), before);
         assert!(c.template.frozen_panels.is_empty());
         assert!(!c.history.can_undo());
+    }
+    #[test]
+    fn grouped_widget_action_and_contour_resolution_are_atomic() {
+        use marvelous_cloth::garment::shapes::{Primitive, primitive};
+        let mut c = case();
+        c.template.version = 2;
+        for panel in &mut c.template.panels {
+            panel.polygon = Some(
+                primitive(
+                    Primitive::Rectangle,
+                    DVec2::splat(0.2),
+                    90.,
+                    Default::default(),
+                )
+                .unwrap(),
+            );
+        }
+        c.garment = c.template.compile().unwrap();
+        c.state = c.garment.initial_state.clone();
+        let groups = c
+            .template
+            .panels
+            .iter()
+            .map(|p| (p.id.clone(), vec![0]))
+            .collect();
+        let selected = selected_material_points(&c.template, &groups).unwrap();
+        assert_eq!(selected.len(), 2);
+        let active = c.template.panels[1].id.clone();
+        let before = c.state.x.clone();
+        let mut draw_group = |ui: &mut egui::Ui, c: &mut Case| {
+            if let Some(action) = controls(ui, true, false, false, 2, 0) {
+                let edit = prepare(
+                    &c.template,
+                    &c.garment,
+                    &c.state,
+                    None,
+                    (&active, &selected, action),
+                )
+                .unwrap();
+                assert_eq!(edit.selected.as_ref(), Some(&active));
+                c.state = edit.state_after(&c.garment, &c.state);
+                c.history.record(c.template.clone());
+                c.template = edit.template;
+                c.garment = edit.garment;
+            }
+        };
+        let mut h = Harness::new(egui::vec2(1000., 600.));
+        h.frame(&mut c, &mut draw_group);
+        h.click("pins.pin", &mut c, &mut draw_group).unwrap();
+        assert_eq!(c.template.pin_targets.len(), 2);
+        assert_eq!(c.state.x, before);
+        h.click("pins.unpin", &mut c, &mut draw_group).unwrap();
+        assert!(c.template.pin_targets.is_empty());
+        assert_eq!(c.state.x, before);
+        let mut stale = groups;
+        stale.insert(active.clone(), vec![usize::MAX]);
+        assert!(selected_material_points(&c.template, &stale).is_err());
+        stale.remove(&active);
+        stale.insert("missing".into(), vec![0]);
+        assert!(selected_material_points(&c.template, &stale).is_err());
     }
 }

@@ -1,6 +1,7 @@
 # Pin and freeze implementation contract
 
-Status: implementation branch `codex/pin-acceptance`, EXO-AV-003, issue #116.
+Status: native holds merged in #119; grouped selection follow-up for
+EXO-AV-003, issue #116.
 Native inspector integration is implemented; a real-window acceptance run is
 still pending. Do not mark the task
 complete based on the CPU prerequisites alone.
@@ -9,10 +10,13 @@ complete based on the CPU prerequisites alone.
 
 Pause simulation, select a panel and open its Piece inspector. **Freeze panel**
 holds its current shape; **Unfreeze panel** releases the freeze while retaining
-individual pins. On polygon panels, selected contour points in the active panel
-can be pinned/unpinned. **Release panel pins** removes all authored individual
-pins on that panel. These controls leave legacy template pins unchanged.
-Cross-panel contour selection applies only to the active panel in this first UI.
+individual pins. On polygon panels, selected contour points across panels
+can be pinned/unpinned in one atomic history action. **Release panel pins**
+removes all authored individual pins on that panel. These controls leave legacy template pins unchanged.
+Freeze and Release panel pins still apply only to the active panel. A frozen
+selected panel or any stale contour point rejects the entire pin/unpin request.
+The grouped transaction validates the source once and compiles the candidate
+once, regardless of the number of selected panels.
 
 Controls are disabled while simulation/worker work or placement previews are
 active. Applying a hold and restoring holds through Undo/Redo runs the existing
@@ -136,3 +140,11 @@ reapplied unchanged legacy pins during copying. Explicit compiled authored-hold
 membership now limits restoration to the new constraints, including authored
 targets which coincide with legacy pins. The existing clipboard test remains
 unchanged and is part of the regression gate.
+
+Grouped-selection follow-up: 117 desktop CPU tests passed (one optional preview
+ignored), including the named Pin/Unpin controls over two polygon panels and
+rejection of stale contour indices. All 13 pin/freeze fixtures passed, including
+one-step undo of a grouped hold, unchanged drape/time/free velocities, and
+atomic rejection when one selected panel is invalid or frozen. Strict Clippy
+passed for the desktop binary and pin fixtures. No native window or GPU was
+used for these checks.

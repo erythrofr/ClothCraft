@@ -529,3 +529,81 @@ fn inconsistent_pin_target_is_rejected_before_initialization() {
     g.mesh.pins[0] = Some(state.x[0] + DVec3::Y * 0.1);
     assert!(VbdSolver::new(Arc::new(g), None, &state).is_err());
 }
+
+#[test]
+fn grouped_holds_preserve_drape_and_undo_as_one_edit() {
+    use marvelous_cloth::authoring::{History, prepare_pin_group_edit};
+    use std::collections::BTreeMap;
+    let t = editable();
+    let g = t.compile().unwrap();
+    let mut state = g.initial_state.clone();
+    state.time = 4.;
+    for (x, v) in state.x.iter_mut().zip(&mut state.v) {
+        x.y += 0.2;
+        *v = DVec3::X;
+    }
+    let indices: Vec<_> = g.panels.iter().map(|p| p.vertices.start).collect();
+    let selections: BTreeMap<_, _> = g
+        .panels
+        .iter()
+        .map(|p| (p.id.clone(), vec![g.mesh.uv[p.vertices.start]]))
+        .collect();
+    let (edit, held) = prepare_pin_group_edit(&t, &g, &state, &selections, true).unwrap();
+    assert_eq!(edit.template.pin_targets.len(), 2);
+    assert_eq!(held.x, state.x);
+    assert_eq!(held.time, state.time);
+    assert_eq!(edit.garment.mesh.uv, g.mesh.uv);
+    for (i, v) in held.v.iter().enumerate() {
+        assert_eq!(
+            *v,
+            if indices.contains(&i) {
+                DVec3::ZERO
+            } else {
+                DVec3::X
+            }
+        );
+    }
+    let mut history = History::default();
+    history.record(t.clone());
+    let restored = history.restore(&edit.template, false).unwrap();
+    assert_eq!(
+        serde_json::to_value(restored.template).unwrap(),
+        serde_json::to_value(&t).unwrap()
+    );
+    assert!(!history.can_undo());
+    let (released, next) =
+        prepare_pin_group_edit(&edit.template, &edit.garment, &held, &selections, false).unwrap();
+    assert!(released.template.pin_targets.is_empty());
+    assert_eq!(next.x, held.x);
+    assert_eq!(next.v, held.v);
+    assert_eq!(next.time, held.time);
+}
+
+#[test]
+fn grouped_holds_reject_invalid_or_frozen_member_atomically() {
+    use marvelous_cloth::authoring::{prepare_freeze_edit, prepare_pin_group_edit};
+    use std::collections::BTreeMap;
+    let t = editable();
+    let g = t.compile().unwrap();
+    let state = g.initial_state.clone();
+    let before = serde_json::to_value((&t, &state)).unwrap();
+    let selections: BTreeMap<_, _> = g
+        .panels
+        .iter()
+        .map(|p| (p.id.clone(), vec![g.mesh.uv[p.vertices.start]]))
+        .collect();
+    let second = &g.panels[1].id;
+    let mut invalid = selections.clone();
+    invalid.get_mut(second).unwrap()[0] += glam::DVec2::splat(0.0001);
+    assert!(prepare_pin_group_edit(&t, &g, &state, &invalid, true).is_err());
+    invalid.insert(second.clone(), vec![]);
+    assert!(prepare_pin_group_edit(&t, &g, &state, &invalid, true).is_err());
+    assert_eq!(serde_json::to_value((&t, &state)).unwrap(), before);
+    let (frozen, held) = prepare_freeze_edit(&t, &g, &state, second, true).unwrap();
+    assert!(
+        prepare_pin_group_edit(&frozen.template, &frozen.garment, &held, &selections, true)
+            .is_err()
+    );
+    assert!(frozen.template.pin_targets.is_empty());
+    assert_eq!(frozen.template.frozen_panels.len(), 1);
+}
