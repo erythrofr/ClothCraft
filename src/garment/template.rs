@@ -164,6 +164,8 @@ pub struct GarmentTemplate {
     /// Authored world holds, identified by exact material coordinates.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub pin_targets: Vec<super::pins::MaterialPinTarget>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub frozen_panels: Vec<super::pins::FrozenPanel>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -234,6 +236,7 @@ impl GarmentTemplate {
         }
         if self.version == 1
             && (!self.pin_targets.is_empty()
+                || !self.frozen_panels.is_empty()
                 || self
                     .panels
                     .iter()
@@ -485,6 +488,10 @@ impl GarmentTemplate {
             out.mesh.pins[i] = Some(target);
             out.initial_state.x[i] = target;
         }
+        for (i, target) in super::pins::resolve_frozen(&out, &self.frozen_panels)? {
+            out.mesh.pins[i] = Some(target);
+            out.initial_state.x[i] = target;
+        }
         Ok(out)
     }
 
@@ -497,6 +504,7 @@ impl GarmentTemplate {
             name: "Two panels / nonmatching seam".into(),
             mirror_links: vec![],
             pin_targets: vec![],
+            frozen_panels: vec![],
             fabrics: vec![Fabric {
                 id: "woven-demo".into(),
                 name: "Uncalibrated woven reference".into(),

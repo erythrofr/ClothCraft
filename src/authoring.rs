@@ -300,6 +300,9 @@ pub fn prepare_pin_edit(
     hold: bool,
 ) -> Result<(Edit, State), String> {
     use crate::garment::pins::MaterialPinTarget;
+    if source.frozen_panels.iter().any(|p| p.panel == panel) {
+        return Err("Release the frozen panel before editing individual pins".into());
+    }
     let captured = capture_pin_targets(source, compiled, state, panel, Some(selection))?;
     if compiled
         .mesh
@@ -322,6 +325,55 @@ pub fn prepare_pin_edit(
                 uv,
                 world,
             }));
+        template.version = 2;
+    }
+    let garment = template.compile()?;
+    let edit = Edit {
+        reset_simulation: !same_physics(source, &template),
+        template,
+        garment,
+        selected: Some(panel.to_owned()),
+        new_point: None,
+    };
+    let next = edit.state_after(compiled, state);
+    Ok((edit, next))
+}
+
+/// Freeze/release a complete sampled panel without consuming history or
+/// installing it. Existing individual/legacy pins survive panel release.
+pub fn prepare_freeze_edit(
+    source: &GarmentTemplate,
+    compiled: &CompiledGarment,
+    state: &State,
+    panel: &str,
+    freeze: bool,
+) -> Result<(Edit, State), String> {
+    use crate::garment::pins::{FrozenPanel, MaterialPinTarget, topology_fingerprint};
+    let captured = capture_pin_targets(source, compiled, state, panel, None)?;
+    if compiled
+        .mesh
+        .pins
+        .iter()
+        .zip(&state.x)
+        .any(|(pin, x)| pin.is_some_and(|target| target.distance(*x) > 1e-10))
+    {
+        return Err("Current state disagrees with existing pin targets".into());
+    }
+    let mut template = source.clone();
+    template.frozen_panels.retain(|p| p.panel != panel);
+    if freeze {
+        template.frozen_panels.push(FrozenPanel {
+            panel: panel.to_owned(),
+            topology: topology_fingerprint(compiled, panel)?,
+            targets: captured
+                .into_iter()
+                .map(|(uv, world)| MaterialPinTarget {
+                    panel: panel.to_owned(),
+                    uv,
+                    world,
+                })
+                .collect(),
+        });
         template.version = 2;
     }
     let garment = template.compile()?;
@@ -843,7 +895,10 @@ pub fn constructed_point(
 }
 
 pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String> {
-    let held = |id: &str| source.pin_targets.iter().any(|p| p.panel == id);
+    let held = |id: &str| {
+        source.pin_targets.iter().any(|p| p.panel == id)
+            || source.frozen_panels.iter().any(|p| p.panel == id)
+    };
     let unsupported_hold_copy = match &command {
         Command::Duplicate { panel }
         | Command::LinkedMirror { panel, .. }
@@ -851,7 +906,7 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
         | Command::Place { panel, .. } => held(panel),
         Command::PlaceGroup { panels, .. } => panels.iter().any(|p| held(p)),
         Command::Primitive { replace: true, .. } | Command::Polygon { replace: true, .. } => {
-            !source.pin_targets.is_empty()
+            !source.pin_targets.is_empty() || !source.frozen_panels.is_empty()
         }
         Command::Paste { clipboard, .. } => {
             // Clipboard target remapping is not implemented. Reject explicitly
@@ -860,6 +915,9 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
             value["template"]["pin_targets"]
                 .as_array()
                 .is_some_and(|p| !p.is_empty())
+                || value["template"]["frozen_panels"]
+                    .as_array()
+                    .is_some_and(|p| !p.is_empty())
         }
         _ => false,
     };
@@ -1860,6 +1918,9 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
     linked::synchronize(source, &mut template)?;
     template
         .pin_targets
+        .retain(|target| template.panels.iter().any(|p| p.id == target.panel));
+    template
+        .frozen_panels
         .retain(|target| template.panels.iter().any(|p| p.id == target.panel));
     let garment = template.compile()?;
     Ok(Edit {

@@ -19,6 +19,74 @@ fn editable() -> GarmentTemplate {
 }
 
 #[test]
+fn frozen_panel_roundtrip_rejects_remesh_and_releases_without_reset() {
+    use marvelous_cloth::authoring::{prepare_freeze_edit, prepare_pin_edit};
+    let mut t = editable();
+    for (i, panel) in t.panels.iter_mut().enumerate() {
+        panel.placement.rotation_degrees = DVec3::new(90., 0., 0.);
+        panel.placement.translation = DVec3::new(i as f64 * 4., 2., 0.);
+    }
+    let g = t.compile().unwrap();
+    let p = &g.panels[0];
+    let i = p.vertices.start;
+    let uv = g.mesh.uv[i];
+    let mut state = g.initial_state.clone();
+    state.time = 2.;
+    for x in &mut state.x {
+        *x += DVec3::Y * 0.2;
+    }
+    state.v.fill(DVec3::X * 0.03);
+    let (pin, state) = prepare_pin_edit(&t, &g, &state, &p.id, &[uv], true).unwrap();
+    let (frozen, mut state) =
+        prepare_freeze_edit(&pin.template, &pin.garment, &state, &p.id, true).unwrap();
+    let before = state.clone();
+    let saved = serde_json::to_string(&frozen.template).unwrap();
+    let loaded: GarmentTemplate = serde_json::from_str(&saved).unwrap();
+    let compiled = loaded.compile().unwrap();
+    for j in p.vertices.clone() {
+        assert_eq!(compiled.mesh.pins[j], Some(state.x[j]));
+        assert_eq!(state.v[j], DVec3::ZERO);
+    }
+    let mut changed = loaded.clone();
+    changed.panels[0].pattern.nx *= 2;
+    assert!(changed.compile().unwrap_err().contains("release"));
+    let mut changed = loaded.clone();
+    changed.frozen_panels[0].targets.pop();
+    assert!(changed.compile().is_err());
+    let mut changed = loaded.clone();
+    changed.frozen_panels[0].targets[1].world += DVec3::X;
+    changed.frozen_panels[0].targets[1].uv = uv;
+    assert!(changed.compile().is_err());
+    assert!(prepare_pin_edit(&loaded, &compiled, &state, &p.id, &[uv], false).is_err());
+    let settings = VbdSettings {
+        iterations: 4,
+        dt: 0.005,
+        ..Default::default()
+    };
+    let mut solver = VbdSolver::new(Arc::new(compiled.clone()), None, &state).unwrap();
+    for _ in 0..8 {
+        solver.step(&mut state, &settings, None).unwrap();
+    }
+    assert_eq!(&state.x[p.vertices.clone()], &before.x[p.vertices.clone()]);
+    assert!(state.x[g.panels[1].vertices.start].y < before.x[g.panels[1].vertices.start].y);
+    let (released, next) = prepare_freeze_edit(&loaded, &compiled, &state, &p.id, false).unwrap();
+    assert_eq!(next.x, state.x);
+    assert_eq!(next.v, state.v);
+    assert_eq!(next.time, state.time);
+    assert_eq!(released.garment.mesh.pins[i], Some(state.x[i]));
+    assert!(released.garment.mesh.pins[i + 1].is_none());
+    assert_eq!(released.template.pin_targets.len(), 1);
+    assert!(released.template.frozen_panels.is_empty());
+    let mut moving = next;
+    let mut solver = VbdSolver::new(Arc::new(released.garment), None, &moving).unwrap();
+    for _ in 0..4 {
+        solver.step(&mut moving, &settings, None).unwrap();
+    }
+    assert_eq!(moving.x[i], state.x[i]);
+    assert!(moving.x[i + 1].distance(state.x[i + 1]) > 1e-6);
+}
+
+#[test]
 fn authored_pin_save_release_and_history_preserve_drape() {
     use marvelous_cloth::authoring::{History, prepare_pin_edit};
     let t = editable();

@@ -24,7 +24,13 @@ still include unrelated hold metadata; paste refuses it explicitly rather
 than dropping constraints. Filtering/remapping clipboard holds requires a
 separate scope amendment. Deleting a panel removes only that panel's targets.
 An individual pin survives a remesh only when its exact material vertex remains.
-Frozen-surface records and their topology validation are still pending.
+`frozen_panels` stores complete sampled target sets and a versioned FNV-1a
+material-topology fingerprint. Compilation rejects missing/duplicate points,
+conflicting holds and changed topology; the fingerprint detects changes and is
+not a cryptographic authenticity check. `prepare_freeze_edit` captures the
+current shape or removes the freeze without removing independent pins. These
+transactions remain uncommitted candidates until the native initialization gate
+accepts them. Empty freeze records are omitted from legacy serialization.
 
 ## Current behavior
 

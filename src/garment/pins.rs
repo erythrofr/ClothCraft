@@ -17,6 +17,96 @@ pub struct MaterialPinTarget {
     pub world: DVec3,
 }
 
+/// A sampled frozen surface. The topology fingerprint is a change detector,
+/// not an authentication hash. Targets still resolve by material coordinates.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FrozenPanel {
+    pub panel: String,
+    pub topology: String,
+    pub targets: Vec<MaterialPinTarget>,
+}
+
+pub fn topology_fingerprint(garment: &CompiledGarment, panel: &str) -> Result<String, String> {
+    let p = garment
+        .panels
+        .iter()
+        .find(|p| p.id == panel)
+        .ok_or("Unknown frozen panel")?;
+    if p.vertices.start > p.vertices.end
+        || p.vertices.end > garment.mesh.uv.len()
+        || p.triangles.start > p.triangles.end
+        || p.triangles.end > garment.mesh.triangles.len()
+        || garment.mesh.uv[p.vertices.clone()]
+            .iter()
+            .any(|uv| !uv.is_finite())
+        || garment.mesh.triangles[p.triangles.clone()]
+            .iter()
+            .any(|t| t.vertices.iter().any(|i| !p.vertices.contains(i)))
+    {
+        return Err("Invalid compiled frozen-panel topology".into());
+    }
+    let mut hash = 0xcbf29ce484222325_u64;
+    let mut append = |value: u64| {
+        for b in value.to_le_bytes() {
+            hash ^= u64::from(b);
+            hash = hash.wrapping_mul(0x100000001b3);
+        }
+    };
+    append(p.vertices.len() as u64);
+    append(p.triangles.len() as u64);
+    for i in p.vertices.clone() {
+        for v in key(garment.mesh.uv[i]) {
+            append(v);
+        }
+    }
+    for t in &garment.mesh.triangles[p.triangles.clone()] {
+        for i in t.vertices {
+            for v in key(garment.mesh.uv[i]) {
+                append(v);
+            }
+        }
+    }
+    Ok(format!("material-topology-v1-{hash:016x}"))
+}
+
+/// Validate complete coverage and unchanged rest topology before resolving holds.
+pub fn resolve_frozen(
+    garment: &CompiledGarment,
+    frozen: &[FrozenPanel],
+) -> Result<Vec<(usize, DVec3)>, String> {
+    if frozen.len() > 128
+        || frozen
+            .iter()
+            .try_fold(0usize, |n, p| n.checked_add(p.targets.len()))
+            .is_none_or(|n| n > MAX_PIN_TARGETS)
+    {
+        return Err("Too many frozen targets".into());
+    }
+    let mut seen = BTreeSet::new();
+    let mut all = Vec::new();
+    for hold in frozen {
+        if !seen.insert(&hold.panel) {
+            return Err("Duplicate frozen panel".into());
+        }
+        let panel = garment
+            .panels
+            .iter()
+            .find(|p| p.id == hold.panel)
+            .ok_or("Unknown frozen panel")?;
+        if hold.targets.len() != panel.vertices.len()
+            || hold.targets.iter().any(|t| t.panel != hold.panel)
+            || hold.topology != topology_fingerprint(garment, &hold.panel)?
+        {
+            return Err(
+                "Frozen panel topology changed; release it before editing or remeshing".into(),
+            );
+        }
+        all.extend(resolve_targets(garment, &hold.targets)?);
+    }
+    Ok(all)
+}
+
 fn key(uv: DVec2) -> [u64; 2] {
     uv.to_array()
         .map(|v| if v == 0.0 { 0 } else { v.to_bits() })
