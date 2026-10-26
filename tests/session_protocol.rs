@@ -184,33 +184,6 @@ fn framing_recovers_after_oversize_invalid_utf8_and_final_line() {
 }
 
 #[test]
-fn executable_answers_handshake_without_a_window_or_assets() {
-    let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_cloth-session"))
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()
-        .unwrap();
-    let line=json!({"protocol":PROTOCOL,"protocolVersion":1,"requestId":"process","payload":{"op":"hello"}}).to_string();
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(line.as_bytes())
-        .unwrap();
-    let output = child.wait_with_output().unwrap();
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let response: Value = serde_json::from_slice(&output.stdout).unwrap();
-    assert_eq!(response["ok"], true);
-    assert_eq!(response["data"]["simulation"], false);
-    assert_eq!(response["data"]["desktopAttachment"], false);
-}
-
-#[test]
 fn exact_limit_accepts_crlf_and_rejects_one_extra_payload_byte() {
     let line = json!({"protocol":PROTOCOL,"protocolVersion":1,"requestId":"limit","payload":{"op":"hello"}}).to_string();
     let mut input = line.as_bytes().to_vec();
@@ -300,4 +273,179 @@ fn advertised_geometry_commands_reach_native_authoring_and_reopen() {
     );
     assert_eq!(reopened["ok"], true, "{reopened}");
     assert_eq!(reopened["data"]["template"], removed["template"]);
+}
+
+// Exercise the shipped process, not just Session/serve. A watchdog kills a stuck
+// child so a missing flush, blocked pipe or EOF regression cannot hang CI.
+struct Cli {
+    child: std::sync::Arc<std::sync::Mutex<std::process::Child>>,
+    input: Option<std::process::ChildStdin>,
+    output: std::io::BufReader<std::process::ChildStdout>,
+    watchdog: Option<(std::sync::mpsc::Sender<()>, std::thread::JoinHandle<()>)>,
+    sequence: usize,
+}
+impl Cli {
+    fn new() -> Self {
+        use std::{
+            process::{Command, Stdio},
+            sync::{Arc, Mutex, mpsc},
+            time::Duration,
+        };
+        let mut child = Command::new(env!("CARGO_BIN_EXE_cloth-session"))
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::inherit())
+            .spawn()
+            .unwrap();
+        let input = child.stdin.take();
+        let output = std::io::BufReader::new(child.stdout.take().unwrap());
+        let child = Arc::new(Mutex::new(child));
+        let watched = child.clone();
+        let (stop, receiver) = mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            if receiver.recv_timeout(Duration::from_secs(30)).is_err() {
+                let _ = watched.lock().unwrap().kill();
+            }
+        });
+        Self {
+            child,
+            input,
+            output,
+            watchdog: Some((stop, worker)),
+            sequence: 0,
+        }
+    }
+    fn read(&mut self) -> Value {
+        use std::io::{BufRead, Read};
+        let mut row = Vec::new();
+        // These public fixtures have small replies; bound failures as well.
+        self.output
+            .by_ref()
+            .take(4 * MAX_MESSAGE_BYTES as u64)
+            .read_until(b'\n', &mut row)
+            .unwrap();
+        assert_eq!(
+            row.last(),
+            Some(&b'\n'),
+            "Missing complete reply (watchdog may have killed a stuck child)"
+        );
+        serde_json::from_slice(&row).unwrap()
+    }
+    fn raw(&mut self, bytes: &[u8]) -> Value {
+        let input = self.input.as_mut().unwrap();
+        input.write_all(bytes).unwrap();
+        input.flush().unwrap();
+        self.read()
+    }
+    fn request(&mut self, payload: Value) -> Value {
+        self.sequence += 1;
+        let id = format!("cli-{}", self.sequence);
+        let line = format!(
+            "{}\n",
+            json!({"protocol":PROTOCOL,"protocolVersion":1,"requestId":id,"payload":payload})
+        );
+        let response = self.raw(line.as_bytes());
+        assert_eq!(response["requestId"], id);
+        assert_eq!(response["protocol"], PROTOCOL);
+        assert_eq!(response["protocolVersion"], 1);
+        response
+    }
+    fn finish(&mut self) {
+        self.input.take();
+        loop {
+            if let Some(status) = self.child.lock().unwrap().try_wait().unwrap() {
+                assert!(
+                    status.success(),
+                    "Session failed or exceeded the 30-second watchdog: {status}"
+                );
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        use std::io::Read;
+        let mut tail = Vec::new();
+        self.output
+            .by_ref()
+            .take(4096)
+            .read_to_end(&mut tail)
+            .unwrap();
+        assert!(tail.is_empty(), "Unexpected trailing stdout: {tail:?}");
+    }
+}
+impl Drop for Cli {
+    fn drop(&mut self) {
+        let mut child = self.child.lock().unwrap();
+        let _ = child.kill();
+        let _ = child.wait();
+        drop(child);
+        if let Some((stop, worker)) = self.watchdog.take() {
+            let _ = stop.send(());
+            let _ = worker.join();
+        }
+    }
+}
+
+#[test]
+fn cli_interactive_pipes_preserve_transactions_and_recover_framing() {
+    let mut cli = Cli::new();
+    let hello = cli.request(json!({"op":"hello"}));
+    assert_eq!(hello["ok"], true);
+    assert_eq!(hello["data"]["simulation"], false);
+    assert_eq!(hello["data"]["desktopAttachment"], false);
+    // Read while stdin stays open: a process that only flushes at EOF fails.
+    let initial = cli.request(json!({"op":"snapshot"}))["data"].clone();
+    let opened = cli.request(
+        json!({"op":"open","guard":guard(&initial),"template":GarmentTemplate::two_panel_demo()}),
+    );
+    assert_eq!(opened["ok"], true, "{opened}");
+    let before = opened["data"].clone();
+    let prepared = cli.request(
+        json!({"op":"prepare_edit","guard":guard(&before),"command":layout(&before, 1.25)}),
+    );
+    assert_eq!(prepared["ok"], true, "{prepared}");
+    let pending = cli.request(json!({"op":"snapshot"}))["data"].clone();
+    assert_eq!(pending["template"], before["template"]);
+    assert_eq!(pending["revision"], before["revision"]);
+    let cancelled = cli.request(
+        json!({"op":"cancel","guard":guard(&pending),"change":prepared["data"]["change"]}),
+    );
+    assert_eq!(cancelled["data"], before);
+    let prepared = cli.request(
+        json!({"op":"prepare_edit","guard":guard(&before),"command":layout(&before, 1.25)}),
+    );
+    let committed = cli
+        .request(json!({"op":"commit","guard":guard(&before),"change":prepared["data"]["change"]}));
+    assert_eq!(committed["ok"], true, "{committed}");
+    let after = committed["data"].clone();
+    assert_eq!(
+        after["template"]["panels"][0]["layout_2d"],
+        json!([1.25, 0.])
+    );
+    let stale = cli.request(json!({"op":"undo","guard":guard(&before)}));
+    assert_eq!(stale["error"]["code"], "stale_revision");
+    assert_eq!(cli.request(json!({"op":"snapshot"}))["data"], after);
+    let undone = cli.request(json!({"op":"undo","guard":guard(&after)}));
+    assert_eq!(undone["data"]["template"], before["template"]);
+    let redone = cli.request(json!({"op":"redo","guard":guard(&undone["data"])}));
+    assert_eq!(redone["data"]["template"], after["template"]);
+    let stable = redone["data"].clone();
+    for malformed in [b"{broken}\n".as_slice(), b"\xff\n".as_slice()] {
+        assert_eq!(cli.raw(malformed)["error"]["code"], "invalid_payload");
+    }
+    let mut oversized = vec![b' '; MAX_MESSAGE_BYTES + 1];
+    oversized.push(b'\n');
+    assert_eq!(cli.raw(&oversized)["error"]["code"], "message_too_large");
+    assert_eq!(cli.request(json!({"op":"snapshot"}))["data"], stable);
+    // EOF is also a valid final request delimiter.
+    let last = json!({"protocol":PROTOCOL,"protocolVersion":1,"requestId":"eof","payload":{"op":"snapshot"}}).to_string();
+    cli.input
+        .as_mut()
+        .unwrap()
+        .write_all(last.as_bytes())
+        .unwrap();
+    cli.input.take();
+    let eof = cli.read();
+    assert_eq!(eof["requestId"], "eof");
+    assert_eq!(eof["data"], stable);
+    cli.finish();
 }
