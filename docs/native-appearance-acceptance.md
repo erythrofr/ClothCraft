@@ -84,3 +84,17 @@ with 14/14 verified phases. Both text-focus phases reported
 physical state. This verifies suppression of document Undo while the real name
 field owns focus; it does not test the text editor's own typed-text undo stack.
 Strict desktop Clippy passed after this extension.
+
+## Save-path diagnostic
+
+Two follow-up native attempts (`output/appearance-history-20261026-c/` and
+`output/appearance-history-20261026-d/`) injected Ctrl+S with and without text
+focus. Both exited 1: no Save, no generation increment, no saved fixture.
+Inspection found that `documents_ui::document_tick` returns early whenever
+`self.smoke` is true, before processing document shortcuts. Therefore neither
+attempt establishes a production Save failure or a text-focus bug.
+
+The unsuccessful extension was removed; the retained scenario is the verified
+14-phase history/text-ownership probe. Native Save acceptance requires a scoped
+change to the smoke/document boundary that preserves dialog and recovery safety.
+Do not bypass this guard in the harness and call that normal UI acceptance.
