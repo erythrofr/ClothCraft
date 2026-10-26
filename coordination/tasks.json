@@ -1402,18 +1402,27 @@
         "src/atelier/pins_ui.rs",
         "src/authoring.rs",
         "tests/pin_authoring.rs",
-        "src/atelier.rs"
+        "src/atelier.rs",
+        "src/garment/pins.rs",
+        "src/garment/mod.rs",
+        "src/garment/template.rs",
+        "src/garment/presets.rs",
+        "src/atelier/authoring_ui.rs",
+        "docs/pins.md"
       ],
       "acceptance": [
         "Reuse material-space pin_points instead of persisting mesh indices.",
         "Define pin versus freeze semantics and preserve undo/reload/remeshing behavior.",
-        "Test release motion and stale-worker invalidation on CPU; GPU validation remains opt-in."
+        "Test release motion and stale-worker invalidation on CPU; GPU validation remains opt-in.",
+        "Pin at the current drape and release without returning the panel to its flat arrangement. Persist material-space identity and world targets through ordinary template history and save/reload; preserve legacy documents and cache signatures when the new fields are absent.",
+        "Whole-panel freeze retains collision participation. Reject unsupported topology changes atomically with an explicit release-first error; never silently lose holds or retarget arbitrary mesh indices.",
+        "Test held vertices, release from zero held velocity, unchanged free-panel motion, invalid-target rollback, undo/redo, serialization, remesh policy and production worker-generation invalidation. No position projection or disabled contacts to conceal invalid initialization."
       ],
       "evidence": [
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/backends/protocol.js"
       ],
       "related_prs": [],
-      "notes": "Core pin data already exists; dedicated editing and freeze semantics do not."
+      "notes": "Issue #116 records the source audit and contract. Existing pin_points bind to initial placement and changing pins resets the panel; the native tool must not expose that reset as pin-at-current-position. Approved extension includes optional template-level target/freeze records, compiler/constructor integration, real history/state transitions and CPU acceptance. No worker, energy, collision or solver algorithm changes are authorized by this task. Follow docs/pins.md; claim before implementation."
     },
     {
       "id": "EXO-AV-004",
