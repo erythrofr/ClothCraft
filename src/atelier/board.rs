@@ -2441,6 +2441,12 @@ impl Atelier {
         true
     }
     fn paint_board(&mut self, ui: &egui::Ui, rect: egui::Rect, response: &egui::Response) {
+        // Selection can change while the Piece inspector is hidden.
+        if self.authoring.dart.as_ref().is_some_and(|d| {
+            self.authoring.tool != Tool::Edit || !d.matches_boundary(self.authoring.edge.as_ref())
+        }) {
+            self.authoring.dart = None;
+        }
         let mut smoke_targets: Vec<(String, egui::Pos2)> = vec![];
         let painter = ui.painter().with_clip_rect(rect);
         // The pattern board is a white drafting sheet; the 3D window has its own

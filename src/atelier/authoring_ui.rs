@@ -183,6 +183,10 @@ impl DartDraft {
         &self.panel
     }
 
+    pub(super) fn matches_boundary(&self, selected: Option<&BoundaryRef>) -> bool {
+        selected.is_some_and(|r| r.panel == self.panel && r.edge.as_deref() == Some(&self.edge))
+    }
+
     pub(super) fn boundary_start(
         &self,
         template: &marvelous_cloth::garment::GarmentTemplate,
@@ -962,6 +966,7 @@ impl Atelier {
         {
             return;
         }
+        self.authoring.dart = None;
         self.cancel_preview();
         let replacing = self.authoring.replace
             && matches!(
