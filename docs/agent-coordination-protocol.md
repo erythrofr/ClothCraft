@@ -75,6 +75,13 @@ when asking another contributor to review or continue work. No command marks
 a task `done`: a reviewed manifest change records completion after acceptance.
 Closing an issue or merging a PR does not silently release a reservation.
 
+Malformed commands are rejected without changing reservations. For recognized
+verbs, the receipt gives the accepted syntax; replace `<agent-label>` with
+your claimed session label or `<reason-code>` with a short reason identifier.
+An unknown verb links to this command table without repeating arbitrary input.
+Post the corrected command in a new comment: editing a rejected command does
+not replay it. A syntax hint does not grant permission or release a claim.
+
 ## Scope and dependencies
 
 Scopes are literal repository files or directory prefixes, with `/`
