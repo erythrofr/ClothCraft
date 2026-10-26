@@ -53,7 +53,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-IO-006](#exo-io-006) — Export static glTF/GLB garment assets | interchange | blocked | EXO-LOOK-001 | Not registered |
 | [EXO-IO-007](#exo-io-007) — Import static glTF/GLB avatars | interchange | done | EXO-CORE-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/60) |
 | [EXO-IO-008](#exo-io-008) — Produce tiled physical PDF pattern sheets | interchange | blocked | EXO-REV-003, EXO-MFG-002 | Not registered |
-| [EXO-LOOK-001](#exo-look-001) — Separate visual fabric properties from mechanics | appearance | ready | EXO-CORE-001 | Not registered |
+| [EXO-LOOK-001](#exo-look-001) — Integrate visual fabric appearance without resetting physics | appearance | ready | EXO-CORE-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/126) |
 | [EXO-LOOK-002](#exo-look-002) — Render the basic fabric appearance model | appearance | blocked | EXO-LOOK-001 | Not registered |
 | [EXO-LOOK-003](#exo-look-003) — Generate deterministic procedural textile maps | appearance | blocked | EXO-LOOK-001 | Not registered |
 | [EXO-LOOK-004](#exo-look-004) — Import and manage fabric texture assets | appearance | blocked | EXO-LOOK-001 | Not registered |
@@ -1205,7 +1205,7 @@ Status: blocked. Dependencies: EXO-REV-003, EXO-MFG-002.
 
 ## EXO-LOOK-001
 
-**Separate visual fabric properties from mechanics**
+**Integrate visual fabric appearance without resetting physics**
 
 Status: ready. Dependencies: EXO-CORE-001.
 
@@ -1214,19 +1214,35 @@ Status: ready. Dependencies: EXO-CORE-001.
 - `src/garment/appearance.rs`
 - `tests/appearance.rs`
 - `src/garment/mod.rs`
+- `src/garment/template.rs`
+- `src/garment/presets.rs`
+- `src/authoring.rs`
+- `src/authoring/clipboard.rs`
+- `src/fitting.rs`
+- `src/atelier/fabrics_ui.rs`
+- `src/atelier/authoring_ui.rs`
+- `src/atelier/chrome.rs`
+- `src/render.rs`
+- `src/cloth.wgsl`
+- `src/gpu_bench.rs`
+- `tests/shader.rs`
+- `docs/fabric-appearance.md`
 
 **Acceptance**
 
-- Define color, roughness, normal/texture references and scale/orientation with explicit conventions.
-- Appearance-only edits preserve positions, velocities and solver caches.
-- Old documents load with current visual defaults; absent optics do not invent physical calibration.
+- Define validated fabric color, roughness, normal/texture references and material-space scale/orientation with explicit color-space, units and asset-identity conventions. Preserve current defaults and legacy document serialization when appearance is absent.
+- Integrate supported appearance into the native fabric inspector and rendered cloth, using shared fabric IDs. Preserve diagnostic overlay precedence; unsupported texture/normal assets must not be advertised as rendered. Do not stop at an unused schema.
+- Appearance-only edits and Undo/Redo preserve positions, velocities, simulation time, physical cache signature and solver/worker state. Route changes through the existing transactional history/installer; appearance does not infer measured mechanics.
+- Preserve appearance ownership across duplicate, clipboard, delete, material edits and portable save/reopen; explicitly reject unsupported asset operations rather than silently dropping references.
+- Test invalid-input rollback, old-file defaults, exact physical-signature invariance, history/drape preservation, named inspector controls and actual renderer data preparation. Validate WGSL on CPU; record GPU/native-window acceptance separately and run it only with current authorization.
 
 **Evidence and related contributions**
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/fabricSurfaceModel.js
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/fabricPbrAppearance.js
+- https://github.com/erythrofr/ClothCraft/issues/126
 
-
+Implementation not started. Issue #126 records current fixed cloth color and the integrated appearance scope. Work remains independent Rust; upstream references are behavioral evidence, not a code/assets import grant. Claim only after this scope is merged and accepted on the live board. Leave texture/PBR capabilities explicitly incomplete until rendered and validated.
 
 ## EXO-LOOK-002
 
