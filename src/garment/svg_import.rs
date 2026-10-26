@@ -436,7 +436,7 @@ fn shape(tag: &str, a: &Attributes, m: DAffine2, tolerance: f64) -> Result<Vec<D
             if values.len() % 2 != 0 {
                 return Err("SVG points need complete coordinate pairs".into());
             }
-            for p in values.chunks_exact(2) {
+            for p in values.as_chunks::<2>().0 {
                 push_point(&mut out, m.transform_point2(DVec2::new(p[0], p[1])))?;
             }
             if tag == "polyline" && out.first() != out.last() {
