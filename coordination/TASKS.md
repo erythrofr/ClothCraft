@@ -88,6 +88,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-PHY-004](#exo-phy-004) — Expose correctly timed contact and residual diagnostics in the native Simulation inspector | physics | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/72) |
 | [EXO-IO-009](#exo-io-009) — Integrate static avatar import into the workspace | interchange | done | EXO-IO-007, EXO-UX-005 | [Issue](https://github.com/erythrofr/ClothCraft/issues/64) |
 | [EXO-IO-010](#exo-io-010) — Import reviewed DXF contours as editable native panels | interchange | done | EXO-IO-002 | Not registered |
+| [EXO-IO-011](#exo-io-011) — Import reviewed SVG patterns in the native workspace | interchange | blocked | EXO-IO-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/103) |
 
 ## EXO-COORD-001
 
@@ -2187,3 +2188,30 @@ Status: done. Dependencies: EXO-IO-002.
 - https://github.com/erythrofr/ClothCraft/pull/92
 
 Delivered by #92 as d98e889 after all seven checks passed at fb4e203. Five backend tests and 84 active desktop CPU tests passed locally, including four named-widget importer checks; strict Clippy passed. Explicit release accepted on #90 as receipt 6413296156. Uses the existing document/history installer and preserves unchanged-panel state. Native OS-picker/GPU visual acceptance remains unverified. Generic planar DXF only: no export, industrial AAMA/ASTM semantics, automatic holes, line joining or sewing inference. See docs/pattern-import.md.
+
+## EXO-IO-011
+
+**Import reviewed SVG patterns in the native workspace**
+
+Status: blocked. Dependencies: EXO-IO-001.
+
+**Files / directories**
+
+- `src/atelier/svg_import_ui.rs`
+- `src/atelier/documents_ui.rs`
+- `docs/svg-import.md`
+
+**Acceptance**
+
+- Expose File > Import SVG patterns with bounded local UTF-8 reading, source identity, physical dimensions, explicit curve tolerance, loss report and outline preview before applying. No external resource resolution or guessed scale.
+- Preview SVG +Y downward and let the user select outlines, an existing fabric and mesh spacing. Changing source or tolerance invalidates reviewed selection and acknowledgement; stale previews cannot apply.
+- Reuse garment::svg_import preparation and the existing authoring/history installer. Add stable unsewn panels in a separated arrangement; preserve existing rest geometry, materials, seams, avatar and unchanged-panel drape; invalidate stale worker responses and mark dirty.
+- Cancel, Escape, invalid input and failed compilation preserve document/history/generation. Respect current authoring drafts and the normal unsaved-window-close flow.
+- Use named-control CPU tests and real shared transactions for selection/acknowledgement, stale Apply, cancellation, one apply, rollback, drape preservation, undo/redo and portable save/reopen. Document native picker/GPU acceptance separately.
+
+**Evidence and related contributions**
+
+- https://github.com/erythrofr/ClothCraft/issues/103
+- https://github.com/erythrofr/ClothCraft/pull/101
+
+Native integration follow-up; do not duplicate the SVG parser or conversion. Private modal/document adapter tests may live alongside production modules like existing DXF harness tests. Register issue #103 after this scope merges, then wait for the reader dependency and an accepted claim. No source work is reserved by this manifest proposal.
