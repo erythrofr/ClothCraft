@@ -63,7 +63,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-LOOK-008](#exo-look-008) — Render stages and export still images | appearance | blocked | EXO-LOOK-007 | Not registered |
 | [EXO-AV-001](#exo-av-001) — Define avatar landmarks and body measurements | avatar | done | EXO-CORE-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/56) |
 | [EXO-AV-002](#exo-av-002) — Add body-aware panel arrangement assistance | avatar | blocked | EXO-AV-001 | Not registered |
-| [EXO-AV-003](#exo-av-003) — Expose pin editing and an explicit freeze policy | avatar | ready | EXO-CORE-001 | Not registered |
+| [EXO-AV-003](#exo-av-003) — Expose pin editing and an explicit freeze policy | avatar | ready | EXO-CORE-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/116) |
 | [EXO-AV-004](#exo-av-004) — Show avatar collision coverage and initialization problems | avatar | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/20) |
 | [EXO-UX-001](#exo-ux-001) — Publish a typed command capability registry | workspace | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/21) |
 | [EXO-UX-002](#exo-ux-002) — Add a searchable command palette | workspace | ready | EXO-UX-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/109) |
@@ -1472,18 +1472,27 @@ Status: ready. Dependencies: EXO-CORE-001.
 - `src/authoring.rs`
 - `tests/pin_authoring.rs`
 - `src/atelier.rs`
+- `src/garment/pins.rs`
+- `src/garment/mod.rs`
+- `src/garment/template.rs`
+- `src/garment/presets.rs`
+- `src/atelier/authoring_ui.rs`
+- `docs/pins.md`
 
 **Acceptance**
 
 - Reuse material-space pin_points instead of persisting mesh indices.
 - Define pin versus freeze semantics and preserve undo/reload/remeshing behavior.
 - Test release motion and stale-worker invalidation on CPU; GPU validation remains opt-in.
+- Pin at the current drape and release without returning the panel to its flat arrangement. Persist material-space identity and world targets through ordinary template history and save/reload; preserve legacy documents and cache signatures when the new fields are absent.
+- Whole-panel freeze retains collision participation. Reject unsupported topology changes atomically with an explicit release-first error; never silently lose holds or retarget arbitrary mesh indices.
+- Test held vertices, release from zero held velocity, unchanged free-panel motion, invalid-target rollback, undo/redo, serialization, remesh policy and production worker-generation invalidation. No position projection or disabled contacts to conceal invalid initialization.
 
 **Evidence and related contributions**
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/backends/protocol.js
 
-Core pin data already exists; dedicated editing and freeze semantics do not.
+Issue #116 records the source audit and contract. Existing pin_points bind to initial placement and changing pins resets the panel; the native tool must not expose that reset as pin-at-current-position. Approved extension includes optional template-level target/freeze records, compiler/constructor integration, real history/state transitions and CPU acceptance. No worker, energy, collision or solver algorithm changes are authorized by this task. Follow docs/pins.md; claim before implementation.
 
 ## EXO-AV-004
 
@@ -1591,7 +1600,7 @@ Status: ready. Dependencies: EXO-UX-001.
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/studioCustomization.js
 - https://github.com/erythrofr/ClothCraft/pull/114
 
-PR #114 at da2f4ad implements named presentation profiles; CI/review pending, not merged yet. Five profile fixtures and 110 desktop CPU tests pass (one optional preview ignored), plus strict desktop Clippy. Scope and native-window acceptance limits are in the PR. Reservation released on #113; obtain a fresh accepted claim before follow-up edits. Do not duplicate the proposed profile store.
+PR #114 merged as fcc7356 after seven green checks at da2f4ad; named presentation profiles are implemented. Five profile fixtures and 110 desktop CPU tests pass (one optional preview ignored), plus strict desktop Clippy. Scope and native-window acceptance limits are in the PR. Reservation released on #113; obtain a fresh accepted claim before follow-up edits. Do not duplicate the proposed profile store.
 
 ## EXO-UX-004
 

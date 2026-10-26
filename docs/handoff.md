@@ -1,6 +1,6 @@
 # Repository handoff
 
-## Editor transitions and pending workspace profiles — 26 October 2026
+## Editor transitions and workspace profiles — 26 October 2026
 
 PR #111 merged as `07c4988`. The production cancellation and installation
 paths now have direct CPU coverage, including state restoration and stale
@@ -8,8 +8,8 @@ worker-generation rejection. This supersedes the source-review-only status
 below; [group placement](group-placement.md) separates that evidence from
 the remaining full native interaction and concurrent-worker checks.
 
-PR #114 at `da2f4ad` proposes named workspace profiles. It is pending CI and
-review, not merged functionality. Five profile fixtures and the full desktop
+PR #114 merged as `fcc7356` after seven green checks at `da2f4ad`. Named
+workspace profiles are available under Workspace → Workspace profiles. Five profile fixtures and the full desktop
 CPU suite passed (110 tests, one optional preview ignored); strict desktop
 Clippy passed. The source reservation on #113 is released. Review the existing
 PR before claiming follow-up work; do not build a second profile store.
