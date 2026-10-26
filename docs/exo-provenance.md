@@ -115,6 +115,36 @@ copyright similarity or rights-holder investigation was performed. No code,
 asset or binary is imported by this follow-up. Existing runtime behavior is
 unchanged. Keep EXO-CORE-002 open while the source-specific questions remain.
 
+## Follow-up: current MARK-01 candidate (2026-10-26)
+
+[PR #6](https://github.com/erythrofr/ClothCraft/pull/6) currently proposes
+`FireflyTheReal/ClothCraft` revision
+`f642275853d19e7e16637a9b8dc16b5ca7acc130`. This updates the dated inventory;
+it does not approve or import that proposal.
+
+| Evidence at that revision | Observed fact |
+|---|---|
+| [LICENSE](https://github.com/FireflyTheReal/ClothCraft/blob/f642275853d19e7e16637a9b8dc16b5ca7acc130/LICENSE) | MIT text, copyright erythrofr and ClothCraft contributors. Git blob `e9aeff0bad01690535d6b92b2ab27f7f725f4c3c`. |
+| [Implementation notes](https://github.com/FireflyTheReal/ClothCraft/blob/f642275853d19e7e16637a9b8dc16b5ca7acc130/docs/markings.md) | Contributor states independent model/geometry/tests, behavioral references to public manuals and installed UI wording, no proprietary code/resources/examples imported, and no source/assets copied from PR #1. These are attributed source claims, not an independent rights audit. Blob `59ec3c3ba0efc6ee6baa76a40172a3adae38c046`. |
+| [Markings implementation](https://github.com/FireflyTheReal/ClothCraft/blob/f642275853d19e7e16637a9b8dc16b5ca7acc130/src/garment/markings.rs) | Proposed destination is the same repository-relative path; blob `0d2935e23a5630045f93242efbfb4c2bde9c24ec`. |
+| [Markings tests](https://github.com/FireflyTheReal/ClothCraft/blob/f642275853d19e7e16637a9b8dc16b5ca7acc130/tests/pattern_markings.rs) | Proposed destination is unchanged; blob `d860112c2268d69cccbcef4b382b38d278ab0e17`. |
+
+The exact-head review independently ran 17 markings and six print-export tests.
+A separate malformed-hole fixture still panics before domain validation;
+[reproduction evidence](https://github.com/erythrofr/ClothCraft/pull/6#issuecomment-6429047009)
+and [test results](https://github.com/erythrofr/ClothCraft/pull/6#issuecomment-6429058895)
+are recorded separately. Passing tests or a license notice does not resolve the
+engineering gate. Named-widget acceptance remains outstanding. Scope amendment
+[#139](https://github.com/erythrofr/ClothCraft/pull/139) is a proposal for mechanical
+constructor/test paths, not integration approval.
+
+Method: read current PR metadata and pinned license/implementation notes;
+verified the four Git blob identities against the fetched revision. No source
+similarity investigation or exhaustive file/asset rights audit was performed.
+The DartCutSew origin question on [#66](https://github.com/erythrofr/ClothCraft/pull/66#issuecomment-6418173873)
+has no later clarification in the comments read on this date. Preserve that
+unresolved question; this MARK-01 evidence supplies no grant for other proposals.
+
 ## Evidence required before an actual code or asset transfer
 
 For **each path** proposed for copying or adapting, attach a review record to
