@@ -1,5 +1,17 @@
 # Repository handoff
 
+## Group placement integration — 26 October 2026
+
+PR #105 merged as `2f9f9c5` after seven successful checks at `4a4340a`.
+Shared-pivot group transforms and bounded visible/through 3D marquee selection
+are implemented. [Usage and limits](group-placement.md) document the pivot,
+flat-arrangement reset, sampling budget and cancellation behavior.
+
+EXO-UX-004 (#104) remains open for complete Atelier cancellation/generation
+acceptance. Backend and helper/widget tests pass; full native interaction was
+not run. The source reservation is released. Obtain an accepted claim before
+adding missing evidence; do not reimplement the already merged feature.
+
 ## Physical SVG reader — 26 October 2026
 
 PR #101 implements EXO-IO-001, merged as `dcbc3154` after seven successful

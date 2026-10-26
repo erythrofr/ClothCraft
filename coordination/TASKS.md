@@ -68,7 +68,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-UX-001](#exo-ux-001) — Publish a typed command capability registry | workspace | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/21) |
 | [EXO-UX-002](#exo-ux-002) — Add a searchable command palette | workspace | ready | EXO-UX-001 | Not registered |
 | [EXO-UX-003](#exo-ux-003) — Persist workspace layouts and tool visibility | workspace | ready | EXO-UX-001 | Not registered |
-| [EXO-UX-004](#exo-ux-004) — Add group 3D transforms and marquee selection | workspace | ready | EXO-CORE-001 | Not registered |
+| [EXO-UX-004](#exo-ux-004) — Add group 3D transforms and marquee selection | workspace | ready | EXO-CORE-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/104) |
 | [EXO-UX-005](#exo-ux-005) — Create a provenance-aware garment template browser | workspace | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/22) |
 | [EXO-UX-006](#exo-ux-006) — Expose a versioned headless authoring session adapter | automation | ready | EXO-CORE-001, EXO-REV-005, EXO-UX-001 | Not registered |
 | [EXO-QA-001](#exo-qa-001) — Build public cross-editor behavioral fixtures | validation | done | EXO-CORE-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/54) |
@@ -1615,7 +1615,7 @@ Status: ready. Dependencies: EXO-CORE-001.
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/meshSelection.js
 
-Current 2D group point/panel selection already exists; avoid replacing it.
+Implementation merged in #105 as 2f9f9c5 after seven green checks at 4a4340a: shared-pivot group placement and bounded visible/Alt-through marquee. Four backend fixtures and 95 desktop CPU tests passed (one optional preview ignored). docs/group-placement.md records usage, pivot, drape-reset and sampling limits. Keep this task open for complete Atelier preview cancellation/worker-generation acceptance: current tests execute backend/helpers/named input, not the full GPU-dependent app. Source reservation is released. Claim the remaining validation slice rather than duplicating the implemented feature; scope expansion for a headless installer requires review.
 
 ## EXO-UX-005
 
