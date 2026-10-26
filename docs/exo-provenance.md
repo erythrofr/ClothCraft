@@ -94,6 +94,27 @@ alone. All were open at that inspection.
 | [#26](https://github.com/erythrofr/ClothCraft/pull/26) | erythrofr `25c96123b6d10c45a553d278c5d5d0facc45763b` | Review original metric construction API against independent implementation claim. |
 | [#27](https://github.com/erythrofr/ClothCraft/pull/27) | mikristian `8d4c31e9c6971a13b54906d2929495feefb23c17` | Review original freehand fitting API against independent implementation claim. |
 
+## Integration follow-up — 26 October 2026
+
+The 22 October tables above remain a dated inventory, not current merge status.
+This follow-up records selected integrations against ClothCraft main
+`11a12e8ae1a08a08fb35500c7238e02d7bed08db`. It does not certify every
+intervening contribution or replace the per-file evidence requirements below.
+
+| Contribution | Exact source and integration | Observed origin evidence / remaining question |
+|---|---|---|
+| Native command registry | [#29](https://github.com/erythrofr/ClothCraft/pull/29), source `33b79f0c55ead4dba35c2d4c5472d1f7f4860d1a`; [#97](https://github.com/erythrofr/ClothCraft/pull/97), reviewed head `a8c601fbed27662e932e4c1b3d3b3328f9af8d3c`, merged `c558dc64300c85e8cd244379476ae6479a20c5dd` | #29 explicitly states that EXO GPL implementation was not imported or transliterated. #97 documents retaining Mikristian's authorship while adapting the native dispatcher. Treat this as the contributor's origin statement plus integration evidence, not an independent similarity audit. Paths: `src/atelier/commands.rs`, `src/atelier.rs`, `tests/command_registry.rs`. |
+| Cut-and-sewn dart transaction | [#66](https://github.com/erythrofr/ClothCraft/pull/66), source `e3994ae80c496eb3e6371309ccabb8e4b7bea3ab`; [#80](https://github.com/erythrofr/ClothCraft/pull/80), head `59938e65e0aaa98f573a073e7ca376c43f809419`, merged `e727f2c77badbe9e3117b97133ba8446e3b4d73b` | **Adapted contribution**, not an independent rewrite claim. #80 identifies the bounded `DartCutSew` slice and retains Mikyle Couto's attribution in `src/authoring.rs`. The pinned fork [LICENSE](https://github.com/mikristian/ClothCraft/blob/e3994ae80c496eb3e6371309ccabb8e4b7bea3ab/LICENSE) is MIT, but #66 describes its proposal as EXO-derived. The inspected description/comments do not resolve whether this particular Rust slice was independently authored or translated from EXO source. Path-specific origin clarification is requested on #66; do not infer a grant for the entire proposal. |
+| Native dart controls | [#85](https://github.com/erythrofr/ClothCraft/pull/85), head `75774806f5cb15426e5a18ab2b216eae04dad5e3`, merged `d0c6e6c2f2d978eb36d400637db785d1f1b4be53` | Native adapter and preview over #80, with backend attribution retained. Its merge does not resolve the backend origin question above. Paths: `src/atelier/authoring_ui.rs`, `src/atelier/board.rs`, `docs/authoring.md`. |
+| Physical SVG reader | [#101](https://github.com/erythrofr/ClothCraft/pull/101), head `4aea2c321ab624dd4cb17d51a9a7faf83db6ed05`, merged `dcbc3154dd7eaa11fc23b2010e28bc734dc8266d` | [Pinned implementation notes](https://github.com/erythrofr/ClothCraft/blob/dcbc3154dd7eaa11fc23b2010e28bc734dc8266d/docs/svg-import.md) state independent implementation from behavior/specifications, with no EXO JavaScript or assets copied. The old proposed #3 is not the source claimed by this reader. The notes identify `svgtypes`/`quick-xml` separately; their inclusion is not permission to copy unrelated EXO code. |
+
+Verification performed here: GitHub PR head/merge metadata and descriptions;
+selected task/PR comments; the pinned #66 fork license; local production
+attribution and implementation notes at the stated main revision. No exhaustive
+copyright similarity or rights-holder investigation was performed. No code,
+asset or binary is imported by this follow-up. Existing runtime behavior is
+unchanged. Keep EXO-CORE-002 open while the source-specific questions remain.
+
 ## Evidence required before an actual code or asset transfer
 
 For **each path** proposed for copying or adapting, attach a review record to
