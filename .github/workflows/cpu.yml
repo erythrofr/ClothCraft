@@ -22,6 +22,17 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      # Cache dependencies only; every revision still compiles and runs its checks.
+      - name: Restore Rust dependency cache
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
+        with:
+          prefix-key: clothcraft-deps-v1
+          key: cpu-no-default-dev-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock') }}
+          env-vars: ImageOS ImageVersion
+          cache-bin: "false"
+          cache-workspace-crates: "false"
+          cache-on-failure: "false"
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - run: cargo fmt --all -- --check
       - run: cargo test --locked --no-default-features -j 2 -- --test-threads=2
       - run: cargo clippy --locked --no-default-features --all-targets -j 2 -- -D warnings
@@ -42,6 +53,17 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
+      # Cache dependencies only; every revision still compiles and runs its checks.
+      - name: Restore Rust dependency cache
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
+        with:
+          prefix-key: clothcraft-deps-v1
+          key: desktop-dev-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock') }}
+          env-vars: ImageOS ImageVersion
+          cache-bin: "false"
+          cache-workspace-crates: "false"
+          cache-on-failure: "false"
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       # The desktop test target LINKS, so it needs X11/Wayland and an OpenGL
       # loader; `check` and `clippy` alone would not require them.
       - name: Install Linux desktop link dependencies
