@@ -196,3 +196,23 @@ assumes the public flat T-shirt; arbitrary panel orientations need another view.
 Other scenarios and the normal editor camera are unchanged. CPU validation checks
 the light/view half-vector aligns with +Z. New native captures are still required;
 the earlier pixel-identical images do not validate this new framing.
+
+
+### Observed highlight comparison
+
+The first reflected-view run at `ca1a39d` was inconclusive: its below-floor
+camera saw the opaque floor rather than the cloth. The capture fixture now hides
+floor, grid and shadow presentation only. Physical contacts are unchanged.
+
+Runs `output/appearance-matte-highlight-20261027-b/` and
+`output/appearance-glossy-highlight-20261027-b/` used `ca1a39d` plus that visibility
+change. Both exited 0, with 2/2 and 6/6 state gates respectively and paused physics
+preserved throughout. Inspected images show matte light-gray panels versus a
+strong white glossy reflection on the same visible panels. The 3D viewport crop
+(x=59..772, y=86..939) differs at 45,228 RGB pixels, with maximum channel difference
+67. The earlier front-view and floor-occluded captures remain failed visual
+fixtures, not shader failures.
+
+This demonstrates a visible roughness response for the public flat fixture and
+this orthographic light/view configuration. It does not certify material
+calibration, color editing, all camera orientations or diagnostic-overlay cases.

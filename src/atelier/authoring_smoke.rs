@@ -1030,6 +1030,11 @@ impl Atelier {
                     ));
                     if probe.capture.is_some() {
                         appearance_capture_camera(&mut self.camera);
+                        // The reflected-light eye is below the floor plane.
+                        // Hide presentation-only occluders, not physical contacts.
+                        self.prefs.viewport.floor = false;
+                        self.prefs.viewport.grid = false;
+                        self.prefs.viewport.shadow = false;
                     }
                     probe.ready = true;
                 }
