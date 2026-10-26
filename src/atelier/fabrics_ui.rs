@@ -212,7 +212,29 @@ fn appearance_controls(
     if let Some(value) = draft {
         ui.horizontal(|ui| {
             ui.label("Color (sRGB)");
-            ui.color_edit_button_srgb(&mut value.color_srgb);
+            let swatch = ui.color_edit_button_srgb(&mut value.color_srgb);
+            #[cfg(test)]
+            super::authoring_smoke::widget_harness::named(ui, &swatch, "appearance.color");
+            targets.push(("appearance.color", swatch.rect));
+        });
+        ui.horizontal(|ui| {
+            for (channel, label, key) in [
+                (0, "R", "appearance.color.red"),
+                (1, "G", "appearance.color.green"),
+                (2, "B", "appearance.color.blue"),
+            ] {
+                let response = ui
+                    .add(
+                        egui::DragValue::new(&mut value.color_srgb[channel])
+                            .range(0..=255)
+                            .speed(1.0)
+                            .prefix(format!("{label} ")),
+                    )
+                    .on_hover_text("sRGB byte (0-255). Apply appearance to commit.");
+                #[cfg(test)]
+                super::authoring_smoke::widget_harness::named(ui, &response, key);
+                targets.push((key, response.rect));
+            }
         });
         let roughness =
             ui.add(egui::Slider::new(&mut value.roughness, 0.0..=1.0).text("Roughness"));
@@ -238,6 +260,37 @@ fn appearance_controls(
 mod appearance_tests {
     use super::super::authoring_smoke::widget_harness::Harness;
     use super::*;
+    #[test]
+    fn color_channel_drag_stages_only_that_channel_until_apply() {
+        let initial = marvelous_cloth::garment::appearance::FabricAppearance::default();
+        let mut state = (Some(initial.clone()), Vec::new());
+        let mut draw = |ui: &mut egui::Ui,
+                        state: &mut (
+            Option<marvelous_cloth::garment::appearance::FabricAppearance>,
+            Vec<Option<marvelous_cloth::garment::appearance::FabricAppearance>>,
+        )| {
+            if let Some(value) = appearance_controls(ui, &mut state.0, &mut Vec::new()) {
+                state.1.push(value);
+            }
+        };
+        let mut h = Harness::new(egui::vec2(800., 600.));
+        h.frame(&mut state, &mut draw);
+        h.drag(
+            "appearance.color.red",
+            egui::vec2(-40., 0.),
+            5,
+            &mut state,
+            &mut draw,
+        )
+        .unwrap();
+        let draft = state.0.as_ref().unwrap();
+        assert!(draft.color_srgb[0] < initial.color_srgb[0]);
+        assert_eq!(&draft.color_srgb[1..], &initial.color_srgb[1..]);
+        assert_eq!(draft.roughness, initial.roughness);
+        assert!(state.1.is_empty(), "editing the draft must not commit it");
+        h.click("appearance.apply", &mut state, &mut draw).unwrap();
+        assert_eq!(state.1, vec![state.0.clone()]);
+    }
     #[test]
     fn named_appearance_controls_stage_before_explicit_apply() {
         let mut state = (None, Vec::new());
