@@ -455,6 +455,14 @@ impl Atelier {
             let mut project = FittingProject::load(&path)?;
             let mut relinked = false;
             if !project.avatar_path.is_file() {
+                if self.smoke
+                    && self
+                        .authoring_smoke
+                        .as_ref()
+                        .is_some_and(|smoke| smoke.tests_documents())
+                {
+                    return Err("Appearance fixture avatar is missing; no dialog opened".to_owned());
+                }
                 let Some(avatar) = FileDialog::new()
                     .set_title("Locate missing avatar OBJ")
                     .add_filter("Avatar mesh", &["obj"])
@@ -623,15 +631,9 @@ impl Atelier {
                 self.status = "Appearance fixture has not been saved".into();
                 return;
             };
-            match FittingProject::load(&path) {
-                Ok(project) if project.avatar_path.is_file() => {
-                    self.open_document_path(path, false)
-                }
-                Ok(_) => {
-                    self.status = "Appearance fixture avatar is missing; no dialog opened".into()
-                }
-                Err(error) => self.status = format!("Appearance fixture cannot reopen: {error}"),
-            }
+            // The normal loader performs the missing-avatar check immediately
+            // before any picker, with dialogs disabled for this scenario.
+            self.open_document_path(path, false);
         }
     }
     pub(super) fn document_tick(&mut self, ctx: &egui::Context) {

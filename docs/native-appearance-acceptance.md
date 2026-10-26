@@ -132,7 +132,7 @@ to replace the compiled model; appearance-only edits must retain its Arc.
 The adapter is reachable only in smoke mode with this explicit scenario. It
 atomically reserves `appearance-acceptance.clothcraft.json` under the requested
 output directory and refuses existing paths. Open only targets that reserved
-fixture and preflights the avatar, refusing missing assets instead of opening a
-picker. Ordinary documents and other smoke scenarios keep their existing paths.
+fixture. The ordinary loader refuses missing avatar assets before its picker
+when this explicit scenario is active; no separate preflight/load race exists. Ordinary documents and other smoke scenarios keep their existing paths.
 CPU tests cover output-local reservation, overwrite refusal and missing output
 folders. No successful native Save/Open run is claimed yet.
