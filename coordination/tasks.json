@@ -923,7 +923,7 @@
       "id": "EXO-IO-001",
       "title": "Import a documented SVG pattern subset",
       "area": "interchange",
-      "status": "ready",
+      "status": "done",
       "depends_on": [
         "EXO-CORE-001"
       ],
@@ -946,8 +946,10 @@
       "evidence": [
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/svgPatternImport.js"
       ],
-      "related_prs": [],
-      "notes": "Issue #99 records the researched behavior and scope rationale. Independently implement over maintained, license-compatible XML/SVG token parsers; Cargo files are reserved only for these importer dependencies, not unrelated upgrades. Document exact versions/licenses and supported geometry in docs/svg-import.md. No browser SVG code is transplanted. Reader and editable-piece conversion are this task; a subsequent native confirmation/import workflow must make units and losses visible before changing a document. A reviewed scope amendment and accepted claim are required before implementation."
+      "related_prs": [
+        "https://github.com/erythrofr/ClothCraft/pull/101"
+      ],
+      "notes": "Merged in #101 as dcbc3154 after all seven checks passed at 4aea2c3. Strict physical SVG reader and prepared editable conversion; nine CPU fixtures cover units/transforms/tolerance, rejection budgets, source preservation, undo/redo and save/reload. Independent implementation over quick-xml 0.41.0 (MIT) and svgtypes 0.16.1 (MIT OR Apache-2.0); no EXO source transplant. docs/svg-import.md records exact subset and losses. No native import dialog yet; EXO-IO-011 is the UI follow-up. Reader reservation released on issue #99."
     },
     {
       "id": "EXO-IO-002",
@@ -2129,7 +2131,7 @@
       "id": "EXO-IO-011",
       "title": "Import reviewed SVG patterns in the native workspace",
       "area": "interchange",
-      "status": "blocked",
+      "status": "ready",
       "depends_on": [
         "EXO-IO-001"
       ],
@@ -2150,7 +2152,7 @@
         "https://github.com/erythrofr/ClothCraft/pull/101"
       ],
       "related_prs": [],
-      "notes": "Native integration follow-up; do not duplicate the SVG parser or conversion. Private modal/document adapter tests may live alongside production modules like existing DXF harness tests. Register issue #103 after this scope merges, then wait for the reader dependency and an accepted claim. No source work is reserved by this manifest proposal."
+      "notes": "Native integration follow-up registered as issue #103. Reuse the merged SVG parser/prepared conversion and the existing document/history installer; no second reader or coordinate convention. Private modal/document adapter tests may live alongside production modules like the DXF harness. Obtain an accepted claim before editing. Native OS picker/GPU acceptance is separate from CPU helper/widget evidence."
     }
   ]
 }

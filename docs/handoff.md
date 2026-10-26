@@ -1,5 +1,19 @@
 # Repository handoff
 
+## Physical SVG reader — 26 October 2026
+
+PR #101 implements EXO-IO-001, merged as `dcbc3154` after seven successful
+checks at `4aea2c3`. Nine focused CPU fixtures cover physical dimensions,
+transformed curve error, malformed/resource-limited inputs, editable conversion,
+preserved drape, undo/redo and save/reload. The strict reader and prepared edit
+are documented in [SVG import](svg-import.md); they do not add a desktop dialog.
+
+EXO-IO-011 (#103) is the reviewed native integration follow-up. Reuse the reader
+and existing authoring installer, display dimensions and losses before Apply,
+and preserve the distinction between prepared-edit tests and full native-window
+acceptance. The reader reservation is released. Obtain a fresh accepted claim
+for UI work; do not duplicate parsing or advertise planned format support.
+
 ## Native command registry — 26 October 2026
 
 PR #97 implements EXO-UX-001 with twelve typed commands routed through the

@@ -45,7 +45,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-MFG-012](#exo-mfg-012) — Export a revision-stamped HTML technical pack | manufacturing | blocked | EXO-MFG-006, EXO-MFG-011 | Not registered |
 | [EXO-MFG-013](#exo-mfg-013) — Add manufacturing preflight diagnostics | manufacturing | blocked | EXO-MFG-004, EXO-MFG-008, EXO-MFG-011 | Not registered |
 | [EXO-MFG-014](#exo-mfg-014) — Package consistent manufacturing artifacts | manufacturing | blocked | EXO-MFG-010, EXO-MFG-012, EXO-MFG-013, EXO-IO-003 | Not registered |
-| [EXO-IO-001](#exo-io-001) — Import a documented SVG pattern subset | interchange | ready | EXO-CORE-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/99) |
+| [EXO-IO-001](#exo-io-001) — Import a documented SVG pattern subset | interchange | done | EXO-CORE-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/99) |
 | [EXO-IO-002](#exo-io-002) — Import generic 2D DXF pattern entities | interchange | done | EXO-CORE-001 | Not registered |
 | [EXO-IO-003](#exo-io-003) — Export generic DXF cut and sewing geometry | interchange | blocked | EXO-REV-002, EXO-MFG-002 | Not registered |
 | [EXO-IO-004](#exo-io-004) — Add one industrial DXF dialect with independent fixtures | interchange | blocked | EXO-IO-002, EXO-IO-003, EXO-MFG-003 | Not registered |
@@ -88,7 +88,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-PHY-004](#exo-phy-004) — Expose correctly timed contact and residual diagnostics in the native Simulation inspector | physics | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/72) |
 | [EXO-IO-009](#exo-io-009) — Integrate static avatar import into the workspace | interchange | done | EXO-IO-007, EXO-UX-005 | [Issue](https://github.com/erythrofr/ClothCraft/issues/64) |
 | [EXO-IO-010](#exo-io-010) — Import reviewed DXF contours as editable native panels | interchange | done | EXO-IO-002 | Not registered |
-| [EXO-IO-011](#exo-io-011) — Import reviewed SVG patterns in the native workspace | interchange | blocked | EXO-IO-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/103) |
+| [EXO-IO-011](#exo-io-011) — Import reviewed SVG patterns in the native workspace | interchange | ready | EXO-IO-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/103) |
 
 ## EXO-COORD-001
 
@@ -1003,7 +1003,7 @@ Status: blocked. Dependencies: EXO-MFG-010, EXO-MFG-012, EXO-MFG-013, EXO-IO-003
 
 **Import a documented SVG pattern subset**
 
-Status: ready. Dependencies: EXO-CORE-001.
+Status: done. Dependencies: EXO-CORE-001.
 
 **Files / directories**
 
@@ -1026,8 +1026,9 @@ Status: ready. Dependencies: EXO-CORE-001.
 **Evidence and related contributions**
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/svgPatternImport.js
+- https://github.com/erythrofr/ClothCraft/pull/101
 
-Issue #99 records the researched behavior and scope rationale. Independently implement over maintained, license-compatible XML/SVG token parsers; Cargo files are reserved only for these importer dependencies, not unrelated upgrades. Document exact versions/licenses and supported geometry in docs/svg-import.md. No browser SVG code is transplanted. Reader and editable-piece conversion are this task; a subsequent native confirmation/import workflow must make units and losses visible before changing a document. A reviewed scope amendment and accepted claim are required before implementation.
+Merged in #101 as dcbc3154 after all seven checks passed at 4aea2c3. Strict physical SVG reader and prepared editable conversion; nine CPU fixtures cover units/transforms/tolerance, rejection budgets, source preservation, undo/redo and save/reload. Independent implementation over quick-xml 0.41.0 (MIT) and svgtypes 0.16.1 (MIT OR Apache-2.0); no EXO source transplant. docs/svg-import.md records exact subset and losses. No native import dialog yet; EXO-IO-011 is the UI follow-up. Reader reservation released on issue #99.
 
 ## EXO-IO-002
 
@@ -2193,7 +2194,7 @@ Delivered by #92 as d98e889 after all seven checks passed at fb4e203. Five backe
 
 **Import reviewed SVG patterns in the native workspace**
 
-Status: blocked. Dependencies: EXO-IO-001.
+Status: ready. Dependencies: EXO-IO-001.
 
 **Files / directories**
 
@@ -2214,4 +2215,4 @@ Status: blocked. Dependencies: EXO-IO-001.
 - https://github.com/erythrofr/ClothCraft/issues/103
 - https://github.com/erythrofr/ClothCraft/pull/101
 
-Native integration follow-up; do not duplicate the SVG parser or conversion. Private modal/document adapter tests may live alongside production modules like existing DXF harness tests. Register issue #103 after this scope merges, then wait for the reader dependency and an accepted claim. No source work is reserved by this manifest proposal.
+Native integration follow-up registered as issue #103. Reuse the merged SVG parser/prepared conversion and the existing document/history installer; no second reader or coordinate convention. Private modal/document adapter tests may live alongside production modules like the DXF harness. Obtain an accepted claim before editing. Native OS picker/GPU acceptance is separate from CPU helper/widget evidence.
