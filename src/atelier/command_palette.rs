@@ -45,6 +45,28 @@ fn named(_ui: &egui::Ui, _r: &egui::Response, _name: &str) {
     super::authoring_smoke::widget_harness::named(_ui, _r, _name);
 }
 
+// Shared production boundary for the launcher button and keyboard entrypoint.
+// The caller supplies editing/modal state owned by Atelier; egui supplies actual
+// text focus and modal ownership. Blocked shortcuts remain with their owner.
+pub(super) fn can_launch(ctx: &egui::Context, editor_idle: bool) -> bool {
+    editor_idle && !ctx.egui_wants_keyboard_input() && ctx.memory(|m| m.top_modal_layer().is_none())
+}
+
+pub(super) fn launch_shortcut(ctx: &egui::Context, enabled: bool) -> bool {
+    enabled
+        && !ctx.input(|i| i.pointer.any_down())
+        && ctx.input_mut(|i| {
+            i.consume_key(
+                egui::Modifiers {
+                    command: true,
+                    shift: true,
+                    ..Default::default()
+                },
+                egui::Key::P,
+            )
+        })
+}
+
 pub(super) fn launch_button(ui: &mut egui::Ui, enabled: bool) -> bool {
     let response = ui
         .add_enabled(enabled, egui::Button::new("Commands…"))
@@ -194,6 +216,109 @@ mod tests {
             h.frame(c, &mut draw);
         }
     }
+    #[test]
+    fn launch_boundary_preserves_text_modal_gesture_and_pointer_ownership() {
+        let shortcut = egui::Modifiers {
+            command: true,
+            shift: true,
+            ..Default::default()
+        };
+        // Each case uses actual egui focus/modal/pointer state. The final case
+        // is the normal idle workspace and must consume exactly one request.
+        for (idle, text, modal, pointer, expected) in [
+            (false, false, false, false, false),
+            (true, true, false, false, false),
+            (true, false, true, false, false),
+            (true, false, false, true, false),
+            (true, false, false, false, true),
+        ] {
+            let ctx = egui::Context::default();
+            let mut value = String::new();
+            let mut observation = None;
+            for frame in 0..3 {
+                let mut events = Vec::new();
+                if frame == 2 {
+                    events.push(egui::Event::Key {
+                        key: egui::Key::P,
+                        physical_key: None,
+                        pressed: true,
+                        repeat: false,
+                        modifiers: shortcut,
+                    });
+                    if pointer {
+                        events.push(egui::Event::PointerButton {
+                            pos: egui::pos2(500., 500.),
+                            button: egui::PointerButton::Primary,
+                            pressed: true,
+                            modifiers: shortcut,
+                        });
+                    }
+                }
+                let mut output = ctx.run_ui(
+                    egui::RawInput {
+                        screen_rect: Some(egui::Rect::from_min_size(
+                            egui::Pos2::ZERO,
+                            egui::vec2(900., 900.),
+                        )),
+                        focused: true,
+                        events,
+                        ..Default::default()
+                    },
+                    |ui| {
+                        // The production caller checks input before drawing its
+                        // tools, so use the focus established by earlier frames.
+                        if frame == 2 {
+                            let enabled = can_launch(&ctx, idle);
+                            let launched = launch_shortcut(&ctx, enabled);
+                            let second = launch_shortcut(&ctx, enabled);
+                            let retained = ctx.input(|i| i.key_pressed(egui::Key::P));
+                            observation = Some((launched, second, retained));
+                        }
+                        if text {
+                            ui.text_edit_singleline(&mut value).request_focus();
+                        }
+                        if modal {
+                            egui::Modal::new(egui::Id::new("launch-test-modal")).show(&ctx, |ui| {
+                                ui.label("Modal owner");
+                            });
+                        }
+                    },
+                );
+                output.textures_delta.clear();
+            }
+            assert_eq!(
+                observation,
+                Some((expected, false, !expected)),
+                "idle={idle}, text={text}, modal={modal}, pointer={pointer}"
+            );
+        }
+    }
+
+    #[test]
+    fn plain_p_and_unshifted_command_p_do_not_launch_palette() {
+        for modifiers in [egui::Modifiers::NONE, egui::Modifiers::COMMAND] {
+            let ctx = egui::Context::default();
+            let mut output = ctx.run_ui(
+                egui::RawInput {
+                    focused: true,
+                    events: vec![egui::Event::Key {
+                        key: egui::Key::P,
+                        physical_key: None,
+                        pressed: true,
+                        repeat: false,
+                        modifiers,
+                    }],
+                    ..Default::default()
+                },
+                |_| {
+                    assert!(!launch_shortcut(&ctx, true));
+                    assert!(ctx.input(|i| i.key_pressed(egui::Key::P)));
+                },
+            );
+            output.textures_delta.clear();
+        }
+    }
+
     #[test]
     fn search_keys_labels_and_aliases() {
         assert_eq!(matches("TEE"), vec![CommandId::LoadTshirt]);

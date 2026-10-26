@@ -670,9 +670,7 @@ impl eframe::App for Atelier {
         if let Some(snapshot) = self.profiles.show(&ctx, &profile_path, &presentation) {
             snapshot.apply(&mut self.prefs, &mut self.tools_visible);
         }
-        let can_open_palette = !ctx.egui_wants_keyboard_input()
-            && !profiles_blocked
-            && ctx.memory(|m| m.top_modal_layer().is_none())
+        let palette_idle = !profiles_blocked
             && !self.settings_open
             && !self.authoring.radial.blocked
             && !self.quick.blocked
@@ -685,15 +683,8 @@ impl eframe::App for Atelier {
             && self.authoring.ends.is_empty()
             && self.authoring.sewing.start.is_none()
             && self.authoring.sewing.sides.iter().all(Vec::is_empty);
-        let shortcut = egui::Modifiers {
-            command: true,
-            shift: true,
-            ..Default::default()
-        };
-        if can_open_palette
-            && !ctx.input(|i| i.pointer.any_down())
-            && ctx.input_mut(|i| i.consume_key(shortcut, egui::Key::P))
-        {
+        let can_open_palette = command_palette::can_launch(&ctx, palette_idle);
+        if command_palette::launch_shortcut(&ctx, can_open_palette) {
             self.palette.begin();
         }
         // Retain the barrier on the closing frame so Enter/click cannot reach a tool.
