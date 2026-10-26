@@ -164,3 +164,19 @@ not complete EXO-LOOK-001 acceptance. Shared-material visual coverage, a visual
 comparison of different colors/roughness values, native picker interaction and
 the text editor's typed-text undo stack remain outside this evidence. The worker
 report is not a throughput measurement or proof of collision correctness.
+
+
+## Paired roughness capture fixtures (native runs pending)
+
+`appearance-matte` ends after the initial Apply (two verified actions).
+`appearance-glossy` ends after applying lower roughness (six verified actions).
+Both reuse the ordinary state gates and the application's final `ui.png` capture,
+so the window closes only through the existing screenshot path. They remain
+paused on the same initial geometry. Run each with the same public fixture,
+window size and fresh output directory to compare shading without drape changes.
+
+The report identifies `capture_variant` and explicitly limits `passed` to those
+short fixture sequences. A captured image is not a visual acceptance result;
+inspect both images and their optical values before drawing a conclusion.
+These variants do not replace the full history, worker or document scenarios.
+No native execution of these new variants has been verified yet.

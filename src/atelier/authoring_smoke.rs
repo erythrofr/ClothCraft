@@ -196,6 +196,14 @@ impl Smoke {
         Self {
             appearance: match std::env::var("CLOTHCRAFT_AUTHORING_SCENARIO").as_deref() {
                 Ok("appearance") => Some(AppearanceProbe::default()),
+                Ok("appearance-matte") => Some(AppearanceProbe {
+                    capture: Some(AppearanceCapture::Matte),
+                    ..Default::default()
+                }),
+                Ok("appearance-glossy") => Some(AppearanceProbe {
+                    capture: Some(AppearanceCapture::Glossy),
+                    ..Default::default()
+                }),
                 Ok("appearance-documents") => Some(AppearanceProbe {
                     documents: true,
                     ..Default::default()
@@ -873,12 +881,19 @@ const APPEARANCE_ACTIONS: [&str; 20] = [
     "simulate",
 ];
 
+#[derive(Clone, Copy, Debug)]
+enum AppearanceCapture {
+    Matte,
+    Glossy,
+}
+
 #[derive(Default)]
 struct AppearanceProbe {
     phase: usize,
     tick: usize,
     running: bool,
     documents: bool,
+    capture: Option<AppearanceCapture>,
     latest_pending: bool,
     latest_time: f64,
     dispatched: Option<(bool, f64)>,
@@ -908,6 +923,13 @@ impl AppearanceProbe {
         }
     }
     fn action_count(&self) -> usize {
+        if let Some(capture) = self.capture {
+            // End only after Apply has passed its ordinary document/physics gate.
+            return match capture {
+                AppearanceCapture::Matte => 2,
+                AppearanceCapture::Glossy => 6,
+            };
+        }
         if self.running || self.documents {
             APPEARANCE_ACTIONS.len()
         } else {
@@ -1150,10 +1172,10 @@ impl Atelier {
         let complete = probe.phase == probe.action_count();
         if !smoke.finished && (complete || failure.is_some()) {
             let report = serde_json::json!({"passed":complete && failure.is_none(),
-                "scenario":"appearance","document_scenario":probe.documents,"scope":if probe.documents { "paused history plus isolated native Save/Open" } else if probe.running { "paused history plus live worker continuity" } else { "paused pointer history, keyboard history and text ownership" },
+                "scenario":"appearance","capture_variant":probe.capture.map(|c| format!("{c:?}")),"document_scenario":probe.documents,"scope":if probe.capture.is_some() { "paused appearance capture fixture; visual inspection required" } else if probe.documents { "paused history plus isolated native Save/Open" } else if probe.running { "paused history plus live worker continuity" } else { "paused pointer history, keyboard history and text ownership" },
                 "completed_verified_actions":probe.phase,"expected_actions":probe.action_count(),"worker_scenario":probe.running,
                 "observations":probe.observations,"failure":failure,
-                "remaining_acceptance":if probe.documents { vec!["in-flight worker", "visual shading"] } else if probe.running { vec!["save/reopen", "visual shading"] } else { vec!["in-flight worker", "save/reopen", "visual shading"] }});
+                "remaining_acceptance":if probe.capture.is_some() { vec!["visual comparison", "full history", "in-flight worker", "save/reopen"] } else if probe.documents { vec!["in-flight worker", "visual shading"] } else if probe.running { vec!["save/reopen", "visual shading"] } else { vec!["in-flight worker", "save/reopen", "visual shading"] }});
             match std::fs::write(
                 self.output.join("authoring.json"),
                 serde_json::to_vec_pretty(&report).unwrap(),
@@ -1196,6 +1218,34 @@ mod appearance_probe_tests {
         }
         assert_eq!((presses, releases), (1, 1));
         assert_eq!(probe.phase, 0, "sending a click must not count as success");
+    }
+    #[test]
+    fn appearance_capture_stops_after_apply_without_later_input() {
+        for (capture, count) in [
+            (AppearanceCapture::Matte, 2),
+            (AppearanceCapture::Glossy, 6),
+        ] {
+            let mut probe = AppearanceProbe {
+                capture: Some(capture),
+                ready: true,
+                phase: count - 1,
+                ..Default::default()
+            };
+            assert_eq!(probe.action_count(), count);
+            assert_eq!(probe.action(), "appearance.apply");
+            let targets = BTreeMap::from([("appearance.apply".into(), egui::pos2(20., 30.))]);
+            for _ in 0..10 {
+                probe.input(&mut egui::RawInput::default(), &targets);
+            }
+            assert_eq!(probe.phase, count - 1, "input cannot certify Apply");
+            probe.phase = count;
+            let mut input = egui::RawInput::default();
+            probe.input(&mut input, &targets);
+            assert!(
+                input.events.is_empty(),
+                "capture must not dispatch later Undo or simulation"
+            );
+        }
     }
     #[test]
     fn worker_actions_are_opt_in_and_capture_dispatch_state() {
