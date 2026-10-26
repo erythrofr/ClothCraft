@@ -10,6 +10,31 @@ Launch `scripts/start-atelier.ps1`. All pieces share **one metric 2D board**, be
 
 ## Draft cloth
 
+### Cut-and-sewn darts
+
+In **Edit**, select a straight, unsewn polygon boundary in 2D or 3D. In the
+inspector, choose **Cut-and-sewn dart…**, then enter the intake center's distance
+from the edge start, intake width and inward depth in millimetres. The 2D board
+shows the proposed triangular cut, two legs and apex. The preview follows the
+panel's board placement and rotation; it never uses the draped shape.
+
+**Apply dart** removes that triangle and creates a reversed sewing relation
+between the two legs using the existing physical sewing model. The entire
+garment is validated and remeshed before accepting the transaction. An invalid
+contour or failed compilation leaves the document and history unchanged.
+Typing and Enter do not apply. **Cancel dart**, Escape, changing the selected
+boundary or leaving Edit discards the draft. Ctrl+Z outside a text field cancels
+a pending draft first. A successful Apply is one undo/redo entry and survives
+ordinary Save/Open; it resets the edited cloth's simulation caches.
+
+This is a **cut-and-sewn dart**, not an uncut fold model or a guarantee of fit.
+Intake is 3–150 mm and depth is 8–500 mm; the source must be at least 20 mm
+long and the intake must stay beyond its 1% end margins. Curved or target-length
+boundaries, already sewn boundaries (including chain tails), linked mirrors,
+and panels with holes or internal lines are currently unsupported. The numeric
+preview does not certify that the apex or legs fit inside a concave panel:
+Apply performs that whole-contour validation. No mesh is compiled per repaint.
+
 ### Numeric point construction
 
 In **Edit**, select a contour point on the 2D board. The Piece inspector shows

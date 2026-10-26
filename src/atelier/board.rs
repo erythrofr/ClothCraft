@@ -2730,6 +2730,37 @@ impl Atelier {
                 }
             }
         }
+        if self.authoring.tool == Tool::Edit
+            && let Some(draft) = &self.authoring.dart
+            && let Some(i) = self
+                .project
+                .template
+                .panels
+                .iter()
+                .position(|p| p.id == draft.panel())
+            && let Ok(points) = draft.preview(&self.project.template)
+        {
+            let origin = self.board_origin(i);
+            let angle = self.board_angle(i);
+            let [left, apex, right] =
+                points.map(|p| board.screen(rect, origin + authoring::rotate_2d(p, angle)));
+            let color = Color32::from_rgb(190, 60, 130);
+            painter.add(egui::Shape::convex_polygon(
+                vec![left, apex, right],
+                color.gamma_multiply(0.15),
+                Stroke::new(1., color),
+            ));
+            painter.line_segment([left, apex], Stroke::new(2.5, color));
+            painter.line_segment([apex, right], Stroke::new(2.5, color));
+            painter.circle_filled(apex, 4., color);
+            painter.text(
+                apex + Vec2::new(8., -8.),
+                egui::Align2::LEFT_BOTTOM,
+                "Dart preview",
+                egui::FontId::proportional(12.),
+                color,
+            );
+        }
         self.paint_seam_links(&painter, rect, false);
         let point = |uv| board.screen(rect, uv);
         for k in 0..self.authoring.draft.len().saturating_sub(1) {

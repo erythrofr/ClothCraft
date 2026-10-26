@@ -23,6 +23,7 @@ pub(super) enum Tool {
 }
 #[derive(Default)]
 pub(super) struct AuthoringUi {
+    pub dart: Option<DartDraft>,
     pub construction: ConstructionDraft,
     pub sewing: super::sewing_ui::SewingDraft,
     pub sewing_audit: super::sewing_ui::SewingAuditUi,
@@ -61,6 +62,205 @@ pub(super) struct AuthoringUi {
     pub target_edge: Option<(String, String)>,
     /// Target length draft, in millimetres. The document stores metres.
     pub target_mm: f64,
+}
+
+/// Transient material-space draft; no mesh is compiled while typing or painting.
+pub(super) struct DartDraft {
+    panel: String,
+    edge: String,
+    position_mm: String,
+    width_mm: String,
+    depth_mm: String,
+}
+
+fn dart_edge(
+    template: &marvelous_cloth::garment::GarmentTemplate,
+    panel: &str,
+    edge: &str,
+) -> Result<[DVec2; 2], String> {
+    let p = template
+        .panels
+        .iter()
+        .find(|p| p.id == panel)
+        .ok_or("Dart panel no longer exists")?;
+    let poly = p.polygon.as_ref().ok_or("Select an editable polygon")?;
+    let k = poly
+        .edges
+        .iter()
+        .position(|e| e == edge)
+        .ok_or("Dart boundary no longer exists")?;
+    if poly.curves.contains_key(edge) || poly.target_lengths.contains_key(edge) {
+        return Err("Choose a straight boundary without a target length".into());
+    }
+    if template.seams.iter().any(|s| {
+        s.references()
+            .any(|r| r.panel == panel && r.edge.as_deref() == Some(edge))
+    }) {
+        return Err("Choose an unsewn boundary (including sewing-chain segments)".into());
+    }
+    if template
+        .mirror_links
+        .iter()
+        .any(|l| l.a == panel || l.b == panel)
+    {
+        return Err("Unlink the mirrored pair before cutting a dart".into());
+    }
+    if !poly.holes.is_empty() || !poly.lines.is_empty() {
+        return Err("Darts on panels with holes or internal lines are not supported yet".into());
+    }
+    let points = [poly.points[k], poly.points[(k + 1) % poly.points.len()]];
+    if points[0].distance(points[1]) < 0.02 {
+        return Err("The source boundary must be at least 20 mm long".into());
+    }
+    Ok(points)
+}
+
+impl DartDraft {
+    fn new(
+        template: &marvelous_cloth::garment::GarmentTemplate,
+        panel: String,
+        edge: String,
+    ) -> Result<Self, String> {
+        let [a, b] = dart_edge(template, &panel, &edge)?;
+        let length = a.distance(b) * 1000.;
+        Ok(Self {
+            panel,
+            edge,
+            position_mm: format!("{:.3}", length * 0.5),
+            width_mm: format!("{:.3}", (length * 0.1).clamp(3., 20.)),
+            depth_mm: "60".into(),
+        })
+    }
+
+    pub(super) fn preview(
+        &self,
+        template: &marvelous_cloth::garment::GarmentTemplate,
+    ) -> Result<[DVec2; 3], String> {
+        let [a, b] = dart_edge(template, &self.panel, &self.edge)?;
+        let parse = |s: &str| {
+            s.trim()
+                .parse::<f64>()
+                .ok()
+                .filter(|n| n.is_finite())
+                .map(authoring::mm_to_m)
+                .ok_or_else(|| "Enter finite dimensions in mm".to_owned())
+        };
+        let position = parse(&self.position_mm)?;
+        let width = parse(&self.width_mm)?;
+        let depth = parse(&self.depth_mm)?;
+        if !(0.003..=0.15).contains(&width) || !(0.008..=0.5).contains(&depth) {
+            return Err("Intake: 3–150 mm. Depth: 8–500 mm.".into());
+        }
+        let length = a.distance(b);
+        let left_t = (position - width * 0.5) / length;
+        let right_t = (position + width * 0.5) / length;
+        if left_t <= 0.01 || right_t >= 0.99 || right_t - left_t < 0.005 {
+            return Err("Keep the intake inside the boundary, beyond its 1% end margins".into());
+        }
+        let direction = (b - a) / length;
+        let left = a.lerp(b, left_t);
+        let right = a.lerp(b, right_t);
+        let apex = (left + right) * 0.5 + DVec2::new(-direction.y, direction.x) * depth;
+        Ok([left, apex, right])
+    }
+
+    fn command(
+        &self,
+        template: &marvelous_cloth::garment::GarmentTemplate,
+    ) -> Result<Command, String> {
+        let [left, apex, right] = self.preview(template)?;
+        let [a, b] = dart_edge(template, &self.panel, &self.edge)?;
+        Ok(Command::DartCutSew {
+            panel: self.panel.clone(),
+            edge: self.edge.clone(),
+            left_t: a.distance(left) / a.distance(b),
+            right_t: a.distance(right) / a.distance(b),
+            apex,
+        })
+    }
+
+    pub(super) fn panel(&self) -> &str {
+        &self.panel
+    }
+}
+
+/// Real inspector controls, also exercised with the CPU egui event harness.
+fn dart_controls(
+    ui: &mut egui::Ui,
+    draft: &mut Option<DartDraft>,
+    template: &marvelous_cloth::garment::GarmentTemplate,
+    selected: Option<(&str, &str)>,
+) -> Option<Command> {
+    if draft
+        .as_ref()
+        .is_some_and(|d| selected != Some((d.panel.as_str(), d.edge.as_str())))
+    {
+        *draft = None;
+    }
+    let (panel, edge) = selected?;
+    let available = dart_edge(template, panel, edge);
+    {
+        // Retain this row while open so fields do not move after the opening click.
+        let open = ui.add_enabled(
+            available.is_ok() && draft.is_none(),
+            egui::Button::new("Cut-and-sewn dart…"),
+        );
+        #[cfg(test)]
+        super::authoring_smoke::widget_harness::named(ui, &open, "dart.open");
+        let clicked = open.clicked();
+        if let Err(reason) = available {
+            open.on_disabled_hover_text(reason);
+        }
+        if clicked {
+            *draft = DartDraft::new(template, panel.into(), edge.into()).ok();
+        }
+    }
+    let d = draft.as_mut()?;
+    for (id, label, value) in [
+        ("position", "Center from edge start", &mut d.position_mm),
+        ("width", "Intake width", &mut d.width_mm),
+        ("depth", "Inward depth", &mut d.depth_mm),
+    ] {
+        ui.horizontal(|ui| {
+            ui.label(label);
+            let _field = ui.add(
+                egui::TextEdit::singleline(value)
+                    .id_salt(("dart", panel, edge, id))
+                    .desired_width(65.),
+            );
+            ui.label("mm");
+            #[cfg(test)]
+            super::authoring_smoke::widget_harness::named(ui, &_field, format!("dart.{id}"));
+            #[cfg(not(test))]
+            let _ = id;
+        });
+    }
+    let command = d.command(template);
+    match &command {
+        Ok(_) => {
+            ui.small("Preview on the 2D board. Apply cuts away the triangle and sews its legs; the full contour is validated on Apply.");
+        }
+        Err(reason) => {
+            ui.colored_label(Color32::GOLD, reason);
+        }
+    }
+    let (apply, cancel) = ui
+        .horizontal(|ui| {
+            let apply = ui.add_enabled(command.is_ok(), egui::Button::new("Apply dart"));
+            let cancel = ui.button("Cancel dart");
+            #[cfg(test)]
+            {
+                super::authoring_smoke::widget_harness::named(ui, &apply, "dart.apply");
+                super::authoring_smoke::widget_harness::named(ui, &cancel, "dart.cancel");
+            }
+            (apply.clicked(), cancel.clicked())
+        })
+        .inner;
+    if cancel {
+        *draft = None;
+        return None;
+    }
+    apply.then(|| command.ok()).flatten()
 }
 
 pub(super) fn segment_distance(p: egui::Pos2, a: egui::Pos2, b: egui::Pos2) -> f32 {
@@ -385,7 +585,32 @@ fn construction_controls(
 }
 
 impl Atelier {
+    fn dart_properties(&mut self, ui: &mut egui::Ui) {
+        if self.authoring.tool != Tool::Edit {
+            self.authoring.dart = None;
+            return;
+        }
+        let edge = self.authoring.edge.clone();
+        let selected = edge
+            .as_ref()
+            .and_then(|e| e.edge.as_deref().map(|name| (e.panel.as_str(), name)));
+        if self.authoring.dart.is_some()
+            && ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape))
+        {
+            self.authoring.dart = None;
+        }
+        if let Some(command) = dart_controls(
+            ui,
+            &mut self.authoring.dart,
+            &self.project.template,
+            selected,
+        ) {
+            self.edit(command);
+        }
+    }
+
     pub(super) fn install_edit(&mut self, edit: Edit) {
+        self.authoring.dart = None;
         self.simulation_error = None;
         self.document.dirty = true;
         self.authoring.sewing = Default::default();
@@ -825,6 +1050,9 @@ impl Atelier {
             }
         }
         if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::Z)) {
+            if self.authoring.dart.take().is_some() {
+                return;
+            }
             if !self.authoring.board.freehand.samples.is_empty() {
                 self.authoring.board.clear_preview();
                 return;
@@ -918,6 +1146,7 @@ impl Atelier {
             ui.colored_label(Color32::LIGHT_RED, error);
         }
         self.edge_properties(ui);
+        self.dart_properties(ui);
         self.internal_line_properties(ui);
         ui.strong("Active panel");
         let Some(panel) = self
@@ -1264,6 +1493,175 @@ impl Atelier {
 #[cfg(test)]
 mod construction_tests {
     use super::*;
+
+    #[test]
+    fn named_widgets_dart_preview_cancel_apply_history_and_reload() {
+        use super::super::authoring_smoke::widget_harness::Harness;
+        struct Case {
+            template: marvelous_cloth::garment::GarmentTemplate,
+            panel: String,
+            draft: Option<DartDraft>,
+            history: History,
+            applies: usize,
+        }
+        let t = template();
+        let before = serde_json::to_string(&t).unwrap();
+        let mut c = Case {
+            panel: t.panels[0].id.clone(),
+            template: t,
+            draft: None,
+            history: History::default(),
+            applies: 0,
+        };
+        let mut draw = |ui: &mut egui::Ui, c: &mut Case| {
+            if let Some(command) =
+                dart_controls(ui, &mut c.draft, &c.template, Some((&c.panel, "edge_1")))
+            {
+                let edit = authoring::apply(&c.template, command).unwrap();
+                assert!(edit.reset_simulation);
+                c.history.record(c.template.clone());
+                c.template = edit.template;
+                c.draft = None;
+                c.applies += 1;
+            }
+        };
+        let mut h = Harness::new(Vec2::new(600., 650.));
+        h.frame(&mut c, &mut draw);
+        h.click("dart.open", &mut c, &mut draw).unwrap();
+        h.replace_text("dart.position", "160", &mut c, &mut draw)
+            .unwrap();
+        h.replace_text("dart.width", "40", &mut c, &mut draw)
+            .unwrap();
+        h.replace_text("dart.depth", "80", &mut c, &mut draw)
+            .unwrap();
+        let preview = c.draft.as_ref().unwrap().preview(&c.template).unwrap();
+        assert!(preview[0].distance(DVec2::new(0.14, 0.)) < 1e-12);
+        assert!(preview[1].distance(DVec2::new(0.16, 0.08)) < 1e-12);
+        h.key(
+            "dart.depth",
+            egui::Key::Enter,
+            egui::Modifiers::NONE,
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert_eq!(c.applies, 0);
+        assert!(!c.history.can_undo());
+        assert_eq!(serde_json::to_string(&c.template).unwrap(), before);
+        h.click("dart.cancel", &mut c, &mut draw).unwrap();
+        assert!(c.draft.is_none());
+        assert_eq!(serde_json::to_string(&c.template).unwrap(), before);
+
+        h.frame(&mut c, &mut draw);
+        h.click("dart.open", &mut c, &mut draw).unwrap();
+        h.replace_text("dart.depth", "NaN", &mut c, &mut draw)
+            .unwrap();
+        assert!(
+            h.click("dart.apply", &mut c, &mut draw)
+                .unwrap_err()
+                .contains("disabled")
+        );
+        h.replace_text("dart.depth", "80", &mut c, &mut draw)
+            .unwrap();
+        h.replace_text("dart.width", "40", &mut c, &mut draw)
+            .unwrap();
+        let before_mass: f64 = c.template.compile().unwrap().mesh.masses.iter().sum();
+        h.click("dart.apply", &mut c, &mut draw).unwrap();
+        h.frame(&mut c, &mut draw);
+        assert_eq!(c.applies, 1);
+        assert!(c.draft.is_none());
+        assert_eq!(c.template.seams.len(), 1);
+        assert!(c.template.seams[0].reverse_b);
+        let after_mass: f64 = c.template.compile().unwrap().mesh.masses.iter().sum();
+        assert!((after_mass / before_mass - (0.12 - 0.04 * 0.08 / 2.) / 0.12).abs() < 1e-10);
+        let after = serde_json::to_string(&c.template).unwrap();
+        let reloaded: marvelous_cloth::garment::GarmentTemplate =
+            serde_json::from_str(&after).unwrap();
+        reloaded.compile().unwrap();
+        assert_eq!(serde_json::to_string(&reloaded).unwrap(), after);
+        c.template = c.history.restore(&c.template, false).unwrap().template;
+        assert_eq!(serde_json::to_string(&c.template).unwrap(), before);
+        assert!(!c.history.can_undo());
+        c.template = c.history.restore(&c.template, true).unwrap().template;
+        assert_eq!(serde_json::to_string(&c.template).unwrap(), after);
+    }
+
+    #[test]
+    fn dart_re_resolves_boundary_and_rejects_unsupported_geometry() {
+        let mut t = template();
+        let id = t.panels[0].id.clone();
+        let mut draft = DartDraft::new(&t, id.clone(), "edge_1".into()).unwrap();
+        draft.position_mm = "1".into();
+        assert!(draft.preview(&t).is_err());
+        draft.position_mm = "200".into();
+        draft.depth_mm = "400".into();
+        // Dimension-valid preview is not a claim that the whole contour is valid.
+        let before = serde_json::to_string(&t).unwrap();
+        assert!(authoring::apply(&t, draft.command(&t).unwrap()).is_err());
+        assert_eq!(serde_json::to_string(&t).unwrap(), before);
+        t.panels[0].polygon.as_mut().unwrap().edges[0] = "renamed".into();
+        assert!(
+            draft
+                .command(&t)
+                .err()
+                .unwrap()
+                .contains("no longer exists")
+        );
+        t.panels[0].polygon.as_mut().unwrap().edges[0] = "edge_1".into();
+        t.panels[0]
+            .polygon
+            .as_mut()
+            .unwrap()
+            .target_lengths
+            .insert("edge_1".into(), 0.4);
+        assert!(draft.command(&t).err().unwrap().contains("target length"));
+    }
+
+    #[test]
+    fn named_widgets_dart_selection_change_cancels_and_sewn_edge_disables_open() {
+        use super::super::authoring_smoke::widget_harness::Harness;
+        let mut t = template();
+        let panel = t.panels[0].id.clone();
+        let mut state = (None, Some("edge_1".to_owned()));
+        let mut draw = |ui: &mut egui::Ui, state: &mut (Option<DartDraft>, Option<String>)| {
+            assert!(
+                dart_controls(
+                    ui,
+                    &mut state.0,
+                    &t,
+                    state.1.as_deref().map(|e| (panel.as_str(), e))
+                )
+                .is_none()
+            );
+        };
+        let mut h = Harness::new(Vec2::new(600., 650.));
+        h.frame(&mut state, &mut draw);
+        h.click("dart.open", &mut state, &mut draw).unwrap();
+        assert!(state.0.is_some());
+        state.1 = Some("edge_2".into());
+        h.frame(&mut state, &mut draw);
+        assert!(state.0.is_none());
+        assert!(h.click("dart.apply", &mut state, &mut draw).is_err());
+        h.click("dart.open", &mut state, &mut draw).unwrap();
+        state.1 = None;
+        h.frame(&mut state, &mut draw);
+        assert!(state.0.is_none());
+
+        let draft = DartDraft::new(&t, panel.clone(), "edge_1".into()).unwrap();
+        t = authoring::apply(&t, draft.command(&t).unwrap())
+            .unwrap()
+            .template;
+        let leg = t.seams[0].a.edge.clone().unwrap();
+        let mut draw = |ui: &mut egui::Ui, state: &mut (Option<DartDraft>, Option<String>)| {
+            assert!(dart_controls(ui, &mut state.0, &t, Some((&panel, &leg))).is_none());
+        };
+        h.frame(&mut state, &mut draw);
+        assert!(
+            h.click("dart.open", &mut state, &mut draw)
+                .unwrap_err()
+                .contains("disabled")
+        );
+    }
 
     #[test]
     fn named_widgets_intersection_selects_edges_rejects_stale_and_applies_once() {
