@@ -90,7 +90,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-IO-009](#exo-io-009) — Integrate static avatar import into the workspace | interchange | done | EXO-IO-007, EXO-UX-005 | [Issue](https://github.com/erythrofr/ClothCraft/issues/64) |
 | [EXO-IO-010](#exo-io-010) — Import reviewed DXF contours as editable native panels | interchange | done | EXO-IO-002 | Not registered |
 | [EXO-IO-011](#exo-io-011) — Import reviewed SVG patterns in the native workspace | interchange | ready | EXO-IO-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/103) |
-| [EXO-QA-005](#exo-qa-005) — Trace native appearance history through actual UI controls | validation | ready | EXO-QA-004 | [Issue](https://github.com/erythrofr/ClothCraft/issues/135) |
+| [EXO-QA-005](#exo-qa-005) — Trace native appearance history through actual UI controls | validation | done | EXO-QA-004 | [Issue](https://github.com/erythrofr/ClothCraft/issues/135) |
 
 ## EXO-COORD-001
 
@@ -1271,7 +1271,7 @@ Status: ready. Dependencies: EXO-CORE-001.
 - https://github.com/erythrofr/ClothCraft/issues/126
 - https://github.com/erythrofr/ClothCraft/pull/128
 
-Solid color and roughness merged in #128 as ff5053b after seven successful checks at 654fd9d. Shared Fabric inspector edits bind to actual rendering and preserve drape, worker state and physical cache identity. Dependent acceptance #137 at 647128e targets main: native paused history, in-flight Apply/Undo/Redo, isolated Save/Open, visible roughness, exact RGB editing, independent-fabric isolation and flat strain-overlay precedence have recorded evidence at explicit revisions. The earlier manual Undo observation was not reproduced by instrumented native history checks; do not claim its root cause was established. Texture/normal assets and material-space transforms remain unsupported, so LOOK-001 stays incomplete. See docs/fabric-appearance.md and #137; no upstream code/assets imported.
+Solid color and roughness merged in #128 as ff5053b after seven successful checks at 654fd9d. Shared Fabric inspector edits bind to actual rendering and preserve drape, worker state and physical cache identity. Acceptance harness #137 merged as 0b38329 after seven green checks at 647128e: native paused history, in-flight Apply/Undo/Redo, isolated Save/Open, visible roughness, exact RGB editing, independent-fabric isolation and flat strain-overlay precedence have recorded evidence at explicit revisions. The earlier manual Undo observation was not reproduced by instrumented native history checks; do not claim its root cause was established. Texture/normal assets and material-space transforms remain unsupported, so LOOK-001 stays incomplete. See docs/fabric-appearance.md and #137; no upstream code/assets imported.
 
 ## EXO-LOOK-002
 
@@ -2286,7 +2286,7 @@ Native SVG adapter merged in #107 as 260646b after seven green checks at 3771fa9
 
 **Trace native appearance history through actual UI controls**
 
-Status: ready. Dependencies: EXO-QA-004.
+Status: done. Dependencies: EXO-QA-004.
 
 **Files / directories**
 
@@ -2309,4 +2309,4 @@ Status: ready. Dependencies: EXO-QA-004.
 - https://github.com/erythrofr/ClothCraft/pull/128
 - https://github.com/erythrofr/ClothCraft/pull/137
 
-Implementation #137 at 647128e now targets main after feature #128 merged. Six opt-in native scenarios exercise actual controls, paused history/text ownership/default restore, pending-worker continuity, isolated Save/Open and color/roughness captures. Two-fabric and flat strain-overlay comparisons have separate recorded evidence; not every native run used the latest head. Latest integrated desktop CPU suite: 129 passed, one optional preview ignored; strict desktop Clippy passed. Fresh hosted CI/review and merge remain pending. Documents adapter is output-local, uses ordinary transactions and preserves the general smoke guard. Task remains incomplete until reviewed integration. Reservation released on #135; do not recreate the harness or bypass the current native acceptance limits.
+Completed in #137, merged as 0b383296bfa40f747428c88242a60a9644d34aaf after seven successful checks at 647128e and review of the four-file diff. Six opt-in native scenarios use actual controls and verified state gates: paused history/text ownership/default restore, in-flight Apply/Undo/Redo continuity, isolated Save/Open and color/roughness captures. Independent-fabric and flat strain-overlay comparisons have separate recorded evidence at explicit revisions. The integrated desktop CPU suite passed 129 tests (one optional preview ignored), and strict desktop Clippy passed. See docs/native-appearance-acceptance.md for exact fixtures, commands, failures and limits. This completes the scoped acceptance harness, not LOOK-001 or general native-platform certification. Reservation release accepted on #135.
