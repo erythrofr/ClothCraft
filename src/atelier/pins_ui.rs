@@ -15,6 +15,8 @@ enum Action {
     Freeze,
     Thaw,
     ReleasePins,
+    FreezeSelected,
+    ThawSelected,
 }
 
 fn controls(
@@ -24,6 +26,7 @@ fn controls(
     selection_frozen: bool,
     points: usize,
     pins: usize,
+    selected_panels: (usize, usize),
 ) -> Option<Action> {
     ui.separator();
     ui.strong("Pins and freeze");
@@ -59,7 +62,24 @@ fn controls(
             ),
             ("pins.freeze", "Freeze panel", Action::Freeze, !frozen),
             ("pins.thaw", "Unfreeze panel", Action::Thaw, frozen),
+            (
+                "pins.freeze_selected",
+                "Freeze selected panels",
+                Action::FreezeSelected,
+                selected_panels.0 > 1 && selected_panels.1 < selected_panels.0,
+            ),
+            (
+                "pins.thaw_selected",
+                "Unfreeze selected panels",
+                Action::ThawSelected,
+                selected_panels.0 > 1 && selected_panels.1 > 0,
+            ),
         ] {
+            if selected_panels.0 <= 1
+                && matches!(kind, Action::FreezeSelected | Action::ThawSelected)
+            {
+                continue;
+            }
             let response = ui.add_enabled(available && enabled, egui::Button::new(label));
             #[cfg(test)]
             super::authoring_smoke::widget_harness::named(ui, &response, name);
@@ -79,9 +99,9 @@ fn prepare(
     garment: &CompiledGarment,
     state: &State,
     avatar: Option<&marvelous_cloth::avatar::SurfaceMesh>,
-    request: (&str, &BTreeMap<String, Vec<DVec2>>, Action),
+    request: (&str, &BTreeMap<String, Vec<DVec2>>, &[String], Action),
 ) -> Result<authoring::Edit, String> {
-    let (panel, points, action) = request;
+    let (panel, points, selected_panels, action) = request;
     let (mut edit, candidate) = match action {
         Action::Freeze | Action::Thaw => authoring::prepare_freeze_edit(
             template,
@@ -96,6 +116,13 @@ fn prepare(
             state,
             points,
             action == Action::Pin,
+        )?,
+        Action::FreezeSelected | Action::ThawSelected => authoring::prepare_freeze_group_edit(
+            template,
+            garment,
+            state,
+            selected_panels,
+            action == Action::FreezeSelected,
         )?,
         Action::ReleasePins => {
             let points: Vec<_> = template
@@ -184,12 +211,31 @@ impl Atelier {
             .iter()
             .filter(|p| p.panel == panel.id)
             .count();
+        let selected_panels = self.selected_panels();
+        let frozen_selected = selected_panels
+            .iter()
+            .filter(|id| {
+                self.project
+                    .template
+                    .frozen_panels
+                    .iter()
+                    .any(|p| &p.panel == *id)
+            })
+            .count();
         let available = !self.playing
             && !self.pending
             && self.authoring.preview.is_none()
             && self.authoring.board.shape.is_none()
             && self.authoring.board.group_shapes.is_empty();
-        if let Some(action) = controls(ui, available, frozen, selection_frozen, count, pins) {
+        if let Some(action) = controls(
+            ui,
+            available,
+            frozen,
+            selection_frozen,
+            count,
+            pins,
+            (selected_panels.len(), frozen_selected),
+        ) {
             let result = (|| {
                 // Full-panel actions do not depend on contour selection validity.
                 let empty = BTreeMap::new();
@@ -203,7 +249,7 @@ impl Atelier {
                     &self.scene.garment,
                     &self.scene.state,
                     Some(&self.scene.collider.surface),
-                    (&panel.id, points, action),
+                    (&panel.id, points, &selected_panels, action),
                 )
             })();
             match result {
@@ -268,7 +314,15 @@ mod tests {
             .iter()
             .filter(|p| p.panel == panel)
             .count();
-        if let Some(action) = controls(ui, c.available, frozen, frozen, c.selected.len(), pins) {
+        if let Some(action) = controls(
+            ui,
+            c.available,
+            frozen,
+            frozen,
+            c.selected.len(),
+            pins,
+            (1, usize::from(frozen)),
+        ) {
             match prepare(
                 &c.template,
                 &c.garment,
@@ -277,6 +331,7 @@ mod tests {
                 (
                     &panel,
                     &BTreeMap::from([(panel.clone(), c.selected.clone())]),
+                    std::slice::from_ref(&panel),
                     action,
                 ),
             ) {
@@ -344,7 +399,12 @@ mod tests {
                 &c.garment,
                 &c.state,
                 Some(&avatar),
-                (&c.template.panels[0].id, &BTreeMap::new(), Action::Freeze)
+                (
+                    &c.template.panels[0].id,
+                    &BTreeMap::new(),
+                    std::slice::from_ref(&c.template.panels[0].id),
+                    Action::Freeze
+                )
             )
             .is_err()
         );
@@ -381,13 +441,13 @@ mod tests {
         let active = c.template.panels[1].id.clone();
         let before = c.state.x.clone();
         let mut draw_group = |ui: &mut egui::Ui, c: &mut Case| {
-            if let Some(action) = controls(ui, true, false, false, 2, 0) {
+            if let Some(action) = controls(ui, true, false, false, 2, 0, (1, 0)) {
                 let edit = prepare(
                     &c.template,
                     &c.garment,
                     &c.state,
                     None,
-                    (&active, &selected, action),
+                    (&active, &selected, std::slice::from_ref(&active), action),
                 )
                 .unwrap();
                 assert_eq!(edit.selected.as_ref(), Some(&active));
@@ -411,5 +471,64 @@ mod tests {
         stale.remove(&active);
         stale.insert("missing".into(), vec![0]);
         assert!(selected_material_points(&c.template, &stale).is_err());
+    }
+
+    #[test]
+    fn named_group_freeze_and_thaw_use_one_history_step_each() {
+        let mut c = case();
+        let before = c.state.x.clone();
+        let mut draw_group = |ui: &mut egui::Ui, c: &mut Case| {
+            let panels: Vec<_> = c.template.panels.iter().map(|p| p.id.clone()).collect();
+            let active = panels[0].clone();
+            let frozen = c
+                .template
+                .frozen_panels
+                .iter()
+                .filter(|p| panels.contains(&p.panel))
+                .count();
+            if let Some(action) = controls(
+                ui,
+                c.available,
+                frozen > 0,
+                frozen > 0,
+                0,
+                0,
+                (panels.len(), frozen),
+            ) {
+                match prepare(
+                    &c.template,
+                    &c.garment,
+                    &c.state,
+                    None,
+                    (&active, &BTreeMap::new(), &panels, action),
+                ) {
+                    Ok(edit) if edit.reset_simulation => {
+                        c.state = edit.state_after(&c.garment, &c.state);
+                        c.history.record(c.template.clone());
+                        c.template = edit.template;
+                        c.garment = edit.garment;
+                    }
+                    Ok(_) => {}
+                    Err(e) => c.error = Some(e),
+                }
+            }
+        };
+        let mut h = Harness::new(egui::vec2(1000., 600.));
+        h.frame(&mut c, &mut draw_group);
+        h.click("pins.freeze_selected", &mut c, &mut draw_group)
+            .unwrap();
+        assert!(c.error.is_none(), "{:?}", c.error);
+        assert_eq!(c.template.frozen_panels.len(), 2);
+        assert_eq!(c.state.x, before);
+        h.frame(&mut c, &mut draw_group);
+        h.click("pins.thaw_selected", &mut c, &mut draw_group)
+            .unwrap();
+        assert!(c.template.frozen_panels.is_empty());
+        assert_eq!(c.state.x, before);
+        let undo = c.history.restore(&c.template, false).unwrap();
+        assert_eq!(undo.template.frozen_panels.len(), 2);
+        let undo = c.history.restore(&undo.template, false).unwrap();
+        assert!(undo.template.frozen_panels.is_empty());
+        assert!(!c.history.can_undo());
     }
 }

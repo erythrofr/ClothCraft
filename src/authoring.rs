@@ -437,6 +437,102 @@ pub fn prepare_freeze_edit(
     Ok((edit, next))
 }
 
+/// Freeze or release a group atomically. Existing freezes are left untouched
+/// when freezing, so their captured world targets are never silently replaced.
+/// The caller must validate the resulting state before installing the edit.
+pub fn prepare_freeze_group_edit(
+    source: &GarmentTemplate,
+    compiled: &CompiledGarment,
+    state: &State,
+    panels: &[String],
+    freeze: bool,
+) -> Result<(Edit, State), String> {
+    use crate::garment::pins::{
+        FrozenPanel, MAX_PIN_TARGETS, MaterialPinTarget, topology_fingerprint,
+    };
+    let ids: std::collections::BTreeSet<_> = panels.iter().collect();
+    if ids.is_empty() || ids.len() > 128 || ids.len() != panels.len() {
+        return Err("Select 1..128 distinct panels for group freeze".into());
+    }
+    validate_pin_source(source, compiled, state)?;
+    if compiled
+        .mesh
+        .pins
+        .iter()
+        .zip(&state.x)
+        .any(|(pin, x)| pin.is_some_and(|target| target.distance(*x) > 1e-10))
+    {
+        return Err("Current state disagrees with existing pin targets".into());
+    }
+    let mut total_targets = source
+        .frozen_panels
+        .iter()
+        .map(|p| p.targets.len())
+        .sum::<usize>();
+    let mut total_panels = source.frozen_panels.len();
+    for id in &ids {
+        let panel = compiled
+            .panels
+            .iter()
+            .find(|panel| &panel.id == *id)
+            .ok_or("Select existing panels for group freeze")?;
+        if freeze
+            && !source
+                .frozen_panels
+                .iter()
+                .any(|frozen| &frozen.panel == *id)
+        {
+            total_targets = total_targets
+                .checked_add(panel.vertices.len())
+                .ok_or("Too many frozen targets")?;
+            total_panels += 1;
+            if total_targets > MAX_PIN_TARGETS || total_panels > 128 {
+                return Err("Too many frozen targets or panels".into());
+            }
+        }
+    }
+    let mut template = source.clone();
+    if freeze {
+        for panel in ids {
+            if template
+                .frozen_panels
+                .iter()
+                .any(|frozen| &frozen.panel == panel)
+            {
+                continue;
+            }
+            let captured = capture_panel_targets(compiled, state, panel, None)?;
+            template.frozen_panels.push(FrozenPanel {
+                panel: panel.clone(),
+                topology: topology_fingerprint(compiled, panel)?,
+                targets: captured
+                    .into_iter()
+                    .map(|(uv, world)| MaterialPinTarget {
+                        panel: panel.clone(),
+                        uv,
+                        world,
+                    })
+                    .collect(),
+            });
+            template.version = 2;
+        }
+    } else {
+        template
+            .frozen_panels
+            .retain(|frozen| !ids.contains(&frozen.panel));
+    }
+    let garment = template.compile()?;
+    let edit = Edit {
+        reset_simulation: !same_physics(source, &template),
+        template,
+        garment,
+        selected: panels.first().cloned(),
+        new_point: None,
+    };
+    let next = edit.state_after(compiled, state);
+    Ok((edit, next))
+}
+
 /// Capture world targets without editing a document or applying constraints.
 /// `None` captures the complete panel; a selection contains exact material UVs
 /// obtained from its compiled mesh (not arbitrary coordinates or mesh indices).

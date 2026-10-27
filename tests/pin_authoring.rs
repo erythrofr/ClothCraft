@@ -19,6 +19,103 @@ fn editable() -> GarmentTemplate {
 }
 
 #[test]
+fn group_freeze_is_atomic_preserves_existing_targets_and_releases_cleanly() {
+    use marvelous_cloth::authoring::{
+        History, prepare_freeze_edit, prepare_freeze_group_edit, prepare_pin_edit,
+    };
+    let mut t = editable();
+    t.panels[0]
+        .pins
+        .push(marvelous_cloth::garment::template::Corner::TopLeft);
+    t.panels[1].placement.translation.x += 4.;
+    let g = t.compile().unwrap();
+    let mut state = g.initial_state.clone();
+    state.time = 4.5;
+    for (i, x) in state.x.iter_mut().enumerate() {
+        if g.mesh.pins[i].is_none() {
+            x.y += 0.2;
+            state.v[i] = DVec3::X * 0.04;
+        }
+    }
+    let first = g.panels[0].id.clone();
+    let second = g.panels[1].id.clone();
+    let vertex = g.panels[0].vertices.start + 1;
+    let (pin, state) =
+        prepare_pin_edit(&t, &g, &state, &first, &[g.mesh.uv[vertex]], true).unwrap();
+    let (one, state) =
+        prepare_freeze_edit(&pin.template, &pin.garment, &state, &first, true).unwrap();
+    let old_freeze = serde_json::to_vec(&one.template.frozen_panels[0]).unwrap();
+    let original = serde_json::to_vec(&one.template).unwrap();
+    let before = state.clone();
+    let panels = vec![first.clone(), second.clone()];
+    let (noop_release, _) = prepare_freeze_group_edit(
+        &one.template,
+        &one.garment,
+        &state,
+        std::slice::from_ref(&second),
+        false,
+    )
+    .unwrap();
+    assert!(!noop_release.reset_simulation);
+    assert_eq!(
+        serde_json::to_vec(&noop_release.template).unwrap(),
+        original
+    );
+    for invalid in [
+        vec![],
+        vec![first.clone(), first.clone()],
+        vec![first.clone(), "missing".into()],
+        (0..129).map(|i| format!("p{i}")).collect(),
+    ] {
+        assert!(
+            prepare_freeze_group_edit(&one.template, &one.garment, &state, &invalid, true).is_err()
+        );
+        assert_eq!(serde_json::to_vec(&one.template).unwrap(), original);
+        assert_eq!(state.x, before.x);
+        assert_eq!(state.v, before.v);
+    }
+    let (both, frozen_state) =
+        prepare_freeze_group_edit(&one.template, &one.garment, &state, &panels, true).unwrap();
+    assert_eq!(both.template.frozen_panels.len(), 2);
+    assert_eq!(
+        serde_json::to_vec(&both.template.frozen_panels[0]).unwrap(),
+        old_freeze
+    );
+    assert_eq!(frozen_state.x, before.x);
+    assert_eq!(frozen_state.time, before.time);
+    assert!(frozen_state.v.iter().all(|v| *v == DVec3::ZERO));
+    assert_eq!(both.template.pin_targets.len(), 1);
+    let (noop, _) =
+        prepare_freeze_group_edit(&both.template, &both.garment, &frozen_state, &panels, true)
+            .unwrap();
+    assert!(!noop.reset_simulation);
+    let mut history = History::default();
+    history.record(one.template.clone());
+    let undo = history.restore(&both.template, false).unwrap();
+    assert_eq!(serde_json::to_vec(&undo.template).unwrap(), original);
+    let (released, after) =
+        prepare_freeze_group_edit(&both.template, &both.garment, &frozen_state, &panels, false)
+            .unwrap();
+    assert!(released.template.frozen_panels.is_empty());
+    assert_eq!(released.template.pin_targets.len(), 1);
+    assert_eq!(released.garment.legacy_pins, g.legacy_pins);
+    assert_eq!(after.x, frozen_state.x);
+    assert_eq!(after.v, frozen_state.v);
+    assert_eq!(after.time, frozen_state.time);
+    let mut stale = both.garment.clone();
+    stale.mesh.uv[0].x += 0.01;
+    assert!(
+        prepare_freeze_group_edit(&both.template, &stale, &frozen_state, &panels, false).is_err()
+    );
+    let mut inconsistent = frozen_state.clone();
+    inconsistent.x[both.garment.panels[0].vertices.start] += DVec3::X * 0.01;
+    assert!(
+        prepare_freeze_group_edit(&both.template, &both.garment, &inconsistent, &panels, false)
+            .is_err()
+    );
+}
+
+#[test]
 fn authored_hold_coincident_with_legacy_pin_remains_distinguishable() {
     use marvelous_cloth::authoring::prepare_pin_edit;
     let t = GarmentTemplate::two_panel_demo();

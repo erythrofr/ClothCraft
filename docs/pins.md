@@ -13,7 +13,12 @@ holds its current shape; **Unfreeze panel** releases the freeze while retaining
 individual pins. On polygon panels, selected contour points across panels
 can be pinned/unpinned in one atomic history action. **Release panel pins**
 removes all authored individual pins on that panel. These controls leave legacy template pins unchanged.
-Freeze and Release panel pins still apply only to the active panel. A frozen
+**Freeze selected panels** and **Unfreeze selected panels** appear when more
+than one panel is selected. They freeze only panels not already frozen, leaving
+existing frozen targets unchanged; unfreeze removes freezes for selected panels
+while retaining individual and legacy pins. Each group action is one history
+transaction, validates the source once and compiles one candidate. Release panel
+pins still applies only to the active panel. A frozen
 selected panel or any stale contour point rejects the entire pin/unpin request.
 The grouped transaction validates the source once and compiles the candidate
 once, regardless of the number of selected panels.
