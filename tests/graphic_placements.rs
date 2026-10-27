@@ -235,3 +235,39 @@ fn triangle_uvs_reject_missing_or_malformed_compiled_data() {
     p.panel_id = "absent".into();
     assert!(p.triangle_uvs(&garment).is_err());
 }
+
+#[test]
+fn triangle_uv_conversion_preserves_detail_before_f32_cast() {
+    use marvelous_cloth::garment::GarmentTemplate;
+    let mut template = GarmentTemplate::two_panel_demo();
+    template.panels.truncate(1);
+    template.seams.clear();
+    template.panels[0].pattern.width = 100.;
+    template.panels[0].pattern.nx = 1;
+    template.panels[0].pattern.ny = 1;
+    let garment = template.compile().unwrap();
+    let graphic = GraphicPlacement {
+        panel_id: template.panels[0].id.clone(),
+        center_m: DVec2::new(99.999995, 0.),
+        size_m: DVec2::new(0.001, 1.),
+        rotation_degrees: 0.,
+        ..placement()
+    };
+    let triangles = graphic.triangle_uvs(&garment).unwrap();
+    let mut measured = None;
+    for triangle in triangles {
+        for (index, image_uv) in triangle.vertices.into_iter().zip(triangle.image_uv) {
+            if garment.mesh.uv[index].x == 100. {
+                measured = Some(image_uv.x as f32);
+                break;
+            }
+        }
+    }
+    let actual = measured.expect("compiled panel has a 100 m corner");
+    let expected = 0.505_f32;
+    // Emulates an alternative upload that casts the absolute material
+    // coordinate and center to f32 before computing image coordinates.
+    let premature = (100_f32 - graphic.center_m.x as f32) / graphic.size_m.x as f32 + 0.5;
+    assert!((actual - expected).abs() < 1e-6);
+    assert!((premature - expected).abs() > 0.002);
+}
