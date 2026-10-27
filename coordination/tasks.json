@@ -32,7 +32,7 @@
       "id": "EXO-UX-007",
       "title": "Copy unheld panels from garments with authored holds",
       "area": "workspace",
-      "status": "ready",
+      "status": "done",
       "depends_on": [
         "EXO-CORE-001"
       ],
@@ -50,14 +50,16 @@
       "evidence": [
         "https://github.com/erythrofr/ClothCraft/issues/164"
       ],
-      "related_prs": [],
-      "notes": "Narrow follow-up to #116. Does not implement copy/remapping of authored holds. Coordinate separately from Firefly markings; register #164 and obtain an accepted claim after this proposal merges."
+      "related_prs": [
+        "https://github.com/erythrofr/ClothCraft/pull/166"
+      ],
+      "notes": "Delivered by #166, merged as 6ffbf341b77a08e29f3bb840fc924b2d2e6e4df0. CPU targeted tests, full no-default suite and strict Clippy passed; seven hosted checks passed. Selected held panels still reject paste; authored target remapping remains unsupported. Reservation released on #164."
     },
     {
       "id": "EXO-COORD-003",
       "title": "Avoid redundant compilation for metadata-only pull requests",
       "area": "coordination",
-      "status": "ready",
+      "status": "done",
       "depends_on": [
         "EXO-COORD-002"
       ],
@@ -83,8 +85,10 @@
         "https://github.com/erythrofr/ClothCraft/issues/158",
         "https://github.com/erythrofr/ClothCraft/issues/8#issuecomment-6431998448"
       ],
-      "related_prs": [],
-      "notes": "Proposed after catalog-only PR #156 rebuilt all release binaries. No implementation or reservation yet. Register #158 and obtain an accepted claim after manifest review. Do not weaken the current checks while this proposal is pending."
+      "related_prs": [
+        "https://github.com/erythrofr/ClothCraft/pull/160"
+      ],
+      "notes": "Delivered by #160, merged as a7b9feca37bfda1b0267bb0257c8ed4e40d3b02a after seven checks. Exact-path metadata experiment #161 completed seven checks in 5–29 seconds per job excluding queue, with compilation and artifact uploads skipped; source-changing #160 ran full checks. See #158 for run IDs, failure fallback and remaining runner-queue limitations. Reservation released."
     },
     {
       "id": "EXO-QA-006",

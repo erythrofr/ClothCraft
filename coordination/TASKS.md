@@ -11,8 +11,8 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | Task | Area | Status | Dependencies | Discussion |
 |---|---|---|---|---|
 | [EXO-UX-008](#exo-ux-008) — Correct workspace format capability information | workspace | ready | EXO-CORE-001 | Not registered |
-| [EXO-UX-007](#exo-ux-007) — Copy unheld panels from garments with authored holds | workspace | ready | EXO-CORE-001 | Not registered |
-| [EXO-COORD-003](#exo-coord-003) — Avoid redundant compilation for metadata-only pull requests | coordination | ready | EXO-COORD-002 | Not registered |
+| [EXO-UX-007](#exo-ux-007) — Copy unheld panels from garments with authored holds | workspace | done | EXO-CORE-001 | Not registered |
+| [EXO-COORD-003](#exo-coord-003) — Avoid redundant compilation for metadata-only pull requests | coordination | done | EXO-COORD-002 | Not registered |
 | [EXO-QA-006](#exo-qa-006) — Ship and verify the local authoring process across platforms | release | done | EXO-UX-006 | [Issue](https://github.com/erythrofr/ClothCraft/issues/151) |
 | [EXO-COORD-001](#exo-coord-001) — Verify live task claim, heartbeat and release coordination | coordination | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/9) |
 | [EXO-COORD-002](#exo-coord-002) — Explain malformed reservation commands without changing ownership | coordination | done | EXO-COORD-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/129) |
@@ -123,7 +123,7 @@ User-visible information fix only; register issue #167 and obtain an accepted cl
 
 **Copy unheld panels from garments with authored holds**
 
-Status: ready. Dependencies: EXO-CORE-001.
+Status: done. Dependencies: EXO-CORE-001.
 
 **Files / directories**
 
@@ -141,14 +141,15 @@ Status: ready. Dependencies: EXO-CORE-001.
 **Evidence and related contributions**
 
 - https://github.com/erythrofr/ClothCraft/issues/164
+- https://github.com/erythrofr/ClothCraft/pull/166
 
-Narrow follow-up to #116. Does not implement copy/remapping of authored holds. Coordinate separately from Firefly markings; register #164 and obtain an accepted claim after this proposal merges.
+Delivered by #166, merged as 6ffbf341b77a08e29f3bb840fc924b2d2e6e4df0. CPU targeted tests, full no-default suite and strict Clippy passed; seven hosted checks passed. Selected held panels still reject paste; authored target remapping remains unsupported. Reservation released on #164.
 
 ## EXO-COORD-003
 
 **Avoid redundant compilation for metadata-only pull requests**
 
-Status: ready. Dependencies: EXO-COORD-002.
+Status: done. Dependencies: EXO-COORD-002.
 
 **Files / directories**
 
@@ -174,8 +175,9 @@ Status: ready. Dependencies: EXO-COORD-002.
 
 - https://github.com/erythrofr/ClothCraft/issues/158
 - https://github.com/erythrofr/ClothCraft/issues/8#issuecomment-6431998448
+- https://github.com/erythrofr/ClothCraft/pull/160
 
-Proposed after catalog-only PR #156 rebuilt all release binaries. No implementation or reservation yet. Register #158 and obtain an accepted claim after manifest review. Do not weaken the current checks while this proposal is pending.
+Delivered by #160, merged as a7b9feca37bfda1b0267bb0257c8ed4e40d3b02a after seven checks. Exact-path metadata experiment #161 completed seven checks in 5–29 seconds per job excluding queue, with compilation and artifact uploads skipped; source-changing #160 ran full checks. See #158 for run IDs, failure fallback and remaining runner-queue limitations. Reservation released.
 
 ## EXO-QA-006
 
