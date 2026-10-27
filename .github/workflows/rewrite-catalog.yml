@@ -21,6 +21,7 @@ jobs:
         with:
           node-version: '22'
       - run: node --test scripts/rewrite-tasks.test.mjs
+      - run: node --test scripts/ci-change-scope.test.mjs
       - run: node --test scripts/ci-policy.test.mjs
       - run: node --test scripts/coordination/engine.test.mjs
       - run: node scripts/rewrite-tasks.mjs check

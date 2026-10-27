@@ -37,10 +37,18 @@ jobs:
       RAYON_NUM_THREADS: 2
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Classify exact PR changes
+        id: scope
+        run: node scripts/ci-change-scope.mjs
       - uses: dtolnay/rust-toolchain@stable
+        if: steps.scope.outputs.mode != 'metadata'
 
-      # Cache dependencies only; every revision still compiles and runs its checks.
+      # Cache dependencies only; full-validation revisions compile and run their checks.
       - name: Restore Rust dependency cache
+        if: steps.scope.outputs.mode != 'metadata'
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
         with:
           prefix-key: clothcraft-deps-v1
@@ -53,6 +61,7 @@ jobs:
 
       # Keep the actual toolchain/image with the artifact: stable evolves.
       - name: Record build environment
+        if: steps.scope.outputs.mode != 'metadata'
         shell: bash
         run: |
           set -euo pipefail
@@ -69,14 +78,14 @@ jobs:
       - name: Test the CPU core without graphics features
         # Automatic Linux runs share the required cpu job in cpu.yml on the same
         # image. A standalone manual build still executes its own CPU suite.
-        if: runner.os != 'Linux' || github.event_name == 'workflow_dispatch'
+        if: steps.scope.outputs.mode != 'metadata' && (runner.os != 'Linux' || github.event_name == 'workflow_dispatch')
         run: cargo test --locked --no-default-features -j 2 -- --test-threads=2
 
       # eframe/winit need X11, Wayland and an OpenGL loader to LINK on Linux,
       # even though `cargo check` alone would not. Without these the desktop
       # binaries fail at the link step rather than at compile time.
       - name: Install Linux desktop link dependencies
-        if: runner.os == 'Linux'
+        if: steps.scope.outputs.mode != 'metadata' && (runner.os == 'Linux')
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -85,12 +94,14 @@ jobs:
             libssl-dev pkg-config
 
       - name: Build the desktop and CLI binaries
+        if: steps.scope.outputs.mode != 'metadata'
         run: >
           cargo build --locked --release -j 2 --features desktop
           --bin cloth-fit --bin marvelous-cloth --bin cloth-template --bin cloth-session
 
       # A binary that builds but cannot read a template is not a working build.
       - name: Validate a shipped template with the built binary
+        if: steps.scope.outputs.mode != 'metadata'
         shell: bash
         run: |
           suffix=""
@@ -98,6 +109,7 @@ jobs:
           "target/release/cloth-template${suffix}" validate examples/templates/two-panel.json
 
       - name: Stage artifacts
+        if: steps.scope.outputs.mode != 'metadata'
         shell: bash
         run: |
           mkdir -p dist
@@ -114,10 +126,12 @@ jobs:
           ls -l dist
 
       - name: Verify staged authoring process without graphics
+        if: steps.scope.outputs.mode != 'metadata'
         timeout-minutes: 5
         run: python scripts/check-packaged-session.py dist
 
       - uses: actions/upload-artifact@v4
+        if: steps.scope.outputs.mode != 'metadata'
         with:
           name: clothcraft-${{ matrix.artifact }}
           path: dist/
@@ -125,7 +139,7 @@ jobs:
 
       # Preserve diagnostic metadata even if linking or a test fails.
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: steps.scope.outputs.mode != 'metadata' && (always())
         with:
           name: build-environment-${{ matrix.artifact }}
           path: dist/BUILD-ENVIRONMENT.txt

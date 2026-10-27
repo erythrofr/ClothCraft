@@ -20,11 +20,19 @@ jobs:
       RAYON_NUM_THREADS: 2
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Classify exact PR changes
+        id: scope
+        run: node scripts/ci-change-scope.mjs
       - uses: dtolnay/rust-toolchain@stable
+        if: steps.scope.outputs.mode != 'metadata'
         with:
           components: rustfmt, clippy
-      # Cache dependencies only; every revision still compiles and runs its checks.
+      # Cache dependencies only; full-validation revisions compile and run their checks.
       - name: Restore Rust dependency cache
+        if: steps.scope.outputs.mode != 'metadata'
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
         with:
           prefix-key: clothcraft-deps-v1
@@ -35,14 +43,23 @@ jobs:
           cache-on-failure: "false"
           save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - run: cargo fmt --all -- --check
+        if: steps.scope.outputs.mode != 'metadata'
       - run: cargo test --locked --no-default-features -j 2 -- --test-threads=2
+        if: steps.scope.outputs.mode != 'metadata'
       - run: cargo clippy --locked --no-default-features --all-targets -j 2 -- -D warnings
+        if: steps.scope.outputs.mode != 'metadata'
       - run: cargo run --locked --no-default-features -j 2 --bin cloth-template -- validate examples/templates/two-panel.json
+        if: steps.scope.outputs.mode != 'metadata'
       - run: cargo run --locked --no-default-features -j 2 --bin cloth-template -- validate examples/templates/local-ease.json
+        if: steps.scope.outputs.mode != 'metadata'
       - run: cargo run --locked --no-default-features -j 2 --bin cloth-template -- validate examples/templates/tshirt.json
+        if: steps.scope.outputs.mode != 'metadata'
       - run: cargo run --locked --no-default-features -j 2 --bin cloth-template -- validate examples/templates/dress.json
+        if: steps.scope.outputs.mode != 'metadata'
       - run: cargo run --locked --no-default-features -j 2 --bin cloth-template -- validate examples/templates/curved-panels.json
+        if: steps.scope.outputs.mode != 'metadata'
       - run: cargo run --locked --no-default-features -j 2 --bin cloth-template -- simulate examples/templates/two-panel.json --steps 30 --threads 2 --output output/ci-template
+        if: steps.scope.outputs.mode != 'metadata'
   # Compile and test desktop code as well as the headless core.
   # GPU tests stay ignored; this job does not open a window or initialize a GPU.
   desktop:
@@ -51,11 +68,19 @@ jobs:
       RAYON_NUM_THREADS: 2
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Classify exact PR changes
+        id: scope
+        run: node scripts/ci-change-scope.mjs
       - uses: dtolnay/rust-toolchain@stable
+        if: steps.scope.outputs.mode != 'metadata'
         with:
           components: clippy
-      # Cache dependencies only; every revision still compiles and runs its checks.
+      # Cache dependencies only; full-validation revisions compile and run their checks.
       - name: Restore Rust dependency cache
+        if: steps.scope.outputs.mode != 'metadata'
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
         with:
           prefix-key: clothcraft-deps-v1
@@ -68,6 +93,7 @@ jobs:
       # The desktop test target LINKS, so it needs X11/Wayland and an OpenGL
       # loader; `check` and `clippy` alone would not require them.
       - name: Install Linux desktop link dependencies
+        if: steps.scope.outputs.mode != 'metadata'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -75,5 +101,8 @@ jobs:
             libxcb1-dev libxcursor-dev libxrandr-dev libxi-dev \
             libgl1-mesa-dev libasound2-dev libssl-dev pkg-config
       - run: cargo check --locked --features desktop -j 2 --bin cloth-fit --bin marvelous-cloth
+        if: steps.scope.outputs.mode != 'metadata'
       - run: cargo clippy --locked --features desktop --all-targets -j 2 -- -D warnings
+        if: steps.scope.outputs.mode != 'metadata'
       - run: cargo test --locked --features desktop -j 2 -- --test-threads=2
+        if: steps.scope.outputs.mode != 'metadata'
