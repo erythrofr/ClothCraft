@@ -325,6 +325,21 @@ mod tests {
         };
         let mut h = Harness::new(egui::vec2(800., 400.));
         h.frame(&mut c, &mut draw);
+        for id in [
+            "presentation.light.yaw",
+            "presentation.light.tilt",
+            "presentation.light.ambient",
+            "presentation.light.key",
+        ] {
+            let before = c.appearance.lighting;
+            h.drag(id, egui::vec2(35., 0.), 5, &mut c, &mut draw)
+                .unwrap();
+            assert_ne!(
+                c.appearance.lighting, before,
+                "{id} must edit its live value"
+            );
+            assert!(c.appearance.lighting.valid());
+        }
         c.appearance.lighting.key = 0.2;
         h.click("presentation.light.reset", &mut c, &mut draw)
             .unwrap();

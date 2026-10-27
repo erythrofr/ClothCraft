@@ -29,5 +29,14 @@ CPU coverage checks directional rotation, finite bounds, old snapshot loading,
 round-trip persistence, rejection without mutation and named reset/save/restore
 controls. The shader layout test parses and validates WGSL without a GPU and
 checks the 112-byte View uniform with offsets 0, 64, 80 and 96.
-Native visual acceptance is still pending; CPU checks alone do not certify
-appearance or menu interaction in a real window.
+The named-control fixture also drags all four sliders through egui pointer
+events and verifies that each changes a bounded live lighting value.
+
+On 27 October 2026, three short Windows native smoke runs used the public
+40 mm T-shirt, paused at time zero: default lighting, yaw 120 degrees, and
+zero ambient/key gains. All exited successfully and their captures were
+inspected: rotation changed avatar/cloth shading; zero gains produced black
+mesh surfaces while annotations and background remained visible. These runs
+loaded isolated preferences; they did not exercise the parent menu. They also
+do not validate authored-optics materials, upper intensity endpoints or
+simulation performance. Those native acceptance checks remain pending.
