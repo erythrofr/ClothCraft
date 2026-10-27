@@ -1481,18 +1481,30 @@ Status: ready. Dependencies: EXO-CORE-001.
 - `src/garment/graphics.rs`
 - `tests/graphic_placements.rs`
 - `src/garment/mod.rs`
+- `src/garment/template.rs`
+- `src/garment/presets.rs`
+- `src/authoring.rs`
+- `src/authoring/geometry.rs`
+- `src/authoring/clipboard.rs`
+- `src/atelier/authoring_ui.rs`
+- `src/fitting.rs`
+- `docs/graphics.md`
 
 **Acceptance**
 
-- Store stable panel IDs, physical placement transform and asset references.
-- Validate bounds, units, sidedness and deletion/remeshing behavior.
-- Graphic edits preserve drape and rest geometry; no third-party brand artwork fixtures.
+- Persist bounded, uniquely identified material-space placements with stable panel IDs and opaque asset references; legacy documents load unchanged and existing valid panel IDs remain referencable. Unresolved asset IDs are metadata, not evidence of portable image loading.
+- Reject invalid or dangling records atomically. Specify and test duplicate, remove, mirror, topology edits, clipboard and remesh behavior; preserve or explicitly reject references rather than silently lose or orphan them.
+- Metadata-only edits and undo/redo preserve drape, physical mesh signature and worker/solver state. Exercise actual authoring/install paths and save/reopen, not only serialization or a reset flag.
+- No third-party artwork fixtures. Asset storage/loading, rendering and native editing remain separate work; coordinate overlapping shared files with the open markings PR #6 before implementation.
 
 **Evidence and related contributions**
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/nativeGarmentGraphics.js
+- https://github.com/erythrofr/ClothCraft/pull/178
+- https://github.com/erythrofr/ClothCraft/pull/180
+- https://github.com/erythrofr/ClothCraft/pull/182
 
-
+The merged placement math and transient per-triangle UVs are not document persistence, asset loading, rendering or a UI. Scope expansion enables a coordinated durable metadata slice; PR #6 overlaps authoring.rs, geometry.rs, authoring_ui.rs and fitting.rs. Confirm current claims and reconcile its review before touching shared paths. This scope change does not complete the task or grant rights to EXO source/assets.
 
 ## EXO-LOOK-006
 
