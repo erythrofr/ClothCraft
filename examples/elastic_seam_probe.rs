@@ -181,6 +181,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         serde_json::to_vec_pretty(&initial)?,
     )?;
     let mut previous: Option<(String, f64)> = None;
+    // The diagnostic detector never touches the solver's contact cache. Freeze
+    // its pre-step contacts across each balance, then separately measure the
+    // refreshed contact model at the accepted position.
+    let mut detector = solver.world.clone();
+    let mut previous_grab: Option<Grab> = None;
+    let mut previous_energy: Option<marvelous_cloth::vbd::audit::Energy> = None;
+    let mut tail_residual = Vec::new();
+    let mut maximum_balance_error = 0_f64;
+    let mut maximum_contact_refresh = 0_f64;
+    let mut maximum_start_refresh = 0_f64;
+    let mut maximum_reconciliation_error = 0_f64;
+    let mut total_diagnostic_ms = 0_f64;
     let mut release_rises = 0;
     let mut maximum_release_rise = 0_f64;
     let mut release_start = 0.;
@@ -208,17 +220,52 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             target,
             stiffness: 100.,
         });
+        let diagnostic_clock = Instant::now();
+        let before = state.clone();
+        let contacts_before = detector.detect(
+            &detector.positions(&before.x),
+            settings.contact.radius * 4.,
+            &settings.contact,
+        )?;
+        let prior_energy =
+            solver.audit_energy(&before, &settings, &contacts_before, previous_grab.as_ref())?;
+        let prior_control = prior_energy.grab_j;
+        let next_control = solver
+            .audit_energy(&before, &settings, &contacts_before, grab.as_ref())?
+            .grab_j;
+        total_diagnostic_ms += diagnostic_clock.elapsed().as_secs_f64() * 1000.;
         let clock = Instant::now();
         let metrics = solver.step(&mut state, &settings, grab.as_ref())?;
         let wall_ms = clock.elapsed().as_secs_f64() * 1000.;
-        // Independent fresh detector; excluded from complete solver-call timing.
-        let mut detector = solver.world.clone();
+        let diagnostic_clock = Instant::now();
+        let balance =
+            solver.audit_step(&before, &state, &settings, &contacts_before, grab.as_ref())?;
         let contacts = detector.detect(
             &detector.positions(&state.x),
             settings.contact.radius * 4.,
             &settings.contact,
         )?;
         let energy = solver.audit_energy(&state, &settings, &contacts, grab.as_ref())?;
+        let contact_refresh = energy.contact_j - balance.after.contact_j;
+        // A repeated detection at the same position can change the diagnostic
+        // feature set too; account for that before changing the grab target.
+        let start_refresh = previous_energy
+            .as_ref()
+            .map_or(0., |old| prior_energy.contact_j - old.contact_j);
+        let prior_total = previous_energy
+            .as_ref()
+            .map_or_else(|| prior_energy.total_j(), |old| old.total_j());
+        let control_change = next_control - prior_control;
+        let reconciliation_error = (energy.total_j() - prior_total)
+            - (start_refresh + control_change + balance.delta_mechanical_j + contact_refresh);
+        maximum_balance_error = maximum_balance_error.max(balance.balance_error_j.abs());
+        maximum_contact_refresh = maximum_contact_refresh.max(contact_refresh.abs());
+        maximum_start_refresh = maximum_start_refresh.max(start_refresh.abs());
+        maximum_reconciliation_error = maximum_reconciliation_error.max(reconciliation_error.abs());
+        if step >= args.steps - 60 {
+            tail_residual.push(balance.residual_rms_n);
+        }
+        total_diagnostic_ms += diagnostic_clock.elapsed().as_secs_f64() * 1000.;
         let velocity_rms =
             (state.v.iter().map(|v| v.length_squared()).sum::<f64>() / state.v.len() as f64).sqrt();
         final_energy = energy.total_j();
@@ -251,8 +298,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "{}",
             json!({"step":step,"phase":phase,"energy":energy,
             "total_j":final_energy,"step_wall_ms":wall_ms,"highpass_rms_m":motion,"velocity_rms_m_s":velocity_rms,
-            "grab_target_m":grab.as_ref().map(|g|g.target),"seam_gap_m":seam.max_gap(&state.x)})
+            "grab_target_m":grab.as_ref().map(|g|g.target),"seam_gap_m":seam.max_gap(&state.x),
+            "frozen_contact_balance":balance,"contact_refresh_j":contact_refresh,
+            "contact_refresh_at_start_j":start_refresh,"control_change_j":control_change,
+            "reconciliation_error_j":reconciliation_error})
         )?;
+        previous_grab = grab;
+        previous_energy = Some(energy);
     }
     solver
         .world
@@ -266,9 +318,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "step_wall_mean_ms":costs.iter().sum::<f64>()/costs.len() as f64,
         "step_wall_p95_ms":costs[(costs.len()-1)*95/100],
         "tail_highpass_mean_m":tail_motion.iter().sum::<f64>()/tail_motion.len() as f64,
+        "tail_frozen_contact_residual_mean_n":tail_residual.iter().sum::<f64>()/tail_residual.len() as f64,
+        "max_balance_error_j":maximum_balance_error,"max_abs_contact_refresh_j":maximum_contact_refresh,
+        "max_abs_start_contact_refresh_j":maximum_start_refresh,
+        "max_reconciliation_error_j":maximum_reconciliation_error,
+        "diagnostic_mean_ms":total_diagnostic_ms / args.steps as f64,
         "final_intersection_check":"passed",
         "thread_law_example":{"rest_m":0.3,"current_m":0.33,"ea_n":10.,"energy_and_tension":thread_law(0.33,0.3,10.)},
-        "limits":"Uncalibrated thread law is evaluated analytically only. No claim of improved settling or cloth-scale performance."});
+        "limits":"Frozen pre-step diagnostic contacts may differ from the solver's internal contacts; residual includes movement-bound reactions and is not a convergence certificate. Control and contact refresh changes are separate. Uncalibrated thread law is analytical only."});
     fs::write(
         args.output.join("summary.json"),
         serde_json::to_vec_pretty(&report)?,

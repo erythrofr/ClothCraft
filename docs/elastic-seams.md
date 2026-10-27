@@ -55,6 +55,23 @@ time excludes independent energy/contact audits and output writing. End-state
 intersection validation is an additional gate, not a general proof for all
 inputs. Positive autonomous energy deltas are reported rather than suppressed.
 
+The trace also contains a backward-Euler balance with the diagnostic
+pre-step contact set held fixed at both endpoints. It reports residual RMS per
+free degree of freedom, residual work, damping and implicit losses, nonlinear
+remainder and algebraic balance error. Contact refresh at the end and any
+repeated pre-step refresh are recorded at the same positions; grab activation,
+movement and release are recorded separately as control energy changes.
+`reconciliation_error_j` checks that these terms reproduce the difference
+between consecutive fresh energy samples. The detector is a separate clone and
+never changes the solver's caches. Its measured time is reported separately
+from the complete `solver.step` call.
+
+The frozen diagnostic contacts can differ from the solver's changing internal
+contacts. Residuals also include movement-bound reactions, not only incomplete
+iteration; they are not an equilibrium or collision certificate. A small balance
+error verifies bookkeeping, not physical accuracy. Contact-model refresh must
+not be conflated with solver work or with control input.
+
 ## Initial observation
 
 On the initial implementation, the 360-step CPU run completed with final
@@ -79,6 +96,30 @@ experiment. No general conclusion about the private dress follows.
 
 Replaying the unequal-length trace on the equal-length fixture was rejected
 with `Replay template.json differs from current fixture`, as intended.
+
+## Matched residual audit, 27 October 2026
+
+On Windows, CPU only, two Rayon workers, dev profile, the public 48-vertex,
+15%-mismatch fixture was run for 300 steps at 1/60 s. The 32-iteration run
+replayed exactly the 16-iteration run's 300 grab targets; serialized template
+and initial state matched byte-for-byte. The 60-step tail falls entirely within
+release. These are small diagnostic runs, not a garment or GPU benchmark.
+
+| Iterations | Tail frozen-contact residual RMS, mean | Tail high-pass motion, mean | Mean solver step | Mean separate audit |
+|---|---:|---:|---:|---:|
+| 16 | 62.05 µN | 26.80 µm | 6.57 ms | 0.69 ms |
+| 32 | 36.77 µN | 33.94 µm | 13.15 ms | 0.73 ms |
+
+Final intersection validation passed in both runs. Maximum algebraic balance
+errors were 7.12e-17 J and 5.17e-17 J; maximum reconciliation errors were
+1.11e-16 J and 4.82e-17 J. Contact-refresh differences were zero in this fixture,
+so it does not test a changing contact model. At release the control term removed
+about 2.90e-6 J of grab-spring energy in each run. An independent trace check
+verified 300 finite residual rows, matching controls and the grab transition.
+
+More iterations reduced this particular residual but increased the measured
+tail high-pass motion and roughly doubled solver time. These observations do not
+establish a jitter fix, and do not imply comparable behavior on the private dress.
 
 ## Remaining work
 
