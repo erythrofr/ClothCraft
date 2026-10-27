@@ -95,6 +95,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-IO-010](#exo-io-010) — Import reviewed DXF contours as editable native panels | interchange | done | EXO-IO-002 | Not registered |
 | [EXO-IO-011](#exo-io-011) — Import reviewed SVG patterns in the native workspace | interchange | done | EXO-IO-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/103) |
 | [EXO-QA-005](#exo-qa-005) — Trace native appearance history through actual UI controls | validation | done | EXO-QA-004 | [Issue](https://github.com/erythrofr/ClothCraft/issues/135) |
+| [EXO-UX-009](#exo-ux-009) — Expose native authoring tools in the command palette | workspace | ready | EXO-UX-001 | Not registered |
 
 ## EXO-UX-008
 
@@ -2442,3 +2443,30 @@ Status: done. Dependencies: EXO-QA-004.
 - https://github.com/erythrofr/ClothCraft/pull/137
 
 Completed in #137, merged as 0b383296bfa40f747428c88242a60a9644d34aaf after seven successful checks at 647128e and review of the four-file diff. Six opt-in native scenarios use actual controls and verified state gates: paused history/text ownership/default restore, in-flight Apply/Undo/Redo continuity, isolated Save/Open and color/roughness captures. Independent-fabric and flat strain-overlay comparisons have separate recorded evidence at explicit revisions. The integrated desktop CPU suite passed 129 tests (one optional preview ignored), and strict desktop Clippy passed. See docs/native-appearance-acceptance.md for exact fixtures, commands, failures and limits. This completes the scoped acceptance harness, not LOOK-001 or general native-platform certification. Reservation release accepted on #135.
+
+## EXO-UX-009
+
+**Expose native authoring tools in the command palette**
+
+Status: ready. Dependencies: EXO-UX-001.
+
+**Files / directories**
+
+- `src/atelier/commands.rs`
+- `src/atelier/command_palette.rs`
+- `src/atelier.rs`
+- `tests/command_registry.rs`
+- `docs/command-registry.md`
+
+**Acceptance**
+
+- Add descriptors and search aliases for existing native authoring tools; do not advertise nonexistent operations or unwired shortcuts.
+- Dispatch through the same set_authoring_tool transition as the toolbar/radial menu, including existing move/rotate modes; preserve draft, focus, modal and runtime availability behavior.
+- CPU tests cover stable unique registry keys, each tool mapping, palette search, keyboard activation, disabled contexts and existing input isolation. Native-window acceptance is separate and GPU opt-in.
+- Keep Firefly-owned authoring_ui.rs untouched; no changes to garment physics, geometry, contact or solver.
+
+**Evidence and related contributions**
+
+- https://github.com/erythrofr/ClothCraft/issues/171
+
+Follow-up to #110/#162: the current palette has simulation and workspace commands but does not expose real authoring tools. Register #171 and obtain a confirmed claim before editing.
