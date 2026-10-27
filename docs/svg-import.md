@@ -65,6 +65,38 @@ This does not establish an application rename defect; typed-name validation
 remains separate. Native Cancel/Undo, simulation during import, concurrent
 worker timing and other platforms were not covered by this short run.
 
+## Opt-in installer/worker acceptance
+
+`CLOTHCRAFT_AUTHORING_SCENARIO=svg-installer` selects a native authoring smoke
+that clicks the SVG dialog controls, first cancels, then imports two public
+outlines and exercises toolbar Undo/Redo. It requires a paused fixture with
+empty history and a fresh output directory. The smoke creates its SVG with
+exclusive file creation; only this scenario bypasses the OS picker to choose
+that output-local fixture. Normal import behavior and CPU tests are unchanged.
+
+Immediately before the actual installer, the smoke requests one real worker
+step and waits at most three seconds for its result. It deliberately delays
+delivery until after Apply. The ordinary next-frame generation filter must
+discard that old result. This is a controlled transport-delay test, not a claim
+that the timing occurred naturally. It checks unchanged-panel positions,
+velocities/time, the new generation, dirty state, two added panels, original
+seams and exactly one undoable operation. No solver or receive filter is replaced.
+
+With current owner authorization for a short native rendering run:
+
+```powershell
+$env:RAYON_NUM_THREADS = '2'
+$env:CLOTHCRAFT_AUTHORING_SCENARIO = 'svg-installer'
+$env:CLOTHCRAFT_SMOKE_SIZE = '1600x980'
+cargo run --locked --features desktop -j 2 --bin cloth-fit -- --mesh-mm 40 --steps 0 --threads 2 --ui-authoring-smoke --output output/svg-installer-check
+```
+
+Inspect `authoring.json`, including every observed action and `passed`, plus
+the process exit status. A missing target, mismatched state, worker failure or
+35-second scenario timeout is a failure. The window uses graphics; it is not
+part of default CPU CI. This does not replace OS-picker, save/reload or general
+concurrency acceptance, and does not certify a GPU simulation backend.
+
 ## Integration contract
 
 1. Read UTF-8 text with `read_svg(source, Options::default())`.

@@ -71,6 +71,7 @@ pub(super) enum Action {
     Cancel,
 }
 fn named(_ui: &egui::Ui, _r: &egui::Response, _name: &str) {
+    super::super::authoring_smoke::svg_widget(_ui, _r, _name);
     #[cfg(test)]
     super::super::authoring_smoke::widget_harness::named(_ui, _r, _name);
 }
@@ -109,6 +110,14 @@ fn metres(value: &str) -> Result<f64, String> {
     Ok(n)
 }
 impl ImportUi {
+    pub fn smoke_status(&self) -> (bool, bool, usize, bool) {
+        (
+            self.open,
+            self.current(),
+            self.selected.len(),
+            self.acknowledged,
+        )
+    }
     pub fn begin(&mut self, template: &GarmentTemplate) {
         *self = Self {
             open: true,

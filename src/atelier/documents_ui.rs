@@ -126,7 +126,10 @@ fn install_template(
     document.browser = Default::default();
 }
 impl Atelier {
-    fn open_svg_import(&mut self) {
+    pub(super) fn svg_dialog_status(&self) -> (bool, bool, usize, bool) {
+        self.document.svg_import.smoke_status()
+    }
+    pub(super) fn open_svg_import(&mut self) {
         if self.authoring.preview.is_some() || self.has_document_draft() {
             self.status = "Finish or cancel the current drawing, placement or sewing before importing patterns".into();
             return;
@@ -138,7 +141,9 @@ impl Atelier {
         use svg_import_ui::Action;
         match self.document.svg_import.show(ctx, &self.project.template) {
             Some(Action::Choose) => {
-                if let Some(path) = FileDialog::new()
+                if let Some(path) = self.svg_smoke_fixture() {
+                    self.document.svg_import.choose(&path);
+                } else if let Some(path) = FileDialog::new()
                     .set_title("Import SVG patterns")
                     .add_filter("SVG", &["svg"])
                     .pick_file()
@@ -150,8 +155,16 @@ impl Atelier {
             Some(Action::Confirm) => {
                 match prepare_svg_edit(&self.document.svg_import, &self.project, &self.scene) {
                     Ok(edit) => {
+                        let delayed = match self.svg_smoke_worker(ctx) {
+                            Ok(done) => done,
+                            Err(error) => {
+                                self.svg_smoke_failure(error);
+                                return;
+                            }
+                        };
                         self.authoring.history.record(self.project.template.clone());
                         self.install_edit(edit);
+                        self.svg_smoke_deliver(delayed);
                         self.authoring.board.request_fit();
                         self.document.svg_import = Default::default();
                         self.status = "SVG panels added · move and sew them in the workspace · Undo is available".into();
@@ -638,6 +651,7 @@ impl Atelier {
         }
     }
     pub(super) fn document_tick(&mut self, ctx: &egui::Context) {
+        self.svg_smoke_tick(ctx);
         self.document.dismiss_modals_for_close(ctx);
         self.svg_import_tick(ctx);
         if self.document.svg_import.open {

@@ -2,6 +2,271 @@
 use super::*;
 use std::{collections::BTreeMap, time::Instant};
 
+const SVG_ACTIONS: &[&str] = &[
+    "svg.choose",
+    "svg.cancel",
+    "svg.choose",
+    "svg.outline.0",
+    "svg.outline.1",
+    "svg.acknowledge",
+    "svg.confirm",
+    "undo",
+    "redo",
+];
+const SVG_TARGETS: &str = "clothcraft.svg-smoke.targets";
+const SVG_WANTED: &str = "clothcraft.svg-smoke.wanted";
+
+#[derive(Default)]
+struct SvgProbe {
+    ready: bool,
+    phase: usize,
+    tick: usize,
+    origin: Option<egui::Pos2>,
+    fixture: Option<std::path::PathBuf>,
+    before: Option<(serde_json::Value, marvelous_cloth::model::State, u64, bool)>,
+    installed: Option<(serde_json::Value, marvelous_cloth::model::State)>,
+    worker_time: Option<f64>,
+    failure: Option<String>,
+    observations: Vec<serde_json::Value>,
+}
+
+pub(super) fn svg_widget(ui: &egui::Ui, response: &egui::Response, name: &str) {
+    let wanted = ui
+        .ctx()
+        .data(|d| d.get_temp::<String>(egui::Id::new(SVG_WANTED)));
+    let Some(wanted) = wanted else {
+        return;
+    };
+    let visible = response.enabled() && ui.clip_rect().contains_rect(response.rect);
+    ui.ctx().data_mut(|d| {
+        let targets =
+            d.get_temp_mut_or_default::<BTreeMap<String, egui::Pos2>>(egui::Id::new(SVG_TARGETS));
+        if visible {
+            targets.insert(name.into(), response.rect.center());
+        } else {
+            targets.remove(name);
+        }
+    });
+    if wanted == name && !visible {
+        ui.scroll_to_rect_animation(
+            response.rect,
+            Some(egui::Align::Center),
+            egui::style::ScrollAnimation::none(),
+        );
+    }
+}
+
+fn same_svg_state(a: &marvelous_cloth::model::State, b: &marvelous_cloth::model::State) -> bool {
+    a.x == b.x && a.v == b.v && a.time == b.time
+}
+
+impl Atelier {
+    pub(super) fn svg_smoke_fixture(&self) -> Option<std::path::PathBuf> {
+        self.authoring_smoke.as_ref()?.svg.as_ref()?.fixture.clone()
+    }
+    pub(super) fn svg_smoke_failure(&mut self, error: String) {
+        if let Some(probe) = self.authoring_smoke.as_mut().and_then(|s| s.svg.as_mut()) {
+            probe.failure = Some(error);
+        }
+    }
+    /// Explicit test transport delay: retain a real completed old-generation step
+    /// until after installation. Ordinary receive/filter logic is not replaced.
+    pub(super) fn svg_smoke_worker(
+        &mut self,
+        ctx: &egui::Context,
+    ) -> Result<Option<worker::Done>, String> {
+        if !self
+            .authoring_smoke
+            .as_ref()
+            .is_some_and(|s| s.svg.as_ref().is_some_and(|p| p.phase == 6))
+        {
+            return Ok(None);
+        }
+        if self.playing || self.pending || self.receive.lock().unwrap().is_some() {
+            return Err("SVG smoke requires an idle worker before its controlled step".into());
+        }
+        if !self.submit(ctx, true) {
+            return Err("Cannot submit SVG smoke worker step".into());
+        }
+        let deadline = Instant::now();
+        loop {
+            if let Some(done) = self.receive.lock().unwrap().take() {
+                let (state, _) = done
+                    .result
+                    .as_ref()
+                    .map_err(|e| format!("SVG worker failed: {e}"))?;
+                if done.generation != self.generation || state.time <= self.scene.state.time {
+                    return Err(
+                        "SVG smoke did not receive an advanced current-generation step".into(),
+                    );
+                }
+                self.authoring_smoke
+                    .as_mut()
+                    .unwrap()
+                    .svg
+                    .as_mut()
+                    .unwrap()
+                    .worker_time = Some(state.time);
+                return Ok(Some(done));
+            }
+            if deadline.elapsed().as_secs_f32() > 3. {
+                return Err("SVG worker response timed out".into());
+            }
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+    }
+    pub(super) fn svg_smoke_deliver(&mut self, delayed: Option<worker::Done>) {
+        if let Some(done) = delayed {
+            let probe = self.authoring_smoke.as_mut().unwrap().svg.as_mut().unwrap();
+            probe.installed = Some((
+                serde_json::to_value(&self.project.template).unwrap(),
+                self.scene.state.clone(),
+            ));
+            let mut slot = self.receive.lock().unwrap();
+            if slot.is_some() {
+                probe.failure = Some("Unexpected concurrent worker reply".into());
+            }
+            *slot = Some(done);
+        }
+    }
+    pub(super) fn svg_smoke_tick(&mut self, ctx: &egui::Context) {
+        if !self
+            .authoring_smoke
+            .as_ref()
+            .is_some_and(|s| s.svg.is_some() && !s.finished)
+        {
+            return;
+        }
+        let mut smoke = self.authoring_smoke.take().unwrap();
+        let p = smoke.svg.as_mut().unwrap();
+        if !p.ready {
+            use std::io::Write;
+            let result = (|| -> Result<(), String> {
+                if self.playing || self.pending || self.authoring.history.can_undo() {
+                    return Err("Use a paused public fixture with empty history".into());
+                }
+                let path = self.output.join("svg-installer-fixture.svg");
+                let mut f = std::fs::OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .open(&path)
+                    .map_err(|e| e.to_string())?;
+                f.write_all(br#"<svg xmlns="http://www.w3.org/2000/svg" width="300mm" height="300mm" viewBox="0 0 300 300"><polygon points="0,0 100,0 0,200"/><rect x="150" y="0" width="100" height="200"/></svg>"#).map_err(|e| e.to_string())?;
+                p.fixture = Some(path);
+                // Public smoke fixture only: start clean so Apply must mark it dirty.
+                // This setup is not evidence of a native Save operation.
+                self.document.dirty = false;
+                p.before = Some((
+                    serde_json::to_value(&self.project.template).unwrap(),
+                    self.scene.state.clone(),
+                    self.generation,
+                    self.document.dirty,
+                ));
+                self.open_svg_import();
+                p.ready = true;
+                Ok(())
+            })();
+            if let Err(error) = result {
+                p.failure = Some(error);
+            }
+        }
+        let targets = ctx
+            .data_mut(|d| d.remove_temp::<BTreeMap<String, egui::Pos2>>(egui::Id::new(SVG_TARGETS)))
+            .unwrap_or_default();
+        smoke.targets.retain(|name, _| !name.starts_with("svg."));
+        smoke.targets.extend(targets);
+        if p.tick >= 8 && p.failure.is_none() {
+            let (open, reviewed, count, acknowledged) = self.svg_dialog_status();
+            let before = p.before.as_ref().unwrap();
+            let template = serde_json::to_value(&self.project.template).unwrap();
+            let untouched = template == before.0
+                && same_svg_state(&self.scene.state, &before.1)
+                && self.generation == before.2
+                && self.document.dirty == before.3
+                && !self.authoring.history.can_undo();
+            let passed = p.origin.is_some()
+                && match p.phase {
+                    0 | 2 => open && reviewed && untouched,
+                    1 => !open && untouched,
+                    3 => count == 1 && untouched,
+                    4 => count == 2 && untouched,
+                    5 => acknowledged && untouched,
+                    6 => {
+                        let n = before.1.x.len();
+                        p.installed
+                            .as_ref()
+                            .is_some_and(|(_, state)| same_svg_state(state, &self.scene.state))
+                            && p.worker_time.is_some_and(|t| t > self.scene.state.time)
+                            && self.receive.lock().unwrap().is_none()
+                            && self.generation == before.2 + 1
+                            && !self.playing
+                            && !self.pending
+                            && self.document.dirty
+                            && self.authoring.history.can_undo()
+                            && !self.authoring.history.can_redo()
+                            && self.scene.state.x.len() > n
+                            && self.scene.state.x[..n] == before.1.x
+                            && self.scene.state.v[..n] == before.1.v
+                            && self.scene.state.time == before.1.time
+                            && self.project.template.panels.len()
+                                == before.0["panels"].as_array().unwrap().len() + 2
+                            && template["seams"] == before.0["seams"]
+                            && !open
+                    }
+                    7 => {
+                        template == before.0
+                            && !self.authoring.history.can_undo()
+                            && self.authoring.history.can_redo()
+                    }
+                    8 => {
+                        p.installed
+                            .as_ref()
+                            .is_some_and(|(expected, _)| *expected == template)
+                            && self.authoring.history.can_undo()
+                            && !self.authoring.history.can_redo()
+                    }
+                    _ => false,
+                };
+            p.observations.push(serde_json::json!({"action":SVG_ACTIONS[p.phase],"passed":passed,
+                "generation":self.generation,"vertices":self.scene.state.x.len(),"time":self.scene.state.time,
+                "dirty":self.document.dirty,"can_undo":self.authoring.history.can_undo(),"can_redo":self.authoring.history.can_redo()}));
+            if passed {
+                if p.phase == 1 {
+                    self.open_svg_import();
+                }
+                p.phase += 1;
+                p.tick = 0;
+                p.origin = None;
+            } else {
+                p.failure = Some(format!("SVG phase {} failed", p.phase));
+            }
+        }
+        if smoke.start.elapsed().as_secs() > 35 {
+            p.failure = Some("SVG smoke timed out".into());
+        }
+        let complete = p.phase == SVG_ACTIONS.len();
+        if complete || p.failure.is_some() {
+            let report = serde_json::json!({"passed":complete && p.failure.is_none(),"scenario":"svg-installer",
+                "observations":p.observations,"failure":p.failure,"worker_time":p.worker_time,
+                "transport":"real worker reply deliberately delayed across Apply",
+                "limits":["output-local SVG bypasses the OS picker", "no general concurrency or GPU solver certification"]});
+            if let Err(error) = std::fs::write(
+                self.output.join("authoring.json"),
+                serde_json::to_vec_pretty(&report).unwrap(),
+            ) {
+                eprintln!("Cannot write SVG report: {error}");
+            }
+            smoke.finished = true;
+            ctx.data_mut(|d| d.remove::<String>(egui::Id::new(SVG_WANTED)));
+        } else {
+            ctx.data_mut(|d| {
+                d.insert_temp(egui::Id::new(SVG_WANTED), SVG_ACTIONS[p.phase].to_owned())
+            });
+        }
+        self.authoring_smoke = Some(smoke);
+    }
+}
+
 #[cfg(test)]
 #[path = "authoring_smoke/widget_harness.rs"]
 pub(super) mod widget_harness;
@@ -135,6 +400,7 @@ const WORKFLOW_ACTIONS: &[(&str, Vec2)] = &[
 ];
 
 pub(super) struct Smoke {
+    svg: Option<SvgProbe>,
     appearance: Option<AppearanceProbe>,
     panel_tools: bool,
     workflow: bool,
@@ -187,6 +453,11 @@ impl Smoke {
             .is_some_and(|probe| probe.documents)
     }
     pub(super) fn wants(&self, key: &str) -> bool {
+        if let Some(probe) = &self.svg {
+            return SVG_ACTIONS
+                .get(probe.phase)
+                .is_some_and(|action| *action == key);
+        }
         if let Some(probe) = &self.appearance {
             return probe.phase < probe.action_count() && probe.action() == key;
         }
@@ -194,6 +465,8 @@ impl Smoke {
     }
     pub fn new() -> Self {
         Self {
+            svg: (std::env::var("CLOTHCRAFT_AUTHORING_SCENARIO").as_deref() == Ok("svg-installer"))
+                .then(SvgProbe::default),
             appearance: match std::env::var("CLOTHCRAFT_AUTHORING_SCENARIO").as_deref() {
                 Ok("appearance") => Some(AppearanceProbe::default()),
                 Ok("appearance-color") => Some(AppearanceProbe {
@@ -279,6 +552,31 @@ impl Smoke {
         self.targets.insert(name.into(), p);
     }
     pub fn input(&mut self, input: &mut egui::RawInput) {
+        if let Some(probe) = &mut self.svg {
+            input.focused = true;
+            if !probe.ready || self.finished {
+                return;
+            }
+            probe.tick += 1;
+            if probe.tick == 3 {
+                probe.origin = SVG_ACTIONS
+                    .get(probe.phase)
+                    .and_then(|key| self.targets.get(*key))
+                    .copied();
+            }
+            if let Some(pos) = probe.origin {
+                input.events.push(egui::Event::PointerMoved(pos));
+                if probe.tick == 3 || probe.tick == 6 {
+                    input.events.push(egui::Event::PointerButton {
+                        pos,
+                        button: egui::PointerButton::Primary,
+                        pressed: probe.tick == 3,
+                        modifiers: Default::default(),
+                    });
+                }
+            }
+            return;
+        }
         if let Some(probe) = &mut self.appearance {
             probe.input(input, &self.targets);
             return;
@@ -672,6 +970,14 @@ impl Atelier {
         }
     }
     pub(super) fn authoring_smoke_tick(&mut self) {
+        // SVG observes the document transition from document_tick, with its context.
+        if self
+            .authoring_smoke
+            .as_ref()
+            .is_some_and(|s| s.svg.is_some())
+        {
+            return;
+        }
         if self
             .authoring_smoke
             .as_ref()
