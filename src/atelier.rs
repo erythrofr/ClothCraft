@@ -344,6 +344,13 @@ impl Atelier {
     fn command_context(&self) -> commands::CapabilityContext {
         commands::CapabilityContext {
             document_loaded: !self.project.template.panels.is_empty(),
+            selected_panel: self.authoring.selected.as_ref().is_some_and(|id| {
+                self.project
+                    .template
+                    .panels
+                    .iter()
+                    .any(|panel| &panel.id == id)
+            }),
             // Optimistic availability only: a channel can disconnect and
             // storage can fail after this snapshot. Dispatch checks both.
             worker_ready: true,
@@ -412,6 +419,22 @@ impl Atelier {
                 if !self.preset(GarmentKind::Dress) {
                     return Err(self.status.clone());
                 }
+            }
+            Id::ToolEdit
+            | Id::ToolDraw
+            | Id::ToolRectangle
+            | Id::ToolEllipse
+            | Id::ToolSector
+            | Id::ToolInternalLine
+            | Id::ToolSew
+            | Id::ToolMove
+            | Id::ToolRotate
+            | Id::ToolGrab
+            | Id::ToolMeasure
+            | Id::ToolInspect => {
+                let (tool, rotate) =
+                    command_palette::tool_for_command(id).ok_or("Unknown authoring tool")?;
+                self.set_authoring_tool(tool, rotate);
             }
         }
         Ok(())

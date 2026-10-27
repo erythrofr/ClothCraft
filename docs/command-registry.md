@@ -1,6 +1,6 @@
 # Native command registry
 
-`src/atelier/commands.rs` describes twelve implemented workspace commands.
+`src/atelier/commands.rs` describes implemented workspace and tool commands.
 `Atelier::dispatch_command` in `src/atelier.rs` is their checked runtime adapter.
 The native command palette uses this registry. It is not a remote API or a
 universal inventory of every authoring tool.
@@ -12,7 +12,13 @@ no text field, modal or editing gesture owns the input. Search a label, stable
 command key or an alias such as `tee`, `properties` or `3d`. All search words
 must match; matching is case-insensitive. Up/Down moves the highlighted result;
 Enter or a click requests that command. Escape, Close or losing focus dismisses
-the palette. Unavailable commands remain visible with their reason.
+the palette. Unavailable commands remain visible with their reason; keyboard
+navigation skips them. Search for existing tools such as `sew`, `pen`, `ruler`,
+`grab`, `rectangle`, `move 3d` or `rotate 3d`. Move and rotate require a
+selected panel, matching the radial menu. Tool selection uses the same editor
+transition as the toolbar: switching can cancel an existing preview and, except
+for Grab, pauses simulation. The palette does not open during an active editing
+gesture. These are tool selections, not automated garment edits.
 
 The result area keeps a fixed height while filtering so the search field does
 not move under the pointer. The existing radial menu remains available outside

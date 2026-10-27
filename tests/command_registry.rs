@@ -11,6 +11,7 @@ use commands::{
 fn ready() -> CapabilityContext {
     CapabilityContext {
         document_loaded: true,
+        selected_panel: true,
         worker_ready: true,
         filesystem_ready: true,
         playing: false,
@@ -22,7 +23,7 @@ fn ready() -> CapabilityContext {
 fn every_command_has_a_unique_stable_key_and_a_real_descriptor() {
     let mut keys = std::collections::BTreeSet::new();
     let mut ids = std::collections::HashSet::new();
-    assert_eq!(REGISTRY.len(), 12);
+    assert_eq!(REGISTRY.len(), 24);
     for desc in REGISTRY {
         assert!(!desc.label.trim().is_empty());
         assert!(desc.key.contains('.'), "{:?}", desc.id);
@@ -61,6 +62,17 @@ fn unavailable_commands_cannot_pass_the_dispatch_gate() {
             }
         );
     }
+    context = ready();
+    context.selected_panel = false;
+    assert_eq!(
+        availability(CommandId::ToolMove, context),
+        Err(UnavailableReason::NoSelectedPanel)
+    );
+    assert_eq!(
+        availability(CommandId::ToolRotate, context),
+        Err(UnavailableReason::NoSelectedPanel)
+    );
+    assert_eq!(availability(CommandId::ToolDraw, context), Ok(()));
     context = ready();
     context.worker_ready = false;
     assert_eq!(
@@ -131,6 +143,7 @@ fn metadata_matches_actual_workspace_side_effects() {
 fn each_unavailable_reason_has_a_clear_user_message() {
     for reason in [
         UnavailableReason::NoDocument,
+        UnavailableReason::NoSelectedPanel,
         UnavailableReason::WorkerUnavailable,
         UnavailableReason::FilesystemUnavailable,
         UnavailableReason::SimulationRunning,

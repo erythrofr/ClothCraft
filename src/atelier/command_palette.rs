@@ -1,5 +1,8 @@
 //! Search and input adapter; execution belongs to Atelier::dispatch_command.
-use super::commands::{self, CapabilityContext, CommandId};
+use super::{
+    authoring_ui::Tool,
+    commands::{self, CapabilityContext, CommandId},
+};
 use eframe::egui;
 
 #[derive(Default)]
@@ -25,7 +28,39 @@ fn aliases(id: CommandId) -> &'static str {
         OpenPreferences => "settings preferences options theme",
         LoadTshirt => "tshirt t-shirt tee example preset",
         LoadDress => "dress example preset",
+        ToolEdit => "select edit point piece",
+        ToolDraw => "pen bezier pattern cloth",
+        ToolRectangle => "square shape primitive",
+        ToolEllipse => "circle shape primitive",
+        ToolSector => "arc shape primitive",
+        ToolInternalLine => "internal path curve frill",
+        ToolSew => "seam stitch boundary",
+        ToolMove => "place arrange translate gizmo",
+        ToolRotate => "place arrange rotation gizmo",
+        ToolGrab => "pull drag cloth",
+        ToolMeasure => "ruler tape distance",
+        ToolInspect => "debug report paint faces",
     }
+}
+
+/// Map only implemented selections to the existing editor transition.
+pub(super) fn tool_for_command(id: CommandId) -> Option<(Tool, bool)> {
+    use CommandId::*;
+    Some(match id {
+        ToolEdit => (Tool::Edit, false),
+        ToolDraw => (Tool::Draw, false),
+        ToolRectangle => (Tool::Rectangle, false),
+        ToolEllipse => (Tool::Ellipse, false),
+        ToolSector => (Tool::Sector, false),
+        ToolInternalLine => (Tool::InternalLine, false),
+        ToolSew => (Tool::Sew, false),
+        ToolMove => (Tool::Place, false),
+        ToolRotate => (Tool::Place, true),
+        ToolGrab => (Tool::Grab, false),
+        ToolMeasure => (Tool::Measure, false),
+        ToolInspect => (Tool::Inspect, false),
+        _ => return None,
+    })
 }
 
 fn matches(query: &str) -> Vec<CommandId> {
@@ -225,6 +260,7 @@ mod tests {
             palette,
             context: CapabilityContext {
                 document_loaded: true,
+                selected_panel: true,
                 worker_ready: true,
                 filesystem_ready: true,
                 playing: false,
@@ -346,6 +382,8 @@ mod tests {
         assert_eq!(matches("TEE"), vec![CommandId::LoadTshirt]);
         assert_eq!(matches("simulation.step"), vec![CommandId::StepSimulation]);
         assert_eq!(matches("garment 3d"), vec![CommandId::GarmentView]);
+        assert_eq!(matches("ruler"), vec![CommandId::ToolMeasure]);
+        assert_eq!(matches("frill"), vec![CommandId::ToolInternalLine]);
         assert!(matches("not-a-command").is_empty());
         assert_eq!(matches(" ").len(), commands::REGISTRY.len());
     }
@@ -531,7 +569,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             commands::REGISTRY[c.palette.selected].id,
-            CommandId::LoadDress
+            CommandId::ToolInspect
         );
         h.key(
             "palette.query",
@@ -598,7 +636,7 @@ mod tests {
         c.context.document_loaded = false;
         let mut h = Harness::new(egui::vec2(900., 900.));
         frames(&mut h, &mut c);
-        h.replace_text("palette.query", "simulation", &mut c, &mut draw)
+        h.replace_text("palette.query", "simulation.step", &mut c, &mut draw)
             .unwrap();
         for key in [egui::Key::ArrowDown, egui::Key::ArrowUp, egui::Key::Enter] {
             h.key(
@@ -611,6 +649,73 @@ mod tests {
             .unwrap();
         }
         assert!(c.commands.is_empty());
+        assert!(c.palette.open);
+    }
+
+    #[test]
+    fn every_tool_descriptor_maps_to_the_existing_transition() {
+        let expected = [
+            (CommandId::ToolEdit, Tool::Edit, false),
+            (CommandId::ToolDraw, Tool::Draw, false),
+            (CommandId::ToolRectangle, Tool::Rectangle, false),
+            (CommandId::ToolEllipse, Tool::Ellipse, false),
+            (CommandId::ToolSector, Tool::Sector, false),
+            (CommandId::ToolInternalLine, Tool::InternalLine, false),
+            (CommandId::ToolSew, Tool::Sew, false),
+            (CommandId::ToolMove, Tool::Place, false),
+            (CommandId::ToolRotate, Tool::Place, true),
+            (CommandId::ToolGrab, Tool::Grab, false),
+            (CommandId::ToolMeasure, Tool::Measure, false),
+            (CommandId::ToolInspect, Tool::Inspect, false),
+        ];
+        for (id, tool, rotate) in expected {
+            assert!(tool_for_command(id).is_some_and(|actual| actual == (tool, rotate)));
+            assert_eq!(id.descriptor().context, commands::CommandContext::Tool);
+        }
+        assert!(tool_for_command(CommandId::ToggleSimulation).is_none());
+        assert_eq!(
+            commands::REGISTRY
+                .iter()
+                .filter(|d| d.context == commands::CommandContext::Tool)
+                .count(),
+            expected.len()
+        );
+    }
+
+    #[test]
+    fn palette_search_selects_real_tools_and_disables_unselected_placement() {
+        let mut c = case();
+        let mut h = Harness::new(egui::vec2(900., 900.));
+        frames(&mut h, &mut c);
+        h.replace_text("palette.query", "ruler", &mut c, &mut draw)
+            .unwrap();
+        h.key(
+            "palette.query",
+            egui::Key::Enter,
+            egui::Modifiers::NONE,
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert_eq!(c.commands, vec![CommandId::ToolMeasure]);
+        c.palette.begin();
+        c.context.selected_panel = false;
+        frames(&mut h, &mut c);
+        h.replace_text("palette.query", "move 3d", &mut c, &mut draw)
+            .unwrap();
+        assert!(
+            h.click("palette.command.tool.move_3d", &mut c, &mut draw)
+                .is_err()
+        );
+        h.key(
+            "palette.query",
+            egui::Key::Enter,
+            egui::Modifiers::NONE,
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert_eq!(c.commands, vec![CommandId::ToolMeasure]);
         assert!(c.palette.open);
     }
 }

@@ -19,6 +19,18 @@ pub enum CommandId {
     OpenPreferences,
     LoadTshirt,
     LoadDress,
+    ToolEdit,
+    ToolDraw,
+    ToolRectangle,
+    ToolEllipse,
+    ToolSector,
+    ToolInternalLine,
+    ToolSew,
+    ToolMove,
+    ToolRotate,
+    ToolGrab,
+    ToolMeasure,
+    ToolInspect,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -27,6 +39,7 @@ pub enum CommandContext {
     File,
     Workspace,
     Example,
+    Tool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -184,6 +197,114 @@ pub const REGISTRY: &[CommandDescriptor] = &[
         TemplateHistory,
         NativeWorkspace
     ),
+    entry!(
+        ToolEdit,
+        "tool.edit",
+        "Select and edit",
+        Tool,
+        None,
+        NotUndoable,
+        NativeWorkspace
+    ),
+    entry!(
+        ToolDraw,
+        "tool.draw",
+        "Draw pattern",
+        Tool,
+        None,
+        NotUndoable,
+        NativeWorkspace
+    ),
+    entry!(
+        ToolRectangle,
+        "tool.rectangle",
+        "Draw rectangle",
+        Tool,
+        None,
+        NotUndoable,
+        NativeWorkspace
+    ),
+    entry!(
+        ToolEllipse,
+        "tool.ellipse",
+        "Draw ellipse",
+        Tool,
+        None,
+        NotUndoable,
+        NativeWorkspace
+    ),
+    entry!(
+        ToolSector,
+        "tool.sector",
+        "Draw arc sector",
+        Tool,
+        None,
+        NotUndoable,
+        NativeWorkspace
+    ),
+    entry!(
+        ToolInternalLine,
+        "tool.internal_line",
+        "Draw internal line",
+        Tool,
+        None,
+        NotUndoable,
+        NativeWorkspace
+    ),
+    entry!(
+        ToolSew,
+        "tool.sew",
+        "Sew boundaries",
+        Tool,
+        None,
+        NotUndoable,
+        NativeWorkspace
+    ),
+    entry!(
+        ToolMove,
+        "tool.move_3d",
+        "Move panel in 3D",
+        Tool,
+        None,
+        NotUndoable,
+        NativeWorkspace
+    ),
+    entry!(
+        ToolRotate,
+        "tool.rotate_3d",
+        "Rotate panel in 3D",
+        Tool,
+        None,
+        NotUndoable,
+        NativeWorkspace
+    ),
+    entry!(
+        ToolGrab,
+        "tool.grab",
+        "Grab cloth",
+        Tool,
+        None,
+        NotUndoable,
+        NativeWorkspace
+    ),
+    entry!(
+        ToolMeasure,
+        "tool.measure",
+        "Measure on 2D board",
+        Tool,
+        None,
+        NotUndoable,
+        NativeWorkspace
+    ),
+    entry!(
+        ToolInspect,
+        "tool.inspect",
+        "Mark simulation issue",
+        Tool,
+        None,
+        NotUndoable,
+        NativeWorkspace
+    ),
 ];
 
 impl CommandId {
@@ -200,6 +321,7 @@ impl CommandId {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CapabilityContext {
     pub document_loaded: bool,
+    pub selected_panel: bool,
     pub worker_ready: bool,
     pub filesystem_ready: bool,
     pub playing: bool,
@@ -209,6 +331,7 @@ pub struct CapabilityContext {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UnavailableReason {
     NoDocument,
+    NoSelectedPanel,
     WorkerUnavailable,
     FilesystemUnavailable,
     SimulationRunning,
@@ -219,6 +342,7 @@ impl UnavailableReason {
     pub fn message(self) -> &'static str {
         match self {
             Self::NoDocument => "No garment document is loaded",
+            Self::NoSelectedPanel => "Select a panel before arranging it",
             Self::WorkerUnavailable => "The simulation worker is unavailable",
             Self::FilesystemUnavailable => "Local export storage is unavailable",
             Self::SimulationRunning => "Pause simulation before stepping",
@@ -245,6 +369,9 @@ pub fn availability(id: CommandId, ctx: CapabilityContext) -> Result<(), Unavail
             return Err(UnavailableReason::FilesystemUnavailable);
         }
         _ => {}
+    }
+    if matches!(id, CommandId::ToolMove | CommandId::ToolRotate) && !ctx.selected_panel {
+        return Err(UnavailableReason::NoSelectedPanel);
     }
     if id == CommandId::StepSimulation {
         if ctx.playing {
