@@ -363,7 +363,8 @@ mod tests {
             tools: true,
         };
         c.ui.begin(&path);
-        let mut h = Harness::new(egui::vec2(1000., 1000.));
+        // Exercise the application's configured minimum desktop viewport.
+        let mut h = Harness::new(egui::vec2(1100., 700.));
         frames(&mut h, &mut c);
         h.click("profiles.row.0", &mut c, &mut draw).unwrap();
         h.replace_text("profiles.name", "Copy", &mut c, &mut draw)
