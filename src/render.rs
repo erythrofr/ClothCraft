@@ -543,7 +543,7 @@ impl Viewport {
         let color_texture = Self::target(device, [1, 1], false, 1);
         let view_uniform = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("camera matrix"),
-            size: 80,
+            size: 112,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -694,6 +694,11 @@ impl Viewport {
             &self.view_uniform,
             64,
             bytemuck::cast_slice(&eye.to_array()),
+        );
+        self.render_state.queue.write_buffer(
+            &self.view_uniform,
+            80,
+            bytemuck::cast_slice(&self.appearance.lighting.uniform()),
         );
         self.environment.update(
             &self.render_state.queue,

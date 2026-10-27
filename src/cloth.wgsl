@@ -2,6 +2,8 @@ struct View {
     projection: mat4x4f,
     // xyz is the eye for perspective (w=1), or direction to eye for ortho (w=0).
     eye: vec4f,
+    light: vec4f, // world direction, key gain
+    ambient: vec4f, // ambient gain, padding
 };
 @group(0) @binding(0) var<uniform> view: View;
 struct VertexOut {
@@ -37,7 +39,7 @@ fn encode_srgb(linear: vec3f) -> vec3f {
 @fragment
 fn fs_main(in: VertexOut, @builtin(front_facing) front: bool) -> @location(0) vec4<f32> {
     let n = in.normal / max(length(in.normal), 0.000001) * select(-1.0, 1.0, front);
-    let lighting = 0.35 + 0.65 * abs(dot(n, normalize(vec3<f32>(0.4, 0.8, 0.6))));
+    let lighting = 0.35 * view.ambient.x + 0.65 * view.light.w * abs(dot(n, normalize(view.light.xyz)));
     let derivative = max(fwidth(in.barycentric), vec3<f32>(0.00001));
     let edges = smoothstep(vec3<f32>(0.0), derivative * 1.2, in.barycentric);
     let wire = min(edges.x, min(edges.y, edges.z));
@@ -45,7 +47,7 @@ fn fs_main(in: VertexOut, @builtin(front_facing) front: bool) -> @location(0) ve
     if in.roughness < 0.0 {
         return vec4f(in.color.rgb * lighting * wire_factor, 1.0);
     }
-    let l = normalize(vec3f(0.4, 0.8, 0.6));
+    let l = normalize(view.light.xyz);
     let to_eye = view.eye.xyz - in.world * view.eye.w;
     let v = to_eye / max(length(to_eye), 0.000001);
     let h = (l + v) / max(length(l + v), 0.000001);
@@ -61,6 +63,6 @@ fn fs_main(in: VertexOut, @builtin(front_facing) front: bool) -> @location(0) ve
     let gl = 2.0 * nl / max(nl + sqrt(a2 + (1.0 - a2) * nl * nl), 0.0001);
     let fresnel = 0.04 + 0.96 * pow(1.0 - vh, 5.0);
     let specular = distribution * gv * gl * fresnel / max(4.0 * nv, 0.0001);
-    let rgb = (in.color.rgb * (0.25 + 0.7 * nl * (1.0 - fresnel)) + vec3f(0.2 * specular)) * wire_factor;
+    let rgb = (in.color.rgb * (0.25 * view.ambient.x + 0.7 * view.light.w * nl * (1.0 - fresnel)) + vec3f(0.2 * view.light.w * specular)) * wire_factor;
     return vec4f(encode_srgb(rgb), 1.0);
 }
