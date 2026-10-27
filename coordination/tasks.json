@@ -6,6 +6,29 @@
   },
   "tasks": [
     {
+      "id": "EXO-UX-008",
+      "title": "Correct workspace format capability information",
+      "area": "workspace",
+      "status": "ready",
+      "depends_on": [
+        "EXO-CORE-001"
+      ],
+      "scope": [
+        "src/atelier/workspace.rs",
+        "README.md"
+      ],
+      "acceptance": [
+        "Describe actual supported import and export directions in the workspace and README using the existing SVG, DXF and avatar import contracts.",
+        "Clearly distinguish generic DXF outlines, physically scaled SVG subsets and static OBJ/glTF/GLB avatars from unsupported industrial dialects, animated assets and GLB export.",
+        "Do not change importers, solvers or docs/interoperability.md while the markings contribution is pending. Validate the rendered text against actual menu handlers and documentation."
+      ],
+      "evidence": [
+        "https://github.com/erythrofr/ClothCraft/issues/167"
+      ],
+      "related_prs": [],
+      "notes": "User-visible information fix only; register issue #167 and obtain an accepted claim after scope review. Interoperability table correction is separately coordinated with #12."
+    },
+    {
       "id": "EXO-UX-007",
       "title": "Copy unheld panels from garments with authored holds",
       "area": "workspace",

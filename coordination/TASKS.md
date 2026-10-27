@@ -10,6 +10,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 
 | Task | Area | Status | Dependencies | Discussion |
 |---|---|---|---|---|
+| [EXO-UX-008](#exo-ux-008) — Correct workspace format capability information | workspace | ready | EXO-CORE-001 | Not registered |
 | [EXO-UX-007](#exo-ux-007) — Copy unheld panels from garments with authored holds | workspace | ready | EXO-CORE-001 | Not registered |
 | [EXO-COORD-003](#exo-coord-003) — Avoid redundant compilation for metadata-only pull requests | coordination | ready | EXO-COORD-002 | Not registered |
 | [EXO-QA-006](#exo-qa-006) — Ship and verify the local authoring process across platforms | release | done | EXO-UX-006 | [Issue](https://github.com/erythrofr/ClothCraft/issues/151) |
@@ -94,6 +95,29 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-IO-010](#exo-io-010) — Import reviewed DXF contours as editable native panels | interchange | done | EXO-IO-002 | Not registered |
 | [EXO-IO-011](#exo-io-011) — Import reviewed SVG patterns in the native workspace | interchange | done | EXO-IO-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/103) |
 | [EXO-QA-005](#exo-qa-005) — Trace native appearance history through actual UI controls | validation | done | EXO-QA-004 | [Issue](https://github.com/erythrofr/ClothCraft/issues/135) |
+
+## EXO-UX-008
+
+**Correct workspace format capability information**
+
+Status: ready. Dependencies: EXO-CORE-001.
+
+**Files / directories**
+
+- `src/atelier/workspace.rs`
+- `README.md`
+
+**Acceptance**
+
+- Describe actual supported import and export directions in the workspace and README using the existing SVG, DXF and avatar import contracts.
+- Clearly distinguish generic DXF outlines, physically scaled SVG subsets and static OBJ/glTF/GLB avatars from unsupported industrial dialects, animated assets and GLB export.
+- Do not change importers, solvers or docs/interoperability.md while the markings contribution is pending. Validate the rendered text against actual menu handlers and documentation.
+
+**Evidence and related contributions**
+
+- https://github.com/erythrofr/ClothCraft/issues/167
+
+User-visible information fix only; register issue #167 and obtain an accepted claim after scope review. Interoperability table correction is separately coordinated with #12.
 
 ## EXO-UX-007
 
