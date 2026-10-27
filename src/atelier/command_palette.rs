@@ -115,6 +115,19 @@ impl Palette {
             }
             let results = matches(&self.query);
             self.selected = self.selected.min(results.len().saturating_sub(1));
+            let available: Vec<usize> = results
+                .iter()
+                .enumerate()
+                .filter_map(|(index, &id)| {
+                    commands::availability(id, context).is_ok().then_some(index)
+                })
+                .collect();
+            // When a selected action becomes unavailable, move the highlight
+            // but do not let the same Enter press activate a different action.
+            let selection_changed = !available.contains(&self.selected) && !available.is_empty();
+            if selection_changed {
+                self.selected = available[0];
+            }
             let (up, down, enter, escape) = ctx.input_mut(|i| {
                 (
                     i.consume_key(egui::Modifiers::NONE, egui::Key::ArrowUp),
@@ -123,16 +136,24 @@ impl Palette {
                     i.consume_key(egui::Modifiers::NONE, egui::Key::Escape),
                 )
             });
-            if !results.is_empty() {
+            if !available.is_empty() {
+                let position = available
+                    .iter()
+                    .position(|&index| index == self.selected)
+                    .expect("selected command must be available");
                 if down {
-                    self.selected = (self.selected + 1) % results.len();
+                    self.selected = available[(position + 1) % available.len()];
+                } else if up {
+                    self.selected = available[(position + available.len() - 1) % available.len()];
                 }
-                if up {
-                    self.selected = (self.selected + results.len() - 1) % results.len();
-                }
-                if enter && commands::availability(results[self.selected], context).is_ok() {
+                if enter && !selection_changed {
                     command = Some(results[self.selected]);
                 }
+            }
+            // TextEdit relinquishes focus on Enter even if activation was
+            // rejected. Keep the palette usable without a new mouse click.
+            if enter && command.is_none() {
+                response.request_focus();
             }
             cancel |= escape;
             let results_height = (ctx.content_rect().height() - 230.).clamp(80., 380.);
@@ -153,7 +174,8 @@ impl Palette {
                         };
                         let row = ui.add_enabled(
                             availability.is_ok(),
-                            egui::Button::new(label).selected(index == self.selected),
+                            egui::Button::new(label)
+                                .selected(index == self.selected && availability.is_ok()),
                         );
                         named(ui, &row, &format!("palette.command.{}", descriptor.key));
                         if (up || down) && index == self.selected {
@@ -482,6 +504,113 @@ mod tests {
         )
         .unwrap();
         assert_eq!(c.commands.len(), 1);
+        assert!(c.palette.open);
+    }
+
+    #[test]
+    fn keyboard_skips_disabled_actions_and_wraps_without_hiding_them() {
+        let mut c = case();
+        c.context.document_loaded = false;
+        let mut h = Harness::new(egui::vec2(900., 900.));
+        frames(&mut h, &mut c);
+        assert_eq!(
+            commands::REGISTRY[c.palette.selected].id,
+            CommandId::SplitView
+        );
+        assert!(
+            h.click("palette.command.simulation.toggle", &mut c, &mut draw)
+                .is_err()
+        );
+        h.key(
+            "palette.query",
+            egui::Key::ArrowUp,
+            egui::Modifiers::NONE,
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert_eq!(
+            commands::REGISTRY[c.palette.selected].id,
+            CommandId::LoadDress
+        );
+        h.key(
+            "palette.query",
+            egui::Key::ArrowDown,
+            egui::Modifiers::NONE,
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert_eq!(
+            commands::REGISTRY[c.palette.selected].id,
+            CommandId::SplitView
+        );
+        h.key(
+            "palette.query",
+            egui::Key::Enter,
+            egui::Modifiers::NONE,
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert_eq!(c.commands, vec![CommandId::SplitView]);
+    }
+
+    #[test]
+    fn losing_availability_never_dispatches_a_different_action_on_same_enter() {
+        let mut c = case();
+        let mut h = Harness::new(egui::vec2(900., 900.));
+        frames(&mut h, &mut c);
+        assert_eq!(
+            commands::REGISTRY[c.palette.selected].id,
+            CommandId::ToggleSimulation
+        );
+        c.context.document_loaded = false;
+        h.key(
+            "palette.query",
+            egui::Key::Enter,
+            egui::Modifiers::NONE,
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert!(c.commands.is_empty());
+        assert!(c.palette.open);
+        assert_eq!(
+            commands::REGISTRY[c.palette.selected].id,
+            CommandId::SplitView
+        );
+        h.frame(&mut c, &mut draw);
+        h.key(
+            "palette.query",
+            egui::Key::Enter,
+            egui::Modifiers::NONE,
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert_eq!(c.commands, vec![CommandId::SplitView]);
+    }
+
+    #[test]
+    fn all_disabled_matches_leave_palette_open_without_dispatch() {
+        let mut c = case();
+        c.context.document_loaded = false;
+        let mut h = Harness::new(egui::vec2(900., 900.));
+        frames(&mut h, &mut c);
+        h.replace_text("palette.query", "simulation", &mut c, &mut draw)
+            .unwrap();
+        for key in [egui::Key::ArrowDown, egui::Key::ArrowUp, egui::Key::Enter] {
+            h.key(
+                "palette.query",
+                key,
+                egui::Modifiers::NONE,
+                &mut c,
+                &mut draw,
+            )
+            .unwrap();
+        }
+        assert!(c.commands.is_empty());
         assert!(c.palette.open);
     }
 }
