@@ -10,6 +10,114 @@ use marvelous_cloth::{
 use std::collections::BTreeSet;
 
 #[test]
+fn unheld_selection_pastes_without_losing_unrelated_pin_or_freeze() {
+    use marvelous_cloth::authoring::{prepare_freeze_edit, prepare_pin_edit};
+    for freeze in [false, true] {
+        let mut template = GarmentTemplate::two_panel_demo();
+        template.seams.clear();
+        for panel in &mut template.panels {
+            panel.pins.clear();
+            panel.pattern.nx = 2;
+            panel.pattern.ny = 2;
+        }
+        let garment = template.compile().unwrap();
+        let held_id = garment.panels[0].id.clone();
+        let free_id = garment.panels[1].id.clone();
+        let uv = garment.mesh.uv[garment.panels[0].vertices.start + 4];
+        let (held, mut state) = if freeze {
+            prepare_freeze_edit(&template, &garment, &garment.initial_state, &held_id, true)
+                .unwrap()
+        } else {
+            prepare_pin_edit(
+                &template,
+                &garment,
+                &garment.initial_state,
+                &held_id,
+                &[uv],
+                true,
+            )
+            .unwrap()
+        };
+        state.time = 4.25;
+        for i in held.garment.panels[1].vertices.clone() {
+            state.x[i] += DVec3::new(0.01, -0.02, 0.03);
+            state.v[i] = DVec3::new(0.1, -0.05, 0.02);
+        }
+        let before = serde_json::to_value(&held.template).unwrap();
+        let clip =
+            PatternClipboard::capture(&held.template, std::slice::from_ref(&free_id)).unwrap();
+        let serialized = clip.to_text().unwrap();
+        let clip = PatternClipboard::from_text(&serialized).unwrap();
+        let value: serde_json::Value = serde_json::from_str(&serialized).unwrap();
+        assert!(
+            value["template"]["pin_targets"]
+                .as_array()
+                .is_none_or(Vec::is_empty)
+        );
+        assert!(
+            value["template"]["frozen_panels"]
+                .as_array()
+                .is_none_or(Vec::is_empty)
+        );
+        let edit = authoring::apply(
+            &held.template,
+            Command::Paste {
+                clipboard: clip,
+                center: DVec2::new(2., 1.),
+            },
+        )
+        .unwrap();
+        let next = edit.state_after(&held.garment, &state);
+        assert_eq!(next.time, state.time);
+        assert_eq!(&next.x[..state.x.len()], &state.x);
+        assert_eq!(&next.v[..state.v.len()], &state.v);
+        assert_eq!(
+            &edit.garment.mesh.uv[..held.garment.mesh.uv.len()],
+            &held.garment.mesh.uv
+        );
+        assert_eq!(edit.template.pin_targets, held.template.pin_targets);
+        assert_eq!(edit.template.frozen_panels, held.template.frozen_panels);
+        let mut history = History::default();
+        history.record(held.template.clone());
+        let undo = history.restore(&edit.template, false).unwrap();
+        assert_eq!(serde_json::to_value(undo.template).unwrap(), before);
+        assert_eq!(serde_json::to_value(&held.template).unwrap(), before);
+
+        for ids in [
+            vec![held_id.clone()],
+            vec![held_id.clone(), free_id.clone()],
+        ] {
+            let clip = PatternClipboard::capture(&held.template, &ids).unwrap();
+            let clip = PatternClipboard::from_text(&clip.to_text().unwrap()).unwrap();
+            let error = authoring::apply(
+                &held.template,
+                Command::Paste {
+                    clipboard: clip,
+                    center: DVec2::ZERO,
+                },
+            )
+            .err()
+            .expect("selected authored holds must not be dropped");
+            assert!(error.contains("Release authored pins"), "{error}");
+            assert_eq!(serde_json::to_value(&held.template).unwrap(), before);
+        }
+    }
+}
+
+#[test]
+fn external_clipboard_rejects_holds_for_missing_panels() {
+    let source = GarmentTemplate::two_panel_demo();
+    let clip = PatternClipboard::capture(&source, &[source.panels[0].id.clone()]).unwrap();
+    let mut value: serde_json::Value = serde_json::from_str(&clip.to_text().unwrap()).unwrap();
+    value["template"]["pin_targets"] =
+        serde_json::json!([{ "panel": "missing", "uv": [0., 0.], "world": [0., 0., 0.] }]);
+    assert!(PatternClipboard::from_text(&value.to_string()).is_err());
+    value["template"]["pin_targets"] = serde_json::json!([]);
+    value["template"]["frozen_panels"] = serde_json::json!([{ "panel": source.panels[0].id, "topology": "fake", "targets": [{ "panel": "missing", "uv": [0., 0.], "world": [0., 0., 0.] }] }]);
+    assert!(PatternClipboard::from_text(&value.to_string()).is_err());
+}
+
+#[test]
 fn copying_a_sewn_group_preserves_material_and_existing_drape() {
     let source = GarmentTemplate::two_panel_demo();
     let ids: Vec<_> = source.panels.iter().map(|p| p.id.clone()).collect();

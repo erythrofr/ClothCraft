@@ -38,11 +38,13 @@ its caller must still run the physical initialization gate. `restore_checked`
 allows that gate to reject an undo/redo before consuming history. The native
 inspector and held-document undo/redo paths now use this validation.
 
-This initial branch rejects copying/pasting authored holds, mirroring or
-arranging held panels, and replacing a held garment. Clipboard capture can
-still include unrelated hold metadata; paste refuses it explicitly rather
-than dropping constraints. Filtering/remapping clipboard holds requires a
-separate scope amendment. Deleting a panel removes only that panel's targets.
+Copy/paste of authored holds, mirroring or arranging held panels, and replacing
+a held garment remain unsupported. Clipboard capture retains holds belonging to
+selected panels so that paste rejects them explicitly rather than dropping
+constraints. It excludes holds on unselected panels, so a free selection can be
+copied even when another panel is pinned or frozen. Clipboard data referring to
+holds on missing panels is rejected. This does not implement target remapping.
+Deleting a panel removes only that panel's targets.
 An individual pin survives a remesh only when its exact material vertex remains.
 `frozen_panels` stores complete sampled target sets and a versioned FNV-1a
 material-topology fingerprint. Compilation rejects missing/duplicate points,

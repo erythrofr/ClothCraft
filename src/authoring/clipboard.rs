@@ -41,6 +41,14 @@ impl PatternClipboard {
         template
             .seams
             .retain(|s| s.references().all(|r| ids.contains(&r.panel)));
+        // Holds belong to selected panels only. Retain selected holds so the
+        // existing paste guard can reject unsupported target remapping.
+        template
+            .pin_targets
+            .retain(|hold| ids.contains(&hold.panel));
+        template
+            .frozen_panels
+            .retain(|hold| ids.contains(&hold.panel));
         template
             .fabrics
             .retain(|f| template.panels.iter().any(|p| p.fabric == f.id));
@@ -113,6 +121,15 @@ impl PatternClipboard {
                 .seams
                 .iter()
                 .any(|s| s.references().any(|r| !panels.contains(&r.panel)))
+            || self
+                .template
+                .pin_targets
+                .iter()
+                .any(|p| !panels.contains(&p.panel))
+            || self.template.frozen_panels.iter().any(|freeze| {
+                !panels.contains(&freeze.panel)
+                    || freeze.targets.iter().any(|p| p.panel != freeze.panel)
+            })
         {
             return Err("Clipboard contains missing or ambiguous references".into());
         }
