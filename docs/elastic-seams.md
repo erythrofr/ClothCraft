@@ -121,11 +121,21 @@ More iterations reduced this particular residual but increased the measured
 tail high-pass motion and roughly doubled solver time. These observations do not
 establish a jitter fix, and do not imply comparable behavior on the private dress.
 
+An additional CPU regression starts with a small patch near a floor and a
+nonzero grab spring. It deliberately removes diagnostic contact terms to create
+nonzero model changes before and after one actual VBD step, then checks those
+changes separately from the grab energy and step energy. This manufactured
+feature-set change tests the accounting, not whether OGC actually changes its
+contact set that way. A naturally changing contact feature and its physical
+effect remain unverified by this case.
+
 ## Remaining work
 
 - Separately compare equal-length and unequal-length fixtures without conflating
   their geometry. Strict replay intentionally rejects a changed template.
 - Report velocity, force residuals and windowed motion, not only endpoint motion.
+- Find and validate a naturally changing contact-feature case; the manufactured
+  accounting regression alone does not establish contact continuity.
 - Validate any proposed elastic dynamics against its own consistent energy,
   including slack/taut transitions, objectivity and pull/hold/release.
 - No calibrated elastic seam, nonlinear thread data, native UI, GPU implementation

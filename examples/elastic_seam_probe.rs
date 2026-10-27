@@ -89,6 +89,24 @@ fn thread_law(length: f64, rest: f64, ea: f64) -> (f64, f64) {
     )
 }
 
+/// Reconcile independently evaluated models without attributing contact or
+/// user-control changes to the mechanical work of the frozen model.
+fn reconcile(
+    previous: Option<&marvelous_cloth::vbd::audit::Energy>,
+    prior: &marvelous_cloth::vbd::audit::Energy,
+    next_control_j: f64,
+    balance: &marvelous_cloth::vbd::audit::StepEnergy,
+    final_energy: &marvelous_cloth::vbd::audit::Energy,
+) -> (f64, f64, f64, f64) {
+    let start_refresh = previous.map_or(0., |old| prior.contact_j - old.contact_j);
+    let prior_total = previous.map_or_else(|| prior.total_j(), |old| old.total_j());
+    let control_change = next_control_j - prior.grab_j;
+    let contact_refresh = final_energy.contact_j - balance.after.contact_j;
+    let error = (final_energy.total_j() - prior_total)
+        - (start_refresh + control_change + balance.delta_mechanical_j + contact_refresh);
+    (start_refresh, control_change, contact_refresh, error)
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     if args.steps < 300
@@ -229,7 +247,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?;
         let prior_energy =
             solver.audit_energy(&before, &settings, &contacts_before, previous_grab.as_ref())?;
-        let prior_control = prior_energy.grab_j;
         let next_control = solver
             .audit_energy(&before, &settings, &contacts_before, grab.as_ref())?
             .grab_j;
@@ -246,18 +263,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &settings.contact,
         )?;
         let energy = solver.audit_energy(&state, &settings, &contacts, grab.as_ref())?;
-        let contact_refresh = energy.contact_j - balance.after.contact_j;
         // A repeated detection at the same position can change the diagnostic
         // feature set too; account for that before changing the grab target.
-        let start_refresh = previous_energy
-            .as_ref()
-            .map_or(0., |old| prior_energy.contact_j - old.contact_j);
-        let prior_total = previous_energy
-            .as_ref()
-            .map_or_else(|| prior_energy.total_j(), |old| old.total_j());
-        let control_change = next_control - prior_control;
-        let reconciliation_error = (energy.total_j() - prior_total)
-            - (start_refresh + control_change + balance.delta_mechanical_j + contact_refresh);
+        let (start_refresh, control_change, contact_refresh, reconciliation_error) = reconcile(
+            previous_energy.as_ref(),
+            &prior_energy,
+            next_control,
+            &balance,
+            &energy,
+        );
         maximum_balance_error = maximum_balance_error.max(balance.balance_error_j.abs());
         maximum_contact_refresh = maximum_contact_refresh.max(contact_refresh.abs());
         maximum_start_refresh = maximum_start_refresh.max(start_refresh.abs());
@@ -337,6 +351,95 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn accounting_separates_changed_contacts_from_grab_and_step_work() {
+        use marvelous_cloth::{avatar::SurfaceMesh, model::Pattern};
+        let mut template = GarmentTemplate::two_panel_demo();
+        template.panels.truncate(1);
+        template.seams.clear();
+        let panel = &mut template.panels[0];
+        panel.pins.clear();
+        panel.pattern = Pattern {
+            width: 0.12,
+            height: 0.12,
+            nx: 3,
+            ny: 3,
+        };
+        panel.placement.rotation_degrees = DVec3::new(90., 0., 0.);
+        panel.placement.translation = DVec3::new(-0.06, 0.0028, 0.06);
+        let floor = SurfaceMesh {
+            vertices: vec![
+                DVec3::new(-1., 0., -1.),
+                DVec3::new(1., 0., -1.),
+                DVec3::new(0., 0., 1.),
+            ],
+            triangles: vec![[0, 1, 2]],
+        };
+        let garment = Arc::new(template.compile().unwrap());
+        let mut state = garment.initial_state.clone();
+        let mut solver = VbdSolver::new(garment.clone(), Some(&floor), &state).unwrap();
+        let settings = VbdSettings {
+            dt: 1. / 60.,
+            ..Default::default()
+        };
+        let before = state.clone();
+        let contacts = solver
+            .world
+            .detect(
+                &solver.world.positions(&before.x),
+                settings.contact.radius * 4.,
+                &settings.contact,
+            )
+            .unwrap();
+        let mut no_contacts = contacts.clone();
+        // Deliberately change only the diagnostic energy model. This is a
+        // bookkeeping adversary, not a real collision detector transition.
+        no_contacts.contacts.clear();
+        no_contacts.incident =
+            marvelous_cloth::ogc::ContactIncidence::new(before.x.len(), &no_contacts.contacts);
+        let previous = solver
+            .audit_energy(&before, &settings, &no_contacts, None)
+            .unwrap();
+        let prior = solver
+            .audit_energy(&before, &settings, &contacts, None)
+            .unwrap();
+        let vertices = garment.mesh.triangles[0].vertices;
+        let center = vertices.iter().map(|&i| before.x[i] / 3.).sum::<DVec3>();
+        let grab = Grab {
+            patch: Vec::new(),
+            vertices,
+            weights: [1. / 3.; 3],
+            target: center + DVec3::X * 0.01,
+            stiffness: 100.,
+        };
+        let next_control = solver
+            .audit_energy(&before, &settings, &contacts, Some(&grab))
+            .unwrap()
+            .grab_j;
+        solver.step(&mut state, &settings, Some(&grab)).unwrap();
+        let balance = solver
+            .audit_step(&before, &state, &settings, &contacts, Some(&grab))
+            .unwrap();
+        let final_energy = solver
+            .audit_energy(&state, &settings, &no_contacts, Some(&grab))
+            .unwrap();
+        let (start, control, end, error) = reconcile(
+            Some(&previous),
+            &prior,
+            next_control,
+            &balance,
+            &final_energy,
+        );
+        assert!(prior.contact_j > 0. && balance.after.contact_j > 0.);
+        assert!((start - prior.contact_j).abs() < 1e-14);
+        assert!((control - 0.005).abs() < 1e-12);
+        assert!((end + balance.after.contact_j).abs() < 1e-14);
+        assert!(error.abs() < 1e-12);
+        // A missing or reversed contact term must be observable, even though
+        // the complete algebraic reconciliation closes.
+        let observed = final_energy.total_j() - previous.total_j();
+        assert!((observed - (control + balance.delta_mechanical_j)).abs() > 1e-10);
+    }
     #[test]
     fn replay_rejects_missing_reordered_and_nonfinite_controls() {
         let make = || {
