@@ -30,6 +30,15 @@ pub struct GraphicPlacement {
     pub side: GraphicSide,
 }
 
+/// Transient image coordinates for one compiled triangle. Vertex IDs belong
+/// only to that compiled mesh: discard and rebuild these records on remeshing.
+/// Coordinates may lie outside [0,1]; a consumer must clip or discard them.
+#[derive(Clone, Debug, PartialEq)]
+pub struct GraphicTriangleUv {
+    pub vertices: [usize; 3],
+    pub image_uv: [DVec2; 3],
+}
+
 fn valid_id(id: &str) -> bool {
     !id.is_empty()
         && id.len() <= 80
@@ -88,6 +97,58 @@ impl GraphicPlacement {
         Ok(())
     }
 
+    /// Build image UVs from the named panel's material rest coordinates.
+    /// This does not inspect 3D positions, render, clip or load an asset.
+    /// Rebuild the returned records after every remesh or placement change.
+    pub fn triangle_uvs(
+        &self,
+        garment: &super::CompiledGarment,
+    ) -> Result<Vec<GraphicTriangleUv>, String> {
+        self.validate()?;
+        let panel = garment
+            .panels
+            .iter()
+            .find(|panel| panel.id == self.panel_id)
+            .ok_or("Graphic references a missing compiled panel")?;
+        let triangles = garment
+            .mesh
+            .triangles
+            .get(panel.triangles.clone())
+            .ok_or("Invalid compiled panel triangle range")?;
+        let mut result = Vec::new();
+        result
+            .try_reserve(triangles.len())
+            .map_err(|_| "Graphic triangle allocation failed")?;
+        let (sin, cos) = self
+            .rotation_degrees
+            .rem_euclid(360.)
+            .to_radians()
+            .sin_cos();
+        for triangle in triangles {
+            if triangle
+                .vertices
+                .iter()
+                .any(|v| !panel.vertices.contains(v))
+            {
+                return Err("Compiled triangle crosses panel vertex ranges".into());
+            }
+            let mut image_uv = [DVec2::ZERO; 3];
+            for (i, &vertex) in triangle.vertices.iter().enumerate() {
+                let material_uv = garment
+                    .mesh
+                    .uv
+                    .get(vertex)
+                    .ok_or("Missing compiled material vertex")?;
+                image_uv[i] = self.inverse_with_rotation(*material_uv, sin, cos)?;
+            }
+            result.push(GraphicTriangleUv {
+                vertices: triangle.vertices,
+                image_uv,
+            });
+        }
+        Ok(result)
+    }
+
     /// Convert normalized image coordinates to panel-local material metres.
     /// Values outside [0,1] are allowed for mathematical extrapolation.
     pub fn uv_to_material(&self, uv: DVec2) -> Result<DVec2, String> {
@@ -108,11 +169,15 @@ impl GraphicPlacement {
     /// Convert panel-local metres to normalized image coordinates.
     pub fn material_to_uv(&self, point_m: DVec2) -> Result<DVec2, String> {
         self.validate()?;
+        let angle = self.rotation_degrees.rem_euclid(360.).to_radians();
+        let (sin, cos) = angle.sin_cos();
+        self.inverse_with_rotation(point_m, sin, cos)
+    }
+
+    fn inverse_with_rotation(&self, point_m: DVec2, sin: f64, cos: f64) -> Result<DVec2, String> {
         if !point_m.is_finite() {
             return Err("Material position must be finite".into());
         }
-        let angle = self.rotation_degrees.rem_euclid(360.).to_radians();
-        let (sin, cos) = angle.sin_cos();
         let p = point_m - self.center_m;
         let result = DVec2::new(cos * p.x + sin * p.y, -sin * p.x + cos * p.y) / self.size_m
             + DVec2::splat(0.5);

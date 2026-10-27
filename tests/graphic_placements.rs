@@ -153,3 +153,85 @@ fn extreme_position_and_aspect_ratio_do_not_silently_collapse_uv() {
     let actual = p.material_to_uv(p.uv_to_material(uv).unwrap()).unwrap();
     assert!(actual.distance(uv) < 0.001, "actual {actual:?}");
 }
+
+#[test]
+fn triangle_uvs_follow_named_panel_rest_coordinates_and_rebuild_after_remeshing() {
+    use marvelous_cloth::garment::GarmentTemplate;
+    let mut template = GarmentTemplate::two_panel_demo();
+    assert_eq!(template.panels[0].fabric, template.panels[1].fabric);
+    let p = GraphicPlacement {
+        panel_id: template.panels[0].id.clone(),
+        ..placement()
+    };
+    let garment = template.compile().unwrap();
+    let panel = &garment.panels[0];
+    let uv = p.triangle_uvs(&garment).unwrap();
+    assert_eq!(uv.len(), panel.triangles.len());
+    for record in &uv {
+        for i in 0..3 {
+            let v = record.vertices[i];
+            assert!(panel.vertices.contains(&v));
+            assert!(
+                p.uv_to_material(record.image_uv[i])
+                    .unwrap()
+                    .distance(garment.mesh.uv[v])
+                    < 1e-12
+            );
+        }
+    }
+    let other = GraphicPlacement {
+        panel_id: template.panels[1].id.clone(),
+        ..p.clone()
+    };
+    let other_uv = other.triangle_uvs(&garment).unwrap();
+    assert!(!other_uv.is_empty());
+    assert!(other_uv.iter().all(|triangle| {
+        triangle
+            .vertices
+            .iter()
+            .all(|v| garment.panels[1].vertices.contains(v))
+    }));
+    let mut draped = garment.clone();
+    for (i, point) in draped.initial_state.x.iter_mut().enumerate() {
+        point.z += (i as f64) * 0.001;
+    }
+    assert_eq!(p.triangle_uvs(&draped).unwrap(), uv);
+    template.panels[0].pattern.nx += 1;
+    let remeshed = template.compile().unwrap();
+    let rebuilt = p.triangle_uvs(&remeshed).unwrap();
+    assert_eq!(rebuilt.len(), remeshed.panels[0].triangles.len());
+    assert_ne!(rebuilt.len(), uv.len());
+    assert!(rebuilt.iter().all(|triangle| {
+        triangle
+            .vertices
+            .iter()
+            .all(|v| remeshed.panels[0].vertices.contains(v))
+    }));
+}
+
+#[test]
+fn triangle_uvs_reject_missing_or_malformed_compiled_data() {
+    use marvelous_cloth::garment::GarmentTemplate;
+    let template = GarmentTemplate::two_panel_demo();
+    let garment = template.compile().unwrap();
+    let mut p = GraphicPlacement {
+        panel_id: template.panels[0].id.clone(),
+        ..placement()
+    };
+    let mut damaged = garment.clone();
+    damaged.panels[0].triangles.end = usize::MAX;
+    assert!(p.triangle_uvs(&damaged).is_err());
+    damaged = garment.clone();
+    damaged.mesh.triangles[damaged.panels[0].triangles.start].vertices[0] =
+        damaged.panels[1].vertices.start;
+    assert!(p.triangle_uvs(&damaged).is_err());
+    damaged = garment.clone();
+    damaged.mesh.uv.clear();
+    assert!(p.triangle_uvs(&damaged).is_err());
+    damaged = garment.clone();
+    let vertex = damaged.mesh.triangles[damaged.panels[0].triangles.start].vertices[0];
+    damaged.mesh.uv[vertex] = DVec2::splat(f64::NAN);
+    assert!(p.triangle_uvs(&damaged).is_err());
+    p.panel_id = "absent".into();
+    assert!(p.triangle_uvs(&garment).is_err());
+}
