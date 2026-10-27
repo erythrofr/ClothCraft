@@ -45,8 +45,7 @@ harness, with both gains set to zero or two. Each report passed all six
 expected actions and the captures were inspected. The authored-optics cloth
 was black with zero gains and bright with visible saturation at maximum gains.
 This confirms endpoint response, not photometric accuracy. These runs exercised
-fabric appearance controls, not the Presentation parent menu. Native menu
-interaction remains pending.
+fabric appearance controls, not the Presentation parent menu. Native menu interaction was checked after the submenu correction described below.
 
 The first native menu check exposed automatic closure after a slider click.
 The submenu now explicitly closes on outside clicks; Save/Restore close it
@@ -54,4 +53,4 @@ after their action. A CPU regression fixture opens the nested Workspace menu,
 drags rotation, resets it and invokes Save, checking that controls remain
 available until the explicit action. The updated full atelier suite passed
 134 tests (one optional preview ignored), and strict desktop all-target Clippy
-passed. The corrected native menu still needs its follow-up check.
+passed. The corrected Windows menu was then exercised at code revision 18c4a0f: rotation changed to 130 degrees without closing the submenu, Save wrote a version 2 snapshot, Reset returned to zero, and Restore recovered 130 degrees. Both the saved snapshot and persisted preferences recorded 130 degrees. The generated test window was stopped afterward. This was a paused public T-shirt; it is not a simulation performance benchmark.
