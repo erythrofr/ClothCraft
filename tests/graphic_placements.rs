@@ -40,6 +40,33 @@ fn persistent_placements_validate_and_keep_legacy_and_physics() {
     let restored: GarmentTemplate = serde_json::from_str(&encoded).unwrap();
     restored.compile().unwrap();
     assert_eq!(restored.graphics, vec![graphic.clone()]);
+    let before = serde_json::to_vec(&restored).unwrap();
+    let unchanged = authoring::apply(
+        &restored,
+        Command::SetGraphic {
+            placement: graphic.clone(),
+        },
+    );
+    assert_eq!(
+        unchanged.err().as_deref(),
+        Some("Graphic placement is unchanged")
+    );
+    assert_eq!(serde_json::to_vec(&restored).unwrap(), before);
+    let mut moved = graphic.clone();
+    moved.center_m.x += 0.01;
+    let changed = authoring::apply(
+        &restored,
+        Command::SetGraphic {
+            placement: moved.clone(),
+        },
+    )
+    .unwrap();
+    assert!(!changed.reset_simulation);
+    assert!(authoring::only_appearance_changed(
+        &restored,
+        &changed.template
+    ));
+    assert_eq!(changed.template.graphics, vec![moved]);
     let mut invalid = restored.clone();
     invalid.graphics.push(graphic.clone());
     assert!(invalid.compile().is_err());

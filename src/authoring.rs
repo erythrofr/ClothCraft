@@ -2159,6 +2159,9 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
             placement.validate_panel(&template)?;
             selected = Some(placement.panel_id.clone());
             if let Some(existing) = template.graphics.iter_mut().find(|g| g.id == placement.id) {
+                if *existing == placement {
+                    return Err("Graphic placement is unchanged".into());
+                }
                 *existing = placement;
             } else {
                 template.graphics.push(placement);
