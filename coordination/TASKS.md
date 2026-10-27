@@ -10,6 +10,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 
 | Task | Area | Status | Dependencies | Discussion |
 |---|---|---|---|---|
+| [EXO-UX-007](#exo-ux-007) — Copy unheld panels from garments with authored holds | workspace | ready | EXO-CORE-001 | Not registered |
 | [EXO-COORD-003](#exo-coord-003) — Avoid redundant compilation for metadata-only pull requests | coordination | ready | EXO-COORD-002 | Not registered |
 | [EXO-QA-006](#exo-qa-006) — Ship and verify the local authoring process across platforms | release | done | EXO-UX-006 | [Issue](https://github.com/erythrofr/ClothCraft/issues/151) |
 | [EXO-COORD-001](#exo-coord-001) — Verify live task claim, heartbeat and release coordination | coordination | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/9) |
@@ -93,6 +94,31 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-IO-010](#exo-io-010) — Import reviewed DXF contours as editable native panels | interchange | done | EXO-IO-002 | Not registered |
 | [EXO-IO-011](#exo-io-011) — Import reviewed SVG patterns in the native workspace | interchange | done | EXO-IO-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/103) |
 | [EXO-QA-005](#exo-qa-005) — Trace native appearance history through actual UI controls | validation | done | EXO-QA-004 | [Issue](https://github.com/erythrofr/ClothCraft/issues/135) |
+
+## EXO-UX-007
+
+**Copy unheld panels from garments with authored holds**
+
+Status: ready. Dependencies: EXO-CORE-001.
+
+**Files / directories**
+
+- `src/authoring/clipboard.rs`
+- `tests/pattern_clipboard.rs`
+- `docs/pins.md`
+
+**Acceptance**
+
+- Filter clipboard holds to selected panel identities; preserve selected holds so unsupported held-panel paste continues to fail explicitly.
+- Unheld selections can round-trip and paste even when other panels are pinned or frozen; preserve original holds, material geometry, live positions, velocities and time.
+- Reject malformed external clipboard hold references without silently dropping constraints; preserve version 1, history, sewing and legacy documents.
+- Exercise pinned and frozen sources, mixed/held selections, round-trip, atomic rejection and unchanged state on CPU; do not change solver, contacts, worker or authoring.rs.
+
+**Evidence and related contributions**
+
+- https://github.com/erythrofr/ClothCraft/issues/164
+
+Narrow follow-up to #116. Does not implement copy/remapping of authored holds. Coordinate separately from Firefly markings; register #164 and obtain an accepted claim after this proposal merges.
 
 ## EXO-COORD-003
 

@@ -6,6 +6,31 @@
   },
   "tasks": [
     {
+      "id": "EXO-UX-007",
+      "title": "Copy unheld panels from garments with authored holds",
+      "area": "workspace",
+      "status": "ready",
+      "depends_on": [
+        "EXO-CORE-001"
+      ],
+      "scope": [
+        "src/authoring/clipboard.rs",
+        "tests/pattern_clipboard.rs",
+        "docs/pins.md"
+      ],
+      "acceptance": [
+        "Filter clipboard holds to selected panel identities; preserve selected holds so unsupported held-panel paste continues to fail explicitly.",
+        "Unheld selections can round-trip and paste even when other panels are pinned or frozen; preserve original holds, material geometry, live positions, velocities and time.",
+        "Reject malformed external clipboard hold references without silently dropping constraints; preserve version 1, history, sewing and legacy documents.",
+        "Exercise pinned and frozen sources, mixed/held selections, round-trip, atomic rejection and unchanged state on CPU; do not change solver, contacts, worker or authoring.rs."
+      ],
+      "evidence": [
+        "https://github.com/erythrofr/ClothCraft/issues/164"
+      ],
+      "related_prs": [],
+      "notes": "Narrow follow-up to #116. Does not implement copy/remapping of authored holds. Coordinate separately from Firefly markings; register #164 and obtain an accepted claim after this proposal merges."
+    },
+    {
       "id": "EXO-COORD-003",
       "title": "Avoid redundant compilation for metadata-only pull requests",
       "area": "coordination",
