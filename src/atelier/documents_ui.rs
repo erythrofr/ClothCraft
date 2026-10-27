@@ -152,6 +152,7 @@ impl Atelier {
                     Ok(edit) => {
                         self.authoring.history.record(self.project.template.clone());
                         self.install_edit(edit);
+                        self.authoring.board.request_fit();
                         self.document.svg_import = Default::default();
                         self.status = "SVG panels added · move and sew them in the workspace · Undo is available".into();
                     }

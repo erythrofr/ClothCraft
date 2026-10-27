@@ -22,6 +22,8 @@ require choosing the file again. Mesh spacing is separate from curve tolerance.
 New panels are arranged to the right of the current cloth and avatar. Existing
 unchanged panels retain their drape. Apply uses the ordinary history and edit
 installer, rebuilding dependent state and invalidating stale worker responses.
+Successful Apply requests a 2D board fit on the next frame so the added panels
+are visible. This changes presentation only; the 3D camera is unchanged.
 Cancel and Escape discard the dialog; invalid parsing or preparation does not
 change the document. Finish active drawing/sewing/placement drafts first.
 
@@ -36,6 +38,32 @@ failed compilation rollback and the unsaved-window-close flag. Run them with:
 ```powershell
 cargo test --locked --features desktop -j 2 --bin cloth-fit svg_import_ui -- --test-threads=2
 ```
+
+### Native Windows evidence — 27 October 2026
+
+At `5f25a569ece7298a86e17d044c3c7e9251fdb349`, a short owner-authorized GPU
+rendering run used the paused public 40 mm T-shirt and the actual File menu,
+SVG picker, review dialog, Add panels, Save picker and Open picker. The test
+SVG had explicit 300 mm dimensions and two disjoint contours: a triangle and
+rectangle, each with a 100 by 200 mm bounding box. Both preview dimensions
+were correct. Selecting both and acknowledging losses produced four pieces;
+the eight existing seams remained. Saving and reopening succeeded.
+
+Independent JSON comparison between the launch project and the saved document
+confirmed exact preservation of the original panel definitions, seams,
+existing position/velocity prefixes and simulation time. New IDs were `svg_1`
+and `svg_2`, with widths/heights 0.1/0.2 m. The application was closed after
+the test. Generated evidence is local under `output/svg-native-20261027/`;
+no private garment was used or published.
+
+That run exposed a framing issue: new panels were partly offscreen immediately
+after Apply but visible after reopening. The subsequent board-fit request
+addresses this presentation issue; the native result above predates that fix.
+The automation's Save filename replacement was displayed but the OS dialog
+returned the default `garment.clothcraft.json` in the isolated test directory.
+This does not establish an application rename defect; typed-name validation
+remains separate. Native Cancel/Undo, simulation during import, concurrent
+worker timing and other platforms were not covered by this short run.
 
 ## Integration contract
 
