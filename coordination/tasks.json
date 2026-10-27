@@ -1395,7 +1395,7 @@
       "id": "EXO-LOOK-007",
       "title": "Define reproducible stage, lighting and camera settings",
       "area": "appearance",
-      "status": "ready",
+      "status": "done",
       "depends_on": [
         "EXO-CORE-001"
       ],
@@ -1419,12 +1419,14 @@
       ],
       "evidence": [
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/createStageEnvironment.js",
-        "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/sceneCameraViewport.js"
+        "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/sceneCameraViewport.js",
+        "https://github.com/erythrofr/ClothCraft/blob/54930c6487990e0bacec851495df01f3fecd601b/docs/stage-settings.md"
       ],
       "related_prs": [
-        "https://github.com/erythrofr/ClothCraft/pull/121"
+        "https://github.com/erythrofr/ClothCraft/pull/121",
+        "https://github.com/erythrofr/ClothCraft/pull/157"
       ],
-      "notes": "Camera/background/floor snapshots are delivered by #121. Extend that existing implementation with a configurable directional rig, rather than adding another settings store. Source review at 8ea3c1e finds fixed directions/gains in both cloth.wgsl shading paths, an 80-byte host View uniform and a CPU layout test; update them coherently. Scope expansion is proposed while #120 has no reservation and does not overlap Firefly's active markings paths. Obtain a fresh accepted claim after review. HDRI, multiple lights and decorative geometry remain outside this bounded first lighting integration."
+      "notes": "Delivered by #121 and #157. Camera/environment/lighting presentation is separate from solver state, with validated versioned snapshots and legacy defaults. CPU layout and nested-menu fixtures passed; short native Windows captures and Save/Reset/Restore interaction are documented in docs/stage-settings.md. Both shading paths use bounded directional rotation and ambient/key gains. HDRI, multiple lights, decorative geometry and directional floor shadows remain unsupported; no photometric or simulation-performance claim. Reservation released on #120."
     },
     {
       "id": "EXO-LOOK-008",

@@ -62,7 +62,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-LOOK-004](#exo-look-004) — Import and manage fabric texture assets | appearance | blocked | EXO-LOOK-001 | Not registered |
 | [EXO-LOOK-005](#exo-look-005) — Define material-space garment graphic placements | appearance | ready | EXO-CORE-001 | Not registered |
 | [EXO-LOOK-006](#exo-look-006) — Render and edit garment graphics | appearance | blocked | EXO-LOOK-005, EXO-LOOK-002 | Not registered |
-| [EXO-LOOK-007](#exo-look-007) — Define reproducible stage, lighting and camera settings | appearance | ready | EXO-CORE-001 | Not registered |
+| [EXO-LOOK-007](#exo-look-007) — Define reproducible stage, lighting and camera settings | appearance | done | EXO-CORE-001 | Not registered |
 | [EXO-LOOK-008](#exo-look-008) — Render stages and export still images | appearance | blocked | EXO-LOOK-007 | Not registered |
 | [EXO-AV-001](#exo-av-001) — Define avatar landmarks and body measurements | avatar | done | EXO-CORE-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/56) |
 | [EXO-AV-002](#exo-av-002) — Add body-aware panel arrangement assistance | avatar | blocked | EXO-AV-001 | Not registered |
@@ -1472,7 +1472,7 @@ Status: blocked. Dependencies: EXO-LOOK-005, EXO-LOOK-002.
 
 **Define reproducible stage, lighting and camera settings**
 
-Status: ready. Dependencies: EXO-CORE-001.
+Status: done. Dependencies: EXO-CORE-001.
 
 **Files / directories**
 
@@ -1498,9 +1498,11 @@ Status: ready. Dependencies: EXO-CORE-001.
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/createStageEnvironment.js
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/sceneCameraViewport.js
+- https://github.com/erythrofr/ClothCraft/blob/54930c6487990e0bacec851495df01f3fecd601b/docs/stage-settings.md
 - https://github.com/erythrofr/ClothCraft/pull/121
+- https://github.com/erythrofr/ClothCraft/pull/157
 
-Camera/background/floor snapshots are delivered by #121. Extend that existing implementation with a configurable directional rig, rather than adding another settings store. Source review at 8ea3c1e finds fixed directions/gains in both cloth.wgsl shading paths, an 80-byte host View uniform and a CPU layout test; update them coherently. Scope expansion is proposed while #120 has no reservation and does not overlap Firefly's active markings paths. Obtain a fresh accepted claim after review. HDRI, multiple lights and decorative geometry remain outside this bounded first lighting integration.
+Delivered by #121 and #157. Camera/environment/lighting presentation is separate from solver state, with validated versioned snapshots and legacy defaults. CPU layout and nested-menu fixtures passed; short native Windows captures and Save/Reset/Restore interaction are documented in docs/stage-settings.md. Both shading paths use bounded directional rotation and ambient/key gains. HDRI, multiple lights, decorative geometry and directional floor shadows remain unsupported; no photometric or simulation-performance claim. Reservation released on #120.
 
 ## EXO-LOOK-008
 
