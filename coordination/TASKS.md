@@ -10,7 +10,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 
 | Task | Area | Status | Dependencies | Discussion |
 |---|---|---|---|---|
-| [EXO-QA-006](#exo-qa-006) — Ship and verify the local authoring process across platforms | release | ready | EXO-UX-006 | [Issue](https://github.com/erythrofr/ClothCraft/issues/151) |
+| [EXO-QA-006](#exo-qa-006) — Ship and verify the local authoring process across platforms | release | done | EXO-UX-006 | [Issue](https://github.com/erythrofr/ClothCraft/issues/151) |
 | [EXO-COORD-001](#exo-coord-001) — Verify live task claim, heartbeat and release coordination | coordination | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/9) |
 | [EXO-COORD-002](#exo-coord-002) — Explain malformed reservation commands without changing ownership | coordination | done | EXO-COORD-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/129) |
 | [EXO-CORE-001](#exo-core-001) — Agree editor, document and solver ownership contract | architecture | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/10) |
@@ -97,7 +97,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 
 **Ship and verify the local authoring process across platforms**
 
-Status: ready. Dependencies: EXO-UX-006.
+Status: done. Dependencies: EXO-UX-006.
 
 **Files / directories**
 
@@ -118,8 +118,9 @@ Status: ready. Dependencies: EXO-UX-006.
 - https://github.com/erythrofr/ClothCraft/issues/151
 - https://github.com/erythrofr/ClothCraft/issues/8#issuecomment-6431098836
 - https://github.com/erythrofr/ClothCraft/pull/150
+- https://github.com/erythrofr/ClothCraft/pull/153
 
-Windows portable delivery was merged in #150. Cross-platform build.yml still omits cloth-session. This task covers distribution parity and staged-process acceptance, not protocol extensions or the remaining EXO-QA-002 native dialogs. Action-runtime maintenance is separate. Check the live board for overlapping docs/install.md reservations before claiming.
+Delivered in #153, merged as 3e8a1424aeebf89a30dc793137ca651eecea4d45 after seven green checks at 40d78eb9bc50771cd5f93af84d3bc3f2a333ea90. Inspected release job logs on Linux 121951688890, macOS 121951689218 and Windows 121951689349 each confirm 17 requests in two processes: polygons, sewing, stale guards, history and exact fresh-process reopen from a path with spaces. Local failure probes reject malformed replies, wrong IDs, early/nonzero exit, extra output, no-op edits and response/EOF hangs. Seven CI policy tests pass. Reservation release was accepted on #151. This completes distribution/protocol acceptance, not EXO-QA-002 native dialogs or driver certification.
 
 ## EXO-COORD-001
 
@@ -2293,6 +2294,7 @@ Status: ready. Dependencies: EXO-IO-001.
 
 - `src/atelier/svg_import_ui.rs`
 - `src/atelier/documents_ui.rs`
+- `src/atelier/authoring_smoke.rs`
 - `docs/svg-import.md`
 
 **Acceptance**
@@ -2302,14 +2304,16 @@ Status: ready. Dependencies: EXO-IO-001.
 - Reuse garment::svg_import preparation and the existing authoring/history installer. Add stable unsewn panels in a separated arrangement; preserve existing rest geometry, materials, seams, avatar and unchanged-panel drape; invalidate stale worker responses and mark dirty.
 - Cancel, Escape, invalid input and failed compilation preserve document/history/generation. Respect current authoring drafts and the normal unsaved-window-close flow.
 - Use named-control CPU tests and real shared transactions for selection/acknowledgement, stale Apply, cancellation, one apply, rollback, drape preservation, undo/redo and portable save/reopen. Document native picker/GPU acceptance separately.
+- Extend the existing opt-in native authoring smoke with a public SVG fixture and actual dialog responses through svg_import_tick/install_edit. Verify one history entry, dirty state, unchanged-panel state preservation and invalidation of an outstanding worker result; a dispatched click or prepared Edit alone is not acceptance. Use bounded failure-reporting phases. A smoke-only file adapter may choose an isolated output-local fixture, but normal user file dialogs and other smoke scenarios must remain unchanged. Keep GPU execution opt-in and out of default CPU CI.
 
 **Evidence and related contributions**
 
 - https://github.com/erythrofr/ClothCraft/issues/103
 - https://github.com/erythrofr/ClothCraft/pull/101
 - https://github.com/erythrofr/ClothCraft/pull/107
+- https://github.com/erythrofr/ClothCraft/pull/149
 
-Native SVG adapter merged in #107 as 260646b after seven green checks at 3771fa9. Bounded source review, dimensions, outline selection, material/mesh choice and atomic preparation use the existing reader/installer. Four adapter fixtures cover controls, rollback, drape, history and portable reopen; 93 desktop CPU tests passed (one optional preview ignored). docs/svg-import.md records supported behavior. Full native interaction/installer acceptance remains separate; do not duplicate the merged dialog. Reservation released on #103.
+Native SVG adapter merged in #107; board framing and paused native import/save/reopen evidence followed in #149. The four CPU fixtures call prepare_svg_edit and manually test History/state_after; they do not call Atelier::install_edit. The source audit on #103 (comment 6431433730) identifies the remaining in-flight installer acceptance gap. Extend the existing smoke, not the import model or solver. Native cancellation/Undo and concurrent-worker verification remain incomplete. Scope adds authoring_smoke.rs while #103 has no active reservation; a fresh accepted claim is required. See docs/svg-import.md for exact evidence and limitations.
 
 ## EXO-QA-005
 
