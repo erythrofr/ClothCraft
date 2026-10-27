@@ -39,8 +39,12 @@ fn valid_id(id: &str) -> bool {
 }
 
 impl GraphicPlacement {
-    /// Validate numerical and identifier shape only. The caller must resolve
-    /// IDs and define containment, asset portability and topology policies.
+    /// Validate numerical and identifier shape only. Each dimension must be
+    /// at least 4096 f64 epsilon times the largest of 1 metre, the absolute
+    /// center coordinates and the dimensions. This bounds extreme cancellation
+    /// in ordinary [0,1] image UV; it is not an exact round-trip guarantee.
+    /// The caller must resolve IDs and define containment, asset portability
+    /// and topology policies.
     pub fn validate(&self) -> Result<(), String> {
         if !valid_id(&self.id) || !valid_id(&self.panel_id) || !valid_id(&self.asset_id) {
             return Err(
@@ -56,6 +60,15 @@ impl GraphicPlacement {
             || !self.rotation_degrees.is_finite()
         {
             return Err("Graphic placement requires finite metre coordinates, positive size and finite rotation".into());
+        }
+        let scale = self
+            .center_m
+            .abs()
+            .max_element()
+            .max(self.size_m.max_element())
+            .max(1.);
+        if self.size_m.min_element() < 4096. * f64::EPSILON * scale {
+            return Err("Graphic dimensions are too small relative to their position or aspect ratio for reliable coordinates".into());
         }
         Ok(())
     }

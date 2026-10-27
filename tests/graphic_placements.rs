@@ -127,3 +127,29 @@ fn panel_references_are_checked_without_mutating_template() {
     assert!(missing.validate_panel(&template).is_err());
     assert_eq!(before, serde_json::to_vec(&template).unwrap());
 }
+
+#[test]
+fn extreme_position_and_aspect_ratio_do_not_silently_collapse_uv() {
+    let distant_tiny = GraphicPlacement {
+        center_m: DVec2::splat(1e6),
+        size_m: DVec2::splat(1e-9),
+        ..placement()
+    };
+    assert!(distant_tiny.validate().is_err());
+    let thin = GraphicPlacement {
+        center_m: DVec2::ZERO,
+        size_m: DVec2::new(1e-9, 1e6),
+        rotation_degrees: 45.,
+        ..placement()
+    };
+    assert!(thin.validate().is_err());
+    let p = GraphicPlacement {
+        center_m: DVec2::splat(1e6),
+        size_m: DVec2::splat(1e-6),
+        rotation_degrees: 45.,
+        ..placement()
+    };
+    let uv = DVec2::new(0.55, 0.9);
+    let actual = p.material_to_uv(p.uv_to_material(uv).unwrap()).unwrap();
+    assert!(actual.distance(uv) < 0.001, "actual {actual:?}");
+}
