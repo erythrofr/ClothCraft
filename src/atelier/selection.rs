@@ -100,6 +100,54 @@ pub(super) struct PlacementMarquee {
 }
 
 const MAX_LASSO_POINTS: usize = 128;
+const MAX_LASSO_RAW_POINTS: usize = 512;
+const LASSO_SIMPLIFY_TOLERANCE_PX: f32 = 1.0;
+
+/// Simplify the open stroke before the implicit final closing edge is added.
+/// Every discarded sample lies within one pixel of its retained segment.
+/// The explicit work and point bounds prevent an unbounded gesture.
+fn simplify_lasso(points: &[egui::Pos2]) -> Result<Vec<egui::Pos2>, String> {
+    if points.len() < 3
+        || points.len() > MAX_LASSO_RAW_POINTS
+        || points.iter().any(|p| !p.is_finite())
+    {
+        return Err("Draw a lasso with at least three finite points".into());
+    }
+    let mut keep = vec![false; points.len()];
+    keep[0] = true;
+    keep[points.len() - 1] = true;
+    let mut count = 2;
+    let mut stack = vec![(0, points.len() - 1)];
+    while let Some((first, last)) = stack.pop() {
+        let mut max_distance = LASSO_SIMPLIFY_TOLERANCE_PX;
+        let mut furthest = None;
+        for i in first + 1..last {
+            let distance =
+                super::authoring_ui::segment_distance(points[i], points[first], points[last]);
+            if !distance.is_finite() {
+                return Err("Lasso coordinates exceed finite geometry".into());
+            }
+            if distance > max_distance {
+                max_distance = distance;
+                furthest = Some(i);
+            }
+        }
+        if let Some(index) = furthest {
+            keep[index] = true;
+            count += 1;
+            if count > MAX_LASSO_POINTS {
+                return Err("Lasso is too complex; draw a simpler shape".into());
+            }
+            stack.push((first, index));
+            stack.push((index, last));
+        }
+    }
+    Ok(points
+        .iter()
+        .zip(keep)
+        .filter_map(|(&p, keep)| keep.then_some(p))
+        .collect())
+}
 
 pub(super) fn marquee_input(
     gesture: &mut Option<PlacementMarquee>,
@@ -138,7 +186,7 @@ pub(super) fn marquee_input(
                 .last()
                 .is_none_or(|p| p.distance(pointer) >= 8.)
         {
-            if gesture.path.len() < MAX_LASSO_POINTS {
+            if gesture.path.len() < MAX_LASSO_RAW_POINTS {
                 gesture.path.push(pointer);
             } else {
                 gesture.overflow = true;
@@ -407,7 +455,13 @@ impl Atelier {
             return;
         }
         let selection = if gesture.lasso {
-            Region::Lasso(gesture.path.clone())
+            match simplify_lasso(&gesture.path) {
+                Ok(points) => Region::Lasso(points),
+                Err(error) => {
+                    self.status = error;
+                    return;
+                }
+            }
         } else {
             Region::Box(egui::Rect::from_two_pos(gesture.start, gesture.end))
         };
@@ -863,6 +917,130 @@ fn triangle_in_rect(triangle: [egui::Pos2; 3], rect: egui::Rect) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn ordinary_large_lasso_gesture_simplifies_without_losing_selection() {
+        let ctx = egui::Context::default();
+        let modifiers = egui::Modifiers::NONE;
+        let mut gesture = None;
+        let mut completed = None;
+        let mut run = |events: Vec<egui::Event>| {
+            let mut output = ctx.run_ui(
+                egui::RawInput {
+                    focused: true,
+                    events,
+                    screen_rect: Some(egui::Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        Vec2::splat(650.),
+                    )),
+                    ..Default::default()
+                },
+                |ui| {
+                    egui::CentralPanel::default().show(ui, |ui| {
+                        let (_, response) = ui
+                            .allocate_exact_size(Vec2::splat(520.), egui::Sense::click_and_drag());
+                        if let Some(g) = marquee_input(&mut gesture, &response, true) {
+                            completed = Some(g);
+                        }
+                    });
+                },
+            );
+            output.textures_delta.clear();
+        };
+        let start = egui::pos2(30., 30.);
+        run(vec![egui::Event::Key {
+            key: egui::Key::L,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers,
+        }]);
+        run(vec![
+            egui::Event::PointerMoved(start),
+            egui::Event::PointerButton {
+                pos: start,
+                button: egui::PointerButton::Primary,
+                pressed: true,
+                modifiers,
+            },
+        ]);
+        let path = (1..=50)
+            .map(|i| egui::pos2(30. + i as f32 * 8., 30.))
+            .chain((1..=50).map(|i| egui::pos2(430., 30. + i as f32 * 8.)))
+            .chain((1..=50).map(|i| egui::pos2(430. - i as f32 * 8., 430.)))
+            .chain((1..=50).map(|i| egui::pos2(30., 430. - i as f32 * 8.)));
+        for point in path {
+            run(vec![egui::Event::PointerMoved(point)]);
+        }
+        run(vec![egui::Event::PointerButton {
+            pos: start,
+            button: egui::PointerButton::Primary,
+            pressed: false,
+            modifiers,
+        }]);
+        let g = completed.expect("lasso must finish");
+        assert!(g.lasso && !g.overflow && g.path.len() > MAX_LASSO_POINTS);
+        let simplified = simplify_lasso(&g.path).unwrap();
+        assert!(simplified.len() <= 6);
+        assert!(g.path.iter().all(|&p| simplified.windows(2).any(|w| {
+            super::super::authoring_ui::segment_distance(p, w[0], w[1])
+                <= LASSO_SIMPLIFY_TOLERANCE_PX
+        })));
+        let region = Region::Lasso(simplified);
+        assert!(region.contains(egui::pos2(100., 100.)));
+        assert!(!region.contains(egui::pos2(500., 500.)));
+        let viewport = egui::Rect::from_min_size(egui::Pos2::ZERO, Vec2::splat(520.));
+        let selected = select_region(
+            glam::Mat4::IDENTITY,
+            viewport,
+            &region,
+            true,
+            [(Some(0), face(0.3))],
+        )
+        .unwrap();
+        assert_eq!(selected, BTreeSet::from([0]));
+        let visible = select_region(
+            glam::Mat4::IDENTITY,
+            viewport,
+            &region,
+            false,
+            [(Some(0), face(0.3)), (None, face(0.1))],
+        )
+        .unwrap();
+        assert!(visible.is_empty());
+    }
+    #[test]
+    fn simplification_bounds_curve_error_and_refuses_excess_detail() {
+        let circle: Vec<_> = (0..=250)
+            .map(|i| {
+                let t = i as f32 * std::f32::consts::TAU / 250.;
+                egui::pos2(200. + 150. * t.cos(), 200. + 150. * t.sin())
+            })
+            .collect();
+        let simplified = simplify_lasso(&circle).unwrap();
+        assert!(simplified.len() <= MAX_LASSO_POINTS);
+        for &point in &circle {
+            assert!(
+                simplified
+                    .windows(2)
+                    .any(
+                        |w| super::super::authoring_ui::segment_distance(point, w[0], w[1])
+                            <= LASSO_SIMPLIFY_TOLERANCE_PX + 1e-4
+                    )
+            );
+        }
+        let zigzag: Vec<_> = (0..300)
+            .map(|i| egui::pos2(i as f32 * 8., if i % 2 == 0 { 0. } else { 20. }))
+            .collect();
+        assert!(simplify_lasso(&zigzag).is_err());
+        assert!(
+            simplify_lasso(&[
+                egui::pos2(f32::MAX, 0.),
+                egui::pos2(-f32::MAX, 1.),
+                egui::pos2(0., 2.)
+            ])
+            .is_err()
+        );
+    }
     #[test]
     fn lasso_uses_concave_geometry_and_preserves_visible_and_through_occlusion() {
         let viewport = egui::Rect::from_min_size(egui::Pos2::ZERO, Vec2::splat(100.));
