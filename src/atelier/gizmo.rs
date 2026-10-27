@@ -335,7 +335,9 @@ impl Atelier {
         let count = self.selected_panels().len();
         if let Some(gesture) = &self.authoring.selection.placement_marquee {
             let box_rect = egui::Rect::from_two_pos(gesture.start, gesture.end).intersect(rect);
-            let color = if gesture.through {
+            let color = if gesture.subtract {
+                Color32::LIGHT_RED
+            } else if gesture.through {
                 Color32::GOLD
             } else {
                 Color32::LIGHT_BLUE
@@ -351,11 +353,21 @@ impl Atelier {
             painter.text(
                 box_rect.left_top(),
                 egui::Align2::LEFT_BOTTOM,
-                if gesture.through {
-                    "Through selection"
-                } else {
-                    "Visible surfaces"
-                },
+                format!(
+                    "{} · {}",
+                    if gesture.subtract {
+                        "Subtract"
+                    } else if gesture.add {
+                        "Add"
+                    } else {
+                        "Replace"
+                    },
+                    if gesture.through {
+                        "through"
+                    } else {
+                        "visible"
+                    }
+                ),
                 egui::FontId::proportional(12.),
                 color,
             );
@@ -363,7 +375,7 @@ impl Atelier {
         ui.painter().with_clip_rect(rect).text(
             rect.left_bottom() + Vec2::new(12., -12.),
             egui::Align2::LEFT_BOTTOM,
-            format!("{count} selected · Shift: add/remove · Alt: through\nDrag outside handles to box select · placement resets selected drape"),
+            format!("{count} selected · Shift-click: toggle · Shift-drag: add\nCtrl/Cmd-drag: subtract · Alt: through · placement resets selected drape"),
             egui::FontId::proportional(12.), Color32::LIGHT_GRAY,
         );
         let Some((_, _, center, radius)) = self.gizmo_basis() else {

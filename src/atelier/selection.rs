@@ -93,6 +93,7 @@ pub(super) struct PlacementMarquee {
     pub end: egui::Pos2,
     pub through: bool,
     pub add: bool,
+    pub subtract: bool,
 }
 
 pub(super) fn marquee_input(
@@ -116,6 +117,7 @@ pub(super) fn marquee_input(
             end: start,
             through: response.ctx.input(|i| i.modifiers.alt),
             add: response.ctx.input(|i| i.modifiers.shift),
+            subtract: response.ctx.input(|i| i.modifiers.command),
         });
     }
     if let Some(gesture) = gesture.as_mut()
@@ -128,6 +130,25 @@ pub(super) fn marquee_input(
     } else {
         None
     }
+}
+
+fn apply_marquee_selection<T: Ord>(
+    mut current: BTreeSet<T>,
+    hits: impl IntoIterator<Item = T>,
+    add: bool,
+    subtract: bool,
+) -> BTreeSet<T> {
+    if subtract {
+        for hit in hits {
+            current.remove(&hit);
+        }
+    } else {
+        if !add {
+            current.clear();
+        }
+        current.extend(hits);
+    }
+    current
 }
 
 // Clip before perspective division, including triangles crossing the near plane.
@@ -296,15 +317,13 @@ impl Atelier {
             cloth.chain(avatar),
         ) {
             Ok(indices) => {
-                let mut selected: BTreeSet<_> = if gesture.add {
-                    self.selected_panels().into_iter().collect()
-                } else {
-                    BTreeSet::new()
-                };
-                selected.extend(
+                let selected = apply_marquee_selection(
+                    self.selected_panels().into_iter().collect(),
                     indices
                         .into_iter()
                         .map(|i| self.scene.garment.panels[i].id.clone()),
+                    gesture.add,
+                    gesture.subtract,
                 );
                 self.authoring.selected = self
                     .authoring
@@ -321,8 +340,15 @@ impl Atelier {
                 self.authoring.selection.seam = None;
                 self.authoring.selection.seam_card = None;
                 self.status = format!(
-                    "{} panels selected · {} · group placement resets selected drape",
+                    "{} panels selected · {} · {} · group placement resets selected drape",
                     self.selected_panels().len(),
+                    if gesture.subtract {
+                        "subtract"
+                    } else if gesture.add {
+                        "add"
+                    } else {
+                        "replace"
+                    },
                     if gesture.through {
                         "through"
                     } else {
@@ -736,6 +762,83 @@ fn triangle_in_rect(triangle: [egui::Pos2; 3], rect: egui::Rect) -> bool {
 mod tests {
     use super::*;
     #[test]
+    fn marquee_subtract_keeps_other_panels_and_takes_precedence_over_add() {
+        let current = BTreeSet::from(["front", "back", "sleeve"]);
+        assert_eq!(
+            apply_marquee_selection(current.clone(), ["front", "unknown"], false, true),
+            BTreeSet::from(["back", "sleeve"])
+        );
+        assert_eq!(
+            apply_marquee_selection(current.clone(), ["front"], true, true),
+            BTreeSet::from(["back", "sleeve"])
+        );
+        assert_eq!(
+            apply_marquee_selection(current.clone(), ["new"], true, false),
+            BTreeSet::from(["front", "back", "sleeve", "new"])
+        );
+        assert_eq!(
+            apply_marquee_selection(current, ["new"], false, false),
+            BTreeSet::from(["new"])
+        );
+    }
+    #[test]
+    fn command_and_alt_pointer_drag_selects_subtract_through_mode() {
+        let ctx = egui::Context::default();
+        let modifiers = egui::Modifiers {
+            command: true,
+            ctrl: true,
+            alt: true,
+            ..Default::default()
+        };
+        let start = egui::pos2(50., 50.);
+        let end = egui::pos2(100., 100.);
+        let mut gesture = None;
+        let mut completed = None;
+        let mut run = |mut events: Vec<egui::Event>| {
+            events.insert(0, egui::Event::ModifiersChanged(modifiers));
+            let mut output = ctx.run_ui(
+                egui::RawInput {
+                    focused: true,
+                    events,
+                    screen_rect: Some(egui::Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        Vec2::splat(300.),
+                    )),
+                    ..Default::default()
+                },
+                |ui| {
+                    egui::CentralPanel::default().show(ui, |ui| {
+                        let (_, response) = ui
+                            .allocate_exact_size(Vec2::splat(200.), egui::Sense::click_and_drag());
+                        if let Some(g) = marquee_input(&mut gesture, &response, true) {
+                            completed = Some(g);
+                        }
+                    });
+                },
+            );
+            output.textures_delta.clear();
+        };
+        run(vec![]);
+        run(vec![
+            egui::Event::PointerMoved(start),
+            egui::Event::PointerButton {
+                pos: start,
+                button: egui::PointerButton::Primary,
+                pressed: true,
+                modifiers,
+            },
+        ]);
+        run(vec![egui::Event::PointerMoved(end)]);
+        run(vec![egui::Event::PointerButton {
+            pos: end,
+            button: egui::PointerButton::Primary,
+            pressed: false,
+            modifiers,
+        }]);
+        let completed = completed.expect("drag should finish");
+        assert!(completed.subtract && completed.through && !completed.add);
+    }
+    #[test]
     fn focus_loss_discards_an_active_marquee_without_committing() {
         let ctx = egui::Context::default();
         let mut gesture = Some(PlacementMarquee {
@@ -743,6 +846,7 @@ mod tests {
             end: egui::pos2(60., 60.),
             through: false,
             add: false,
+            subtract: false,
         });
         let mut commits = 0;
         let mut output = ctx.run_ui(
@@ -803,13 +907,14 @@ mod tests {
         .unwrap();
         assert_eq!(c.completed.len(), 1);
         assert!((c.completed[0].end - c.completed[0].start - Vec2::new(30., 40.)).length() < 1e-4);
-        assert!(!c.completed[0].through && !c.completed[0].add);
+        assert!(!c.completed[0].through && !c.completed[0].add && !c.completed[0].subtract);
         assert!(c.gesture.is_none());
         c.gesture = Some(PlacementMarquee {
             start: egui::Pos2::ZERO,
             end: egui::pos2(20., 30.),
             through: true,
             add: true,
+            subtract: false,
         });
         h.key(
             "placement.canvas",
