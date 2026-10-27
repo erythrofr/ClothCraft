@@ -123,11 +123,13 @@ impl Atelier {
     }
     pub(super) fn export_information(&mut self, ui: &mut egui::Ui) {
         ui.collapsing("Files & formats", |ui| {
-            ui.label("Export available");
-            ui.small("Project JSON · pattern JSON · OBJ · SVG preview · fiber guides");
-            ui.label("Import available");
-            ui.small("Project/pattern JSON; OBJ avatar via the command line.");
-            ui.small("DXF, GLB, USD, Alembic, FBX and PDF: planned, not yet available.");
+            ui.label("Import");
+            ui.small("ClothCraft project and template JSON");
+            ui.small("Static avatars: OBJ · glTF · GLB");
+            ui.small("Pattern outlines: generic ASCII DXF · physical SVG subsets");
+            ui.label("Export");
+            ui.small("Project and template JSON · garment OBJ · SVG patterns · fiber guides");
+            ui.small("Industrial DXF, GLB export, animated avatars, USD, Alembic, FBX and PDF are not yet supported.");
             ui.separator();
             ui.small("Export folder (files replaced on every export):");
             ui.label(egui::RichText::new(self.output.display().to_string()).small());

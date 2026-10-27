@@ -36,6 +36,7 @@ Use **Space** to start or pause, **Grab** to pull the cloth and **Ctrl+S** to sa
 - **Starting assets:** six bundled pattern templates, native template JSON import, and static OBJ/glTF/GLB avatars through File → Import avatar. Avatar replacement preserves authored patterns but resets the drape and undo history; [supported geometry and limits](docs/avatar-import.md).
 - **Avatar inspection:** Properties → Simulation reports the actual collision mesh and can check the current arrangement through the CPU solver's initialization gate. [Coverage and limits](docs/avatar-diagnostics.md): topology warnings are not an intersection or global containment certificate.
 - **DXF outlines:** File → Import DXF patterns previews units, layers and excluded data before adding selected closed outlines as editable pieces. Existing unchanged panels retain their drape. This is a [generic planar subset](docs/pattern-import.md), not industrial DXF-AAMA/ASTM.
+- **SVG outlines:** File → Import SVG patterns adds selected closed outlines from a [physically scaled SVG subset](docs/svg-import.md). Curves are sampled into polygon edges; unsupported artwork and nested or overlapping selected outlines are rejected rather than interpreted as sewing or holes.
 - **Net material report:** the CPU `cloth-template metrics` command reports
   rest-mesh area and cloth mass per panel and fabric. It is not cutting or
   purchasing consumption; see [units and limits](docs/production-metrics.md).
@@ -63,7 +64,7 @@ The long-term goal is interchangeable physics behind a stable document and autho
 | Editable garment | ClothCraft project / template JSON | Project / template JSON |
 | Static avatar | OBJ, static glTF / GLB geometry | — |
 | Simulated garment mesh | — | OBJ geometry and material-space UVs |
-| 2D patterns | Selected closed outlines from a generic planar ASCII DXF subset | Annotated SVG preview and millimetre-scale sewing outlines with a 100 mm ruler; no allowances or tiling |
+| 2D patterns | Selected closed outlines from generic planar ASCII DXF and physically scaled SVG subsets | Annotated SVG preview and millimetre-scale sewing outlines with a 100 mm ruler; no allowances or tiling |
 | Research data | — | Metrics, fiber frames and geometric grain guides |
 
 DXF-AAMA/ASTM, MTL round trips, glTF/GLB export, animated avatars, Alembic, USD, FBX, PDF printing and grading rules remain planned. CLO and Marvelous Designer project files are not supported. Save preserves the editable document; Export writes separate interchange artifacts. See the [input/output contracts](docs/interoperability.md).
