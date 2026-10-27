@@ -1,10 +1,38 @@
-# Install the Windows portable preview
+# Install development builds
 
 ClothCraft is **free, open-source software**. The standalone editor and the
 garment simulation do not require a login, AI subscription or payment. This
 is an experimental development build, not a production-ready CLO replacement.
 
-## Windows x64
+## Cross-platform development artifacts
+
+Successful [cross-platform build runs](https://github.com/erythrofr/ClothCraft/actions/workflows/build.yml)
+provide `clothcraft-linux-x86_64`, `clothcraft-macos-arm64` and
+`clothcraft-windows-x86_64`. Choose the source revision before downloading;
+an unmerged PR artifact is a candidate, not an accepted release. Extract the
+whole artifact and keep its assets, examples and license beside the binaries.
+`BUILD-ENVIRONMENT.txt` records the source revision and toolchain. These are
+unsigned development bundles, not installers or notarized macOS applications.
+They do not carry the Windows portable preview's launcher or checksum manifest.
+
+Each bundle includes `cloth-session` (`cloth-session.exe` on Windows), the
+local CPU authoring process. From a terminal in the extracted directory, run
+`./cloth-session` on Linux/macOS or `.\cloth-session.exe` in PowerShell; it
+reads the versioned JSON-lines protocol on standard input. It does not open an
+editor or simulate cloth. Archive extraction may require restoring executable
+permissions on Unix systems with `chmod +x cloth-session`.
+
+The build workflow copies the staged bundle to an isolated directory with
+spaces and runs `scripts/check-packaged-session.py`: create two panels, sew,
+reject a stale revision, undo/redo, serialize, then reopen in a fresh process
+and reject the previous session's guard. Both processes must exit cleanly on
+EOF. A bounded lifetime prevents a hung client from passing. This is automated
+CPU protocol acceptance, not native UI or GPU/driver certification. To reproduce
+from a source checkout with Python 3, run
+`python scripts/check-packaged-session.py path/to/extracted-artifact`.
+It copies the supplied directory and edits only temporary public fixtures.
+
+## Windows x64 portable preview
 
 Download the `clothcraft-windows-x64-portable-preview` ZIP artifact from a
 successful [Windows portable preview workflow run](https://github.com/erythrofr/ClothCraft/actions/workflows/release-windows.yml).

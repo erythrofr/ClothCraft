@@ -87,7 +87,7 @@ jobs:
       - name: Build the desktop and CLI binaries
         run: >
           cargo build --locked --release -j 2 --features desktop
-          --bin cloth-fit --bin marvelous-cloth --bin cloth-template
+          --bin cloth-fit --bin marvelous-cloth --bin cloth-template --bin cloth-session
 
       # A binary that builds but cannot read a template is not a working build.
       - name: Validate a shipped template with the built binary
@@ -103,7 +103,7 @@ jobs:
           mkdir -p dist
           suffix=""
           if [ "${{ runner.os }}" = "Windows" ]; then suffix=".exe"; fi
-          for bin in cloth-fit marvelous-cloth cloth-template; do
+          for bin in cloth-fit marvelous-cloth cloth-template cloth-session; do
             cp "target/release/${bin}${suffix}" "dist/${bin}${suffix}"
           done
           mkdir -p dist/assets dist/examples
@@ -112,6 +112,10 @@ jobs:
           cp LICENSE README.md dist/
           printf '%s\n' 'Run from this directory: ./cloth-fit --steps 0 --view --output output/session' > dist/START.txt
           ls -l dist
+
+      - name: Verify staged authoring process without graphics
+        timeout-minutes: 5
+        run: python scripts/check-packaged-session.py dist
 
       - uses: actions/upload-artifact@v4
         with:
