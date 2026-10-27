@@ -131,6 +131,7 @@ impl Atelier {
             return;
         }
         if response.drag_started_by(egui::PointerButton::Primary)
+            && !response.ctx.input(|i| i.key_down(egui::Key::L))
             && let Some(pointer) = response.ctx.input(|i| i.pointer.press_origin())
             && let Some((start, pivot, center, radius)) = self.gizmo_basis()
             && let Some(screen_center) = project(&self.camera, rect, center)
@@ -343,18 +344,26 @@ impl Atelier {
                 Color32::LIGHT_BLUE
             };
             let painter = ui.painter().with_clip_rect(rect);
-            painter.rect_filled(box_rect, 0., color.gamma_multiply(0.12));
-            painter.rect_stroke(
-                box_rect,
-                0.,
-                Stroke::new(1.5, color),
-                egui::StrokeKind::Inside,
-            );
+            if gesture.lasso {
+                if gesture.path.len() >= 2 {
+                    let mut path = gesture.path.clone();
+                    path.push(gesture.path[0]);
+                    painter.add(egui::Shape::line(path, Stroke::new(1.5, color)));
+                }
+            } else {
+                painter.rect_filled(box_rect, 0., color.gamma_multiply(0.12));
+                painter.rect_stroke(
+                    box_rect,
+                    0.,
+                    Stroke::new(1.5, color),
+                    egui::StrokeKind::Inside,
+                );
+            }
             painter.text(
                 box_rect.left_top(),
                 egui::Align2::LEFT_BOTTOM,
                 format!(
-                    "{} · {}",
+                    "{} · {} · {}{}",
                     if gesture.subtract {
                         "Subtract"
                     } else if gesture.add {
@@ -366,6 +375,12 @@ impl Atelier {
                         "through"
                     } else {
                         "visible"
+                    },
+                    if gesture.lasso { "lasso" } else { "box" },
+                    if gesture.overflow {
+                        " · too complex"
+                    } else {
+                        ""
                     }
                 ),
                 egui::FontId::proportional(12.),
@@ -375,7 +390,7 @@ impl Atelier {
         ui.painter().with_clip_rect(rect).text(
             rect.left_bottom() + Vec2::new(12., -12.),
             egui::Align2::LEFT_BOTTOM,
-            format!("{count} selected · Shift-click: toggle · Shift-drag: add\nCtrl/Cmd-drag: subtract · Alt: through · placement resets selected drape"),
+            format!("{count} selected · Shift-click: toggle · Shift-drag: add\nHold L + drag: lasso · Ctrl/Cmd: subtract · Alt: through\nMoving resets selected drape"),
             egui::FontId::proportional(12.), Color32::LIGHT_GRAY,
         );
         let Some((_, _, center, radius)) = self.gizmo_basis() else {

@@ -94,7 +94,12 @@ pub(super) struct PlacementMarquee {
     pub through: bool,
     pub add: bool,
     pub subtract: bool,
+    pub lasso: bool,
+    pub path: Vec<egui::Pos2>,
+    pub overflow: bool,
 }
+
+const MAX_LASSO_POINTS: usize = 128;
 
 pub(super) fn marquee_input(
     gesture: &mut Option<PlacementMarquee>,
@@ -118,12 +123,27 @@ pub(super) fn marquee_input(
             through: response.ctx.input(|i| i.modifiers.alt),
             add: response.ctx.input(|i| i.modifiers.shift),
             subtract: response.ctx.input(|i| i.modifiers.command),
+            lasso: response.ctx.input(|i| i.key_down(egui::Key::L)),
+            path: vec![start],
+            overflow: false,
         });
     }
     if let Some(gesture) = gesture.as_mut()
         && let Some(pointer) = response.interact_pointer_pos()
     {
         gesture.end = pointer;
+        if gesture.lasso
+            && gesture
+                .path
+                .last()
+                .is_none_or(|p| p.distance(pointer) >= 8.)
+        {
+            if gesture.path.len() < MAX_LASSO_POINTS {
+                gesture.path.push(pointer);
+            } else {
+                gesture.overflow = true;
+            }
+        }
     }
     if response.drag_stopped_by(egui::PointerButton::Primary) {
         gesture.take()
@@ -190,23 +210,71 @@ fn clip_triangle(triangle: [glam::DVec4; 3]) -> Vec<glam::DVec4> {
 /// Visible mode samples a bounded CPU depth buffer (up to 512 by 512).
 /// Through mode tests projected triangle overlap without an occlusion test.
 /// None is an occluder such as the avatar, never a selectable panel.
-fn select_rect(
+fn select_region(
     matrix: glam::Mat4,
     viewport: egui::Rect,
-    region: egui::Rect,
+    selection: &Region,
     through: bool,
     triangles: impl IntoIterator<Item = (Option<usize>, [glam::DVec3; 3])>,
 ) -> Result<BTreeSet<usize>, String> {
-    let region = region.intersect(viewport);
+    let region = match selection {
+        Region::Box(rect) => *rect,
+        Region::Lasso(points) => {
+            if points.len() < 3
+                || points.len() > MAX_LASSO_POINTS
+                || points.iter().any(|p| !p.is_finite())
+            {
+                return Err("Draw a lasso with 3–128 finite points".into());
+            }
+            let origin = points[0];
+            let has_area = points.windows(2).any(|pair| {
+                let a = pair[0] - origin;
+                let b = pair[1] - origin;
+                (a.x * b.y - a.y * b.x).abs() > 0.5
+            });
+            if !has_area {
+                return Err("Lasso needs a nonzero enclosed area".into());
+            }
+            egui::Rect::from_points(points)
+        }
+    }
+    .intersect(viewport);
     if !region.is_positive() || !viewport.is_finite() || !matrix.is_finite() {
         return Ok(BTreeSet::new());
     }
     let width = region.width().ceil().clamp(1., 512.) as usize;
     let height = region.height().ceil().clamp(1., 512.) as usize;
+    let mut work = 0usize;
+    let mask = if let Region::Lasso(points) = selection {
+        if !through {
+            work = width.saturating_mul(height).saturating_mul(points.len());
+            if work > 30_000_000 {
+                return Err(
+                    "Lasso exceeded its work budget; draw a smaller or simpler shape".into(),
+                );
+            }
+            Some(
+                (0..height)
+                    .flat_map(|y| {
+                        (0..width).map(move |x| {
+                            egui::pos2(
+                                region.left() + (x as f32 + 0.5) * region.width() / width as f32,
+                                region.top() + (y as f32 + 0.5) * region.height() / height as f32,
+                            )
+                        })
+                    })
+                    .map(|p| selection.contains(p))
+                    .collect::<Vec<_>>(),
+            )
+        } else {
+            None
+        }
+    } else {
+        None
+    };
     let mut depth = vec![f64::INFINITY; width * height];
     let mut owners = vec![None; width * height];
     let mut selected = BTreeSet::new();
-    let mut work = 0usize;
     let matrix = matrix.as_dmat4();
     for (owner, triangle) in triangles {
         if through && owner.is_none() {
@@ -232,6 +300,17 @@ fn select_rect(
             let pos = tri.map(|p| egui::pos2(p.x as f32, p.y as f32));
             if !triangle_in_rect(pos, region) {
                 continue;
+            }
+            if let Region::Lasso(points) = selection {
+                work = work.saturating_add(points.len().saturating_mul(12));
+                if work > 30_000_000 {
+                    return Err(
+                        "Lasso exceeded its work budget; draw a smaller or simpler shape".into(),
+                    );
+                }
+                if !selection.intersects(pos) {
+                    continue;
+                }
             }
             if through {
                 selected.insert(owner.unwrap());
@@ -263,6 +342,9 @@ fn select_rect(
             }
             for y in y0..y1 {
                 for x in x0..x1 {
+                    if mask.as_ref().is_some_and(|mask| !mask[y * width + x]) {
+                        continue;
+                    }
                     let p = glam::DVec2::new(
                         f64::from(region.left())
                             + (x as f64 + 0.5) * f64::from(region.width()) / width as f64,
@@ -291,6 +373,17 @@ fn select_rect(
     Ok(selected)
 }
 
+#[cfg(test)]
+fn select_rect(
+    matrix: glam::Mat4,
+    viewport: egui::Rect,
+    region: egui::Rect,
+    through: bool,
+    triangles: impl IntoIterator<Item = (Option<usize>, [glam::DVec3; 3])>,
+) -> Result<BTreeSet<usize>, String> {
+    select_region(matrix, viewport, &Region::Box(region), through, triangles)
+}
+
 impl Atelier {
     pub(super) fn finish_placement_marquee(
         &mut self,
@@ -309,10 +402,19 @@ impl Atelier {
             .triangles
             .iter()
             .map(|t| (None, t.map(|v| surface.vertices[v])));
-        match select_rect(
+        if gesture.overflow {
+            self.status = "Lasso is too complex; draw a shorter, simpler shape".into();
+            return;
+        }
+        let selection = if gesture.lasso {
+            Region::Lasso(gesture.path.clone())
+        } else {
+            Region::Box(egui::Rect::from_two_pos(gesture.start, gesture.end))
+        };
+        match select_region(
             self.camera.matrix(viewport.width() / viewport.height()),
             viewport,
-            egui::Rect::from_two_pos(gesture.start, gesture.end),
+            &selection,
             gesture.through,
             cloth.chain(avatar),
         ) {
@@ -762,6 +864,158 @@ fn triangle_in_rect(triangle: [egui::Pos2; 3], rect: egui::Rect) -> bool {
 mod tests {
     use super::*;
     #[test]
+    fn lasso_uses_concave_geometry_and_preserves_visible_and_through_occlusion() {
+        let viewport = egui::Rect::from_min_size(egui::Pos2::ZERO, Vec2::splat(100.));
+        let region = Region::Lasso(vec![
+            egui::pos2(10., 10.),
+            egui::pos2(55., 10.),
+            egui::pos2(55., 40.),
+            egui::pos2(40., 40.),
+            egui::pos2(40., 90.),
+            egui::pos2(10., 90.),
+        ]);
+        let triangle = |x: f64, y: f64, z: f64| {
+            [
+                glam::DVec3::new(x - 0.08, y - 0.08, z),
+                glam::DVec3::new(x + 0.08, y - 0.08, z),
+                glam::DVec3::new(x, y + 0.08, z),
+            ]
+        };
+        let faces = [
+            (Some(0), triangle(-0.5, 0., 0.2)),
+            (Some(1), triangle(-0.5, 0., 0.6)),
+            (Some(2), triangle(0., -0.4, 0.2)),
+        ];
+        assert_eq!(
+            select_region(glam::Mat4::IDENTITY, viewport, &region, false, faces).unwrap(),
+            BTreeSet::from([0])
+        );
+        assert_eq!(
+            select_region(glam::Mat4::IDENTITY, viewport, &region, true, faces).unwrap(),
+            BTreeSet::from([0, 1])
+        );
+        let with_avatar = faces.into_iter().chain([(None, triangle(-0.5, 0., 0.1))]);
+        assert!(
+            select_region(
+                glam::Mat4::IDENTITY,
+                viewport,
+                &region,
+                false,
+                with_avatar.clone()
+            )
+            .unwrap()
+            .is_empty()
+        );
+        assert_eq!(
+            select_region(glam::Mat4::IDENTITY, viewport, &region, true, with_avatar).unwrap(),
+            BTreeSet::from([0, 1])
+        );
+    }
+    #[test]
+    fn malformed_and_excessive_lasso_paths_are_rejected() {
+        let viewport = egui::Rect::from_min_size(egui::Pos2::ZERO, Vec2::splat(100.));
+        let invalid = [
+            vec![],
+            vec![egui::pos2(1., 1.), egui::pos2(2., 2.), egui::pos2(3., 3.)],
+            vec![egui::pos2(f32::NAN, 1.); 3],
+            vec![egui::pos2(1., 1.); MAX_LASSO_POINTS + 1],
+        ];
+        for points in invalid {
+            assert!(
+                select_region(
+                    glam::Mat4::IDENTITY,
+                    viewport,
+                    &Region::Lasso(points),
+                    true,
+                    []
+                )
+                .is_err()
+            );
+        }
+        let large_view = egui::Rect::from_min_size(egui::Pos2::ZERO, Vec2::splat(512.));
+        let circle = (0..MAX_LASSO_POINTS)
+            .map(|i| {
+                let angle = (i as f32) * std::f32::consts::TAU / MAX_LASSO_POINTS as f32;
+                egui::pos2(256. + 255. * angle.cos(), 256. + 255. * angle.sin())
+            })
+            .collect();
+        let error = select_region(
+            glam::Mat4::IDENTITY,
+            large_view,
+            &Region::Lasso(circle),
+            false,
+            [],
+        )
+        .unwrap_err();
+        assert!(error.contains("work budget"));
+    }
+    #[test]
+    fn held_l_and_pointer_events_create_a_lasso_with_modifiers() {
+        let ctx = egui::Context::default();
+        let modifiers = egui::Modifiers {
+            command: true,
+            ctrl: true,
+            alt: true,
+            ..Default::default()
+        };
+        let mut gesture = None;
+        let mut completed = None;
+        let mut run = |mut events: Vec<egui::Event>| {
+            events.insert(0, egui::Event::ModifiersChanged(modifiers));
+            let mut output = ctx.run_ui(
+                egui::RawInput {
+                    focused: true,
+                    events,
+                    screen_rect: Some(egui::Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        Vec2::splat(300.),
+                    )),
+                    ..Default::default()
+                },
+                |ui| {
+                    egui::CentralPanel::default().show(ui, |ui| {
+                        let (_, response) = ui
+                            .allocate_exact_size(Vec2::splat(200.), egui::Sense::click_and_drag());
+                        if let Some(g) = marquee_input(&mut gesture, &response, true) {
+                            completed = Some(g);
+                        }
+                    });
+                },
+            );
+            output.textures_delta.clear();
+        };
+        let a = egui::pos2(30., 30.);
+        let b = egui::pos2(100., 30.);
+        let c = egui::pos2(100., 100.);
+        run(vec![egui::Event::Key {
+            key: egui::Key::L,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers,
+        }]);
+        run(vec![
+            egui::Event::PointerMoved(a),
+            egui::Event::PointerButton {
+                pos: a,
+                button: egui::PointerButton::Primary,
+                pressed: true,
+                modifiers,
+            },
+        ]);
+        run(vec![egui::Event::PointerMoved(b)]);
+        run(vec![egui::Event::PointerMoved(c)]);
+        run(vec![egui::Event::PointerButton {
+            pos: c,
+            button: egui::PointerButton::Primary,
+            pressed: false,
+            modifiers,
+        }]);
+        let g = completed.expect("lasso must complete");
+        assert!(g.lasso && g.subtract && g.through && !g.overflow);
+        assert_eq!(g.path, vec![a, b, c]);
+    }
+    #[test]
     fn marquee_subtract_keeps_other_panels_and_takes_precedence_over_add() {
         let current = BTreeSet::from(["front", "back", "sleeve"]);
         assert_eq!(
@@ -847,6 +1101,9 @@ mod tests {
             through: false,
             add: false,
             subtract: false,
+            lasso: false,
+            path: Vec::new(),
+            overflow: false,
         });
         let mut commits = 0;
         let mut output = ctx.run_ui(
@@ -915,6 +1172,9 @@ mod tests {
             through: true,
             add: true,
             subtract: false,
+            lasso: false,
+            path: Vec::new(),
+            overflow: false,
         });
         h.key(
             "placement.canvas",
