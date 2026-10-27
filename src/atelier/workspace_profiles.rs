@@ -154,6 +154,32 @@ impl Store {
         *self = next;
         Ok(())
     }
+    /// Rename without changing the saved presentation. Commit memory only
+    /// after the complete replacement file has been written successfully.
+    pub fn rename(&mut self, path: &Path, old: &str, new: &str) -> Result<(), String> {
+        valid_name(new)?;
+        let mut next = self.clone();
+        let index = next
+            .profiles
+            .iter()
+            .position(|p| p.name == old)
+            .ok_or("The profile to rename no longer exists")?;
+        if next
+            .profiles
+            .iter()
+            .enumerate()
+            .any(|(i, profile)| i != index && profile.name.to_lowercase() == new.to_lowercase())
+        {
+            return Err("A profile with this name already exists".into());
+        }
+        if old == new {
+            return Ok(());
+        }
+        next.profiles[index].name = new.into();
+        next.persist(path)?;
+        *self = next;
+        Ok(())
+    }
     fn persist(&self, path: &Path) -> Result<(), String> {
         let bytes = serde_json::to_vec_pretty(self).map_err(|e| e.to_string())?;
         if bytes.len() as u64 > MAX_BYTES {
@@ -248,10 +274,16 @@ impl ProfileUi {
                     }
                     if store.profiles.is_empty() {ui.label("No saved profiles yet");}
                 });
-                let r=ui.add(egui::TextEdit::singleline(&mut self.name).char_limit(48).hint_text("New profile name"));
+                let r=ui.add(egui::TextEdit::singleline(&mut self.name).char_limit(48).hint_text("Name for new or renamed profile"));
                 named(ui,&r,"profiles.name");
                 if button(ui,"profiles.save","Save current as new",valid_name(&self.name).is_ok() && store.profiles.len()<MAX_PROFILES) {
                     match store.save_profile(path,&self.name,current.clone(),false) {
+                        Ok(())=>{self.selected=Some(self.name.clone());self.error=None;}, Err(e)=>self.error=Some(e),
+                    }
+                }
+                let rename_target=self.selected.as_ref().filter(|name|store.profiles.iter().any(|p|&p.name==*name)).cloned();
+                if button(ui,"profiles.rename","Rename selected",rename_target.is_some() && valid_name(&self.name).is_ok()) {
+                    match store.rename(path,rename_target.as_deref().unwrap(),&self.name) {
                         Ok(())=>{self.selected=Some(self.name.clone());self.error=None;}, Err(e)=>self.error=Some(e),
                     }
                 }
@@ -306,6 +338,77 @@ mod tests {
         for _ in 0..5 {
             h.frame(c, &mut draw);
         }
+    }
+    #[test]
+    fn rename_preserves_snapshot_and_rolls_back_invalid_or_failed_writes() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(FILE_NAME);
+        let mut store = Store::default();
+        let snapshot = Snapshot {
+            tools_visible: false,
+            ..Snapshot::default()
+        };
+        store
+            .save_profile(&path, "Drafting", snapshot.clone(), false)
+            .unwrap();
+        store
+            .save_profile(&path, "Review", Snapshot::default(), false)
+            .unwrap();
+        let saved = std::fs::read(&path).unwrap();
+        let initial = store.clone();
+        for (old, new) in [
+            ("Drafting", " review "),
+            ("Drafting", "REVIEW"),
+            ("missing", "Valid"),
+            ("Drafting", ""),
+        ] {
+            assert!(store.rename(&path, old, new).is_err());
+            assert_eq!(store, initial);
+            assert_eq!(std::fs::read(&path).unwrap(), saved);
+        }
+        // A directory cannot be atomically replaced as a profile file.
+        assert!(store.rename(dir.path(), "Drafting", "New name").is_err());
+        assert_eq!(store, initial);
+        assert_eq!(std::fs::read(&path).unwrap(), saved);
+        store.rename(&path, "Drafting", "DRAFTING").unwrap();
+        store.rename(&path, "DRAFTING", "Sewing").unwrap();
+        assert_eq!(store.profiles[0].snapshot, snapshot);
+        assert_eq!(Store::load(&path).unwrap(), store);
+        assert_eq!(store.profiles[1], initial.profiles[1]);
+    }
+
+    #[test]
+    fn named_rename_reloads_and_keeps_current_presentation_unchanged() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(FILE_NAME);
+        let saved = Snapshot {
+            tools_visible: false,
+            ..Snapshot::default()
+        };
+        Store::default()
+            .save_profile(&path, "Drafting", saved.clone(), false)
+            .unwrap();
+        let mut c = Case {
+            ui: ProfileUi::default(),
+            path: path.clone(),
+            prefs: Preferences::default(),
+            tools: true,
+        };
+        c.prefs.workspace.split = 0.7;
+        let before = Snapshot::capture(&c.prefs, c.tools);
+        c.ui.begin(&path);
+        let mut h = Harness::new(egui::vec2(1000., 1000.));
+        frames(&mut h, &mut c);
+        h.click("profiles.row.0", &mut c, &mut draw).unwrap();
+        h.replace_text("profiles.name", "Sewing", &mut c, &mut draw)
+            .unwrap();
+        h.click("profiles.rename", &mut c, &mut draw).unwrap();
+        frames(&mut h, &mut c);
+        assert_eq!(c.ui.selected.as_deref(), Some("Sewing"));
+        assert_eq!(Snapshot::capture(&c.prefs, c.tools), before);
+        let reloaded = Store::load(&path).unwrap();
+        assert_eq!(reloaded.profiles[0].name, "Sewing");
+        assert_eq!(reloaded.profiles[0].snapshot, saved);
     }
     #[test]
     fn backdrop_dismisses_pending_changes_without_disk_write_or_click_through() {
