@@ -10,6 +10,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 
 | Task | Area | Status | Dependencies | Discussion |
 |---|---|---|---|---|
+| [EXO-QA-006](#exo-qa-006) — Ship and verify the local authoring process across platforms | release | ready | EXO-UX-006 | [Issue](https://github.com/erythrofr/ClothCraft/issues/151) |
 | [EXO-COORD-001](#exo-coord-001) — Verify live task claim, heartbeat and release coordination | coordination | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/9) |
 | [EXO-COORD-002](#exo-coord-002) — Explain malformed reservation commands without changing ownership | coordination | done | EXO-COORD-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/129) |
 | [EXO-CORE-001](#exo-core-001) — Agree editor, document and solver ownership contract | architecture | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/10) |
@@ -91,6 +92,34 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-IO-010](#exo-io-010) — Import reviewed DXF contours as editable native panels | interchange | done | EXO-IO-002 | Not registered |
 | [EXO-IO-011](#exo-io-011) — Import reviewed SVG patterns in the native workspace | interchange | ready | EXO-IO-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/103) |
 | [EXO-QA-005](#exo-qa-005) — Trace native appearance history through actual UI controls | validation | done | EXO-QA-004 | [Issue](https://github.com/erythrofr/ClothCraft/issues/135) |
+
+## EXO-QA-006
+
+**Ship and verify the local authoring process across platforms**
+
+Status: ready. Dependencies: EXO-UX-006.
+
+**Files / directories**
+
+- `.github/workflows/build.yml`
+- `scripts/check-packaged-session.py`
+- `docs/install.md`
+
+**Acceptance**
+
+- Build and stage cloth-session with the existing Linux, macOS and Windows executables; retain assets, notices and exact revision metadata.
+- Exercise the staged executable in a directory containing spaces with a bounded CPU-only protocol client: verify hello/version/request IDs, explicit open of a bundled template, guarded edit, undo/redo and serialized template round-trip through a fresh process.
+- Require clean EOF and exit; reject malformed replies, mismatched revisions, no-op edits and timeouts. Keep generated fixtures isolated and never overwrite user documents.
+- Preserve existing platform CPU coverage and seven required check names. Do not initialize a GPU or imply live-editor attachment.
+- Document artifact names, invocation and limitations. Distinguish protocol acceptance from native editor interaction and hardware/driver certification.
+
+**Evidence and related contributions**
+
+- https://github.com/erythrofr/ClothCraft/issues/151
+- https://github.com/erythrofr/ClothCraft/issues/8#issuecomment-6431098836
+- https://github.com/erythrofr/ClothCraft/pull/150
+
+Windows portable delivery was merged in #150. Cross-platform build.yml still omits cloth-session. This task covers distribution parity and staged-process acceptance, not protocol extensions or the remaining EXO-QA-002 native dialogs. Action-runtime maintenance is separate. Check the live board for overlapping docs/install.md reservations before claiming.
 
 ## EXO-COORD-001
 

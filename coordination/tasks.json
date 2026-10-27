@@ -6,6 +6,31 @@
   },
   "tasks": [
     {
+      "id": "EXO-QA-006",
+      "title": "Ship and verify the local authoring process across platforms",
+      "area": "release",
+      "status": "ready",
+      "depends_on": ["EXO-UX-006"],
+      "scope": [
+        ".github/workflows/build.yml",
+        "scripts/check-packaged-session.py",
+        "docs/install.md"
+      ],
+      "acceptance": [
+        "Build and stage cloth-session with the existing Linux, macOS and Windows executables; retain assets, notices and exact revision metadata.",
+        "Exercise the staged executable in a directory containing spaces with a bounded CPU-only protocol client: verify hello/version/request IDs, explicit open of a bundled template, guarded edit, undo/redo and serialized template round-trip through a fresh process.",
+        "Require clean EOF and exit; reject malformed replies, mismatched revisions, no-op edits and timeouts. Keep generated fixtures isolated and never overwrite user documents.",
+        "Preserve existing platform CPU coverage and seven required check names. Do not initialize a GPU or imply live-editor attachment.",
+        "Document artifact names, invocation and limitations. Distinguish protocol acceptance from native editor interaction and hardware/driver certification."
+      ],
+      "evidence": [
+        "https://github.com/erythrofr/ClothCraft/issues/151",
+        "https://github.com/erythrofr/ClothCraft/issues/8#issuecomment-6431098836"
+      ],
+      "related_prs": ["https://github.com/erythrofr/ClothCraft/pull/150"],
+      "notes": "Windows portable delivery was merged in #150. Cross-platform build.yml still omits cloth-session. This task covers distribution parity and staged-process acceptance, not protocol extensions or the remaining EXO-QA-002 native dialogs. Action-runtime maintenance is separate. Check the live board for overlapping docs/install.md reservations before claiming."
+    },
+    {
       "id": "EXO-COORD-001",
       "title": "Verify live task claim, heartbeat and release coordination",
       "area": "coordination",
