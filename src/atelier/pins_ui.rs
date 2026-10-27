@@ -15,6 +15,7 @@ enum Action {
     Freeze,
     Thaw,
     ReleasePins,
+    ReleaseSelectedPins,
     FreezeSelected,
     ThawSelected,
 }
@@ -26,7 +27,7 @@ fn controls(
     selection_frozen: bool,
     points: usize,
     pins: usize,
-    selected_panels: (usize, usize),
+    selected_panels: (usize, usize, usize),
 ) -> Option<Action> {
     ui.separator();
     ui.strong("Pins and freeze");
@@ -38,6 +39,9 @@ fn controls(
     }
     if selection_frozen {
         ui.small("Unfreeze selected panels before editing their individual pins.");
+    }
+    if selected_panels.0 > 1 && selected_panels.1 > 0 && selected_panels.2 > 0 {
+        ui.small("Unfreeze all selected panels before releasing their pins together.");
     }
     let mut action = None;
     ui.horizontal_wrapped(|ui| {
@@ -69,6 +73,12 @@ fn controls(
                 selected_panels.0 > 1 && selected_panels.1 < selected_panels.0,
             ),
             (
+                "pins.release_selected",
+                "Release selected panel pins",
+                Action::ReleaseSelectedPins,
+                selected_panels.0 > 1 && selected_panels.1 == 0 && selected_panels.2 > 0,
+            ),
+            (
                 "pins.thaw_selected",
                 "Unfreeze selected panels",
                 Action::ThawSelected,
@@ -76,7 +86,10 @@ fn controls(
             ),
         ] {
             if selected_panels.0 <= 1
-                && matches!(kind, Action::FreezeSelected | Action::ThawSelected)
+                && matches!(
+                    kind,
+                    Action::FreezeSelected | Action::ThawSelected | Action::ReleaseSelectedPins
+                )
             {
                 continue;
             }
@@ -132,6 +145,35 @@ fn prepare(
                 .map(|t| t.uv)
                 .collect();
             authoring::prepare_pin_edit(template, garment, state, panel, &points, false)?
+        }
+        Action::ReleaseSelectedPins => {
+            let ids: std::collections::BTreeSet<_> = selected_panels.iter().collect();
+            if selected_panels.len() < 2
+                || selected_panels.len() > 128
+                || ids.len() != selected_panels.len()
+                || ids
+                    .iter()
+                    .any(|id| !template.panels.iter().any(|p| &p.id == *id))
+            {
+                return Err("Select 2–128 distinct existing panels".into());
+            }
+            if template
+                .frozen_panels
+                .iter()
+                .any(|p| ids.contains(&p.panel))
+            {
+                return Err("Unfreeze selected panels before releasing their pins".into());
+            }
+            let mut points = BTreeMap::<String, Vec<DVec2>>::new();
+            for target in &template.pin_targets {
+                if ids.contains(&target.panel) {
+                    points
+                        .entry(target.panel.clone())
+                        .or_default()
+                        .push(target.uv);
+                }
+            }
+            authoring::prepare_pin_group_edit(template, garment, state, &points, false)?
         }
     };
     edit.selected = Some(panel.to_owned());
@@ -222,6 +264,15 @@ impl Atelier {
                     .any(|p| &p.panel == *id)
             })
             .count();
+        let selected_ids: std::collections::BTreeSet<&str> =
+            selected_panels.iter().map(String::as_str).collect();
+        let pins_selected = self
+            .project
+            .template
+            .pin_targets
+            .iter()
+            .filter(|target| selected_ids.contains(target.panel.as_str()))
+            .count();
         let available = !self.playing
             && !self.pending
             && self.authoring.preview.is_none()
@@ -234,7 +285,7 @@ impl Atelier {
             selection_frozen,
             count,
             pins,
-            (selected_panels.len(), frozen_selected),
+            (selected_panels.len(), frozen_selected, pins_selected),
         ) {
             let result = (|| {
                 // Full-panel actions do not depend on contour selection validity.
@@ -321,7 +372,7 @@ mod tests {
             frozen,
             c.selected.len(),
             pins,
-            (1, usize::from(frozen)),
+            (1, usize::from(frozen), pins),
         ) {
             match prepare(
                 &c.template,
@@ -441,7 +492,7 @@ mod tests {
         let active = c.template.panels[1].id.clone();
         let before = c.state.x.clone();
         let mut draw_group = |ui: &mut egui::Ui, c: &mut Case| {
-            if let Some(action) = controls(ui, true, false, false, 2, 0, (1, 0)) {
+            if let Some(action) = controls(ui, true, false, false, 2, 0, (1, 0, 0)) {
                 let edit = prepare(
                     &c.template,
                     &c.garment,
@@ -493,7 +544,7 @@ mod tests {
                 frozen > 0,
                 0,
                 0,
-                (panels.len(), frozen),
+                (panels.len(), frozen, 0),
             ) {
                 match prepare(
                     &c.template,
@@ -529,6 +580,159 @@ mod tests {
         assert_eq!(undo.template.frozen_panels.len(), 2);
         let undo = c.history.restore(&undo.template, false).unwrap();
         assert!(undo.template.frozen_panels.is_empty());
+        assert!(!c.history.can_undo());
+    }
+
+    #[test]
+    fn release_selected_panel_pins_preserves_other_holds_and_undoes_once() {
+        let mut c = case();
+        let mut third = c.template.panels[0].clone();
+        third.id = "third".into();
+        third.placement.translation.x += 8.0;
+        c.template.panels.push(third);
+        c.garment = c.template.compile().unwrap();
+        c.state = c.garment.initial_state.clone();
+        let points: BTreeMap<_, _> = c
+            .garment
+            .panels
+            .iter()
+            .map(|panel| {
+                (
+                    panel.id.clone(),
+                    vec![c.garment.mesh.uv[panel.vertices.start]],
+                )
+            })
+            .collect();
+        let (edit, _) =
+            authoring::prepare_pin_group_edit(&c.template, &c.garment, &c.state, &points, true)
+                .unwrap();
+        c.state = edit.state_after(&c.garment, &c.state);
+        c.template = edit.template;
+        c.garment = edit.garment;
+        let free_vertex = c.garment.panels[2].vertices.start + 1;
+        c.state.v[free_vertex] = glam::DVec3::new(0.1, -0.2, 0.3);
+        let before = c.state.clone();
+        let all_targets = c.template.pin_targets.clone();
+        let ids: Vec<_> = c
+            .template
+            .panels
+            .iter()
+            .take(2)
+            .map(|p| p.id.clone())
+            .collect();
+        let active = ids[0].clone();
+        let mut draw_group = |ui: &mut egui::Ui, c: &mut Case| {
+            let count = c
+                .template
+                .pin_targets
+                .iter()
+                .filter(|p| ids.contains(&p.panel))
+                .count();
+            let frozen = c
+                .template
+                .frozen_panels
+                .iter()
+                .filter(|p| ids.contains(&p.panel))
+                .count();
+            if let Some(action) = controls(
+                ui,
+                c.available,
+                frozen > 0,
+                false,
+                0,
+                1,
+                (ids.len(), frozen, count),
+            ) {
+                match prepare(
+                    &c.template,
+                    &c.garment,
+                    &c.state,
+                    None,
+                    (&active, &BTreeMap::new(), &ids, action),
+                ) {
+                    Ok(edit) if edit.reset_simulation => {
+                        c.state = edit.state_after(&c.garment, &c.state);
+                        c.history.record(c.template.clone());
+                        c.template = edit.template;
+                        c.garment = edit.garment;
+                    }
+                    Ok(_) => {}
+                    Err(e) => c.error = Some(e),
+                }
+            }
+        };
+        let mut h = Harness::new(egui::vec2(1100., 700.));
+        h.frame(&mut c, &mut draw_group);
+        h.click("pins.release_selected", &mut c, &mut draw_group)
+            .unwrap();
+        assert!(c.error.is_none(), "{:?}", c.error);
+        assert_eq!(c.template.pin_targets.len(), 1);
+        assert_eq!(c.template.pin_targets[0].panel, "third");
+        assert_eq!(c.state.x, before.x);
+        assert_eq!(c.state.v, before.v);
+        assert_eq!(c.state.time, before.time);
+        let undo = c.history.restore(&c.template, false).unwrap();
+        assert_eq!(undo.template.pin_targets, all_targets);
+        assert!(!c.history.can_undo());
+        h.frame(&mut c, &mut draw_group);
+        assert!(
+            h.click("pins.release_selected", &mut c, &mut draw_group)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn group_release_rejects_frozen_or_invalid_selection_without_mutation() {
+        let mut c = case();
+        let ids: Vec<_> = c.template.panels.iter().map(|p| p.id.clone()).collect();
+        let points = BTreeMap::from([(
+            ids[0].clone(),
+            vec![c.garment.mesh.uv[c.garment.panels[0].vertices.start]],
+        )]);
+        let (edit, _) =
+            authoring::prepare_pin_group_edit(&c.template, &c.garment, &c.state, &points, true)
+                .unwrap();
+        c.state = edit.state_after(&c.garment, &c.state);
+        c.template = edit.template;
+        c.garment = edit.garment;
+        let (edit, _) =
+            authoring::prepare_freeze_edit(&c.template, &c.garment, &c.state, &ids[1], true)
+                .unwrap();
+        c.state = edit.state_after(&c.garment, &c.state);
+        c.template = edit.template;
+        c.garment = edit.garment;
+        let before = serde_json::to_vec(&c.template).unwrap();
+        for panels in [
+            ids.clone(),
+            vec![ids[0].clone(), ids[0].clone()],
+            vec![ids[0].clone(), "missing".into()],
+        ] {
+            assert!(
+                prepare(
+                    &c.template,
+                    &c.garment,
+                    &c.state,
+                    None,
+                    (
+                        &ids[0],
+                        &BTreeMap::new(),
+                        &panels,
+                        Action::ReleaseSelectedPins
+                    )
+                )
+                .is_err()
+            );
+            assert_eq!(serde_json::to_vec(&c.template).unwrap(), before);
+        }
+        let mut draw_frozen = |ui: &mut egui::Ui, _: &mut Case| {
+            controls(ui, true, false, false, 0, 1, (2, 1, 1));
+        };
+        let mut h = Harness::new(egui::vec2(1100., 700.));
+        h.frame(&mut c, &mut draw_frozen);
+        assert!(
+            h.click("pins.release_selected", &mut c, &mut draw_frozen)
+                .is_err()
+        );
         assert!(!c.history.can_undo());
     }
 }

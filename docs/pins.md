@@ -17,8 +17,11 @@ removes all authored individual pins on that panel. These controls leave legacy 
 than one panel is selected. They freeze only panels not already frozen, leaving
 existing frozen targets unchanged; unfreeze removes freezes for selected panels
 while retaining individual and legacy pins. Each group action is one history
-transaction, validates the source once and compiles one candidate. Release panel
-pins still applies only to the active panel. A frozen
+transaction, validates the source once and compiles one candidate.
+**Release selected panel pins** releases authored individual pins from all
+selected panels in one history action, while leaving other panels and legacy
+pins alone. The group control is disabled if any selected panel is frozen; it
+does not silently release only part of the selection. A frozen
 selected panel or any stale contour point rejects the entire pin/unpin request.
 The grouped transaction validates the source once and compiles the candidate
 once, regardless of the number of selected panels.
