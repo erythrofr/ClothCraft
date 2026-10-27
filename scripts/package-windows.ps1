@@ -38,7 +38,7 @@ foreach ($path in @($stage, $zip, $zipHash)) {
 if ($Verify -and (Test-Path -LiteralPath $verifyRoot)) {
     throw "Refusing to overwrite verification directory: $verifyRoot"
 }
-foreach ($binary in @('cloth-fit.exe', 'marvelous-cloth.exe', 'cloth-template.exe')) {
+foreach ($binary in @('cloth-fit.exe', 'marvelous-cloth.exe', 'cloth-template.exe', 'cloth-session.exe')) {
     if (-not (Test-Path -LiteralPath (Join-Path $binDir $binary) -PathType Leaf)) {
         throw "Missing Windows release binary: $binary in $binDir. Run cargo build --locked --release --features desktop first."
     }
@@ -48,7 +48,7 @@ foreach ($path in @('assets/makehuman', 'examples/templates', 'LICENSE', 'README
 }
 
 $null = New-Item -ItemType Directory -Path $stage -Force
-foreach ($binary in @('cloth-fit.exe', 'marvelous-cloth.exe', 'cloth-template.exe')) {
+foreach ($binary in @('cloth-fit.exe', 'marvelous-cloth.exe', 'cloth-template.exe', 'cloth-session.exe')) {
     Copy-Item -LiteralPath (Join-Path $binDir $binary) -Destination (Join-Path $stage $binary)
 }
 $null = New-Item -ItemType Directory -Path (Join-Path $stage 'assets') -Force
@@ -167,6 +167,43 @@ if ($Verify) {
         Pop-Location
     }
     Write-Host "Verified $($seen.Count) payload hashes and extracted CPU example write/reopen."
+
+    # Exercise the shipped local automation process, without opening a window.
+    $sessionInput = Join-Path $verifyRoot 'session-input.jsonl'
+    $sessionOutput = Join-Path $verifyRoot 'session-output.jsonl'
+    $sessionError = Join-Path $verifyRoot 'session-error.log'
+    $requests = @(
+        '{"protocol":"clothcraft.authoring","protocolVersion":1,"requestId":"package-hello","payload":{"op":"hello"}}',
+        '{"protocol":"clothcraft.authoring","protocolVersion":1,"requestId":"package-snapshot","payload":{"op":"snapshot"}}'
+    )
+    [IO.File]::WriteAllText($sessionInput, ($requests -join "`n") + "`n", $utf8)
+    $sessionProcess = Start-Process -FilePath (Join-Path $verifyRoot 'cloth-session.exe') `
+        -WorkingDirectory $verifyRoot -WindowStyle Hidden -PassThru `
+        -RedirectStandardInput $sessionInput -RedirectStandardOutput $sessionOutput -RedirectStandardError $sessionError
+    if (-not $sessionProcess.WaitForExit(30000)) {
+        $sessionProcess.Kill()
+        $sessionProcess.WaitForExit()
+        throw 'Packaged authoring session timed out; inspect session-error.log'
+    }
+    if ($sessionProcess.ExitCode -ne 0) { throw 'Packaged authoring session failed; inspect session-error.log' }
+    $responses = @(Get-Content -LiteralPath $sessionOutput | ForEach-Object { $_ | ConvertFrom-Json })
+    if ($responses.Count -ne 2) { throw 'Packaged session did not return exactly two JSON responses' }
+    for ($i = 0; $i -lt 2; $i++) {
+        $expectedId = @('package-hello', 'package-snapshot')[$i]
+        if ($responses[$i].ok -ne $true -or $responses[$i].protocol -ne 'clothcraft.authoring' -or
+            $responses[$i].protocolVersion -ne 1 -or $responses[$i].requestId -ne $expectedId) {
+            throw "Invalid packaged session response: $expectedId"
+        }
+    }
+    $hello = $responses[0].data
+    $snapshot = $responses[1].data
+    if ($hello.simulation -ne $false -or $hello.desktopAttachment -ne $false -or
+        $hello.filesystemRequests -ne $false -or $hello.commands -notcontains 'sew' -or
+        $hello.commands -notcontains 'polygon' -or $null -ne $snapshot.template -or
+        $snapshot.revision -ne 0 -or $snapshot.documentSession -ne $hello.session.documentSession) {
+        throw 'Packaged authoring capabilities or empty initial session differ from the contract'
+    }
+    Write-Host 'Extracted CPU authoring protocol handshake and empty snapshot passed.'
 
     if ($UiSmoke) {
         # This is an explicit, opt-in native-window check. It is not part of the

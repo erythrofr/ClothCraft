@@ -28,7 +28,8 @@ are separate development artifacts.
 
 The archive contains `cloth-fit.exe` (native fitting editor),
 `marvelous-cloth.exe` (additional native CLI entrypoint) and
-`cloth-template.exe` (headless CPU template commands), bundled MakeHuman
+`cloth-template.exe` (headless CPU template commands), `cloth-session.exe`
+(local JSON-lines authoring process), bundled MakeHuman
 mannequin assets with their independent license notice, original sample
 templates, project README, MIT `LICENSE`, build provenance and per-file SHA256
 hashes. No proprietary garment libraries are bundled. Preserve a saved
@@ -60,6 +61,16 @@ contains SHA256 hashes of each packaged file (relative to the extracted root).
 and build architecture. The separate `.zip.sha256` covers the archive itself.
 
 ## Native editor acceptance checklist
+
+The package verification also launches `cloth-session.exe` from the extracted
+directory and checks its versioned hello response and empty initial snapshot.
+This is CPU-only. The session accepts JSON objects on standard input and returns
+one JSON response per line; it is intended for local automation clients. It
+starts without a document: clients must explicitly send `open` with a native
+template, then use the returned session/revision guard for edits. It supports
+transactional edits and undo/redo, but does not attach to an open editor, run
+physics, or read/write caller-supplied filesystem paths. The client handles
+template files. It needs no AI service or subscription.
 
 The automated Windows workflow compiles binaries, runs CPU tests, verifies the
 ZIP checksums, extracts into a **directory containing spaces**, validates a
@@ -114,7 +125,7 @@ Microsoft C++ build toolchain. From the repository root:
 
 ```powershell
 cargo test --locked --no-default-features -j 2 -- --test-threads=2
-cargo build --locked --release -j 2 --features desktop --bin cloth-fit --bin marvelous-cloth --bin cloth-template
+cargo build --locked --release -j 2 --features desktop --bin cloth-fit --bin marvelous-cloth --bin cloth-template --bin cloth-session
 .\scripts\package-windows.ps1 -Destination "$env:TEMP\ClothCraft Package With Spaces" -BinariesDirectory '.\target\release' -Verify -UiSmoke
 ```
 

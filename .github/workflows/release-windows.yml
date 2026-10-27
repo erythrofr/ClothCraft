@@ -56,7 +56,7 @@ jobs:
       - name: Build portable executables
         run: >-
           cargo build --locked --release -j 2 --features desktop
-          --bin cloth-fit --bin marvelous-cloth --bin cloth-template
+          --bin cloth-fit --bin marvelous-cloth --bin cloth-template --bin cloth-session
       - name: Package, verify hashes and run native editor launch/capture from a path with spaces
         timeout-minutes: 10
         run: |
@@ -83,6 +83,8 @@ jobs:
             ${{ runner.temp }}/ClothCraft Portable Preview.verify/ui-smoke.err.log
             ${{ runner.temp }}/ClothCraft Portable Preview.verify/ui-project-seed.out.log
             ${{ runner.temp }}/ClothCraft Portable Preview.verify/ui-project-seed.err.log
+            ${{ runner.temp }}/ClothCraft Portable Preview.verify/session-output.jsonl
+            ${{ runner.temp }}/ClothCraft Portable Preview.verify/session-error.log
       - name: Upload portable preview and archive checksum
         uses: actions/upload-artifact@v4
         with:
