@@ -211,7 +211,7 @@ impl ProfileUi {
             return None;
         }
         let mut restore = None;
-        egui::Modal::new(egui::Id::new("workspace-profiles")).show(ctx, |ui| {
+        let modal = egui::Modal::new(egui::Id::new("workspace-profiles")).show(ctx, |ui| {
             ui.set_width((ctx.content_rect().width()-64.).clamp(200.,500.));
             ui.heading("Workspace profiles");
             ui.small("Layout, viewport appearance and tool rail only. Garment and simulation settings stay unchanged.");
@@ -264,6 +264,13 @@ impl ProfileUi {
             }
             if button(ui,"profiles.close","Close",true) {self.open=false; self.pending=None;}
         });
+        // Backdrop dismissal cancels the whole dialog, including an unconfirmed
+        // replacement/removal. Keep Escape's existing one-level-back behavior.
+        if modal.backdrop_response.clicked() {
+            self.open = false;
+            self.pending = None;
+            return None;
+        }
         if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape)) {
             if self.pending.is_some() {
                 self.pending = None;
@@ -300,6 +307,89 @@ mod tests {
             h.frame(c, &mut draw);
         }
     }
+    #[test]
+    fn backdrop_dismisses_pending_changes_without_disk_write_or_click_through() {
+        for replace in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join(FILE_NAME);
+            let saved = Snapshot::default();
+            Store::default()
+                .save_profile(&path, "Saved", saved.clone(), false)
+                .unwrap();
+            let bytes = std::fs::read(&path).unwrap();
+            let mut dialog = ProfileUi::default();
+            dialog.begin(&path);
+            dialog.pending = Some(if replace {
+                Pending::Replace(
+                    "Saved".into(),
+                    Snapshot {
+                        tools_visible: false,
+                        ..saved.clone()
+                    },
+                )
+            } else {
+                Pending::Remove("Saved".into())
+            });
+            let ctx = egui::Context::default();
+            let mut clicks = 0;
+            let mut restores = 0;
+            let mut frame = |events| {
+                let mut output = ctx.run_ui(
+                    egui::RawInput {
+                        screen_rect: Some(egui::Rect::from_min_size(
+                            egui::Pos2::ZERO,
+                            egui::vec2(900., 900.),
+                        )),
+                        focused: true,
+                        events,
+                        ..Default::default()
+                    },
+                    |ui| {
+                        egui::CentralPanel::default().show(ui, |ui| {
+                            if ui
+                                .put(
+                                    egui::Rect::from_min_size(
+                                        egui::pos2(10., 10.),
+                                        egui::vec2(80., 30.),
+                                    ),
+                                    egui::Button::new("Behind"),
+                                )
+                                .clicked()
+                            {
+                                clicks += 1;
+                            }
+                            if dialog.show(&ctx, &path, &saved).is_some() {
+                                restores += 1;
+                            }
+                        });
+                    },
+                );
+                output.textures_delta.clear();
+            };
+            for _ in 0..3 {
+                frame(vec![]);
+            }
+            let pos = egui::pos2(30., 25.);
+            for pressed in [true, false] {
+                frame(vec![
+                    egui::Event::PointerMoved(pos),
+                    egui::Event::PointerButton {
+                        pos,
+                        button: egui::PointerButton::Primary,
+                        pressed,
+                        modifiers: egui::Modifiers::NONE,
+                    },
+                ]);
+            }
+            frame(vec![]);
+            assert!(!dialog.open);
+            assert!(dialog.pending.is_none());
+            assert_eq!((clicks, restores), (0, 0));
+            assert_eq!(std::fs::read(&path).unwrap(), bytes);
+            assert_eq!(dialog.store.as_ref().unwrap().profiles[0].snapshot, saved);
+        }
+    }
+
     #[test]
     fn named_save_replace_cancel_restore_and_remove() {
         let dir = tempfile::tempdir().unwrap();
