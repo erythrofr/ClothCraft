@@ -38,5 +38,20 @@ zero ambient/key gains. All exited successfully and their captures were
 inspected: rotation changed avatar/cloth shading; zero gains produced black
 mesh surfaces while annotations and background remained visible. These runs
 loaded isolated preferences; they did not exercise the parent menu. They also
-do not validate authored-optics materials, upper intensity endpoints or
-simulation performance. Those native acceptance checks remain pending.
+do not validate simulation performance.
+
+Two further Windows captures used the existing `appearance-glossy` native
+harness, with both gains set to zero or two. Each report passed all six
+expected actions and the captures were inspected. The authored-optics cloth
+was black with zero gains and bright with visible saturation at maximum gains.
+This confirms endpoint response, not photometric accuracy. These runs exercised
+fabric appearance controls, not the Presentation parent menu. Native menu
+interaction remains pending.
+
+The first native menu check exposed automatic closure after a slider click.
+The submenu now explicitly closes on outside clicks; Save/Restore close it
+after their action. A CPU regression fixture opens the nested Workspace menu,
+drags rotation, resets it and invokes Save, checking that controls remain
+available until the explicit action. The updated full atelier suite passed
+134 tests (one optional preview ignored), and strict desktop all-target Clippy
+passed. The corrected native menu still needs its follow-up check.

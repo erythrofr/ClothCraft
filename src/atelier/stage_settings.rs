@@ -115,6 +115,13 @@ pub(super) fn execute(
     }
 }
 
+pub(super) fn menu_button() -> egui::containers::menu::SubMenuButton<'static> {
+    egui::containers::menu::SubMenuButton::new("Presentation").config(
+        egui::containers::menu::MenuConfig::new()
+            .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside),
+    )
+}
+
 pub(super) fn controls(
     ui: &mut egui::Ui,
     enabled: bool,
@@ -149,11 +156,21 @@ pub(super) fn controls(
                 0. ..=2.,
             ),
         ] {
-            let response = ui.add(egui::Slider::new(value, range).text(label));
-            #[cfg(test)]
-            super::authoring_smoke::widget_harness::named(ui, &response, id);
-            #[cfg(not(test))]
-            let _ = (response, id);
+            ui.horizontal(|ui| {
+                let response = ui.add(egui::Slider::new(value, range.clone()).show_value(false));
+                #[cfg(test)]
+                super::authoring_smoke::widget_harness::named(ui, &response, id);
+                #[cfg(not(test))]
+                let _ = (response, id);
+                let angular = id.ends_with("yaw") || id.ends_with("tilt");
+                ui.add(
+                    egui::DragValue::new(value)
+                        .range(range)
+                        .speed(if angular { 1. } else { 0.01 })
+                        .suffix(if angular { "°" } else { "×" }),
+                );
+                ui.label(label);
+            });
         }
         let reset = ui.button("Reset lighting");
         #[cfg(test)]
@@ -188,6 +205,58 @@ pub(super) fn controls(
 mod tests {
     use super::super::authoring_smoke::widget_harness::Harness;
     use super::*;
+
+    #[test]
+    fn nested_menu_keeps_lighting_controls_open_after_pointer_edits() {
+        fn draw(ui: &mut egui::Ui, appearance: &mut Appearance) {
+            egui::MenuBar::new().ui(ui, |ui| {
+                let outer = ui.menu_button("Workspace", |ui| {
+                    let inner = menu_button().ui(ui, |ui| {
+                        if controls(ui, true, appearance).is_some() {
+                            ui.close();
+                        }
+                    });
+                    super::super::authoring_smoke::widget_harness::named(
+                        ui,
+                        &inner.0,
+                        "presentation.menu",
+                    );
+                });
+                super::super::authoring_smoke::widget_harness::named(
+                    ui,
+                    &outer.response,
+                    "workspace.menu",
+                );
+            });
+        }
+        let mut appearance = Appearance::default();
+        let mut h = Harness::new(egui::vec2(1000., 600.));
+        h.frame(&mut appearance, &mut draw);
+        h.click("workspace.menu", &mut appearance, &mut draw)
+            .unwrap();
+        h.frame(&mut appearance, &mut draw);
+        h.click("presentation.menu", &mut appearance, &mut draw)
+            .unwrap();
+        h.frame(&mut appearance, &mut draw);
+        h.drag(
+            "presentation.light.yaw",
+            egui::vec2(35., 0.),
+            5,
+            &mut appearance,
+            &mut draw,
+        )
+        .unwrap();
+        assert_ne!(appearance.lighting.yaw_degrees, 0.);
+        h.click("presentation.light.reset", &mut appearance, &mut draw)
+            .unwrap();
+        assert_eq!(appearance.lighting, Default::default());
+        h.click("presentation.save", &mut appearance, &mut draw)
+            .unwrap();
+        assert!(
+            h.click("presentation.light.reset", &mut appearance, &mut draw)
+                .is_err()
+        );
+    }
 
     #[test]
     fn legacy_snapshot_defaults_and_invalid_light_rejection() {

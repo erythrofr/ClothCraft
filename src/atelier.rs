@@ -784,7 +784,8 @@ impl eframe::App for Atelier {
                 ui.separator();
                 ui.menu_button("Workspace", |ui| {
                     ui.checkbox(&mut self.tools_visible, "Tool rail");
-                    ui.menu_button("Presentation", |ui| {
+                    stage_settings::menu_button()
+                        .ui(ui, |ui| {
                         if let Some(action) = stage_settings::controls(ui, can_open_palette, &mut self.prefs.viewport) {
                             let path = self.output.join(stage_settings::FILE_NAME);
                             self.status = stage_settings::execute(action, &path, &mut self.camera, &mut self.prefs.viewport)
