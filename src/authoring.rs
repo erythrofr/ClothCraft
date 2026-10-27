@@ -691,6 +691,45 @@ pub fn only_appearance_changed(a: &GarmentTemplate, b: &GarmentTemplate) -> bool
     };
     strip(a) == strip(b)
 }
+
+/// Ignore only reviewed nonphysical polygon metadata. Unknown fields remain in
+/// the comparison so future geometry extensions fail closed by default.
+fn strip_graphic_frame_metadata(polygon: &mut serde_json::Value) {
+    if let Some(fields) = polygon.as_object_mut() {
+        for key in [
+            "subdivisions",
+            "meshing",
+            "target_lengths",
+            "seam_allowances",
+            "notches",
+        ] {
+            fields.remove(key);
+        }
+    }
+}
+
+fn graphic_material_frame(panel: &Panel) -> Result<Vec<u8>, String> {
+    let mut polygon = serde_json::to_value(&panel.polygon).map_err(|e| e.to_string())?;
+    strip_graphic_frame_metadata(&mut polygon);
+    serde_json::to_vec(&(panel.pattern.width, panel.pattern.height, polygon))
+        .map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod graphic_frame_tests {
+    use super::*;
+    #[test]
+    fn only_reviewed_nonphysical_fields_are_ignored() {
+        let mut polygon = serde_json::json!({"points": [[0, 0]], "meshing": {}, "subdivisions": 1,
+            "target_lengths": {}, "seam_allowances": {"edge": 0.01}, "notches": {"edge": []},
+            "future_geometry": [1, 2]});
+        strip_graphic_frame_metadata(&mut polygon);
+        assert_eq!(
+            polygon,
+            serde_json::json!({"points": [[0, 0]], "future_geometry": [1, 2]})
+        );
+    }
+}
 pub fn rotate_2d(p: DVec2, degrees: f64) -> DVec2 {
     let (s, c) = degrees.to_radians().sin_cos();
     DVec2::new(c * p.x - s * p.y, s * p.x + c * p.y)
@@ -2194,16 +2233,7 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
             }
             return Err("Remove graphics before replacing their panel".into());
         };
-        let shape = |panel: &Panel| {
-            let mut polygon = panel.polygon.clone();
-            if let Some(p) = &mut polygon {
-                p.subdivisions = 0;
-                p.meshing = None;
-                p.target_lengths.clear();
-            }
-            serde_json::to_vec(&(panel.pattern.width, panel.pattern.height, polygon))
-        };
-        if shape(old).map_err(|e| e.to_string())? != shape(new).map_err(|e| e.to_string())? {
+        if graphic_material_frame(old)? != graphic_material_frame(new)? {
             return Err("Remove graphics before changing their panel's material contour".into());
         }
     }
