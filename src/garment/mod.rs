@@ -8,6 +8,7 @@ pub mod dxf_import;
 pub mod embedding;
 pub mod export;
 pub mod freehand;
+pub mod graphics;
 pub mod meshing;
 pub mod pins;
 pub mod polygon;
