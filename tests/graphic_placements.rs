@@ -78,8 +78,27 @@ fn saved_drape_reopens_after_graphic_metadata_change() {
     assert_eq!(scene.state.v, state.v);
     assert_eq!(scene.state.time, state.time);
     loaded.save(&file).unwrap();
-    let reopened = FittingProject::load(&file).unwrap();
+    let mut reopened = FittingProject::load(&file).unwrap();
     assert_eq!(reopened.mesh_signature, signature);
+    assert_eq!(reopened.template.graphics, loaded.template.graphics);
+    let original_uv = reopened.template.graphics[0]
+        .triangle_uvs(&scene.garment)
+        .unwrap();
+    // Swap the resolution so the vertex count stays the same; a length-only
+    // check would wrongly accept this stale drape on different material points.
+    reopened.template.panels[0].pattern.nx = 4;
+    reopened.template.panels[0].pattern.ny = 3;
+    let error = reopened.compile().err().unwrap();
+    assert!(error.contains("Stale fitting cache"));
+    assert_eq!(reopened.state.as_ref().unwrap().x, state.x);
+    reopened.state = None;
+    reopened.mesh_signature = None;
+    let rebuilt = reopened.compile().unwrap();
+    assert_eq!(rebuilt.state.x.len(), state.x.len());
+    let new_uv = reopened.template.graphics[0]
+        .triangle_uvs(&rebuilt.garment)
+        .unwrap();
+    assert_ne!(new_uv, original_uv);
     assert_eq!(reopened.template.graphics, loaded.template.graphics);
 }
 
