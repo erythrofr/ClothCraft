@@ -1434,27 +1434,43 @@
       "area": "appearance",
       "status": "blocked",
       "depends_on": [
-        "EXO-LOOK-005",
-        "EXO-LOOK-002"
+        "EXO-LOOK-005"
       ],
       "scope": [
         "src/render/graphics.rs",
         "src/atelier/graphics_ui.rs",
         "tests/graphics_ui.rs",
         "src/atelier.rs",
-        "src/render.rs"
+        "src/render.rs",
+        "src/cloth.wgsl",
+        "src/document.rs",
+        "src/fitting.rs",
+        "src/garment/graphics.rs",
+        "src/garment/template.rs",
+        "src/authoring.rs",
+        "src/authoring/clipboard.rs",
+        "src/atelier/documents_ui.rs",
+        "src/atelier/authoring_ui.rs",
+        "src/atelier/board.rs",
+        "src/atelier/authoring_smoke.rs",
+        "tests/graphic_placements.rs",
+        "tests/shader.rs",
+        "docs/graphics.md",
+        "Cargo.toml",
+        "Cargo.lock"
       ],
       "acceptance": [
-        "Place/rotate/scale graphics in material space with correct draped mapping.",
-        "Support pick/delete/undo and portable save/reload.",
-        "Bound/sanitize supported vector/image inputs; do not execute embedded SVG content."
+        "Implement a usable native workflow to import PNG, place/rotate/scale it on the selected 2D panel, pick/delete and undo/redo; render the placement on the correct front/back draped 3D panel with explicit clipping and layering. Do not advertise unsupported image formats or vector execution.",
+        "Persist portable project-owned image assets and placement identities across Save, Save As, reopen, duplicate and clipboard operations. Handle missing files, overwrite/collision and partial write failures explicitly without corrupting the previous document or silently dropping artwork.",
+        "Bound compressed and decoded PNG input, dimensions, asset counts and GPU resources; reject invalid data safely. Specify sRGB/linear and alpha conventions, preserve panel identity and existing diagnostic-overlay precedence, and do not change physical rest geometry, solver, drape or worker state for visual edits.",
+        "Cover actual native control transactions with the named-widget CPU harness, asset serialization and portability, rejection/rollback, triangle UV preparation and WGSL validation. Record native-window/GPU visual acceptance separately, opt-in with current authorization; use only original or suitably licensed fixtures."
       ],
       "evidence": [
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/nativeGarmentGraphics.js",
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/nativeGraphicStorage.js"
       ],
       "related_prs": [],
-      "notes": ""
+      "notes": "Artwork overlays can be implemented over the already shipped solid color/roughness renderer without requiring the separate fabric texture/normal-map pipeline. LOOK-005 must be fully accepted first. The scope includes shared paths also present in open #6 and #188; inspect and coordinate their current heads and claims before editing. If multiple contributors are active, review smaller non-overlapping asset, UI and renderer scopes and release shared files while waiting; preserve the end-to-end acceptance gate. A scope proposal or stored opaque asset ID does not itself make images usable or grant EXO code/assets."
     },
     {
       "id": "EXO-LOOK-007",
