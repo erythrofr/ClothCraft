@@ -159,6 +159,9 @@ pub struct GarmentTemplate {
     /// Optional visual metadata keyed by stable fabric ID, excluded from physics.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub fabric_appearance: BTreeMap<String, super::appearance::FabricAppearance>,
+    /// Nonphysical artwork placements; asset IDs are opaque, not file paths.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub graphics: Vec<super::graphics::GraphicPlacement>,
     pub panels: Vec<Panel>,
     pub seams: Vec<SeamSpec>,
     /// Editable two-piece relations, never a solver constraint.
@@ -263,6 +266,13 @@ impl GarmentTemplate {
         unique_ids(self.panels.iter().map(|p| p.id.as_str()), "panel")?;
         unique_ids(self.fabrics.iter().map(|f| f.id.as_str()), "fabric")?;
         unique_ids(self.seams.iter().map(|s| s.id.as_str()), "seam")?;
+        if self.graphics.len() > 4096 {
+            return Err("At most 4096 graphic placements are supported".into());
+        }
+        unique_ids(self.graphics.iter().map(|g| g.id.as_str()), "graphic")?;
+        for graphic in &self.graphics {
+            graphic.validate_panel(self)?;
+        }
         let mut linked = std::collections::BTreeSet::new();
         for link in &self.mirror_links {
             for id in [&link.a, &link.b] {
@@ -521,6 +531,7 @@ impl GarmentTemplate {
             pin_targets: vec![],
             frozen_panels: vec![],
             fabric_appearance: Default::default(),
+            graphics: vec![],
             fabrics: vec![Fabric {
                 id: "woven-demo".into(),
                 name: "Uncalibrated woven reference".into(),

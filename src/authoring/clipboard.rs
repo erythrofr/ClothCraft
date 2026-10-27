@@ -50,6 +50,9 @@ impl PatternClipboard {
             .frozen_panels
             .retain(|hold| ids.contains(&hold.panel));
         template
+            .graphics
+            .retain(|graphic| ids.contains(&graphic.panel_id));
+        template
             .fabrics
             .retain(|f| template.panels.iter().any(|p| p.fabric == f.id));
         template
@@ -130,6 +133,11 @@ impl PatternClipboard {
                 !panels.contains(&freeze.panel)
                     || freeze.targets.iter().any(|p| p.panel != freeze.panel)
             })
+            || self
+                .template
+                .graphics
+                .iter()
+                .any(|g| !panels.contains(&g.panel_id))
         {
             return Err("Clipboard contains missing or ambiguous references".into());
         }
@@ -201,6 +209,12 @@ impl PatternClipboard {
                 r.panel = panels[&r.panel].clone();
             }
             target.seams.push(copy);
+        }
+        for graphic in &self.template.graphics {
+            let mut copy = graphic.clone();
+            copy.id = unused_id("graphic", target.graphics.iter().map(|g| g.id.clone()));
+            copy.panel_id = panels[&graphic.panel_id].clone();
+            target.graphics.push(copy);
         }
         for link in &self.template.mirror_links {
             target

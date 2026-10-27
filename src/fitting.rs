@@ -254,6 +254,7 @@ fn mesh_signature(template: &GarmentTemplate, g: &CompiledGarment) -> Result<Str
     let mut physical_template = template.clone();
     physical_template.mirror_links.clear();
     physical_template.fabric_appearance.clear();
+    physical_template.graphics.clear();
     for panel in &mut physical_template.panels {
         panel.layout_2d = None;
         panel.layout_rotation_degrees = 0.;

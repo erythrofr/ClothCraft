@@ -14,6 +14,256 @@ fn placement() -> GraphicPlacement {
 }
 
 #[test]
+fn persistent_placements_validate_and_keep_legacy_and_physics() {
+    use marvelous_cloth::{
+        authoring::{self, Command},
+        garment::GarmentTemplate,
+    };
+    let source = GarmentTemplate::two_panel_demo();
+    let legacy = serde_json::to_value(&source).unwrap();
+    assert!(legacy.get("graphics").is_none());
+    let graphic = GraphicPlacement {
+        panel_id: source.panels[0].id.clone(),
+        ..placement()
+    };
+    let edit = authoring::apply(
+        &source,
+        Command::SetGraphic {
+            placement: graphic.clone(),
+        },
+    )
+    .unwrap();
+    assert!(!edit.reset_simulation);
+    assert!(authoring::same_physics(&source, &edit.template));
+    assert!(authoring::only_appearance_changed(&source, &edit.template));
+    let encoded = serde_json::to_string(&edit.template).unwrap();
+    let restored: GarmentTemplate = serde_json::from_str(&encoded).unwrap();
+    restored.compile().unwrap();
+    assert_eq!(restored.graphics, vec![graphic.clone()]);
+    let mut invalid = restored.clone();
+    invalid.graphics.push(graphic.clone());
+    assert!(invalid.compile().is_err());
+    invalid.graphics[1].id = "other".into();
+    invalid.graphics[1].panel_id = "missing".into();
+    assert!(invalid.compile().is_err());
+    let removed = authoring::apply(&restored, Command::RemoveGraphic { id: graphic.id }).unwrap();
+    assert_eq!(serde_json::to_value(removed.template).unwrap(), legacy);
+}
+
+#[test]
+fn saved_drape_reopens_after_graphic_metadata_change() {
+    use marvelous_cloth::{
+        fitting::FittingProject,
+        garment::{GarmentTemplate, presets::GarmentKind},
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let avatar = dir.path().join("avatar.obj");
+    std::fs::write(&avatar, "v 10 0 -10\nv 11 0 -10\nv 10 1 -10\nf 1 2 3\n").unwrap();
+    let file = dir.path().join("garment.clothcraft");
+    let mut project = FittingProject::basic(GarmentKind::Tshirt, 0, avatar);
+    project.template = GarmentTemplate::two_panel_demo();
+    let mut state = project.template.compile().unwrap().initial_state;
+    state.time = 3.;
+    state.v.fill(glam::DVec3::X);
+    project.state = Some(state.clone());
+    project.save(&file).unwrap();
+    let mut loaded = FittingProject::load(&file).unwrap();
+    let signature = loaded.mesh_signature.clone();
+    loaded.template.graphics.push(GraphicPlacement {
+        panel_id: loaded.template.panels[0].id.clone(),
+        ..placement()
+    });
+    let scene = loaded.compile().unwrap();
+    assert_eq!(scene.state.x, state.x);
+    assert_eq!(scene.state.v, state.v);
+    assert_eq!(scene.state.time, state.time);
+    loaded.save(&file).unwrap();
+    let reopened = FittingProject::load(&file).unwrap();
+    assert_eq!(reopened.mesh_signature, signature);
+    assert_eq!(reopened.template.graphics, loaded.template.graphics);
+}
+
+#[test]
+fn copy_paste_and_delete_preserve_graphic_identity_and_ownership() {
+    use marvelous_cloth::{
+        authoring::{self, Command, clipboard::PatternClipboard},
+        garment::GarmentTemplate,
+    };
+    let source = GarmentTemplate::two_panel_demo();
+    let graphic = GraphicPlacement {
+        panel_id: source.panels[0].id.clone(),
+        ..placement()
+    };
+    let source = authoring::apply(
+        &source,
+        Command::SetGraphic {
+            placement: graphic.clone(),
+        },
+    )
+    .unwrap()
+    .template;
+    let duplicate = authoring::apply(
+        &source,
+        Command::Duplicate {
+            panel: graphic.panel_id.clone(),
+        },
+    )
+    .unwrap();
+    assert_eq!(duplicate.template.graphics.len(), 2);
+    assert_ne!(
+        duplicate.template.graphics[0].id,
+        duplicate.template.graphics[1].id
+    );
+    assert_eq!(
+        duplicate.template.graphics[1].panel_id,
+        duplicate.selected.unwrap()
+    );
+    let clip = PatternClipboard::capture(&source, std::slice::from_ref(&graphic.panel_id)).unwrap();
+    let clip = PatternClipboard::from_text(&clip.to_text().unwrap()).unwrap();
+    let pasted = authoring::apply(
+        &source,
+        Command::Paste {
+            clipboard: clip,
+            center: DVec2::ZERO,
+        },
+    )
+    .unwrap();
+    assert_eq!(pasted.template.graphics.len(), 2);
+    assert_ne!(
+        pasted.template.graphics[0].id,
+        pasted.template.graphics[1].id
+    );
+    assert_eq!(
+        pasted.template.graphics[1].panel_id,
+        pasted.selected.unwrap()
+    );
+    let deleted = authoring::apply(
+        &source,
+        Command::RemovePanel {
+            panel: graphic.panel_id,
+        },
+    )
+    .unwrap();
+    assert!(deleted.template.graphics.is_empty());
+}
+
+#[test]
+fn material_frame_changes_and_mirror_fail_atomically_but_remeshing_is_valid() {
+    use marvelous_cloth::{
+        authoring::{self, Command},
+        garment::{
+            GarmentTemplate,
+            shapes::{MirrorAxis, Primitive, primitive},
+        },
+    };
+    let mut source = GarmentTemplate::two_panel_demo();
+    source.version = 2;
+    source.panels[0].polygon = Some(
+        primitive(
+            Primitive::Rectangle,
+            DVec2::splat(0.4),
+            90.,
+            Default::default(),
+        )
+        .unwrap(),
+    );
+    source.panels[0].pattern.height = 0.4;
+    source.panels[0].pins.clear();
+    source.seams.clear();
+    assert!(
+        authoring::apply(
+            &source,
+            Command::Dimensions {
+                panel: source.panels[0].id.clone(),
+                width: 0.5,
+                height: 0.5
+            }
+        )
+        .is_ok()
+    );
+    let graphic = GraphicPlacement {
+        panel_id: source.panels[0].id.clone(),
+        ..placement()
+    };
+    let source = authoring::apply(
+        &source,
+        Command::SetGraphic {
+            placement: graphic.clone(),
+        },
+    )
+    .unwrap()
+    .template;
+    let before = serde_json::to_vec(&source).unwrap();
+    assert!(
+        authoring::apply(
+            &source,
+            Command::Mirror {
+                panel: graphic.panel_id.clone(),
+                axis: MirrorAxis::X,
+                copy_side: Some(1)
+            }
+        )
+        .is_err()
+    );
+    assert!(
+        authoring::apply(
+            &source,
+            Command::Primitive {
+                kind: Primitive::Rectangle,
+                size: DVec2::splat(0.4),
+                sweep_degrees: 90.,
+                origin: DVec2::ZERO,
+                meshing: Default::default(),
+                fabric: source.fabrics[0].id.clone(),
+                replace: true,
+            }
+        )
+        .err()
+        .unwrap()
+        .contains("Remove graphics before replacing the garment")
+    );
+    assert!(
+        authoring::apply(
+            &source,
+            Command::Dimensions {
+                panel: graphic.panel_id.clone(),
+                width: 0.5,
+                height: 0.5
+            }
+        )
+        .err()
+        .unwrap()
+        .contains("Remove graphics before changing")
+    );
+    assert_eq!(serde_json::to_vec(&source).unwrap(), before);
+    let mut remeshed = source.clone();
+    remeshed.panels[0]
+        .polygon
+        .as_mut()
+        .unwrap()
+        .meshing
+        .as_mut()
+        .unwrap()
+        .target_edge_m = 0.04;
+    let via_edit = authoring::apply(
+        &source,
+        Command::Shape {
+            panel: graphic.panel_id.clone(),
+            polygon: remeshed.panels[0].polygon.clone().unwrap(),
+        },
+    )
+    .unwrap();
+    assert_eq!(via_edit.template.graphics, source.graphics);
+    let mesh = remeshed.compile().unwrap();
+    assert_ne!(
+        mesh.panels[0].vertices.len(),
+        source.compile().unwrap().panels[0].vertices.len()
+    );
+    assert_eq!(remeshed.graphics, source.graphics);
+    assert!(!graphic.triangle_uvs(&mesh).unwrap().is_empty());
+}
+
+#[test]
 fn rotated_artwork_uses_material_metres_and_is_invertible() {
     let p = placement();
     let expected = [

@@ -1466,7 +1466,7 @@ impl EditorTransition<'_> {
             *self.dirty = true;
             self.authoring.fabric_draft = None;
             self.authoring.error = None;
-            *self.status = "Fabric appearance updated".into();
+            *self.status = "Visual appearance updated".into();
             return;
         }
         self.authoring.dart = None;
@@ -2278,6 +2278,38 @@ mod transition_tests {
             assert_eq!(state.scene.state.v, saved.v);
             assert_eq!(state.scene.state.time, saved.time);
         }
+        let placement = marvelous_cloth::garment::graphics::GraphicPlacement {
+            id: "graphic_1".into(),
+            panel_id: state.project.template.panels[0].id.clone(),
+            asset_id: "asset_1".into(),
+            center_m: DVec2::new(0.1, 0.1),
+            size_m: DVec2::new(0.05, 0.05),
+            rotation_degrees: 0.,
+            side: marvelous_cloth::garment::graphics::GraphicSide::Front,
+        };
+        let graphic =
+            authoring::apply(&state.project.template, Command::SetGraphic { placement }).unwrap();
+        state
+            .authoring
+            .history
+            .record(state.project.template.clone());
+        state.install(graphic);
+        assert_eq!(state.project.template.graphics.len(), 1);
+        for redo in [false, true, false] {
+            let edit = state
+                .authoring
+                .history
+                .restore(&state.project.template, redo)
+                .unwrap();
+            state.install(edit);
+            assert!(*state.playing && *state.pending);
+            assert_eq!(*state.generation, 12);
+            assert!(std::sync::Arc::ptr_eq(&retained_mesh, &state.scene.garment));
+            assert_eq!(state.scene.state.x, saved.x);
+            assert_eq!(state.scene.state.v, saved.v);
+            assert_eq!(state.scene.state.time, saved.time);
+        }
+        assert!(state.project.template.graphics.is_empty());
         assert!(
             super::super::current_worker_result(
                 Some(super::super::worker::Done {
