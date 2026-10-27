@@ -293,6 +293,66 @@ impl ClothVisibility {
     }
 }
 
+/// Start with the exact exhaustive query. Build only after the accumulated
+/// work is comparable to eight full scans, on a subsequent valid query. This
+/// avoids building for cheap early occluders and adapts to mixed visibility.
+struct ClothVisibilityQueries<'a> {
+    positions: &'a [glam::DVec3],
+    triangles: &'a [marvelous_cloth::model::Triangle],
+    eligible: bool,
+    attempted: bool,
+    scanned: usize,
+    tree: Option<ClothVisibility>,
+}
+impl<'a> ClothVisibilityQueries<'a> {
+    fn new(
+        positions: &'a [glam::DVec3],
+        triangles: &'a [marvelous_cloth::model::Triangle],
+        point_count: usize,
+    ) -> Self {
+        Self {
+            positions,
+            triangles,
+            eligible: point_count >= 64 && triangles.len() >= 256,
+            attempted: false,
+            scanned: 0,
+            tree: None,
+        }
+    }
+    fn occludes(&mut self, origin: glam::DVec3, direction: glam::DVec3, limit: f64) -> bool {
+        if limit <= 0. {
+            return false;
+        }
+        let valid = origin.is_finite()
+            && origin.abs().max_element() <= MAX_VISIBILITY_COORD
+            && direction.is_finite()
+            && limit.is_finite();
+        if self.eligible
+            && valid
+            && !self.attempted
+            && self.scanned >= self.triangles.len().saturating_mul(8)
+        {
+            self.attempted = true;
+            self.tree = ClothVisibility::new(self.positions, self.triangles);
+        }
+        if let Some(tree) = &self.tree
+            && valid
+        {
+            return tree.occludes(origin, direction, limit, self.positions, self.triangles);
+        }
+        let found = self.triangles.iter().position(|t| {
+            picking::ray_triangle(origin, direction, t.vertices.map(|i| self.positions[i]))
+                .is_some_and(|(d, _)| d < limit)
+        });
+        if self.eligible && !self.attempted {
+            self.scanned = self
+                .scanned
+                .saturating_add(found.map_or(self.triangles.len(), |i| i + 1));
+        }
+        found.is_some()
+    }
+}
+
 fn ray_hits_bounds(
     origin: glam::DVec3,
     direction: glam::DVec3,
@@ -637,9 +697,7 @@ impl Atelier {
         let mesh = &self.scene.garment.mesh;
         let positions = &self.scene.state.x;
         let point_count: usize = selections.values().map(Vec::len).sum();
-        let use_bvh = point_count >= 64 && mesh.triangles.len() >= 256;
-        let mut visibility = None;
-        let mut visibility_attempted = false;
+        let mut visibility = ClothVisibilityQueries::new(positions, &mesh.triangles, point_count);
         for (index, panel) in self.project.template.panels.iter().enumerate() {
             let Some(points) = selections.get(&panel.id) else {
                 continue;
@@ -670,26 +728,7 @@ impl Atelier {
                 if self.scene.collider.occludes_ray(origin, direction, limit) {
                     continue;
                 }
-                if use_bvh && !visibility_attempted {
-                    visibility_attempted = true;
-                    visibility = ClothVisibility::new(positions, &mesh.triangles);
-                }
-                let cloth_occludes = || {
-                    mesh.triangles.iter().any(|t| {
-                        picking::ray_triangle(origin, direction, t.vertices.map(|i| positions[i]))
-                            .is_some_and(|(d, _)| d < limit)
-                    })
-                };
-                if if let Some(bvh) = &visibility
-                    && origin.is_finite()
-                    && origin.abs().max_element() <= MAX_VISIBILITY_COORD
-                    && direction.is_finite()
-                    && limit.is_finite()
-                {
-                    bvh.occludes(origin, direction, limit, positions, &mesh.triangles)
-                } else {
-                    cloth_occludes()
-                } {
+                if visibility.occludes(origin, direction, limit) {
                     continue;
                 }
                 painter.circle_filled(at, 5., Color32::from_rgb(24, 130, 239));
@@ -1154,6 +1193,31 @@ mod tests {
             "tested {tested} of {} triangles",
             triangles.len()
         );
+        let mut early = ClothVisibilityQueries::new(&positions, &triangles, 64);
+        for _ in 0..64 {
+            assert!(early.occludes(DVec3::new(1.2, 0.2, 1.), -DVec3::Z, 2.));
+        }
+        assert!(!early.attempted && early.tree.is_none());
+        let mut mixed = ClothVisibilityQueries::new(&positions, &triangles, 64);
+        for _ in 0..8 {
+            assert!(!mixed.occludes(DVec3::new(15.7, 15.7, 1.), -DVec3::Z, 2.));
+        }
+        assert!(!mixed.attempted);
+        assert!(mixed.occludes(DVec3::new(1.2, 0.2, 1.), -DVec3::Z, 2.));
+        assert!(mixed.attempted && mixed.tree.is_some());
+        let mut small = ClothVisibilityQueries::new(&positions, &triangles, 63);
+        for _ in 0..64 {
+            assert!(!small.occludes(DVec3::new(15.7, 15.7, 1.), -DVec3::Z, 2.));
+        }
+        assert!(!small.attempted && small.tree.is_none());
+        for i in 0..64 {
+            let origin = DVec3::new((i % 32) as f64 + 0.2, (i / 32) as f64 + 0.2, 1.);
+            let direct = triangles.iter().any(|t| {
+                picking::ray_triangle(origin, -DVec3::Z, t.vertices.map(|v| positions[v]))
+                    .is_some_and(|(d, _)| d < 2.)
+            });
+            assert_eq!(mixed.occludes(origin, -DVec3::Z, 2.), direct);
+        }
         // An informational synthetic timing, never a machine-dependent gate.
         // Each ray passes through a triangle's box but misses its surface.
         for count in [32, 64, 128, 512] {
@@ -1172,19 +1236,13 @@ mod tests {
             let direct = start.elapsed();
             let start = std::time::Instant::now();
             for _ in 0..10 {
-                let tree = ClothVisibility::new(&positions, &triangles).unwrap();
+                let mut queries = ClothVisibilityQueries::new(&positions, &triangles, count);
                 for &origin in &rays {
-                    std::hint::black_box(tree.occludes(
-                        origin,
-                        -DVec3::Z,
-                        2.,
-                        &positions,
-                        &triangles,
-                    ));
+                    std::hint::black_box(queries.occludes(origin, -DVec3::Z, 2.));
                 }
             }
             eprintln!(
-                "synthetic visibility: {count} rays, 1024 triangles, 10 repeats: direct={direct:?}, build+BVH={:?}",
+                "synthetic visibility: {count} rays, 1024 triangles, 10 repeats: direct={direct:?}, adaptive={:?}",
                 start.elapsed()
             );
         }
@@ -1220,19 +1278,52 @@ mod tests {
                 let direct = start.elapsed();
                 let start = std::time::Instant::now();
                 for _ in 0..3 {
-                    let tree = ClothVisibility::new(&large_positions, &large_triangles).unwrap();
+                    let mut queries =
+                        ClothVisibilityQueries::new(&large_positions, &large_triangles, count);
                     for &origin in &rays {
-                        std::hint::black_box(tree.occludes(
-                            origin,
-                            -DVec3::Z,
-                            2.,
-                            &large_positions,
-                            &large_triangles,
-                        ));
+                        std::hint::black_box(queries.occludes(origin, -DVec3::Z, 2.));
                     }
                 }
                 eprintln!(
-                    "large synthetic visibility: {count} rays, {} triangles, 3 repeats: direct={direct:?}, build+BVH={:?}",
+                    "large synthetic visibility: {count} rays, {} triangles, 3 repeats: direct={direct:?}, adaptive={:?}",
+                    large_triangles.len(),
+                    start.elapsed()
+                );
+            }
+            for mode in ["early-hit", "mixed"] {
+                let rays: Vec<_> = (0..64)
+                    .map(|i| {
+                        if mode == "early-hit" || i % 2 == 0 {
+                            DVec3::new(1.2, 0.2, 1.)
+                        } else {
+                            DVec3::new((i % 128) as f64 + 0.7, 0.7, 1.)
+                        }
+                    })
+                    .collect();
+                let start = std::time::Instant::now();
+                for _ in 0..3 {
+                    for &origin in &rays {
+                        std::hint::black_box(large_triangles.iter().any(|t| {
+                            picking::ray_triangle(
+                                origin,
+                                -DVec3::Z,
+                                t.vertices.map(|i| large_positions[i]),
+                            )
+                            .is_some_and(|(d, _)| d < 2.)
+                        }));
+                    }
+                }
+                let direct = start.elapsed();
+                let start = std::time::Instant::now();
+                for _ in 0..3 {
+                    let mut queries =
+                        ClothVisibilityQueries::new(&large_positions, &large_triangles, 64);
+                    for &origin in &rays {
+                        std::hint::black_box(queries.occludes(origin, -DVec3::Z, 2.));
+                    }
+                }
+                eprintln!(
+                    "large synthetic visibility: {mode}, 64 rays, {} triangles, 3 repeats: direct={direct:?}, adaptive={:?}",
                     large_triangles.len(),
                     start.elapsed()
                 );
