@@ -287,6 +287,12 @@ impl ProfileUi {
                         Ok(())=>{self.selected=Some(self.name.clone());self.error=None;}, Err(e)=>self.error=Some(e),
                     }
                 }
+                let duplicate= self.selected.as_ref().and_then(|name|store.profiles.iter().find(|p|&p.name==name)).cloned();
+                if button(ui,"profiles.duplicate","Duplicate selected",duplicate.is_some() && valid_name(&self.name).is_ok() && store.profiles.len()<MAX_PROFILES) {
+                    match store.save_profile(path,&self.name,duplicate.unwrap().snapshot,false) {
+                        Ok(())=>{self.selected=Some(self.name.clone());self.error=None;}, Err(e)=>self.error=Some(e),
+                    }
+                }
                 ui.horizontal(|ui| {
                     let selected=self.selected.as_ref().and_then(|name|store.profiles.iter().find(|p|&p.name==name)).cloned();
                     if button(ui,"profiles.restore","Restore",selected.is_some()) { restore=selected.as_ref().map(|p|p.snapshot.clone()); }
@@ -338,6 +344,44 @@ mod tests {
         for _ in 0..5 {
             h.frame(c, &mut draw);
         }
+    }
+    #[test]
+    fn duplicate_selected_uses_saved_snapshot_and_survives_reload() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(FILE_NAME);
+        let saved = Snapshot {
+            tools_visible: false,
+            ..Snapshot::default()
+        };
+        Store::default()
+            .save_profile(&path, "Original", saved.clone(), false)
+            .unwrap();
+        let mut c = Case {
+            ui: ProfileUi::default(),
+            path: path.clone(),
+            prefs: Preferences::default(),
+            tools: true,
+        };
+        c.ui.begin(&path);
+        let mut h = Harness::new(egui::vec2(1000., 1000.));
+        frames(&mut h, &mut c);
+        h.click("profiles.row.0", &mut c, &mut draw).unwrap();
+        h.replace_text("profiles.name", "Copy", &mut c, &mut draw)
+            .unwrap();
+        h.click("profiles.duplicate", &mut c, &mut draw).unwrap();
+        let store = Store::load(&path).unwrap();
+        assert_eq!(store.profiles.len(), 2);
+        assert_eq!(store.profiles[1].name, "Copy");
+        assert_eq!(store.profiles[1].snapshot, saved);
+        assert!(c.tools);
+        assert_eq!(c.ui.selected.as_deref(), Some("Copy"));
+        let bytes = std::fs::read(&path).unwrap();
+        h.replace_text("profiles.name", "original", &mut c, &mut draw)
+            .unwrap();
+        h.click("profiles.duplicate", &mut c, &mut draw).unwrap();
+        assert!(c.ui.error.is_some());
+        assert_eq!(std::fs::read(&path).unwrap(), bytes);
+        assert_eq!(Store::load(&path).unwrap(), store);
     }
     #[test]
     fn rename_preserves_snapshot_and_rolls_back_invalid_or_failed_writes() {
