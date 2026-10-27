@@ -219,6 +219,119 @@ fn apply_marquee_selection<T: Ord>(
     current
 }
 
+/// Per-repaint visibility broad phase, rebuilt from the current draped positions.
+/// This is only for editor markers; it is not used by collision detection.
+struct ClothVisibility {
+    tree: marvelous_cloth::ogc::bvh::Bvh,
+    nodes: Vec<marvelous_cloth::ogc::bvh::NodeView>,
+}
+// Extreme coordinates fall back to the existing exhaustive query, avoiding
+// unbounded cancellation in the optional visibility accelerator.
+const MAX_VISIBILITY_COORD: f64 = 1e6;
+impl ClothVisibility {
+    fn new(
+        positions: &[glam::DVec3],
+        triangles: &[marvelous_cloth::model::Triangle],
+    ) -> Option<Self> {
+        use marvelous_cloth::ogc::bvh::{Bounds, Bvh};
+        let mut boxes = Vec::with_capacity(triangles.len());
+        for triangle in triangles {
+            let p = triangle.vertices.map(|i| positions[i]);
+            if p.iter()
+                .any(|v| !v.is_finite() || v.abs().max_element() > MAX_VISIBILITY_COORD)
+            {
+                return None;
+            }
+            let magnitude = p.iter().map(|v| v.abs().max_element()).fold(1., f64::max);
+            boxes.push(Bounds::points(p).inflate(1e-12 + 16. * f64::EPSILON * magnitude));
+        }
+        let tree = Bvh::new(&boxes, &vec![true; boxes.len()]);
+        let nodes = tree.nodes().collect();
+        Some(Self { tree, nodes })
+    }
+    fn occludes(
+        &self,
+        origin: glam::DVec3,
+        direction: glam::DVec3,
+        max_t: f64,
+        positions: &[glam::DVec3],
+        triangles: &[marvelous_cloth::model::Triangle],
+    ) -> bool {
+        self.any_candidate(origin, direction, max_t, |i| {
+            picking::ray_triangle(
+                origin,
+                direction,
+                triangles[i].vertices.map(|v| positions[v]),
+            )
+            .is_some_and(|(d, _)| d < max_t)
+        })
+    }
+    fn any_candidate(
+        &self,
+        origin: glam::DVec3,
+        direction: glam::DVec3,
+        max_t: f64,
+        mut hit: impl FnMut(usize) -> bool,
+    ) -> bool {
+        let mut index = 0;
+        while index < self.nodes.len() {
+            let node = &self.nodes[index];
+            if !ray_hits_bounds(origin, direction, max_t, node.bounds) {
+                index = node.escape;
+                continue;
+            }
+            if node.children.is_none() {
+                for &i in &self.tree.primitive_order()[node.start..node.end] {
+                    if hit(i) {
+                        return true;
+                    }
+                }
+            }
+            index += 1;
+        }
+        false
+    }
+}
+
+fn ray_hits_bounds(
+    origin: glam::DVec3,
+    direction: glam::DVec3,
+    max_t: f64,
+    bounds: marvelous_cloth::ogc::bvh::Bounds,
+) -> bool {
+    if max_t <= 0. {
+        return false;
+    }
+    // Expand for rounding in the ray origin as well as in the geometry.
+    // False positives are harmless: the original exact triangle test decides.
+    let scale = origin
+        .abs()
+        .max(bounds.min.abs())
+        .max(bounds.max.abs())
+        .max_element()
+        .max(1.);
+    let margin = 32. * f64::EPSILON * scale;
+    let mut lo: f64 = 0.;
+    let mut hi = max_t + 32. * f64::EPSILON * max_t.abs().max(1.);
+    for axis in 0..3 {
+        if direction[axis] == 0. {
+            if origin[axis] < bounds.min[axis] - margin || origin[axis] > bounds.max[axis] + margin
+            {
+                return false;
+            }
+        } else {
+            let a = (bounds.min[axis] - margin - origin[axis]) / direction[axis];
+            let b = (bounds.max[axis] + margin - origin[axis]) / direction[axis];
+            lo = lo.max(a.min(b));
+            hi = hi.min(a.max(b));
+            if hi < lo {
+                return false;
+            }
+        }
+    }
+    true
+}
+
 // Clip before perspective division, including triangles crossing the near plane.
 fn clip_triangle(triangle: [glam::DVec4; 3]) -> Vec<glam::DVec4> {
     if triangle.iter().any(|p| !p.is_finite()) {
@@ -521,6 +634,12 @@ impl Atelier {
         }
         let board = &self.authoring.board;
         let selections = board.point_selections();
+        let mesh = &self.scene.garment.mesh;
+        let positions = &self.scene.state.x;
+        let point_count: usize = selections.values().map(Vec::len).sum();
+        let use_bvh = point_count >= 64 && mesh.triangles.len() >= 256;
+        let mut visibility = None;
+        let mut visibility_attempted = false;
         for (index, panel) in self.project.template.panels.iter().enumerate() {
             let Some(points) = selections.get(&panel.id) else {
                 continue;
@@ -548,16 +667,29 @@ impl Atelier {
                 };
                 let (origin, direction) = self.camera.ray(at, rect);
                 let limit = origin.distance(p) - 0.0001;
-                if self.scene.collider.occludes_ray(origin, direction, limit)
-                    || self.scene.garment.mesh.triangles.iter().any(|t| {
-                        picking::ray_triangle(
-                            origin,
-                            direction,
-                            t.vertices.map(|i| self.scene.state.x[i]),
-                        )
-                        .is_some_and(|(d, _)| d < limit)
+                if self.scene.collider.occludes_ray(origin, direction, limit) {
+                    continue;
+                }
+                if use_bvh && !visibility_attempted {
+                    visibility_attempted = true;
+                    visibility = ClothVisibility::new(positions, &mesh.triangles);
+                }
+                let cloth_occludes = || {
+                    mesh.triangles.iter().any(|t| {
+                        picking::ray_triangle(origin, direction, t.vertices.map(|i| positions[i]))
+                            .is_some_and(|(d, _)| d < limit)
                     })
+                };
+                if if let Some(bvh) = &visibility
+                    && origin.is_finite()
+                    && origin.abs().max_element() <= MAX_VISIBILITY_COORD
+                    && direction.is_finite()
+                    && limit.is_finite()
                 {
+                    bvh.occludes(origin, direction, limit, positions, &mesh.triangles)
+                } else {
+                    cloth_occludes()
+                } {
                     continue;
                 }
                 painter.circle_filled(at, 5., Color32::from_rgb(24, 130, 239));
@@ -917,6 +1049,196 @@ fn triangle_in_rect(triangle: [egui::Pos2; 3], rect: egui::Rect) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cloth_visibility_bvh_matches_exhaustive_queries_and_prunes_work() {
+        use glam::{DMat2, DVec3};
+        use marvelous_cloth::model::Triangle;
+        let mut positions = Vec::new();
+        let mut triangles = Vec::new();
+        for y in 0..32 {
+            for x in 0..32 {
+                let a = positions.len();
+                positions.extend([
+                    DVec3::new(x as f64, y as f64, 0.),
+                    DVec3::new(x as f64 + 0.8, y as f64, 0.),
+                    DVec3::new(x as f64, y as f64 + 0.8, 0.),
+                ]);
+                triangles.push(Triangle {
+                    vertices: [a, a + 1, a + 2],
+                    rest: [DVec2::ZERO; 3],
+                    inv_dm: DMat2::IDENTITY,
+                    area: 1.,
+                    material: 0,
+                });
+            }
+        }
+        triangles[0].vertices = [0, 0, 0]; // Degenerate triangles use the same narrow phase.
+        let bvh = ClothVisibility::new(&positions, &triangles).unwrap();
+        let mut invalid_positions = positions.clone();
+        invalid_positions[3].x = f64::NAN;
+        assert!(ClothVisibility::new(&invalid_positions, &triangles).is_none());
+        invalid_positions[3].x = MAX_VISIBILITY_COORD * 2.;
+        assert!(ClothVisibility::new(&invalid_positions, &triangles).is_none());
+        for x in 0..32 {
+            for y in [0, 7, 19, 31] {
+                for (u, v, limit) in [
+                    (0.2, 0.2, 2.),
+                    (0.7, 0.7, 2.),
+                    (0., 0., 2.),
+                    (0.2, 0.2, 1.),
+                    (0.2, 0.2, 0.5),
+                ] {
+                    let origin = DVec3::new(x as f64 + u, y as f64 + v, 1.);
+                    let direction = -DVec3::Z;
+                    let direct = triangles.iter().any(|t| {
+                        picking::ray_triangle(origin, direction, t.vertices.map(|i| positions[i]))
+                            .is_some_and(|(d, _)| d < limit)
+                    });
+                    assert_eq!(
+                        bvh.occludes(origin, direction, limit, &positions, &triangles),
+                        direct
+                    );
+                }
+            }
+        }
+        for direction in [DVec3::X, DVec3::Y, DVec3::ZERO, DVec3::new(1e-20, 0., -1.)] {
+            let origin = DVec3::new(0.2, 0.2, 1.);
+            let direct = triangles.iter().any(|t| {
+                picking::ray_triangle(origin, direction, t.vertices.map(|i| positions[i]))
+                    .is_some_and(|(d, _)| d < 2.)
+            });
+            assert_eq!(
+                bvh.occludes(origin, direction, 2., &positions, &triangles),
+                direct
+            );
+        }
+        let mut seed = 0x12345678_u64;
+        let mut deformed = positions.clone();
+        for (i, p) in deformed.iter_mut().enumerate() {
+            p.z = (i as f64 * 0.31).sin() * 0.4;
+        }
+        let deformed_bvh = ClothVisibility::new(&deformed, &triangles).unwrap();
+        let mut sample = || {
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+            (seed >> 32) as f64 / u32::MAX as f64
+        };
+        for _ in 0..512 {
+            let origin = DVec3::new(sample() * 32., sample() * 32., 0.1 + sample() * 10.);
+            let direction = DVec3::new(sample() * 2. - 1., sample() * 2. - 1., -sample());
+            let limit = 0.1 + sample() * 20.;
+            for (vertices, tree) in [(&positions, &bvh), (&deformed, &deformed_bvh)] {
+                let direct = triangles.iter().any(|t| {
+                    picking::ray_triangle(origin, direction, t.vertices.map(|i| vertices[i]))
+                        .is_some_and(|(d, _)| d < limit)
+                });
+                assert_eq!(
+                    tree.occludes(origin, direction, limit, vertices, &triangles),
+                    direct
+                );
+            }
+        }
+        let mut tested = 0;
+        let origin = DVec3::new(15.7, 15.7, 1.);
+        assert!(!bvh.any_candidate(origin, -DVec3::Z, 2., |i| {
+            tested += 1;
+            picking::ray_triangle(
+                origin,
+                -DVec3::Z,
+                triangles[i].vertices.map(|v| positions[v]),
+            )
+            .is_some_and(|(d, _)| d < 2.)
+        }));
+        assert!(
+            tested < triangles.len() / 4,
+            "tested {tested} of {} triangles",
+            triangles.len()
+        );
+        // An informational synthetic timing, never a machine-dependent gate.
+        // Each ray passes through a triangle's box but misses its surface.
+        for count in [32, 64, 128, 512] {
+            let rays: Vec<_> = (0..count)
+                .map(|i| DVec3::new((i % 32) as f64 + 0.7, ((i / 32) % 32) as f64 + 0.7, 1.))
+                .collect();
+            let start = std::time::Instant::now();
+            for _ in 0..10 {
+                for &origin in &rays {
+                    std::hint::black_box(triangles.iter().any(|t| {
+                        picking::ray_triangle(origin, -DVec3::Z, t.vertices.map(|i| positions[i]))
+                            .is_some_and(|(d, _)| d < 2.)
+                    }));
+                }
+            }
+            let direct = start.elapsed();
+            let start = std::time::Instant::now();
+            for _ in 0..10 {
+                let tree = ClothVisibility::new(&positions, &triangles).unwrap();
+                for &origin in &rays {
+                    std::hint::black_box(tree.occludes(
+                        origin,
+                        -DVec3::Z,
+                        2.,
+                        &positions,
+                        &triangles,
+                    ));
+                }
+            }
+            eprintln!(
+                "synthetic visibility: {count} rays, 1024 triangles, 10 repeats: direct={direct:?}, build+BVH={:?}",
+                start.elapsed()
+            );
+        }
+        if std::env::var_os("CLOTHCRAFT_VISIBILITY_BENCH").is_some() {
+            let mut large_positions = Vec::new();
+            let mut large_triangles = Vec::new();
+            for tile in 0..16 {
+                let offset = DVec3::new((tile % 4) as f64 * 32., (tile / 4) as f64 * 32., 0.);
+                let base = large_positions.len();
+                large_positions.extend(positions.iter().map(|p| *p + offset));
+                large_triangles.extend(triangles.iter().cloned().map(|mut t| {
+                    t.vertices = t.vertices.map(|i| i + base);
+                    t
+                }));
+            }
+            for count in [32, 64, 128, 512] {
+                let rays: Vec<_> = (0..count)
+                    .map(|i| DVec3::new((i % 128) as f64 + 0.7, ((i / 128) % 128) as f64 + 0.7, 1.))
+                    .collect();
+                let start = std::time::Instant::now();
+                for _ in 0..3 {
+                    for &origin in &rays {
+                        std::hint::black_box(large_triangles.iter().any(|t| {
+                            picking::ray_triangle(
+                                origin,
+                                -DVec3::Z,
+                                t.vertices.map(|i| large_positions[i]),
+                            )
+                            .is_some_and(|(d, _)| d < 2.)
+                        }));
+                    }
+                }
+                let direct = start.elapsed();
+                let start = std::time::Instant::now();
+                for _ in 0..3 {
+                    let tree = ClothVisibility::new(&large_positions, &large_triangles).unwrap();
+                    for &origin in &rays {
+                        std::hint::black_box(tree.occludes(
+                            origin,
+                            -DVec3::Z,
+                            2.,
+                            &large_positions,
+                            &large_triangles,
+                        ));
+                    }
+                }
+                eprintln!(
+                    "large synthetic visibility: {count} rays, {} triangles, 3 repeats: direct={direct:?}, build+BVH={:?}",
+                    large_triangles.len(),
+                    start.elapsed()
+                );
+            }
+        }
+    }
     #[test]
     fn ordinary_large_lasso_gesture_simplifies_without_losing_selection() {
         let ctx = egui::Context::default();
