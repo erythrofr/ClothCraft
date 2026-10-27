@@ -6,6 +6,39 @@
   },
   "tasks": [
     {
+      "id": "EXO-COORD-003",
+      "title": "Avoid redundant compilation for metadata-only pull requests",
+      "area": "coordination",
+      "status": "ready",
+      "depends_on": [
+        "EXO-COORD-002"
+      ],
+      "scope": [
+        ".github/workflows/cpu.yml",
+        ".github/workflows/build.yml",
+        ".github/workflows/release-windows.yml",
+        ".github/workflows/rewrite-catalog.yml",
+        "scripts/ci-change-scope.mjs",
+        "scripts/ci-change-scope.test.mjs",
+        "scripts/ci-policy.test.mjs",
+        "docs/ci-policy.md"
+      ],
+      "acceptance": [
+        "Classify the exact PR base/head diff with an audited explicit metadata-path allowlist. Unknown/source/asset/template/workflow/build/Cargo changes and unavailable, empty, malformed or truncated diff information require full validation; inspect both rename paths and deletions.",
+        "Always emit the seven existing required check names, with an explicit metadata-only decision summary rather than claiming a compilation ran. No top-level path filters. Main pushes and manual runs retain full validation.",
+        "Always run catalog, coordinator, classifier and CI-policy checks. Preserve the trusted serialized coordinator and read-only PR permissions; never execute untrusted PR input with privileged credentials.",
+        "Do not upload stale binaries or advertise metadata decisions as tested release artifacts. Retain current platform checks for all full-validation cases.",
+        "Add offline cases for allowed metadata, mixed/source/assets/workflows, rename/delete and failed/malformed diff acquisition. Verify real GitHub completion for metadata-only and source-changing revisions and record observed timings.",
+        "Revise unconditional-CPU policy assertions coherently with the approved decision gate; any uncertainty defaults to full checks. Document the allowlist rationale and limitations."
+      ],
+      "evidence": [
+        "https://github.com/erythrofr/ClothCraft/issues/158",
+        "https://github.com/erythrofr/ClothCraft/issues/8#issuecomment-6431998448"
+      ],
+      "related_prs": [],
+      "notes": "Proposed after catalog-only PR #156 rebuilt all release binaries. No implementation or reservation yet. Register #158 and obtain an accepted claim after manifest review. Do not weaken the current checks while this proposal is pending."
+    },
+    {
       "id": "EXO-QA-006",
       "title": "Ship and verify the local authoring process across platforms",
       "area": "release",

@@ -10,6 +10,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 
 | Task | Area | Status | Dependencies | Discussion |
 |---|---|---|---|---|
+| [EXO-COORD-003](#exo-coord-003) — Avoid redundant compilation for metadata-only pull requests | coordination | ready | EXO-COORD-002 | Not registered |
 | [EXO-QA-006](#exo-qa-006) — Ship and verify the local authoring process across platforms | release | done | EXO-UX-006 | [Issue](https://github.com/erythrofr/ClothCraft/issues/151) |
 | [EXO-COORD-001](#exo-coord-001) — Verify live task claim, heartbeat and release coordination | coordination | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/9) |
 | [EXO-COORD-002](#exo-coord-002) — Explain malformed reservation commands without changing ownership | coordination | done | EXO-COORD-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/129) |
@@ -92,6 +93,39 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-IO-010](#exo-io-010) — Import reviewed DXF contours as editable native panels | interchange | done | EXO-IO-002 | Not registered |
 | [EXO-IO-011](#exo-io-011) — Import reviewed SVG patterns in the native workspace | interchange | done | EXO-IO-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/103) |
 | [EXO-QA-005](#exo-qa-005) — Trace native appearance history through actual UI controls | validation | done | EXO-QA-004 | [Issue](https://github.com/erythrofr/ClothCraft/issues/135) |
+
+## EXO-COORD-003
+
+**Avoid redundant compilation for metadata-only pull requests**
+
+Status: ready. Dependencies: EXO-COORD-002.
+
+**Files / directories**
+
+- `.github/workflows/cpu.yml`
+- `.github/workflows/build.yml`
+- `.github/workflows/release-windows.yml`
+- `.github/workflows/rewrite-catalog.yml`
+- `scripts/ci-change-scope.mjs`
+- `scripts/ci-change-scope.test.mjs`
+- `scripts/ci-policy.test.mjs`
+- `docs/ci-policy.md`
+
+**Acceptance**
+
+- Classify the exact PR base/head diff with an audited explicit metadata-path allowlist. Unknown/source/asset/template/workflow/build/Cargo changes and unavailable, empty, malformed or truncated diff information require full validation; inspect both rename paths and deletions.
+- Always emit the seven existing required check names, with an explicit metadata-only decision summary rather than claiming a compilation ran. No top-level path filters. Main pushes and manual runs retain full validation.
+- Always run catalog, coordinator, classifier and CI-policy checks. Preserve the trusted serialized coordinator and read-only PR permissions; never execute untrusted PR input with privileged credentials.
+- Do not upload stale binaries or advertise metadata decisions as tested release artifacts. Retain current platform checks for all full-validation cases.
+- Add offline cases for allowed metadata, mixed/source/assets/workflows, rename/delete and failed/malformed diff acquisition. Verify real GitHub completion for metadata-only and source-changing revisions and record observed timings.
+- Revise unconditional-CPU policy assertions coherently with the approved decision gate; any uncertainty defaults to full checks. Document the allowlist rationale and limitations.
+
+**Evidence and related contributions**
+
+- https://github.com/erythrofr/ClothCraft/issues/158
+- https://github.com/erythrofr/ClothCraft/issues/8#issuecomment-6431998448
+
+Proposed after catalog-only PR #156 rebuilt all release binaries. No implementation or reservation yet. Register #158 and obtain an accepted claim after manifest review. Do not weaken the current checks while this proposal is pending.
 
 ## EXO-QA-006
 
