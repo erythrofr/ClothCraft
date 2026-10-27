@@ -115,9 +115,9 @@ copyright similarity or rights-holder investigation was performed. No code,
 asset or binary is imported by this follow-up. Existing runtime behavior is
 unchanged. Keep EXO-CORE-002 open while the source-specific questions remain.
 
-## Follow-up: current MARK-01 candidate (2026-10-26)
+## Follow-up: MARK-01 candidate at f642275 (2026-10-26)
 
-[PR #6](https://github.com/erythrofr/ClothCraft/pull/6) currently proposes
+[PR #6](https://github.com/erythrofr/ClothCraft/pull/6) then proposed
 `FireflyTheReal/ClothCraft` revision
 `f642275853d19e7e16637a9b8dc16b5ca7acc130`. This updates the dated inventory;
 it does not approve or import that proposal.
@@ -144,6 +144,32 @@ similarity investigation or exhaustive file/asset rights audit was performed.
 The DartCutSew origin question on [#66](https://github.com/erythrofr/ClothCraft/pull/66#issuecomment-6418173873)
 has no later clarification in the comments read on this date. Preserve that
 unresolved question; this MARK-01 evidence supplies no grant for other proposals.
+
+## Follow-up: MARK-01 review at 506bac6 (2026-10-27)
+
+The latest inspected [PR #6 head](https://github.com/erythrofr/ClothCraft/pull/6)
+is `506bac63457afef672fcd32d0eb7adf6d5363b1b`, not the historical `f642275`
+above. The pinned [LICENSE](https://github.com/FireflyTheReal/ClothCraft/blob/506bac63457afef672fcd32d0eb7adf6d5363b1b/LICENSE)
+still has Git blob `e9aeff0bad01690535d6b92b2ab27f7f725f4c3c`. The current
+[implementation notes](https://github.com/FireflyTheReal/ClothCraft/blob/506bac63457afef672fcd32d0eb7adf6d5363b1b/docs/markings.md)
+(blob `1b2297d191b7e0599d0744a198ffe2f59d62256e`) retain the contributor's
+independent-implementation and no-PR-#1-copy claims. They are attributed claims,
+not a comprehensive source-similarity or rights-holder audit. Current
+`src/garment/markings.rs` and `tests/pattern_markings.rs` blobs are respectively
+`0cf11283dfb660f7ea93d6a58771dd5f226a4185` and
+`a4fbb9af6b9cdda1dd836a9e20ba44015bd56210`.
+
+The previously reproduced malformed-hole case was corrected on this head and
+the independent [18 markings and six print tests](https://github.com/erythrofr/ClothCraft/pull/6#issuecomment-6448323706)
+pass. That review also reproduces a separate panic in the public cutting-contour
+helper on a malformed **outer** boundary; `build()` separately validates that
+input first. The [named-widget test](https://github.com/erythrofr/ClothCraft/pull/6#issuecomment-6448395767)
+passes on CPU but is not a native pointer or print acceptance test. Scope amendment
+[#139](https://github.com/erythrofr/ClothCraft/pull/139) has since merged as
+`ebe37d30b3a4e04d68d39ad98b630411c9a535fb`; it does not resolve the helper
+failure or approve the PR. Preserve the outstanding engineering review and
+the separate #66 source-origin question. No code, assets or permissions are
+imported by this evidence update.
 
 ## Evidence required before an actual code or asset transfer
 
