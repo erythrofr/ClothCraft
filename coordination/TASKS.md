@@ -31,7 +31,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-SEW-002](#exo-sew-002) — Define authored trims and construction annotations | sewing | ready | EXO-CORE-001 | Not registered |
 | [EXO-SEW-003](#exo-sew-003) — Add trim editing, picking and previews | sewing | blocked | EXO-SEW-002 | Not registered |
 | [EXO-SEW-004](#exo-sew-004) — Specify and validate physical zipper or button closure | physics | blocked | EXO-SEW-002, EXO-PHY-001 | Not registered |
-| [EXO-SEW-005](#exo-sew-005) — Define elastic seam and gathering mechanics | physics | blocked | EXO-SEW-001, EXO-PHY-001 | Not registered |
+| [EXO-SEW-005](#exo-sew-005) — Define elastic seam and gathering mechanics | physics | ready | EXO-SEW-001, EXO-PHY-001 | Not registered |
 | [EXO-MFG-001](#exo-mfg-001) — Report net material area and mass from rest geometry | manufacturing | done | — | Not registered |
 | [EXO-MFG-002](#exo-mfg-002) — Add cut quantities and manufacturing metadata | manufacturing | blocked | EXO-CORE-001, EXO-REV-001 | Not registered |
 | [EXO-MFG-003](#exo-mfg-003) — Define sizes and point grading rules | manufacturing | blocked | EXO-CORE-001, EXO-CAD-003 | Not registered |
@@ -655,7 +655,7 @@ Research/acceptance task; production integration requires a separate reviewed re
 
 **Define elastic seam and gathering mechanics**
 
-Status: blocked. Dependencies: EXO-SEW-001, EXO-PHY-001.
+Status: ready. Dependencies: EXO-SEW-001, EXO-PHY-001.
 
 **Files / directories**
 
@@ -673,7 +673,7 @@ Status: blocked. Dependencies: EXO-SEW-001, EXO-PHY-001.
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/backends/protocol.js
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/sewingConstruction.js
 
-
+Dependencies SEW-001 and PHY-001 are delivered. Ready for a bounded CPU research probe, not a production solver change. First reproduce the current compiled-seam energy/force behavior and unequal-length geometric easing on a public two-panel fixture. Any experimental elastic law must state rest length, stiffness units and energy, verify gradients with finite differences, and test pull/hold/release from identical x/v/time and material geometry. Report residual motion and complete step cost separately; no arbitrary projection, sleep threshold or increased damping as a claimed physical fix. Keep the experiment opt-in and current easing/worker/contact behavior unchanged. Only docs/elastic-seams.md and examples/elastic_seam_probe.rs are authorized; request a reviewed expansion if production internals are inaccessible. Register a task issue and obtain an accepted claim before implementation.
 
 ## EXO-MFG-001
 

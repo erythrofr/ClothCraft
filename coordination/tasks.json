@@ -562,7 +562,7 @@
       "id": "EXO-SEW-005",
       "title": "Define elastic seam and gathering mechanics",
       "area": "physics",
-      "status": "blocked",
+      "status": "ready",
       "depends_on": [
         "EXO-SEW-001",
         "EXO-PHY-001"
@@ -581,7 +581,7 @@
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/sewingConstruction.js"
       ],
       "related_prs": [],
-      "notes": ""
+      "notes": "Dependencies SEW-001 and PHY-001 are delivered. Ready for a bounded CPU research probe, not a production solver change. First reproduce the current compiled-seam energy/force behavior and unequal-length geometric easing on a public two-panel fixture. Any experimental elastic law must state rest length, stiffness units and energy, verify gradients with finite differences, and test pull/hold/release from identical x/v/time and material geometry. Report residual motion and complete step cost separately; no arbitrary projection, sleep threshold or increased damping as a claimed physical fix. Keep the experiment opt-in and current easing/worker/contact behavior unchanged. Only docs/elastic-seams.md and examples/elastic_seam_probe.rs are authorized; request a reviewed expansion if production internals are inaccessible. Register a task issue and obtain an accepted claim before implementation."
     },
     {
       "id": "EXO-MFG-001",
