@@ -90,7 +90,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-PHY-004](#exo-phy-004) — Expose correctly timed contact and residual diagnostics in the native Simulation inspector | physics | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/72) |
 | [EXO-IO-009](#exo-io-009) — Integrate static avatar import into the workspace | interchange | done | EXO-IO-007, EXO-UX-005 | [Issue](https://github.com/erythrofr/ClothCraft/issues/64) |
 | [EXO-IO-010](#exo-io-010) — Import reviewed DXF contours as editable native panels | interchange | done | EXO-IO-002 | Not registered |
-| [EXO-IO-011](#exo-io-011) — Import reviewed SVG patterns in the native workspace | interchange | ready | EXO-IO-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/103) |
+| [EXO-IO-011](#exo-io-011) — Import reviewed SVG patterns in the native workspace | interchange | done | EXO-IO-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/103) |
 | [EXO-QA-005](#exo-qa-005) — Trace native appearance history through actual UI controls | validation | done | EXO-QA-004 | [Issue](https://github.com/erythrofr/ClothCraft/issues/135) |
 
 ## EXO-QA-006
@@ -1441,12 +1441,20 @@ Status: ready. Dependencies: EXO-CORE-001.
 - `src/atelier/stage_settings.rs`
 - `tests/stage_settings.rs`
 - `src/atelier.rs`
+- `src/render/appearance.rs`
+- `src/render.rs`
+- `src/cloth.wgsl`
+- `tests/shader.rs`
+- `docs/stage-settings.md`
 
 **Acceptance**
 
 - Persist camera/environment/light settings separately from solver inputs.
 - Preserve current background/floor controls and existing preferences.
 - Validate values and asset references; decorative geometry is not a physical collider.
+- Expose bounded directional-light rotation and ambient/key intensity controls through the existing Presentation UI. Wire both legacy/diagnostic and authored-optics shader paths to the same presentation settings; defaults preserve current lighting. Do not add fake HDRI or asset controls.
+- Keep old preferences and fixed-rig presentation snapshots loadable with documented defaults. Save the new configurable rig with explicit version/identity validation; reject unsupported assets or invalid snapshots without partial application.
+- Validate host/WGSL uniform layout and named controls on CPU; use separately authorized native captures to check directional changes and intensity endpoints. Presentation edits must preserve garment/history/worker state. Clearly distinguish illustrative lighting and floor-shadow presentation from calibrated materials or physical collision.
 
 **Evidence and related contributions**
 
@@ -1454,7 +1462,7 @@ Status: ready. Dependencies: EXO-CORE-001.
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/sceneCameraViewport.js
 - https://github.com/erythrofr/ClothCraft/pull/121
 
-Camera and viewport presentation snapshots merged in #121 as 1f56c2d after seven successful checks at 6d7168a. Workspace > Presentation saves/restores bounded validated JSON independently of garment and solver state; three named-control/persistence fixtures passed within 113 desktop CPU tests. Native parent-menu interaction remains unverified. Lighting only identifies the fixed rig: editable lights, HDRI assets and decorative geometry are not implemented. Task remains incomplete; do not duplicate the existing snapshot implementation. See issue #120 and the merged PR for acceptance boundaries.
+Camera/background/floor snapshots are delivered by #121. Extend that existing implementation with a configurable directional rig, rather than adding another settings store. Source review at 8ea3c1e finds fixed directions/gains in both cloth.wgsl shading paths, an 80-byte host View uniform and a CPU layout test; update them coherently. Scope expansion is proposed while #120 has no reservation and does not overlap Firefly's active markings paths. Obtain a fresh accepted claim after review. HDRI, multiple lights and decorative geometry remain outside this bounded first lighting integration.
 
 ## EXO-LOOK-008
 
@@ -2288,7 +2296,7 @@ Delivered by #92 as d98e889 after all seven checks passed at fb4e203. Five backe
 
 **Import reviewed SVG patterns in the native workspace**
 
-Status: ready. Dependencies: EXO-IO-001.
+Status: done. Dependencies: EXO-IO-001.
 
 **Files / directories**
 
@@ -2312,8 +2320,9 @@ Status: ready. Dependencies: EXO-IO-001.
 - https://github.com/erythrofr/ClothCraft/pull/101
 - https://github.com/erythrofr/ClothCraft/pull/107
 - https://github.com/erythrofr/ClothCraft/pull/149
+- https://github.com/erythrofr/ClothCraft/pull/155
 
-Native SVG adapter merged in #107; board framing and paused native import/save/reopen evidence followed in #149. The four CPU fixtures call prepare_svg_edit and manually test History/state_after; they do not call Atelier::install_edit. The source audit on #103 (comment 6431433730) identifies the remaining in-flight installer acceptance gap. Extend the existing smoke, not the import model or solver. Native cancellation/Undo and concurrent-worker verification remain incomplete. Scope adds authoring_smoke.rs while #103 has no active reservation; a fresh accepted claim is required. See docs/svg-import.md for exact evidence and limitations.
+Delivered by #107, #149 and #155 (last merge 8ea3c1e994e34fdc71a3a1ed67458dc7e07da76f after seven checks passed at aa476b3). Four CPU adapter fixtures cover invalid input, cancellation, rollback, preparation, history and portable reopen. #149 records actual Windows picker/import/save/reopen. #155's nine native actions traverse the real installer with a deliberately delayed real worker reply: original x/v/time preserved, stale generation rejected, clean-to-dirty transition and one history entry with Undo/Redo. Native code 488e34c; full desktop CPU suite 132 passed, one optional preview ignored. Reservation released on #103. This completes the scoped SVG workflow, not general concurrency, all native platforms or GPU-solver certification. See docs/svg-import.md for exact evidence and remaining limits.
 
 ## EXO-QA-005
 
