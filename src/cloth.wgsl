@@ -51,6 +51,8 @@ fn fs_main(in: VertexOut, @builtin(front_facing) front: bool) -> @location(0) ve
     let edges = smoothstep(vec3<f32>(0.0), derivative * 1.2, in.barycentric);
     let wire = min(edges.x, min(edges.y, edges.z));
     let wire_factor = mix(1.0, 0.28 + 0.72 * wire, in.color.a);
+    let tex_dx = dpdx(in.texcoord);
+    let tex_dy = dpdy(in.texcoord);
     if in.roughness < 0.0 {
         return vec4f(in.color.rgb * lighting * wire_factor, 1.0);
     }
@@ -72,7 +74,7 @@ fn fs_main(in: VertexOut, @builtin(front_facing) front: bool) -> @location(0) ve
     let specular = distribution * gv * gl * fresnel / max(4.0 * nv, 0.0001);
     var base_color = in.color.rgb;
     if in.layer >= 0 {
-        base_color *= textureSampleLevel(albedo_maps, albedo_sampler, in.texcoord, in.layer, 0.0).rgb;
+        base_color *= textureSampleGrad(albedo_maps, albedo_sampler, in.texcoord, in.layer, tex_dx, tex_dy).rgb;
     }
     let rgb = (base_color * (0.25 * view.ambient.x + 0.7 * view.light.w * nl * (1.0 - fresnel)) + vec3f(0.2 * view.light.w * specular)) * wire_factor;
     return vec4f(encode_srgb(rgb), 1.0);

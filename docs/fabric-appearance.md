@@ -19,9 +19,11 @@ can still be substantially larger than the input PNG. Readers also accept the
 byte-array representation used by earlier development drafts. Tile size is 0.001–100 m per axis;
 rotation is in degrees around the material-space origin, independent of panel
 placement and grain. An image is multiplied by the chosen fabric color. The
-draft renderer expands images to 256×256 with nearest-neighbor resampling and
-uses linear repeated sampling without mipmaps. This may alias at distance and
-is not a calibrated fabric appearance. Diagnostic overlays take precedence.
+draft renderer expands images to 256×256 with nearest-neighbor resampling,
+builds mip levels in linear light and uses linear repeated sampling. The fixed
+source resolution and filtering are not a calibrated fabric appearance;
+native visual quality and performance remain unverified. Diagnostic overlays
+take precedence.
 The existing pattern clipboard has a 2 MiB serialized size limit. Two distinct
 maximum-size textures fit, but larger selections can exceed it; copying then
 returns an error without dropping texture data. Compressed portable storage
@@ -31,7 +33,9 @@ project loaders read the entire file first, and a document can contain many
 records before compilation checks the 16-texture limit.
 Pixel arrays are shared immutably between document/history copies; the viewport
 reuses a previously validated pixel allocation and still rechecks dimensions
-and texture parameters. The GPU cache is rebuilt when authored maps change.
+and texture parameters. The GPU array reserves approximately 5.3 MiB for 16
+layers plus mip levels (excluding driver overhead); layers are rebuilt when
+their pixels change, not when only tile size or rotation changes.
 An opt-in CPU microbenchmark in `tests/appearance.rs` compares opacity scans
 with shared-allocation identity checks; it does not measure a full frame or GPU.
 
