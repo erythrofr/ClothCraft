@@ -1829,6 +1829,103 @@ mod tests {
     }
 
     #[test]
+    fn named_board_click_resolves_overlapping_panel_and_hole_owner() {
+        use super::super::authoring_smoke::widget_harness::{Harness, named};
+        use marvelous_cloth::garment::{
+            domain::Hole,
+            shapes::{Primitive, primitive},
+        };
+        struct Case {
+            board: super::super::board::Board,
+            template: GarmentTemplate,
+            trims: Vec<Trim>,
+            at: DVec2,
+            selected: Option<usize>,
+        }
+        let mut template = GarmentTemplate::two_panel_demo();
+        let mut polygon = primitive(
+            Primitive::Rectangle,
+            DVec2::new(0.4, 0.6),
+            90.,
+            Default::default(),
+        )
+        .unwrap();
+        polygon.holes.push(Hole {
+            points: vec![
+                DVec2::new(0.15, 0.2),
+                DVec2::new(0.15, 0.4),
+                DVec2::new(0.25, 0.4),
+                DVec2::new(0.25, 0.2),
+            ],
+            edges: (0..4).map(|i| format!("hole_{i}")).collect(),
+        });
+        template.panels[1].polygon = Some(polygon);
+        let button = |id: &str, panel: &str, p: DVec2| Trim {
+            id: id.into(),
+            panel_id: panel.into(),
+            kind: TrimKind::Button {
+                center_m: p,
+                diameter_m: 0.02,
+            },
+        };
+        let mut board = super::super::board::Board::default();
+        board.set_view_rotation_degrees(33.);
+        let mut case = Case {
+            board,
+            template,
+            at: DVec2::new(0.1, 0.3),
+            selected: None,
+            trims: vec![
+                button("left_outer", "left", DVec2::new(0.1, 0.3)),
+                button("right_outer", "right", DVec2::new(0.1, 0.3)),
+                button("left_hole", "left", DVec2::new(0.2, 0.3)),
+                button("right_hole", "right", DVec2::new(0.2, 0.3)),
+                button("right_edge", "right", DVec2::new(0.15, 0.3)),
+            ],
+        };
+        let mut draw = |ui: &mut egui::Ui, case: &mut Case| {
+            let (rect, response) =
+                ui.allocate_exact_size(egui::vec2(400., 400.), egui::Sense::click());
+            named(ui, &response, "trim.owner.canvas");
+            if response.clicked()
+                && let Some(pointer) = response.interact_pointer_pos()
+            {
+                let angle = 23.;
+                let origin =
+                    case.board.world(rect, rect.center()) - authoring::rotate_2d(case.at, angle);
+                let owner = super::super::board::panel_body_owner(
+                    case.template
+                        .panels
+                        .iter()
+                        .rev()
+                        .map(|panel| (panel, panel.polygon.as_ref(), origin, angle)),
+                    case.board.world(rect, pointer),
+                );
+                let project = |p| {
+                    case.board
+                        .screen(rect, origin + authoring::rotate_2d(p, angle))
+                };
+                case.selected =
+                    owner.and_then(|id| pick_board_trim(&case.trims, id, pointer, &project));
+            }
+        };
+        let mut harness = Harness::new(egui::vec2(500., 500.));
+        for (at, expected) in [
+            (DVec2::new(0.1, 0.3), Some(1)),
+            (DVec2::new(0.2, 0.3), Some(2)),
+            (DVec2::new(0.15, 0.3), Some(4)),
+            (DVec2::new(0.6, 0.3), None),
+        ] {
+            case.at = at;
+            harness.frame(&mut case, &mut draw);
+            harness
+                .click("trim.owner.canvas", &mut case, &mut draw)
+                .unwrap();
+            assert_eq!(case.selected, expected, "{at:?}");
+        }
+    }
+
+    #[test]
     fn named_board_click_picks_owned_trim_and_nearest_visible_geometry() {
         use super::super::authoring_smoke::widget_harness::{Harness, named};
         struct Case {

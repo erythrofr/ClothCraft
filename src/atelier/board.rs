@@ -633,7 +633,7 @@ fn on_outline(p: DVec2, poly: &[DVec2]) -> bool {
 
 /// Resolve the topmost panel body in board order. This is separate from tool
 /// handles and edge hits: a trim belongs to the panel under its material point.
-fn panel_body_owner<'a>(
+pub(super) fn panel_body_owner<'a>(
     panels: impl Iterator<Item = (&'a Panel, Option<&'a PolygonPattern>, DVec2, f64)>,
     world: DVec2,
 ) -> Option<&'a str> {
