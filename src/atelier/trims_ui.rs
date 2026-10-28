@@ -978,6 +978,21 @@ fn preview_inputs<'a>(
 }
 
 impl TrimUi {
+    /// Display-only copies; material coordinates stay in the owning panel frame.
+    pub(super) fn repeat_board_previews(&self, panel: &str, committed: &[Trim]) -> Vec<Trim> {
+        let Some(draft) = self
+            .draft
+            .as_ref()
+            .filter(|draft| draft.repeat && draft.panel == panel)
+        else {
+            return Vec::new();
+        };
+        let (inputs, range, _) = preview_inputs(committed, Some(draft));
+        range.map_or_else(Vec::new, |(start, count)| {
+            inputs[start..start + count].to_vec()
+        })
+    }
+
     pub(super) fn board_placement_active(&self) -> bool {
         self.draft.as_ref().is_some_and(|draft| {
             draft.place_on_board || draft.place_on_3d || draft.draw_backup.is_some()
@@ -1168,7 +1183,7 @@ impl Atelier {
             .trims
             .draft
             .as_ref()
-            .filter(|d| d.panel == panel)
+            .filter(|d| d.panel == panel && !d.repeat)
             .and_then(|d| d.parse().ok())
     }
     pub(super) fn trim_drawing_points(&self, panel: &str) -> Option<&[DVec2]> {
@@ -1392,7 +1407,7 @@ fn trim_controls(
             if let Some(draft) = state.draft.as_mut() {
                 if draft.repeat {
                     ui.strong("Repeat construction trim");
-                    ui.small("Copies are offset in panel-local millimetres; Apply checks every copy.");
+                    ui.small("Copies use panel-local millimetres; Apply checks every center or path. The 2D/3D preview shows at most 16 copies and may be incomplete in busy scenes.");
                     ui.horizontal(|ui| {
                         ui.label("Copies");
                         let count = ui.add(egui::DragValue::new(&mut draft.repeat_copies).range(1..=128));
@@ -1782,6 +1797,68 @@ mod tests {
                 values[((values.len() - 1) as f64 * 0.95).ceil() as usize]
             );
         }
+    }
+
+    #[test]
+    fn repeat_board_previews_use_material_frame_and_shared_budget() {
+        let mut template = GarmentTemplate::two_panel_demo();
+        let original = Trim {
+            id: "source".into(),
+            panel_id: template.panels[0].id.clone(),
+            kind: TrimKind::Button {
+                center_m: DVec2::new(0.1, 0.1),
+                diameter_m: 0.01,
+            },
+        };
+        template.trims.push(original.clone());
+        let mut draft = TrimDraft::from_trim(&original);
+        draft.repeat = true;
+        draft.repeat_copies = 3;
+        let ui = TrimUi {
+            draft: Some(draft),
+            ..Default::default()
+        };
+        let copies = ui.repeat_board_previews(&original.panel_id, &template.trims);
+        assert_eq!(copies.len(), 3);
+        assert!(
+            ui.repeat_board_previews("other", &template.trims)
+                .is_empty()
+        );
+        let before = serde_json::to_vec(&template).unwrap();
+        let ctx = egui::Context::default();
+        let mut budget = 2;
+        let mut output = ctx.run_ui(
+            egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(500., 500.),
+                )),
+                ..Default::default()
+            },
+            |ui| {
+                let point = |p| {
+                    let p = authoring::rotate_2d(p, 90.);
+                    egui::pos2(200. + p.x as f32 * 1000., 50. + p.y as f32 * 1000.)
+                };
+                for trim in &copies {
+                    paint_trim_2d(ui.painter(), &point, trim, &mut budget, Color32::GOLD);
+                }
+            },
+        );
+        let centers: Vec<_> = output
+            .shapes
+            .iter()
+            .filter_map(|shape| match &shape.shape {
+                egui::Shape::Circle(circle) if circle.fill == Color32::GOLD => Some(circle.center),
+                _ => None,
+            })
+            .collect();
+        output.textures_delta.clear();
+        assert_eq!(centers.len(), 2);
+        assert!(centers[0].distance(egui::pos2(100., 170.)) < 0.01);
+        assert!(centers[1].distance(egui::pos2(100., 190.)) < 0.01);
+        assert_eq!(budget, 0);
+        assert_eq!(serde_json::to_vec(&template).unwrap(), before);
     }
 
     #[test]

@@ -2618,6 +2618,22 @@ impl Atelier {
                         break;
                     }
                 }
+                for draft in self
+                    .authoring
+                    .trims
+                    .repeat_board_previews(&panel.id, &self.project.template.trims)
+                {
+                    super::trims_ui::paint_trim_2d(
+                        &painter,
+                        &point,
+                        &draft,
+                        &mut trim_preview_budget,
+                        Color32::from_rgb(0xDB, 0x81, 0x05),
+                    );
+                    if trim_preview_budget == 0 {
+                        break;
+                    }
+                }
                 if let Some(draft) = self.trim_draft_preview(&panel.id) {
                     super::trims_ui::paint_trim_2d(
                         &painter,
