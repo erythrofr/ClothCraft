@@ -53,8 +53,11 @@ The 3D overlay follows the deformed surface using transient material attachments
 rebuilt after remeshing. Multi-row topstitch uses the authored material-space
 offsets and the same bevel connectors, embedded along the surface.
 If any row leaves the panel or exceeds a limit, the entire object is skipped
-with a warning. Buttons remain markers and zipper/buttonhole paths remain center
-lines, not actual hardware shapes or widths. Occlusion is sampled at line endpoints and midpoints,
+with a warning. Zippers and buttonholes show a centerline and two surface-following
+width edges; the edges have bevel joins and no end caps. If those edges leave the
+panel or exceed a limit, the centerline remains with a simplification warning.
+Buttons remain markers, and none of these overlays represent physical hardware.
+Occlusion is sampled at line endpoints and midpoints,
 not per pixel. Preview work is bounded: at most 128 objects, 4096 input points,
 512 embedded points. Visibility uses direct ray tests for small batches and a
 cached, position-refitted editor BVH for larger batches, with a 100,000-triangle
