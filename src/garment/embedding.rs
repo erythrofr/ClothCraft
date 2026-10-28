@@ -165,6 +165,41 @@ impl MaterialIndex {
             uv,
         })
     }
+
+    /// Return triangles whose inflated material-space boxes overlap the
+    /// segment box, in the original mesh order. The index is never used for
+    /// physical collision detection.
+    fn segment_candidates(
+        &self,
+        start: DVec2,
+        end: DVec2,
+        work: &mut usize,
+    ) -> Result<Vec<usize>, String> {
+        use crate::ogc::bvh::Bounds;
+        let query = Bounds::points([start.extend(0.), end.extend(0.)]);
+        let mut candidates = Vec::new();
+        let mut index = 0;
+        while index < self.nodes.len() {
+            charge(work, 1)?;
+            let node = &self.nodes[index];
+            if !node.bounds.overlaps(query) {
+                index = node.escape;
+                continue;
+            }
+            if node.children.is_none() {
+                for &id in &self.tree.primitive_order()[node.start..node.end] {
+                    charge(work, 1)?;
+                    if self.bounds[id].overlaps(query) {
+                        candidates.push(self.first + id);
+                    }
+                }
+            }
+            index += 1;
+        }
+        candidates.sort_unstable();
+        charge(work, candidates.len())?;
+        Ok(candidates)
+    }
 }
 impl CompiledGarment {
     /// Embed a path with bounded indexed point queries. Unusual or
@@ -190,8 +225,9 @@ impl CompiledGarment {
             if segment[0].distance_squared(segment[1]) < 1e-24 {
                 continue;
             }
-            charge(&mut work, range.len())?;
-            let (breaks, probes) = self.material_breaks(range.clone(), segment[0], segment[1]);
+            let candidates = index.segment_candidates(segment[0], segment[1], &mut work)?;
+            let (breaks, probes) =
+                self.material_breaks(candidates.into_iter(), segment[0], segment[1]);
             for probe in probes {
                 index.point(
                     self,
@@ -223,7 +259,7 @@ impl CompiledGarment {
 
     fn material_breaks(
         &self,
-        triangles: std::ops::Range<usize>,
+        triangles: impl Iterator<Item = usize>,
         start: DVec2,
         end: DVec2,
     ) -> (Vec<f64>, Vec<f64>) {
