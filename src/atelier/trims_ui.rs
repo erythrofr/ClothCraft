@@ -243,6 +243,62 @@ fn closer_trim(candidate: (f32, f32), previous: (f32, f32)) -> bool {
     candidate.0 < previous.0 || (candidate.0 == previous.0 && candidate.1 < previous.1)
 }
 
+/// Pick among trims belonging to the board's already-resolved topmost panel.
+fn pick_board_trim(
+    trims: &[Trim],
+    owner: &str,
+    screen: egui::Pos2,
+    project: &impl Fn(DVec2) -> egui::Pos2,
+) -> Option<usize> {
+    let mut best: Option<((f32, f32), usize)> = None;
+    let mut remaining = 4096usize;
+    for (index, trim) in trims.iter().enumerate() {
+        if trim.panel_id != owner {
+            continue;
+        }
+        let (points, width, topstitch) = match &trim.kind {
+            TrimKind::Button { center_m, .. } => (vec![*center_m], None, None),
+            TrimKind::Buttonhole {
+                start_m,
+                end_m,
+                width_m,
+            } => (vec![*start_m, *end_m], Some(*width_m), None),
+            TrimKind::Zipper { path_m, width_m } => (path_m.clone(), Some(*width_m), None),
+            TrimKind::Topstitch {
+                path_m,
+                rows,
+                spacing_m,
+            } => (path_m.clone(), None, Some((*rows, *spacing_m))),
+        };
+        let cost = board_trim_cost(
+            points.len(),
+            width.is_some(),
+            topstitch.map(|(rows, _)| rows),
+        );
+        if cost > remaining {
+            break;
+        }
+        remaining -= cost;
+        let distance = if let Some((rows, spacing)) = topstitch {
+            board_topstitch_distance(screen, &points, rows, spacing, project)
+        } else {
+            board_trim_distance(screen, &points, width, project)
+        };
+        let score = (
+            distance,
+            board_trim_distance(screen, &points, None, project),
+        );
+        if distance <= 8.
+            && best
+                .as_ref()
+                .is_none_or(|(old, _)| closer_trim(score, *old))
+        {
+            best = Some((score, index));
+        }
+    }
+    best.map(|(_, index)| index)
+}
+
 pub(super) fn paint_trim_2d(
     painter: &egui::Painter,
     point: &impl Fn(DVec2) -> egui::Pos2,
@@ -1195,67 +1251,28 @@ impl Atelier {
         let Some(owner) = self.board_panel_at(rect, screen) else {
             return false;
         };
-        let mut best: Option<((f32, f32), Trim)> = None;
-        let mut remaining = 4096usize;
-        for trim in &self.project.template.trims {
-            if trim.panel_id != owner {
-                continue;
-            }
-            let Some(index) = self
-                .project
-                .template
-                .panels
-                .iter()
-                .position(|p| p.id == trim.panel_id)
-            else {
-                continue;
-            };
-            let (points, width, topstitch) = match &trim.kind {
-                TrimKind::Button { center_m, .. } => (vec![*center_m], None, None),
-                TrimKind::Buttonhole {
-                    start_m,
-                    end_m,
-                    width_m,
-                } => (vec![*start_m, *end_m], Some(*width_m), None),
-                TrimKind::Zipper { path_m, width_m } => (path_m.clone(), Some(*width_m), None),
-                TrimKind::Topstitch {
-                    path_m,
-                    rows,
-                    spacing_m,
-                } => (path_m.clone(), None, Some((*rows, *spacing_m))),
-            };
-            let cost = board_trim_cost(
-                points.len(),
-                width.is_some(),
-                topstitch.map(|(rows, _)| rows),
-            );
-            if cost > remaining {
-                break;
-            }
-            remaining -= cost;
-            let origin = self.board_origin(index);
-            let angle = self.board_angle(index);
-            let screen_point = |p| {
-                self.authoring
-                    .board
-                    .screen(rect, origin + authoring::rotate_2d(p, angle))
-            };
-            let distance = if let Some((rows, spacing)) = topstitch {
-                board_topstitch_distance(screen, &points, rows, spacing, &screen_point)
-            } else {
-                board_trim_distance(screen, &points, width, &screen_point)
-            };
-            let center_distance = board_trim_distance(screen, &points, None, &screen_point);
-            let score = (distance, center_distance);
-            if distance <= 8.
-                && best
-                    .as_ref()
-                    .is_none_or(|(old, _)| closer_trim(score, *old))
-            {
-                best = Some((score, trim.clone()));
-            }
-        }
-        let Some((_, trim)) = best else { return false };
+        let Some(index) = self
+            .project
+            .template
+            .panels
+            .iter()
+            .position(|p| p.id == owner)
+        else {
+            return false;
+        };
+        let origin = self.board_origin(index);
+        let angle = self.board_angle(index);
+        let screen_point = |p| {
+            self.authoring
+                .board
+                .screen(rect, origin + authoring::rotate_2d(p, angle))
+        };
+        let Some(trim_index) =
+            pick_board_trim(&self.project.template.trims, owner, screen, &screen_point)
+        else {
+            return false;
+        };
+        let trim = self.project.template.trims[trim_index].clone();
         self.select_panel(trim.panel_id.clone(), false);
         self.authoring.trims.draft = Some(TrimDraft::from_trim(&trim));
         self.status = format!("Selected {} · {}", label(&trim.kind), trim.id);
@@ -1809,6 +1826,110 @@ mod tests {
         let mut budget = 3;
         assert_eq!(paint(&mut budget), 0);
         assert_eq!(budget, 0);
+    }
+
+    #[test]
+    fn named_board_click_picks_owned_trim_and_nearest_visible_geometry() {
+        use super::super::authoring_smoke::widget_harness::{Harness, named};
+        struct Case {
+            trims: Vec<Trim>,
+            owner: String,
+            at: DVec2,
+            selected: Option<usize>,
+        }
+        let zipper = |id: &str, panel: &str, y: f64| Trim {
+            id: id.into(),
+            panel_id: panel.into(),
+            kind: TrimKind::Zipper {
+                path_m: vec![DVec2::new(0.1, y), DVec2::new(0.3, y)],
+                width_m: 0.04,
+            },
+        };
+        let points = vec![
+            DVec2::new(0.1, 0.1),
+            DVec2::new(0.2, 0.1),
+            DVec2::new(0.2, 0.2),
+        ];
+        let rows = topstitch_paths(&points, 2, 0.02).unwrap();
+        let bevel_midpoint = (rows[0][1] + rows[0][2]) * 0.5;
+        let mut case = Case {
+            trims: vec![
+                zipper("first", "front", 0.1),
+                zipper("near", "front", 0.115),
+                zipper("back", "back", 0.1),
+                Trim {
+                    id: "row".into(),
+                    panel_id: "stitch".into(),
+                    kind: TrimKind::Topstitch {
+                        path_m: points,
+                        rows: 2,
+                        spacing_m: 0.02,
+                    },
+                },
+            ],
+            owner: "front".into(),
+            at: DVec2::new(0.2, 0.114),
+            selected: None,
+        };
+        let mut draw = |ui: &mut egui::Ui, case: &mut Case| {
+            let (rect, response) =
+                ui.allocate_exact_size(egui::vec2(400., 400.), egui::Sense::click());
+            named(ui, &response, "trim.pick.canvas");
+            if response.clicked()
+                && let Some(pointer) = response.interact_pointer_pos()
+            {
+                let rotation = glam::DMat2::from_angle(0.53);
+                let project = |p: DVec2| {
+                    let p = rotation * (p - case.at) * 1000.;
+                    rect.center() + egui::vec2(p.x as f32, p.y as f32)
+                };
+                case.selected = pick_board_trim(&case.trims, &case.owner, pointer, &project);
+            }
+        };
+        let mut harness = Harness::new(egui::vec2(500., 500.));
+        harness.frame(&mut case, &mut draw);
+        harness
+            .click("trim.pick.canvas", &mut case, &mut draw)
+            .unwrap();
+        assert_eq!(case.selected, Some(1));
+        case.owner = "back".into();
+        case.at = DVec2::new(0.2, 0.1);
+        harness.frame(&mut case, &mut draw);
+        harness
+            .click("trim.pick.canvas", &mut case, &mut draw)
+            .unwrap();
+        assert_eq!(case.selected, Some(2));
+        case.owner = "stitch".into();
+        case.at = bevel_midpoint;
+        harness.frame(&mut case, &mut draw);
+        harness
+            .click("trim.pick.canvas", &mut case, &mut draw)
+            .unwrap();
+        assert_eq!(case.selected, Some(3));
+        case.at = DVec2::new(0.8, 0.8);
+        harness.frame(&mut case, &mut draw);
+        harness
+            .click("trim.pick.canvas", &mut case, &mut draw)
+            .unwrap();
+        assert_eq!(case.selected, None);
+        let oversized = Trim {
+            id: "oversized".into(),
+            panel_id: "front".into(),
+            kind: TrimKind::Topstitch {
+                path_m: vec![DVec2::ZERO; 1024],
+                rows: 8,
+                spacing_m: 0.01,
+            },
+        };
+        assert_eq!(
+            pick_board_trim(
+                &[oversized, case.trims[0].clone()],
+                "front",
+                egui::Pos2::ZERO,
+                &|p| egui::pos2(p.x as f32, p.y as f32)
+            ),
+            None
+        );
     }
 
     #[test]
