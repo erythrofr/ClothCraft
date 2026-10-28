@@ -7,6 +7,43 @@ use marvelous_cloth::{
 };
 
 #[test]
+#[ignore = "opt-in CPU texture validation microbenchmark"]
+fn benchmark_texture_validation_cpu() {
+    use marvelous_cloth::garment::appearance::AlbedoTexture;
+    let map = AlbedoTexture {
+        width: 256,
+        height: 256,
+        rgba_srgb: vec![255; 256 * 256 * 4].into(),
+        tile_m: [0.1, 0.1],
+        rotation_degrees: 0.,
+    };
+    let start = std::time::Instant::now();
+    for _ in 0..100 {
+        for _ in 0..16 {
+            std::hint::black_box(&map).validate().unwrap();
+        }
+    }
+    eprintln!(
+        "texture validation: 16 full 256x256 images, 100 rounds: {:?}",
+        start.elapsed()
+    );
+    let cached = map.clone();
+    let start = std::time::Instant::now();
+    for _ in 0..100 {
+        for _ in 0..16 {
+            assert!(std::sync::Arc::ptr_eq(
+                &std::hint::black_box(&map).rgba_srgb,
+                &cached.rgba_srgb,
+            ));
+        }
+    }
+    eprintln!(
+        "shared pixel identity check only, same loop: {:?}",
+        start.elapsed()
+    );
+}
+
+#[test]
 fn optics_are_validated_and_do_not_change_mechanics_or_legacy_bytes() {
     let source = GarmentTemplate::two_panel_demo();
     let old = serde_json::to_value(&source).unwrap();
@@ -76,10 +113,22 @@ fn embedded_albedo_roundtrips_and_preserves_physics() {
     let texture = AlbedoTexture {
         width: 2,
         height: 1,
-        rgba_srgb: vec![255, 0, 0, 255, 0, 128, 255, 255],
+        rgba_srgb: vec![255, 0, 0, 255, 0, 128, 255, 255].into(),
         tile_m: [0.1, 0.2],
         rotation_degrees: 45.,
     };
+    let mut copied = texture.clone();
+    assert!(std::sync::Arc::ptr_eq(
+        &texture.rgba_srgb,
+        &copied.rgba_srgb
+    ));
+    std::sync::Arc::make_mut(&mut copied.rgba_srgb)[3] = 0;
+    assert!(!std::sync::Arc::ptr_eq(
+        &texture.rgba_srgb,
+        &copied.rgba_srgb
+    ));
+    assert!(copied.validate().is_err());
+    assert!(texture.validate().is_ok());
     let mapped = texture.material_uv(glam::DVec2::new(0.1, 0.));
     assert!((mapped.x - 2f64.sqrt() * 0.5).abs() < 1e-12);
     assert!((mapped.y - 2f64.sqrt() * 0.25).abs() < 1e-12);
@@ -111,11 +160,11 @@ fn embedded_albedo_roundtrips_and_preserves_physics() {
             ..texture.clone()
         },
         AlbedoTexture {
-            rgba_srgb: vec![0; 7],
+            rgba_srgb: vec![0; 7].into(),
             ..texture.clone()
         },
         AlbedoTexture {
-            rgba_srgb: vec![0; 8],
+            rgba_srgb: vec![0; 8].into(),
             ..texture.clone()
         },
         AlbedoTexture {
@@ -161,7 +210,7 @@ fn cached_drape_reopens_after_appearance_change_with_identical_signature() {
         albedo: Some(appearance::AlbedoTexture {
             width: 1,
             height: 1,
-            rgba_srgb: vec![120, 140, 160, 255],
+            rgba_srgb: vec![120, 140, 160, 255].into(),
             tile_m: [0.2, 0.15],
             rotation_degrees: 30.,
         }),
@@ -196,7 +245,13 @@ fn clipboard_keeps_optical_identity_and_material_split_inherits_it() {
             appearance: Some(FabricAppearance {
                 color_srgb: [220, 30, 60],
                 roughness: 0.4,
-                albedo: None,
+                albedo: Some(appearance::AlbedoTexture {
+                    width: 1,
+                    height: 1,
+                    rgba_srgb: vec![4, 5, 6, 255].into(),
+                    tile_m: [0.1, 0.2],
+                    rotation_degrees: 30.,
+                }),
             }),
         },
     )
@@ -242,4 +297,39 @@ fn clipboard_keeps_optical_identity_and_material_split_inherits_it() {
         .unwrap();
     let text: serde_json::Value = serde_json::from_str(&clip.to_text().unwrap()).unwrap();
     assert!(text["template"]["fabric_appearance"].get(split).is_none());
+}
+
+#[test]
+fn oversized_textured_clipboard_is_rejected_without_dropping_images() {
+    use marvelous_cloth::authoring::clipboard::PatternClipboard;
+    let mut template = GarmentTemplate::two_panel_demo();
+    let mut other = template.fabrics[0].clone();
+    other.id = "another_texture".into();
+    template.panels[1].fabric = other.id.clone();
+    template.fabrics.push(other);
+    let optics = FabricAppearance {
+        albedo: Some(appearance::AlbedoTexture {
+            width: 256,
+            height: 256,
+            rgba_srgb: vec![255; 256 * 256 * 4].into(),
+            tile_m: [0.1, 0.1],
+            rotation_degrees: 0.,
+        }),
+        ..Default::default()
+    };
+    for fabric in &template.fabrics {
+        template
+            .fabric_appearance
+            .insert(fabric.id.clone(), optics.clone());
+    }
+    let ids: Vec<_> = template.panels.iter().map(|p| p.id.clone()).collect();
+    let clipboard = PatternClipboard::capture(&template, &ids).unwrap();
+    assert!(clipboard.to_text().is_err());
+    assert_eq!(template.fabric_appearance.len(), template.fabrics.len());
+    assert!(
+        template
+            .fabric_appearance
+            .values()
+            .all(|a| a.albedo.is_some())
+    );
 }

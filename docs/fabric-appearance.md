@@ -21,6 +21,14 @@ placement and grain. An image is multiplied by the chosen fabric color. The
 draft renderer expands images to 256×256 with nearest-neighbor resampling and
 uses linear repeated sampling without mipmaps. This may alias at distance and
 is not a calibrated fabric appearance. Diagnostic overlays take precedence.
+The existing pattern clipboard has a 2 MiB serialized size limit. A selection
+with multiple large embedded images can exceed it; copying then returns an error
+without dropping texture data. Portable compact storage remains open work.
+Pixel arrays are shared immutably between document/history copies; the viewport
+reuses a previously validated pixel allocation and still rechecks dimensions
+and texture parameters. The GPU cache is rebuilt when authored maps change.
+An opt-in CPU microbenchmark in `tests/appearance.rs` compares opacity scans
+with shared-allocation identity checks; it does not measure a full frame or GPU.
 
 ## Authored data and controls
 

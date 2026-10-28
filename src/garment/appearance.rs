@@ -1,5 +1,6 @@
 //! Authored optical properties. These never calibrate or modify cloth mechanics.
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -15,27 +16,62 @@ pub struct FabricAppearance {
 
 /// Portable decoded pixels, with dimensions and tile size independent of the
 /// draped mesh. A texture is applied in the panel's material coordinates.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AlbedoTexture {
     pub width: u32,
     pub height: u32,
-    pub rgba_srgb: Vec<u8>,
+    #[serde(with = "shared_pixels")]
+    pub rgba_srgb: Arc<[u8]>,
     /// Size of one repeated image, in material metres along U and V.
     pub tile_m: [f64; 2],
     pub rotation_degrees: f64,
+}
+
+impl PartialEq for AlbedoTexture {
+    fn eq(&self, other: &Self) -> bool {
+        self.width == other.width
+            && self.height == other.height
+            && self.tile_m == other.tile_m
+            && self.rotation_degrees == other.rotation_degrees
+            && (Arc::ptr_eq(&self.rgba_srgb, &other.rgba_srgb) || self.rgba_srgb == other.rgba_srgb)
+    }
+}
+
+mod shared_pixels {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use std::sync::Arc;
+
+    pub fn serialize<S: Serializer>(pixels: &Arc<[u8]>, serializer: S) -> Result<S::Ok, S::Error> {
+        pixels.as_ref().serialize(serializer)
+    }
+    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Arc<[u8]>, D::Error> {
+        Vec::<u8>::deserialize(deserializer).map(Arc::from)
+    }
 }
 
 impl AlbedoTexture {
     pub const MAX_DIMENSION: u32 = 256;
 
     pub fn validate(&self) -> Result<(), String> {
+        self.validate_parameters()?;
+        if self
+            .rgba_srgb
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .any(|p| p[3] != 255)
+        {
+            return Err("Albedo pixels must be opaque".into());
+        }
+        Ok(())
+    }
+    pub(crate) fn validate_parameters(&self) -> Result<(), String> {
         if self.width == 0
             || self.height == 0
             || self.width > Self::MAX_DIMENSION
             || self.height > Self::MAX_DIMENSION
             || self.rgba_srgb.len() != self.width as usize * self.height as usize * 4
-            || self.rgba_srgb.chunks_exact(4).any(|p| p[3] != 255)
             || self
                 .tile_m
                 .iter()

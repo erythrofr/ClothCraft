@@ -363,7 +363,7 @@ fn decode_albedo(
     let texture = AlbedoTexture {
         width: image.width(),
         height: image.height(),
-        rgba_srgb: image.into_raw(),
+        rgba_srgb: image.into_raw().into(),
         tile_m: [0.1, 0.1],
         rotation_degrees: 0.,
     };

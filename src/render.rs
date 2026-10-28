@@ -26,6 +26,18 @@ pub struct DrawModel<'a> {
 }
 const VERTEX_FLOATS: usize = 18;
 
+fn valid_albedo(
+    map: &crate::garment::appearance::AlbedoTexture,
+    cache: &[crate::garment::appearance::AlbedoTexture],
+) -> bool {
+    map.validate_parameters().is_ok()
+        && (cache.iter().any(|cached| {
+            cached.width == map.width
+                && cached.height == map.height
+                && std::sync::Arc::ptr_eq(&cached.rgba_srgb, &map.rgba_srgb)
+        }) || map.validate().is_ok())
+}
+
 fn cloth_surface(
     appearance: Option<&crate::garment::appearance::FabricAppearance>,
     marked: bool,
@@ -776,7 +788,7 @@ impl Viewport {
             .iter()
             .map(|appearance| {
                 let map = appearance.and_then(|a| a.albedo.as_ref())?;
-                if map.validate().is_err() {
+                if !valid_albedo(map, &self.albedo_cache) {
                     return None;
                 }
                 if let Some(index) = maps.iter().position(|item| *item == map) {
@@ -792,7 +804,7 @@ impl Viewport {
         if !self.albedo_cache.iter().eq(maps.iter().copied()) {
             for (layer, map) in maps.iter().enumerate() {
                 let pixels =
-                    image::RgbaImage::from_raw(map.width, map.height, map.rgba_srgb.clone())
+                    image::RgbaImage::from_raw(map.width, map.height, map.rgba_srgb.to_vec())
                         .expect("validated albedo pixel length");
                 let pixels = image::imageops::resize(
                     &pixels,
@@ -1193,6 +1205,28 @@ impl Drop for Viewport {
 /// Camera navigation is pure math: these tests need no GPU and no window.
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn cached_albedo_validation_rechecks_changed_pixels_and_parameters() {
+        use crate::garment::appearance::AlbedoTexture;
+        let map = AlbedoTexture {
+            width: 1,
+            height: 1,
+            rgba_srgb: vec![1, 2, 3, 255].into(),
+            tile_m: [0.1, 0.1],
+            rotation_degrees: 0.,
+        };
+        let cache = vec![map.clone()];
+        assert!(super::valid_albedo(&map, &cache));
+        let mut changed = map.clone();
+        std::sync::Arc::make_mut(&mut changed.rgba_srgb)[3] = 0;
+        assert!(!super::valid_albedo(&changed, &cache));
+        let mut bad_params = map.clone();
+        bad_params.tile_m[0] = 0.;
+        assert!(!super::valid_albedo(&bad_params, &cache));
+        let mut bad_size = map;
+        bad_size.width = 2;
+        assert!(!super::valid_albedo(&bad_size, &cache));
+    }
     use super::*;
 
     fn viewport(width: f32, height: f32) -> egui::Rect {
