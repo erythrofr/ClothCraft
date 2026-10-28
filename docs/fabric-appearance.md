@@ -14,18 +14,19 @@ size, runtime cost and portable clipboard/save workflows.
 
 The experimental loader limits PNG input to 1 MiB and dimensions to 256×256;
 it rejects transparency. At most 16 distinct fabric texture records are
-permitted in a document. Pixels are embedded in JSON, so project size can be
-substantially larger than the input PNG. Tile size is 0.001–100 m per axis;
+permitted in a document. Pixels are embedded as base64 in JSON, so project size
+can still be substantially larger than the input PNG. Readers also accept the
+byte-array representation used by earlier development drafts. Tile size is 0.001–100 m per axis;
 rotation is in degrees around the material-space origin, independent of panel
 placement and grain. An image is multiplied by the chosen fabric color. The
 draft renderer expands images to 256×256 with nearest-neighbor resampling and
 uses linear repeated sampling without mipmaps. This may alias at distance and
 is not a calibrated fabric appearance. Diagnostic overlays take precedence.
-The existing pattern clipboard has a 2 MiB serialized size limit. A selection
-with multiple large embedded images can exceed it; copying then returns an error
-without dropping texture data. Portable compact storage remains open work.
-Each embedded pixel array is capped while it is deserialized, before a larger
-pixel buffer is built. This does not bound the complete JSON document: current
+The existing pattern clipboard has a 2 MiB serialized size limit. Two distinct
+maximum-size textures fit, but larger selections can exceed it; copying then
+returns an error without dropping texture data. Compressed portable storage
+remains open work. Each embedded pixel payload is capped while it is decoded,
+before a larger pixel buffer is built. This does not bound the complete JSON document: current
 project loaders read the entire file first, and a document can contain many
 records before compilation checks the 16-texture limit.
 Pixel arrays are shared immutably between document/history copies; the viewport

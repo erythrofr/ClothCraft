@@ -39,22 +39,102 @@ impl PartialEq for AlbedoTexture {
 }
 
 mod shared_pixels {
+    // JSON-only RGBA transport. Padding validation follows the existing
+    // glTF data-URI decoder; keep their canonical rules aligned.
     use serde::{
         Deserializer, Serialize, Serializer,
         de::{Error, SeqAccess, Visitor},
+        ser::Error as _,
     };
     use std::fmt;
     use std::sync::Arc;
 
     pub fn serialize<S: Serializer>(pixels: &Arc<[u8]>, serializer: S) -> Result<S::Ok, S::Error> {
-        pixels.as_ref().serialize(serializer)
+        let limit = super::AlbedoTexture::MAX_DIMENSION as usize
+            * super::AlbedoTexture::MAX_DIMENSION as usize
+            * 4;
+        if pixels.len() > limit {
+            return Err(S::Error::custom("Albedo pixel array exceeds its limit"));
+        }
+        const DIGITS: &[u8; 64] =
+            b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        let mut encoded = String::with_capacity(pixels.len().div_ceil(3) * 4);
+        for chunk in pixels.chunks(3) {
+            let a = chunk[0];
+            let b = chunk.get(1).copied().unwrap_or(0);
+            let c = chunk.get(2).copied().unwrap_or(0);
+            encoded.push(DIGITS[(a >> 2) as usize] as char);
+            encoded.push(DIGITS[(((a & 3) << 4) | (b >> 4)) as usize] as char);
+            encoded.push(if chunk.len() >= 2 {
+                DIGITS[(((b & 15) << 2) | (c >> 6)) as usize] as char
+            } else {
+                '='
+            });
+            encoded.push(if chunk.len() == 3 {
+                DIGITS[(c & 63) as usize] as char
+            } else {
+                '='
+            });
+        }
+        encoded.serialize(serializer)
     }
     pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Arc<[u8]>, D::Error> {
         struct Pixels;
         impl<'de> Visitor<'de> for Pixels {
             type Value = Arc<[u8]>;
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str("a bounded array of RGBA bytes")
+                f.write_str("bounded base64 RGBA bytes or a legacy byte array")
+            }
+            fn visit_str<E: Error>(self, value: &str) -> Result<Self::Value, E> {
+                fn digit<E: Error>(b: u8) -> Result<u8, E> {
+                    match b {
+                        b'A'..=b'Z' => Ok(b - b'A'),
+                        b'a'..=b'z' => Ok(b - b'a' + 26),
+                        b'0'..=b'9' => Ok(b - b'0' + 52),
+                        b'+' => Ok(62),
+                        b'/' => Ok(63),
+                        _ => Err(E::custom("Invalid albedo base64 character")),
+                    }
+                }
+                let bytes = value.as_bytes();
+                let limit = super::AlbedoTexture::MAX_DIMENSION as usize
+                    * super::AlbedoTexture::MAX_DIMENSION as usize
+                    * 4;
+                if !bytes.len().is_multiple_of(4) || bytes.len() > limit.div_ceil(3) * 4 {
+                    return Err(E::custom("Invalid or oversized albedo base64"));
+                }
+                let padding = bytes.iter().rev().take_while(|b| **b == b'=').count();
+                if padding > 2 {
+                    return Err(E::custom("Invalid albedo base64 padding"));
+                }
+                let length = (bytes.len() / 4) * 3 - padding;
+                if length > limit {
+                    return Err(E::custom("Albedo pixel array exceeds its limit"));
+                }
+                let mut pixels = Vec::with_capacity(length);
+                let chunks = bytes.as_chunks::<4>().0;
+                for (index, chunk) in chunks.iter().enumerate() {
+                    let pad = if index + 1 == chunks.len() {
+                        padding
+                    } else {
+                        0
+                    };
+                    let a = digit::<E>(chunk[0])?;
+                    let b = digit::<E>(chunk[1])?;
+                    let c = if pad == 2 { 0 } else { digit::<E>(chunk[2])? };
+                    let d = if pad != 0 { 0 } else { digit::<E>(chunk[3])? };
+                    if (pad == 2 && b & 15 != 0) || (pad == 1 && c & 3 != 0) {
+                        return Err(E::custom("Nonzero albedo base64 padding bits"));
+                    }
+                    pixels.push((a << 2) | (b >> 4));
+                    if pad < 2 {
+                        pixels.push((b << 4) | (c >> 2));
+                    }
+                    if pad == 0 {
+                        pixels.push((c << 6) | d);
+                    }
+                }
+                Ok(Arc::from(pixels))
             }
             fn visit_seq<A: SeqAccess<'de>>(
                 self,
@@ -80,7 +160,7 @@ mod shared_pixels {
                 Ok(Arc::from(pixels))
             }
         }
-        deserializer.deserialize_seq(Pixels)
+        deserializer.deserialize_any(Pixels)
     }
 }
 

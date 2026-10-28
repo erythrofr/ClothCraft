@@ -212,6 +212,69 @@ fn oversized_embedded_pixel_array_is_rejected_during_deserialization() {
 }
 
 #[test]
+fn compact_pixels_roundtrip_legacy_arrays_and_reject_bad_base64() {
+    use marvelous_cloth::garment::appearance::AlbedoTexture;
+    let make_json = |pixels: serde_json::Value| {
+        serde_json::json!({
+            "width": 1, "height": 1, "rgba_srgb": pixels,
+            "tile_m": [0.1, 0.1], "rotation_degrees": 0.0
+        })
+    };
+    let legacy: AlbedoTexture =
+        serde_json::from_value(make_json(serde_json::json!([1, 2, 3, 255]))).unwrap();
+    legacy.validate().unwrap();
+    let compact = serde_json::to_value(&legacy).unwrap();
+    assert_eq!(compact["rgba_srgb"], "AQID/w==");
+    assert_eq!(
+        serde_json::from_value::<AlbedoTexture>(compact).unwrap(),
+        legacy
+    );
+    for (input, expected) in [
+        ("", ""),
+        ("f", "Zg=="),
+        ("fo", "Zm8="),
+        ("foo", "Zm9v"),
+        ("foob", "Zm9vYg=="),
+        ("fooba", "Zm9vYmE="),
+        ("foobar", "Zm9vYmFy"),
+    ] {
+        let mut texture = legacy.clone();
+        texture.rgba_srgb = input.as_bytes().into();
+        let encoded = serde_json::to_value(&texture).unwrap();
+        assert_eq!(encoded["rgba_srgb"], expected);
+        assert_eq!(
+            serde_json::from_value::<AlbedoTexture>(encoded)
+                .unwrap()
+                .rgba_srgb
+                .as_ref(),
+            input.as_bytes()
+        );
+    }
+    for length in 0..=256 {
+        let mut texture = legacy.clone();
+        texture.rgba_srgb = (0..length).map(|i| i as u8).collect::<Vec<_>>().into();
+        let encoded = serde_json::to_string(&texture).unwrap();
+        let decoded: AlbedoTexture = serde_json::from_str(&encoded).unwrap();
+        assert_eq!(decoded.rgba_srgb, texture.rgba_srgb);
+    }
+    for invalid in [
+        "A", "A===", "A=AA", "AB==", "AAB=", "AA==AAAA", "AAAA====", "A?AA",
+    ] {
+        assert!(
+            serde_json::from_value::<AlbedoTexture>(make_json(invalid.into())).is_err(),
+            "accepted {invalid}"
+        );
+    }
+    let too_large = "A".repeat(
+        (AlbedoTexture::MAX_DIMENSION as usize * AlbedoTexture::MAX_DIMENSION as usize * 4)
+            .div_ceil(3)
+            * 4
+            + 4,
+    );
+    assert!(serde_json::from_value::<AlbedoTexture>(make_json(too_large.into())).is_err());
+}
+
+#[test]
 fn cached_drape_reopens_after_appearance_change_with_identical_signature() {
     use marvelous_cloth::{fitting::FittingProject, garment::presets::GarmentKind};
     let dir = tempfile::tempdir().unwrap();
@@ -321,8 +384,8 @@ fn clipboard_keeps_optical_identity_and_material_split_inherits_it() {
 }
 
 #[test]
-fn oversized_textured_clipboard_is_rejected_without_dropping_images() {
-    use marvelous_cloth::authoring::clipboard::PatternClipboard;
+fn two_textured_panels_fit_clipboard_and_preserve_pixels() {
+    use marvelous_cloth::authoring::{Command, clipboard::PatternClipboard};
     let mut template = GarmentTemplate::two_panel_demo();
     let mut other = template.fabrics[0].clone();
     other.id = "another_texture".into();
@@ -345,7 +408,21 @@ fn oversized_textured_clipboard_is_rejected_without_dropping_images() {
     }
     let ids: Vec<_> = template.panels.iter().map(|p| p.id.clone()).collect();
     let clipboard = PatternClipboard::capture(&template, &ids).unwrap();
-    assert!(clipboard.to_text().is_err());
+    let text = clipboard.to_text().unwrap();
+    assert!(text.len() < 2 * 1024 * 1024);
+    let decoded = PatternClipboard::from_text(&text).unwrap();
+    let result = authoring::apply(
+        &template,
+        Command::Paste {
+            clipboard: decoded,
+            center: glam::DVec2::ZERO,
+        },
+    )
+    .unwrap();
+    assert_eq!(result.template.panels.len(), template.panels.len() + 2);
+    for panel in &result.template.panels[template.panels.len()..] {
+        assert_eq!(result.template.fabric_appearance[&panel.fabric], optics);
+    }
     assert_eq!(template.fabric_appearance.len(), template.fabrics.len());
     assert!(
         template
@@ -353,4 +430,41 @@ fn oversized_textured_clipboard_is_rejected_without_dropping_images() {
             .values()
             .all(|a| a.albedo.is_some())
     );
+}
+
+#[test]
+fn compact_texture_clipboard_still_rejects_overall_size_limit() {
+    use marvelous_cloth::authoring::clipboard::PatternClipboard;
+    let mut template = GarmentTemplate::two_panel_demo();
+    let source_panel = template.panels[0].clone();
+    let source_fabric = template.fabrics[0].clone();
+    template.panels.clear();
+    template.fabrics.clear();
+    template.seams.clear();
+    let optics = FabricAppearance {
+        albedo: Some(appearance::AlbedoTexture {
+            width: 256,
+            height: 256,
+            rgba_srgb: vec![255; 256 * 256 * 4].into(),
+            tile_m: [0.1, 0.1],
+            rotation_degrees: 0.,
+        }),
+        ..Default::default()
+    };
+    for i in 0..6 {
+        let mut fabric = source_fabric.clone();
+        fabric.id = format!("fabric_{i}");
+        let mut panel = source_panel.clone();
+        panel.id = format!("panel_{i}");
+        panel.fabric = fabric.id.clone();
+        template
+            .fabric_appearance
+            .insert(fabric.id.clone(), optics.clone());
+        template.fabrics.push(fabric);
+        template.panels.push(panel);
+    }
+    let ids: Vec<_> = template.panels.iter().map(|p| p.id.clone()).collect();
+    let clip = PatternClipboard::capture(&template, &ids).unwrap();
+    assert!(clip.to_text().is_err());
+    assert_eq!(template.fabric_appearance.len(), 6);
 }
