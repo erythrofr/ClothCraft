@@ -420,6 +420,7 @@ impl Atelier {
                     return Err(self.status.clone());
                 }
             }
+            Id::ToolFreehand => self.activate_freehand(),
             Id::ToolEdit
             | Id::ToolDraw
             | Id::ToolRectangle

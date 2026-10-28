@@ -21,6 +21,7 @@ pub enum CommandId {
     LoadDress,
     ToolEdit,
     ToolDraw,
+    ToolFreehand,
     ToolRectangle,
     ToolEllipse,
     ToolSector,
@@ -210,6 +211,15 @@ pub const REGISTRY: &[CommandDescriptor] = &[
         ToolDraw,
         "tool.draw",
         "Draw pattern",
+        Tool,
+        None,
+        NotUndoable,
+        NativeWorkspace
+    ),
+    entry!(
+        ToolFreehand,
+        "tool.freehand",
+        "Draw freehand pattern",
         Tool,
         None,
         NotUndoable,

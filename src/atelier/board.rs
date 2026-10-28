@@ -624,6 +624,14 @@ fn inside(p: DVec2, poly: &[DVec2]) -> bool {
 pub(super) fn same_edge(a: &BoundaryRef, b: &BoundaryRef) -> bool {
     a.panel == b.panel && a.edge == b.edge && (a.edge.is_some() || a.side == b.side)
 }
+
+fn enter_freehand_draft(authoring: &mut super::authoring_ui::AuthoringUi) {
+    authoring.board.clear_preview();
+    authoring.board.freehand.enabled = true;
+    authoring.replace = false;
+    authoring.draft.clear();
+    authoring.tangents.clear();
+}
 /// Angle of a window position around the board centre, used by the view-rotation
 /// drag so the board follows the pointer.
 fn board_pointer_angle(pos: egui::Pos2, rect: egui::Rect) -> f64 {
@@ -684,6 +692,10 @@ fn paint_panel_dimensions(
     );
 }
 impl Atelier {
+    pub(super) fn activate_freehand(&mut self) {
+        self.set_authoring_tool(Tool::Draw, false);
+        enter_freehand_draft(&mut self.authoring);
+    }
     fn fit_freehand_preview(&mut self) {
         let draft = &mut self.authoring.board.freehand;
         if draft.overflow {
@@ -1178,12 +1190,7 @@ impl Atelier {
         ui.horizontal(|ui| {
             self.primitive_menu(ui);
             if ui.selectable_label(self.authoring.board.freehand.enabled, "Freehand").on_hover_text("Drag a new panel outline, release to preview, then Create panel").clicked() {
-                self.set_authoring_tool(Tool::Draw, false);
-                self.authoring.board.clear_preview();
-                self.authoring.board.freehand.enabled = true;
-                self.authoring.replace = false;
-                self.authoring.draft.clear();
-                self.authoring.tangents.clear();
+                self.activate_freehand();
             }
             let quick = ui.small_button("Quick · Q").on_hover_text("Shapes, mirrors and booleans near the cursor");
             self.smoke_target("quick_open", quick.rect.center());
@@ -3744,5 +3751,21 @@ mod tests {
         assert_eq!(board.selection, vec![0]);
         assert_eq!(board.point_count(), 2);
         assert!(board.point_selected("a", 3));
+    }
+
+    #[test]
+    fn freehand_activation_resets_the_old_draft_and_replace_mode() {
+        let mut authoring = super::super::authoring_ui::AuthoringUi::default();
+        authoring.replace = true;
+        authoring.draft.push(DVec2::new(0.1, 0.2));
+        authoring.tangents.push(DVec2::X);
+        authoring.board.freehand.enabled = true;
+        authoring.board.freehand.samples.push(DVec2::new(0.3, 0.4));
+        enter_freehand_draft(&mut authoring);
+        assert!(authoring.board.freehand.enabled);
+        assert!(authoring.board.freehand.samples.is_empty());
+        assert!(!authoring.replace);
+        assert!(authoring.draft.is_empty());
+        assert!(authoring.tangents.is_empty());
     }
 }
