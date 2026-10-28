@@ -18,6 +18,7 @@ pub(super) struct TrimUi {
         String,
     )>,
     preview_warning: Option<String>,
+    visibility: super::selection::ClothVisibilityCache,
 }
 
 struct TrimPreview {
@@ -471,7 +472,7 @@ fn pick_visible_trim(
     pointer: egui::Pos2,
     paths: &[(usize, bool, Vec<Option<glam::DVec3>>)],
     project: &impl Fn(glam::DVec3) -> Option<(egui::Pos2, f32)>,
-    visible: &impl Fn(glam::DVec3) -> bool,
+    visible: &mut impl FnMut(glam::DVec3) -> bool,
 ) -> Option<usize> {
     let mut best = 8.0f32;
     let mut selected = None;
@@ -528,20 +529,21 @@ impl Atelier {
             return false;
         };
         let points: usize = preview.paths.iter().map(|(_, _, p)| p.len()).sum();
-        if points
-            .saturating_mul(4)
-            .saturating_mul(self.scene.garment.mesh.triangles.len())
-            > 200_000
-        {
+        let Some(mut visibility) = super::selection::ClothVisibilityQueries::bounded(
+            &self.scene.state.x,
+            &self.scene.garment.mesh.triangles,
+            points.saturating_mul(4),
+            &mut self.authoring.trims.visibility,
+        ) else {
             return false;
-        }
+        };
         let matrix = self.camera.matrix(rect.width() / rect.height());
         let project = |world: glam::DVec3| {
             let p = super::gizmo::project_matrix(matrix, rect, world)?;
             let w = (matrix * world.as_vec3().extend(1.)).w;
             (w.is_finite() && w > 0.).then_some((p, w))
         };
-        let visible = |world: glam::DVec3| {
+        let mut visible = |world: glam::DVec3| {
             let Some((screen, _)) = project(world) else {
                 return false;
             };
@@ -552,14 +554,9 @@ impl Atelier {
                     .scene
                     .collider
                     .occludes_ray(origin, direction, distance)
-                && !self.scene.garment.mesh.triangles.iter().any(|triangle| {
-                    picking::ray_triangle(
-                        origin,
-                        direction,
-                        triangle.vertices.map(|i| self.scene.state.x[i]),
-                    )
-                    .is_some_and(|(d, _)| d < distance)
-                })
+                && !visibility
+                    .bounded_occludes(origin, direction, distance)
+                    .unwrap_or(true)
         };
         let paths = preview
             .paths
@@ -575,7 +572,7 @@ impl Atelier {
                 )
             })
             .collect::<Vec<_>>();
-        let Some(index) = pick_visible_trim(pointer, &paths, &project, &visible) else {
+        let Some(index) = pick_visible_trim(pointer, &paths, &project, &mut visible) else {
             return false;
         };
         let Some(trim) = preview.trims.get(index).cloned() else {
@@ -609,13 +606,17 @@ impl Atelier {
         let Some(preview) = self.authoring.trims.preview.as_ref() else {
             return;
         };
-        let triangle_count = self.scene.garment.mesh.triangles.len();
         let points: usize = preview.paths.iter().map(|(_, _, p)| p.len()).sum();
-        if points.saturating_mul(3).saturating_mul(triangle_count) > 200_000 {
+        let Some(mut visibility) = super::selection::ClothVisibilityQueries::bounded(
+            &self.scene.state.x,
+            &self.scene.garment.mesh.triangles,
+            points.saturating_mul(3),
+            &mut self.authoring.trims.visibility,
+        ) else {
             self.authoring.trims.preview_warning =
                 Some("3D trim preview hidden to limit visibility-test cost".into());
             return;
-        }
+        };
         self.authoring.trims.preview_warning = (preview.skipped > 0).then(|| {
             format!(
                 "{} trims hidden in 3D: outside the panel or preview budget",
@@ -625,7 +626,7 @@ impl Atelier {
         let painter = ui.painter().with_clip_rect(rect);
         let matrix = self.camera.matrix(rect.width() / rect.height());
         let project = |p| super::gizmo::project_matrix(matrix, rect, p);
-        let visible = |world: glam::DVec3| -> Option<egui::Pos2> {
+        let mut visible = |world: glam::DVec3| -> Option<egui::Pos2> {
             let screen = project(world)?;
             let (origin, direction) = self.camera.ray(screen, rect);
             let distance = world.distance(origin) - 0.0001;
@@ -637,10 +638,10 @@ impl Atelier {
             {
                 return None;
             }
-            if self.scene.garment.mesh.triangles.iter().any(|t| {
-                picking::ray_triangle(origin, direction, t.vertices.map(|i| self.scene.state.x[i]))
-                    .is_some_and(|(d, _)| d < distance)
-            }) {
+            if visibility
+                .bounded_occludes(origin, direction, distance)
+                .unwrap_or(true)
+            {
                 return None;
             }
             Some(screen)
@@ -652,7 +653,7 @@ impl Atelier {
                 .map(|p| p.evaluate(&self.scene.state.x).ok())
                 .collect();
             if *button {
-                if let Some(screen) = world.first().copied().flatten().and_then(visible) {
+                if let Some(screen) = world.first().copied().flatten().and_then(&mut visible) {
                     painter.circle_filled(screen, 4., color);
                 }
             } else {
@@ -1035,24 +1036,24 @@ mod tests {
         let project = |p: DVec3| Some((egui::pos2(p.x as f32, p.y as f32), 1.));
         let pointer = egui::pos2(20., 20.);
         assert_eq!(
-            pick_visible_trim(pointer, &paths, &project, &|p| p.z == 1.),
+            pick_visible_trim(pointer, &paths, &project, &mut |p| p.z == 1.),
             Some(2)
         );
         assert_eq!(
-            pick_visible_trim(pointer, &paths, &project, &|p| p.z == 2.),
+            pick_visible_trim(pointer, &paths, &project, &mut |p| p.z == 2.),
             Some(7)
         );
         assert_eq!(
-            pick_visible_trim(pointer, &paths, &project, &|_| false),
+            pick_visible_trim(pointer, &paths, &project, &mut |_| false),
             None
         );
         assert_eq!(
-            pick_visible_trim(egui::pos2(20., 40.), &paths, &project, &|_| true),
+            pick_visible_trim(egui::pos2(20., 40.), &paths, &project, &mut |_| true),
             None
         );
         // An occluder at the cursor is not bypassed by visible endpoints.
         assert_eq!(
-            pick_visible_trim(pointer, &paths[1..], &project, &|p| p.x != 20.),
+            pick_visible_trim(pointer, &paths[1..], &project, &mut |p| p.x != 20.),
             None
         );
     }

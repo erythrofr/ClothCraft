@@ -305,7 +305,7 @@ fn visibility_bounds(
 
 /// The exact topology and position snapshots prevent using stale visibility boxes.
 #[derive(Default)]
-struct ClothVisibilityCache {
+pub(super) struct ClothVisibilityCache {
     tree: Option<ClothVisibility>,
     topology: Vec<[usize; 3]>,
     positions: Vec<glam::DVec3>,
@@ -353,7 +353,7 @@ impl ClothVisibilityCache {
 /// Start with the exact exhaustive query. Build only after the accumulated
 /// work is comparable to eight full scans, on a subsequent valid query. This
 /// avoids building for cheap early occluders and adapts to mixed visibility.
-struct ClothVisibilityQueries<'a> {
+pub(super) struct ClothVisibilityQueries<'a> {
     positions: &'a [glam::DVec3],
     triangles: &'a [marvelous_cloth::model::Triangle],
     eligible: bool,
@@ -362,6 +362,50 @@ struct ClothVisibilityQueries<'a> {
     cache: &'a mut ClothVisibilityCache,
 }
 impl<'a> ClothVisibilityQueries<'a> {
+    /// Use a direct query under the caller's conservative work budget. For a
+    /// larger batch, prepare the shared editor BVH or refuse the batch if a
+    /// valid tree cannot be built. Never use this for physical contacts.
+    pub(super) fn bounded(
+        positions: &'a [glam::DVec3],
+        triangles: &'a [marvelous_cloth::model::Triangle],
+        max_rays: usize,
+        cache: &'a mut ClothVisibilityCache,
+    ) -> Option<Self> {
+        const DIRECT_BUDGET: usize = 200_000;
+        const MAX_TRIANGLES: usize = 100_000;
+        if triangles.len() > MAX_TRIANGLES {
+            return None;
+        }
+        let use_tree = max_rays.saturating_mul(triangles.len()) > DIRECT_BUDGET;
+        if use_tree {
+            cache.prepare(positions, triangles);
+            cache.tree.as_ref()?;
+        }
+        Some(Self {
+            positions,
+            triangles,
+            eligible: false,
+            attempted: use_tree,
+            scanned: 0,
+            cache,
+        })
+    }
+
+    pub(super) fn bounded_occludes(
+        &mut self,
+        origin: glam::DVec3,
+        direction: glam::DVec3,
+        limit: f64,
+    ) -> Option<bool> {
+        if !origin.is_finite()
+            || origin.abs().max_element() > MAX_VISIBILITY_COORD
+            || !direction.is_finite()
+            || !limit.is_finite()
+        {
+            return None;
+        }
+        Some(self.occludes(origin, direction, limit))
+    }
     fn new(
         positions: &'a [glam::DVec3],
         triangles: &'a [marvelous_cloth::model::Triangle],
@@ -377,7 +421,12 @@ impl<'a> ClothVisibilityQueries<'a> {
             cache,
         }
     }
-    fn occludes(&mut self, origin: glam::DVec3, direction: glam::DVec3, limit: f64) -> bool {
+    pub(super) fn occludes(
+        &mut self,
+        origin: glam::DVec3,
+        direction: glam::DVec3,
+        limit: f64,
+    ) -> bool {
         if limit <= 0. {
             return false;
         }
@@ -1152,6 +1201,77 @@ fn triangle_in_rect(triangle: [egui::Pos2; 3], rect: egui::Rect) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bounded_trim_visibility_matches_exhaustive_and_refits_after_motion() {
+        use glam::{DMat2, DVec3};
+        use marvelous_cloth::model::Triangle;
+        let mut positions = Vec::new();
+        let mut triangles = Vec::new();
+        for y in 0..100 {
+            for x in 0..100 {
+                let first = positions.len();
+                positions.extend([
+                    DVec3::new(x as f64, y as f64, 0.),
+                    DVec3::new(x as f64 + 0.8, y as f64, 0.),
+                    DVec3::new(x as f64, y as f64 + 0.8, 0.),
+                ]);
+                triangles.push(Triangle {
+                    vertices: [first, first + 1, first + 2],
+                    rest: [DVec2::ZERO; 3],
+                    inv_dm: DMat2::IDENTITY,
+                    area: 1.,
+                    material: 0,
+                });
+            }
+        }
+        let rays: Vec<_> = (0..256)
+            .map(|i| DVec3::new((i * 37 % 100) as f64 + 0.2, (i * 61 % 100) as f64 + 0.2, 1.))
+            .collect();
+        let mut cache = ClothVisibilityCache::default();
+        for z in [0., -2.] {
+            for p in &mut positions {
+                p.z = z;
+            }
+            let start = std::time::Instant::now();
+            let expected: Vec<_> = rays
+                .iter()
+                .map(|&origin| {
+                    triangles.iter().any(|t| {
+                        picking::ray_triangle(origin, -DVec3::Z, t.vertices.map(|i| positions[i]))
+                            .is_some_and(|(d, _)| d < 2.)
+                    })
+                })
+                .collect();
+            let direct = start.elapsed();
+            let start = std::time::Instant::now();
+            let mut query =
+                ClothVisibilityQueries::bounded(&positions, &triangles, rays.len(), &mut cache)
+                    .unwrap();
+            for (&origin, expected) in rays.iter().zip(expected) {
+                assert_eq!(
+                    query.bounded_occludes(origin, -DVec3::Z, 2.),
+                    Some(expected)
+                );
+            }
+            eprintln!(
+                "visibility synthetic z={z}: exhaustive={direct:?}, bounded including build/refit={:?}",
+                start.elapsed()
+            );
+            assert_eq!(
+                query.bounded_occludes(DVec3::splat(f64::NAN), -DVec3::Z, 2.),
+                None
+            );
+        }
+        positions[0].x = f64::NAN;
+        assert!(
+            ClothVisibilityQueries::bounded(&positions, &triangles, rays.len(), &mut cache)
+                .is_none()
+        );
+        positions[0].x = 0.;
+        let oversized = vec![triangles[0].clone(); 100_001];
+        assert!(ClothVisibilityQueries::bounded(&positions, &oversized, 1, &mut cache).is_none());
+    }
 
     #[test]
     fn cloth_visibility_bvh_matches_exhaustive_queries_and_prunes_work() {
