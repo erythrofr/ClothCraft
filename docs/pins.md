@@ -32,6 +32,9 @@ resolved in board draw order; holes do not count as panel bodies. The readout
 shows the nearest vertex and the offset before the
 separate confirmation. The gesture requires both the 2D and 3D views open in
 this initial integration; its full native-window input path is not yet tested.
+The CPU named-input fixture covers rotated board and panel transforms, rejection
+of an overlapping panel, staging without a document change, confirmation and
+undo. It drives the production staging helper, not the whole native viewport.
 In the combined trim/pin integration, a pending construction-trim edit or
 placement disables pin picking; starting a trim draft cancels an armed pick.
 Finish or cancel the trim edit before picking a pin. Named-widget CPU coverage
