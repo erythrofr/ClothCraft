@@ -2,6 +2,40 @@ use glam::{DVec2, DVec3};
 use marvelous_cloth::garment::{GarmentTemplate, embedding::MaterialPath, export};
 
 #[test]
+fn dense_multisegment_path_matches_exhaustive() {
+    let mut template = GarmentTemplate::two_panel_demo();
+    template.panels[0].pattern.nx = 100;
+    template.panels[0].pattern.ny = 100;
+    let garment = template.compile().unwrap();
+    let path = MaterialPath {
+        panel: "left".into(),
+        points: (0..=80)
+            .map(|i| {
+                DVec2::new(
+                    0.10 + i as f64 * 0.002,
+                    0.3 + if i % 2 == 0 { 0.0005 } else { -0.0005 },
+                )
+            })
+            .collect(),
+    };
+    let start = std::time::Instant::now();
+    let expected = garment.embed_path(&path).unwrap();
+    let exhaustive = start.elapsed();
+    let start = std::time::Instant::now();
+    let actual = garment.embed_path_bounded(&path).unwrap();
+    eprintln!(
+        "dense 20k triangles / 80 segments: exhaustive {exhaustive:?}; indexed including build {:?}",
+        start.elapsed()
+    );
+    assert_eq!(actual.len(), expected.len());
+    for (a, b) in actual.iter().zip(&expected) {
+        assert_eq!(a.vertices, b.vertices);
+        assert_eq!(a.weights, b.weights);
+        assert_eq!(a.uv, b.uv);
+    }
+}
+
+#[test]
 fn path_rejects_resolvable_narrow_gap_between_triangles() {
     let mut t = GarmentTemplate::two_panel_demo();
     t.panels[0].pattern.nx = 100;
