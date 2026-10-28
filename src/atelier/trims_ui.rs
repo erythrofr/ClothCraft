@@ -1491,6 +1491,56 @@ mod tests {
     use marvelous_cloth::garment::GarmentTemplate;
 
     #[test]
+    #[ignore = "opt-in CPU dense trim picking benchmark"]
+    fn benchmark_dense_surface_pick_cpu() {
+        use glam::DVec3;
+        let mut template = GarmentTemplate::two_panel_demo();
+        template.seams.clear();
+        let mut third = template.panels[0].clone();
+        third.id = "benchmark_third".into();
+        third.placement.translation += DVec3::new(3., 0., 0.);
+        template.panels.push(third);
+        for panel in &mut template.panels {
+            panel.pattern.nx = 128;
+            panel.pattern.ny = 128;
+        }
+        let garment = template.compile().unwrap();
+        assert_eq!(garment.mesh.triangles.len(), 98_304);
+        let state = &garment.initial_state;
+        let triangle = &garment.mesh.triangles[garment.panels[0].triangles.start];
+        let p = triangle.vertices.map(|i| state.x[i]);
+        let center = (p[0] + p[1] + p[2]) / 3.;
+        let normal = (p[1] - p[0]).cross(p[2] - p[0]).normalize();
+        let mut samples = [Vec::new(), Vec::new()];
+        for i in 0..20 {
+            for (which, origin, direction) in [
+                (0, center + normal * 0.001, -normal),
+                (1, DVec3::splat(10_000.), DVec3::X),
+            ] {
+                let start = std::time::Instant::now();
+                let hit = visible_material_hit(&garment, state, origin, direction, |_, _, _| false)
+                    .unwrap();
+                if which == 0 {
+                    assert!(hit.is_some());
+                } else {
+                    assert!(hit.is_none());
+                }
+                if i >= 2 {
+                    samples[which].push(start.elapsed().as_secs_f64() * 1000.);
+                }
+            }
+        }
+        for (label, values) in ["hit", "miss"].into_iter().zip(&mut samples) {
+            values.sort_by(f64::total_cmp);
+            eprintln!(
+                "98,304 triangles {label}: median {:.3} ms, p95 {:.3} ms (18 samples, excludes avatar)",
+                values[values.len() / 2],
+                values[((values.len() - 1) as f64 * 0.95).ceil() as usize]
+            );
+        }
+    }
+
+    #[test]
     fn surface_hit_maps_deformed_cloth_to_material_and_respects_occlusion_and_owner() {
         use glam::DVec3;
         let mut template = GarmentTemplate::two_panel_demo();

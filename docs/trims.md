@@ -52,6 +52,17 @@ mapping. A buttonhole needs exactly two points; other paths accept up to 128.
 Escape or changing tools restores the previous draft path. During a 3D gesture,
 clicks on the 2D board do not add points or change the selection. This creates
 material-space polylines, not geodesics or physical fasteners.
+
+One local opt-in CPU measurement of the 3D click query on three synthetic
+panels (98,304 triangles) reported a 2.25 ms median / 2.35 ms p95 for a hit,
+and 1.98 / 2.07 ms for a miss (18 samples after two warmups). It excludes
+avatar occlusion, rendering and simulation, and is not a frame-time claim.
+The query scans on click rather than per frame; an index/refit should be
+evaluated against actual moving scenes before replacing it. Reproduce with:
+
+```powershell
+cargo test --locked -j 2 --bin cloth-fit benchmark_dense_surface_pick_cpu -- --ignored --nocapture --test-threads=2
+```
 These samples do not prove visibility for every pixel. Skipped trims cannot be
 picked. On the 2D board buttonholes and zipper segments show width outlines in
 material coordinates. Each zipper segment is outlined separately, so bends are
