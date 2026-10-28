@@ -20,6 +20,7 @@ are implemented.
 Trim-only edits are classified as nonphysical and excluded from fitting mesh
 signatures.
 
+The inspector keeps long trim lists scrollable and renders only visible rows.
 For repeated details, **Duplicate** opens a fresh-ID draft of an existing trim.
 Position it on the 2D board or 3D cloth, then Apply once; Cancel leaves the
 original and the document unchanged.

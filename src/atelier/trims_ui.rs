@@ -1186,37 +1186,43 @@ fn trim_controls(
             ui.small("Visual construction notes · no physical closures. Widths may extend outside the panel.");
             if let Some(warning) = &state.preview_warning { ui.colored_label(Color32::GOLD, warning); }
         let editing = state.draft.is_some();
-            for trim in template.trims
-                .iter()
-                .filter(|t| t.panel_id == panel.id)
-            {
-                ui.horizontal_wrapped(|ui| {
-                let edit = ui.add_enabled(!editing, egui::Button::new(format!("{} · {}", label(&trim.kind), trim.id)).small());
-                    #[cfg(test)]
-                    super::authoring_smoke::widget_harness::named(ui, &edit, format!("trim.edit.{}", trim.id));
-                    if edit.clicked() {
-                        state.draft = Some(TrimDraft::from_trim(trim));
-                    }
-                let duplicate = ui.add_enabled(!editing, egui::Button::new("Duplicate").small())
-                    .on_hover_text("Create a movable draft copy; Apply commits it");
-                    #[cfg(test)]
-                    super::authoring_smoke::widget_harness::named(ui, &duplicate, format!("trim.duplicate.{}", trim.id));
-                    if duplicate.clicked() {
-                        let mut copy = trim.clone();
-                        copy.id = next_id(&template.trims);
-                        let mut draft = TrimDraft::from_trim(&copy);
-                        draft.base = None;
-                        state.draft = Some(draft);
-                    }
-                let delete = ui.add_enabled(!editing, egui::Button::new("Delete").small());
-                    #[cfg(test)]
-                    super::authoring_smoke::widget_harness::named(ui, &delete, format!("trim.delete.{}", trim.id));
-                    if delete.clicked() {
-                        command = Some(Command::RemoveTrim {
-                            id: trim.id.clone(),
-                        });
-                    }
-                });
+            let items: Vec<_> = template.trims.iter().filter(|t| t.panel_id == panel.id).collect();
+            if !items.is_empty() {
+                egui::ScrollArea::vertical()
+                    .id_salt(("trim-list", &panel.id))
+                    .max_height(192.)
+                    .show_rows(ui, 24., items.len(), |ui, rows| {
+                        for i in rows {
+                            let trim = items[i];
+                            ui.push_id(&trim.id, |ui| {
+                                ui.horizontal(|ui| {
+                                    let title = format!("{} · {}", label(&trim.kind), trim.id);
+                                    let edit_width = (ui.available_width() - 120.).max(30.);
+                                    let edit = ui.add_enabled_ui(!editing, |ui| {
+                                        ui.add_sized([edit_width, 20.], egui::Button::new(&title).small().truncate())
+                                    }).inner.on_hover_text(&title);
+                                    #[cfg(test)]
+                                    super::authoring_smoke::widget_harness::named(ui, &edit, format!("trim.edit.{}", trim.id));
+                                    if edit.clicked() { state.draft = Some(TrimDraft::from_trim(trim)); }
+                                    let duplicate = ui.add_enabled(!editing, egui::Button::new("Duplicate").small())
+                                        .on_hover_text("Create a movable draft copy; Apply commits it");
+                                    #[cfg(test)]
+                                    super::authoring_smoke::widget_harness::named(ui, &duplicate, format!("trim.duplicate.{}", trim.id));
+                                    if duplicate.clicked() {
+                                        let mut copy = trim.clone();
+                                        copy.id = next_id(&template.trims);
+                                        let mut draft = TrimDraft::from_trim(&copy);
+                                        draft.base = None;
+                                        state.draft = Some(draft);
+                                    }
+                                    let delete = ui.add_enabled(!editing, egui::Button::new("Delete").small());
+                                    #[cfg(test)]
+                                    super::authoring_smoke::widget_harness::named(ui, &delete, format!("trim.delete.{}", trim.id));
+                                    if delete.clicked() { command = Some(Command::RemoveTrim { id: trim.id.clone() }); }
+                                });
+                            });
+                        }
+                    });
             }
             ui.horizontal(|ui| {
                 let kinds = egui::ComboBox::from_id_salt("trim-kind")
@@ -2930,6 +2936,79 @@ mod tests {
             .click(&format!("trim.edit.{}", mirrored.id), &mut case, &mut draw)
             .unwrap();
         assert_eq!(case.ui.draft.as_ref().unwrap().parse().unwrap(), mirrored);
+    }
+
+    #[test]
+    fn trim_list_virtualizes_and_scrolls_to_last_narrow_row() {
+        use super::super::authoring_smoke::widget_harness::Harness;
+        struct Case {
+            ui: TrimUi,
+            template: GarmentTemplate,
+            top: egui::Pos2,
+        }
+        let mut template = GarmentTemplate::two_panel_demo();
+        for i in 0..1000 {
+            template.trims.push(Trim {
+                id: format!("item_{i}"),
+                panel_id: template.panels[0].id.clone(),
+                kind: TrimKind::Button {
+                    center_m: DVec2::new(0.1, 0.1),
+                    diameter_m: 0.01,
+                },
+            });
+        }
+        let mut case = Case {
+            ui: TrimUi::default(),
+            template,
+            top: egui::Pos2::ZERO,
+        };
+        let mut draw = |ui: &mut egui::Ui, c: &mut Case| {
+            c.top = ui.next_widget_position();
+            let panel = c.template.panels[0].clone();
+            assert!(trim_controls(ui, &mut c.ui, &c.template, &panel, true).is_none());
+        };
+        let mut h = Harness::new(egui::vec2(240., 500.));
+        h.frame(&mut case, &mut draw);
+        h.click("trim.section", &mut case, &mut draw).unwrap();
+        assert!(
+            h.click("trim.duplicate.item_999", &mut case, &mut draw)
+                .is_err()
+        );
+        let pointer = case.top + egui::vec2(35., 65.);
+        let mut output = h.ctx.run_ui(
+            egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(240., 500.),
+                )),
+                time: Some(0.055),
+                focused: true,
+                events: vec![
+                    egui::Event::PointerMoved(pointer),
+                    egui::Event::MouseWheel {
+                        unit: egui::MouseWheelUnit::Point,
+                        delta: egui::vec2(0., -100_000.),
+                        phase: egui::TouchPhase::Move,
+                        modifiers: egui::Modifiers::NONE,
+                    },
+                ],
+                ..Default::default()
+            },
+            |ui| {
+                egui::CentralPanel::default().show(ui, |ui| draw(ui, &mut case));
+            },
+        );
+        output.textures_delta.clear();
+        for _ in 0..20 {
+            h.frame(&mut case, &mut draw);
+        }
+        h.click("trim.duplicate.item_999", &mut case, &mut draw)
+            .unwrap();
+        assert_eq!(
+            case.ui.draft.as_ref().unwrap().parse().unwrap().id,
+            "trim_1"
+        );
+        assert_eq!(case.template.trims.len(), 1000);
     }
 
     #[test]
