@@ -48,6 +48,9 @@ impl Snapshot {
         snapshot.sanitize();
         snapshot
     }
+    fn has_overlay_settings(&self) -> bool {
+        self.wireframe.is_some() || self.seam_links.is_some()
+    }
     fn sanitize(&mut self) {
         self.layout.sanitize();
         self.appearance.sanitize();
@@ -117,7 +120,7 @@ impl Store {
         }
         let mut store: Self =
             serde_json::from_str(&text).map_err(|e| format!("Invalid workspace profiles: {e}"))?;
-        if store.version != 1 || store.profiles.len() > MAX_PROFILES {
+        if !matches!(store.version, 1 | 2) || store.profiles.len() > MAX_PROFILES {
             return Err("Unsupported profile version or too many profiles".into());
         }
         let mut names = std::collections::BTreeSet::new();
@@ -127,6 +130,16 @@ impl Store {
                 return Err("Duplicate workspace profile names".into());
             }
             profile.snapshot.sanitize();
+        }
+        // Early preview builds wrote overlay fields as version 1. Once such a
+        // file is loaded, every subsequent write must use the newer version,
+        // even if the last overlay profile is later removed.
+        if store
+            .profiles
+            .iter()
+            .any(|p| p.snapshot.has_overlay_settings())
+        {
+            store.version = 2;
         }
         Ok(store)
     }
@@ -146,6 +159,9 @@ impl Store {
             .position(|p| p.name.to_lowercase() == name.to_lowercase());
         let mut snapshot = snapshot;
         snapshot.sanitize();
+        if snapshot.has_overlay_settings() {
+            next.version = 2;
+        }
         match (found, replace) {
             (Some(index), true) => {
                 next.profiles[index] = Profile {
@@ -719,6 +735,56 @@ mod tests {
         assert!(Store::load(&path).unwrap().profiles.is_empty());
     }
     #[test]
+    fn overlay_profiles_upgrade_the_format_and_do_not_downgrade() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(FILE_NAME);
+        std::fs::write(
+            &path,
+            r#"{"version":1,"profiles":[{"name":"Legacy","snapshot":{}}]}"#,
+        )
+        .unwrap();
+        let mut store = Store::load(&path).unwrap();
+        assert_eq!(store.version, 1);
+        let overlay = Snapshot {
+            wireframe: Some(true),
+            seam_links: Some(false),
+            ..Default::default()
+        };
+        store
+            .save_profile(&path, "Overlay", overlay, false)
+            .unwrap();
+        let json: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        assert_eq!(json["version"], 2);
+        assert_eq!(json["profiles"][1]["snapshot"]["wireframe"], true);
+        let mut reopened = Store::load(&path).unwrap();
+        reopened.rename(&path, "Legacy", "Renamed").unwrap();
+        reopened
+            .save_profile(&path, "Overlay", Snapshot::default(), true)
+            .unwrap();
+        assert_eq!(Store::load(&path).unwrap().version, 2);
+        reopened.remove(&path, "Overlay").unwrap();
+        assert_eq!(Store::load(&path).unwrap().version, 2);
+    }
+
+    #[test]
+    fn preview_v1_overlay_files_upgrade_on_the_next_write() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(FILE_NAME);
+        std::fs::write(
+            &path,
+            r#"{"version":1,"profiles":[{"name":"Preview","snapshot":{"wireframe":true}}]}"#,
+        )
+        .unwrap();
+        let mut store = Store::load(&path).unwrap();
+        assert_eq!(store.version, 2);
+        store.remove(&path, "Preview").unwrap();
+        let json: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        assert_eq!(json["version"], 2);
+    }
+
+    #[test]
     fn legacy_profiles_preserve_current_overlays_and_startup_preferences() {
         let snapshot: Snapshot = serde_json::from_str("{}").unwrap();
         let mut prefs = Preferences {
@@ -755,7 +821,7 @@ mod tests {
         assert_eq!(bounded.profiles[0].snapshot.layout.inspector_width, 240.);
         assert_eq!(bounded.profiles[0].snapshot.appearance.shadow_opacity, 0.8);
         for text in [
-            r#"{"version":2,"profiles":[]}"#,
+            r#"{"version":3,"profiles":[]}"#,
             r#"{"version":1,"profiles":[{"name":"A","snapshot":{}},{"name":"a","snapshot":{}}]}"#,
         ] {
             std::fs::write(&path, text).unwrap();
