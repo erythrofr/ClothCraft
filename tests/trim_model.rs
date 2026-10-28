@@ -291,7 +291,11 @@ fn standalone_mirror_reflects_all_trims_and_preserves_history() {
     ];
     for (i, kind) in kinds.into_iter().enumerate() {
         source.trims.push(Trim {
-            id: format!("trim_{i}"),
+            id: if i == 1 {
+                "trim_8".into()
+            } else {
+                format!("trim_{i}")
+            },
             panel_id: panel.clone(),
             kind,
         });
@@ -389,6 +393,33 @@ fn standalone_mirror_reflects_all_trims_and_preserves_history() {
                     mirrored
                         .iter()
                         .all(|item| !source.trims.iter().any(|old| old.id == item.id))
+                );
+                assert_eq!(
+                    mirrored
+                        .iter()
+                        .map(|item| item.id.as_str())
+                        .collect::<Vec<_>>(),
+                    ["trim_1", "trim_4", "trim_5", "trim_6"]
+                );
+                let second = authoring::apply(
+                    &edit.template,
+                    Command::Mirror {
+                        panel: panel.clone(),
+                        axis,
+                        copy_side,
+                    },
+                )
+                .unwrap();
+                let second_panel = second.selected.as_ref().unwrap();
+                assert_eq!(
+                    second
+                        .template
+                        .trims
+                        .iter()
+                        .filter(|item| &item.panel_id == second_panel)
+                        .map(|item| item.id.as_str())
+                        .collect::<Vec<_>>(),
+                    ["trim_7", "trim_9", "trim_10", "trim_11"]
                 );
             } else {
                 assert_eq!(target, &panel);

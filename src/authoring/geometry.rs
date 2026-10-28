@@ -127,8 +127,18 @@ pub(super) fn mirror(
             .filter(|trim| trim.panel_id == id)
             .cloned()
             .collect();
+        let mut used_ids: std::collections::BTreeSet<_> =
+            t.trims.iter().map(|trim| trim.id.clone()).collect();
+        let mut next_id = 1usize;
         for mut trim in trims {
-            trim.id = unused_id("trim", t.trims.iter().map(|existing| existing.id.clone()));
+            loop {
+                let candidate = format!("trim_{next_id}");
+                next_id += 1;
+                if used_ids.insert(candidate.clone()) {
+                    trim.id = candidate;
+                    break;
+                }
+            }
             trim.panel_id = new_id.clone();
             reflect_trim(&mut trim);
             t.trims.push(trim);
