@@ -593,6 +593,7 @@ impl TrimDraft {
             self.points = previous;
         }
         self.draw_points.clear();
+        self.place_on_3d = false;
     }
 }
 
@@ -1248,15 +1249,24 @@ fn trim_controls(
                     draft.place_on_board = false;
                     draft.place_on_3d = true;
                 }
-                if draft.place_on_3d { ui.small("Click the visible owning panel in 3D · Escape cancels"); }
+                if draft.place_on_3d && draft.draw_backup.is_none() { ui.small("Click the visible owning panel in 3D · Escape cancels"); }
                 if matches!(draft.kind, 1..=3) {
                     if draft.draw_backup.is_none() {
                         let draw = ui.button("Draw path on 2D board");
                         #[cfg(test)]
                         super::authoring_smoke::widget_harness::named(ui, &draw, "trim.draw");
                         if draw.clicked() { draft.begin_path(); }
+                        let draw_3d = ui.add_enabled(can_place_3d, egui::Button::new("Draw path on 3D cloth"))
+                            .on_disabled_hover_text("Choose Edit mode first");
+                        #[cfg(test)]
+                        super::authoring_smoke::widget_harness::named(ui, &draw_3d, "trim.draw_3d");
+                        if draw_3d.clicked() { draft.begin_path(); draft.place_on_3d = true; }
                     } else {
-                        ui.small(if draft.kind == 1 {
+                        ui.small(if draft.place_on_3d && draft.kind == 1 {
+                            "Click the two buttonhole endpoints on the visible panel in 3D"
+                        } else if draft.place_on_3d {
+                            "Click points on the visible panel in 3D · 128 points maximum"
+                        } else if draft.kind == 1 {
                             "Click the two buttonhole endpoints on the selected panel"
                         } else {
                             "Click points on the selected panel · 128 points maximum"
@@ -1265,7 +1275,7 @@ fn trim_controls(
                             let finish = ui.add_enabled(draft.parse().is_ok(), egui::Button::new("Finish path"));
                             #[cfg(test)]
                             super::authoring_smoke::widget_harness::named(ui, &finish, "trim.finish_path");
-                            if finish.clicked() { draft.draw_backup = None; draft.draw_points.clear(); }
+                            if finish.clicked() { draft.draw_backup = None; draft.draw_points.clear(); draft.place_on_3d = false; }
                             let cancel_path = ui.button("Cancel drawing");
                             #[cfg(test)]
                             super::authoring_smoke::widget_harness::named(ui, &cancel_path, "trim.cancel_path");
@@ -1410,7 +1420,13 @@ impl Atelier {
             .as_mut()
             .expect("active trim draft");
         match hit.and_then(|hit| stage_surface_hit(draft, hit)) {
-            Ok(true) => self.status = "Trim position staged · Apply to commit".into(),
+            Ok(true) => {
+                self.status = if draft.draw_backup.is_some() {
+                    "Path point staged · Finish path to continue".into()
+                } else {
+                    "Trim position staged · Apply to commit".into()
+                }
+            }
             Ok(false) => self.status = "Click the visible owning panel to position the trim".into(),
             Err(error) => {
                 self.authoring.error = Some(error.clone());
@@ -1420,11 +1436,7 @@ impl Atelier {
     }
 
     pub(super) fn trim_board_placement_active(&self) -> bool {
-        self.authoring
-            .trims
-            .draft
-            .as_ref()
-            .is_some_and(|draft| draft.place_on_board || draft.draw_backup.is_some())
+        self.authoring.trims.board_placement_active()
     }
 
     /// A board click moves the entire draft without committing an edit.
@@ -1435,6 +1447,10 @@ impl Atelier {
         let Some(draft) = self.authoring.trims.draft.as_ref() else {
             return false;
         };
+        if draft.place_on_3d {
+            self.status = "Continue placing this trim on the 3D cloth".into();
+            return true;
+        }
         if self.board_panel_at(rect, screen) != Some(draft.panel.as_str()) {
             self.status = "Click the trim's panel to position it".into();
             return true;
@@ -1573,6 +1589,127 @@ mod tests {
         h.frame(&mut state, &mut draw);
         assert!(h.click("trim.place_3d", &mut state, &mut draw).is_err());
         assert!(!state.draft.as_ref().unwrap().place_on_3d);
+    }
+
+    #[test]
+    fn named_3d_path_drawing_stages_cancels_and_applies_once() {
+        use super::super::authoring_smoke::widget_harness::Harness;
+        struct Case {
+            ui: TrimUi,
+            template: GarmentTemplate,
+            history: authoring::History,
+        }
+        let mut case = Case {
+            ui: TrimUi {
+                kind: 2,
+                ..Default::default()
+            },
+            template: GarmentTemplate::two_panel_demo(),
+            history: Default::default(),
+        };
+        let mut draw = |ui: &mut egui::Ui, case: &mut Case| {
+            let panel = case.template.panels[0].clone();
+            if let Some(command) = trim_controls(ui, &mut case.ui, &case.template, &panel, true) {
+                let edit = authoring::apply(&case.template, command).unwrap();
+                assert!(!edit.reset_simulation);
+                case.history.record(case.template.clone());
+                case.template = edit.template;
+                case.ui.draft = None;
+            }
+        };
+        let mut h = Harness::new(egui::vec2(1000., 700.));
+        h.frame(&mut case, &mut draw);
+        h.click("trim.section", &mut case, &mut draw).unwrap();
+        h.click("trim.new", &mut case, &mut draw).unwrap();
+        let previous = case.ui.draft.as_ref().unwrap().points.clone();
+        h.click("trim.draw_3d", &mut case, &mut draw).unwrap();
+        let panel = case.template.panels[0].id.clone();
+        let draft = case.ui.draft.as_mut().unwrap();
+        assert!(draft.place_on_3d && draft.draw_backup.is_some());
+        assert!(!stage_surface_hit(draft, Some(("other".into(), DVec2::new(0.1, 0.1)))).unwrap());
+        assert!(stage_surface_hit(draft, Some((panel.clone(), DVec2::new(0.1, 0.1)))).unwrap());
+        assert!(draft.place_on_3d);
+        h.frame(&mut case, &mut draw);
+        assert!(h.click("trim.finish_path", &mut case, &mut draw).is_err());
+        h.click("trim.width", &mut case, &mut draw).unwrap();
+        h.key(
+            "trim.width",
+            egui::Key::Escape,
+            egui::Modifiers::NONE,
+            &mut case,
+            &mut draw,
+        )
+        .unwrap();
+        assert_eq!(case.ui.draft.as_ref().unwrap().points, previous);
+        assert!(!case.ui.draft.as_ref().unwrap().place_on_3d);
+        h.frame(&mut case, &mut draw);
+        h.click("trim.draw_3d", &mut case, &mut draw).unwrap();
+        assert!(
+            stage_surface_hit(
+                case.ui.draft.as_mut().unwrap(),
+                Some((panel.clone(), DVec2::new(0.1, 0.1)))
+            )
+            .unwrap()
+        );
+        h.frame(&mut case, &mut draw);
+        h.click("trim.cancel_path", &mut case, &mut draw).unwrap();
+        assert_eq!(case.ui.draft.as_ref().unwrap().points, previous);
+        h.frame(&mut case, &mut draw);
+        h.click("trim.draw_3d", &mut case, &mut draw).unwrap();
+        let draft = case.ui.draft.as_mut().unwrap();
+        for point in [
+            DVec2::new(0.1, 0.1),
+            DVec2::new(0.2, 0.2),
+            DVec2::new(0.3, 0.2),
+        ] {
+            assert!(stage_surface_hit(draft, Some((panel.clone(), point))).unwrap());
+        }
+        h.frame(&mut case, &mut draw);
+        h.click("trim.finish_path", &mut case, &mut draw).unwrap();
+        assert!(!case.ui.draft.as_ref().unwrap().place_on_3d);
+        assert!(case.template.trims.is_empty() && !case.history.can_undo());
+        h.click("trim.apply", &mut case, &mut draw).unwrap();
+        assert_eq!(case.template.trims.len(), 1);
+        let TrimKind::Zipper { path_m, .. } = &case.template.trims[0].kind else {
+            panic!("zipper expected")
+        };
+        assert_eq!(
+            path_m,
+            &vec![
+                DVec2::new(0.1, 0.1),
+                DVec2::new(0.2, 0.2),
+                DVec2::new(0.3, 0.2)
+            ]
+        );
+        let undo = case.history.restore(&case.template, false).unwrap();
+        assert!(undo.template.trims.is_empty());
+    }
+
+    #[test]
+    fn three_dimensional_buttonhole_drawing_keeps_two_endpoint_limit() {
+        let trim = Trim {
+            id: "hole".into(),
+            panel_id: "left".into(),
+            kind: TrimKind::Buttonhole {
+                start_m: DVec2::new(0.1, 0.1),
+                end_m: DVec2::new(0.2, 0.1),
+                width_m: 0.01,
+            },
+        };
+        let mut draft = TrimDraft::from_trim(&trim);
+        draft.begin_path();
+        draft.place_on_3d = true;
+        for p in [DVec2::new(0.12, 0.2), DVec2::new(0.22, 0.2)] {
+            assert!(stage_surface_hit(&mut draft, Some(("left".into(), p))).unwrap());
+        }
+        let staged = draft.points.clone();
+        assert!(
+            stage_surface_hit(&mut draft, Some(("left".into(), DVec2::new(0.3, 0.2)))).is_err()
+        );
+        assert_eq!(draft.points, staged);
+        draft.cancel_path();
+        assert!(!draft.place_on_3d);
+        assert_eq!(draft.parse().unwrap(), trim);
     }
 
     #[test]

@@ -45,6 +45,13 @@ gesture and **Apply** commits the draft as one undoable edit. The click query
 is limited to 100,000 cloth triangles and reports invalid geometry; it does not
 affect physics or collision detection. This workflow needs native-window and
 real-scene performance validation.
+For a buttonhole, zipper or topstitch draft in Edit mode, **Draw path on 3D
+cloth** stages successive points on the visible owning panel using the same
+mapping. A buttonhole needs exactly two points; other paths accept up to 128.
+**Finish path** keeps the staged line for **Apply**, while **Cancel drawing**,
+Escape or changing tools restores the previous draft path. During a 3D gesture,
+clicks on the 2D board do not add points or change the selection. This creates
+material-space polylines, not geodesics or physical fasteners.
 These samples do not prove visibility for every pixel. Skipped trims cannot be
 picked. On the 2D board buttonholes and zipper segments show width outlines in
 material coordinates. Each zipper segment is outlined separately, so bends are
