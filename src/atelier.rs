@@ -702,6 +702,7 @@ impl eframe::App for Atelier {
             && !self.settings_open
             && !self.authoring.radial.blocked
             && !self.quick.blocked
+            && !self.authoring.trims.has_pending_history_step()
             && self.authoring.preview.is_none()
             && !self.authoring.board.gesture_active()
             && self.grab.is_none()
