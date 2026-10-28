@@ -191,6 +191,27 @@ fn embedded_albedo_roundtrips_and_preserves_physics() {
 }
 
 #[test]
+fn oversized_embedded_pixel_array_is_rejected_during_deserialization() {
+    use marvelous_cloth::garment::appearance::AlbedoTexture;
+    let maximum = AlbedoTexture::MAX_DIMENSION as usize * AlbedoTexture::MAX_DIMENSION as usize * 4;
+    let valid = AlbedoTexture {
+        width: AlbedoTexture::MAX_DIMENSION,
+        height: AlbedoTexture::MAX_DIMENSION,
+        rgba_srgb: vec![255; maximum].into(),
+        tile_m: [0.1, 0.1],
+        rotation_degrees: 0.,
+    };
+    let encoded = serde_json::to_string(&valid).unwrap();
+    let decoded: AlbedoTexture = serde_json::from_str(&encoded).unwrap();
+    decoded.validate().unwrap();
+    let oversized = format!(
+        "{{\"width\":1,\"height\":1,\"rgba_srgb\":[{}0],\"tile_m\":[0.1,0.1],\"rotation_degrees\":0}}",
+        "0,".repeat(maximum)
+    );
+    assert!(serde_json::from_str::<AlbedoTexture>(&oversized).is_err());
+}
+
+#[test]
 fn cached_drape_reopens_after_appearance_change_with_identical_signature() {
     use marvelous_cloth::{fitting::FittingProject, garment::presets::GarmentKind};
     let dir = tempfile::tempdir().unwrap();

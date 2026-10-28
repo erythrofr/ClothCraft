@@ -39,14 +39,48 @@ impl PartialEq for AlbedoTexture {
 }
 
 mod shared_pixels {
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use serde::{
+        Deserializer, Serialize, Serializer,
+        de::{Error, SeqAccess, Visitor},
+    };
+    use std::fmt;
     use std::sync::Arc;
 
     pub fn serialize<S: Serializer>(pixels: &Arc<[u8]>, serializer: S) -> Result<S::Ok, S::Error> {
         pixels.as_ref().serialize(serializer)
     }
     pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Arc<[u8]>, D::Error> {
-        Vec::<u8>::deserialize(deserializer).map(Arc::from)
+        struct Pixels;
+        impl<'de> Visitor<'de> for Pixels {
+            type Value = Arc<[u8]>;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a bounded array of RGBA bytes")
+            }
+            fn visit_seq<A: SeqAccess<'de>>(
+                self,
+                mut sequence: A,
+            ) -> Result<Self::Value, A::Error> {
+                let limit = super::AlbedoTexture::MAX_DIMENSION as usize
+                    * super::AlbedoTexture::MAX_DIMENSION as usize
+                    * 4;
+                if sequence.size_hint().is_some_and(|n| n > limit) {
+                    return Err(A::Error::custom("Albedo pixel array exceeds its limit"));
+                }
+                let mut pixels = Vec::with_capacity(sequence.size_hint().unwrap_or(0).min(limit));
+                while let Some(pixel) = sequence.next_element::<u8>()? {
+                    if pixels.len() == limit {
+                        return Err(A::Error::custom("Albedo pixel array exceeds its limit"));
+                    }
+                    if pixels.len() == pixels.capacity() {
+                        let additional = pixels.len().max(8).min(limit - pixels.len());
+                        pixels.reserve_exact(additional);
+                    }
+                    pixels.push(pixel);
+                }
+                Ok(Arc::from(pixels))
+            }
+        }
+        deserializer.deserialize_seq(Pixels)
     }
 }
 

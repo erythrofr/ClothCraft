@@ -24,6 +24,10 @@ is not a calibrated fabric appearance. Diagnostic overlays take precedence.
 The existing pattern clipboard has a 2 MiB serialized size limit. A selection
 with multiple large embedded images can exceed it; copying then returns an error
 without dropping texture data. Portable compact storage remains open work.
+Each embedded pixel array is capped while it is deserialized, before a larger
+pixel buffer is built. This does not bound the complete JSON document: current
+project loaders read the entire file first, and a document can contain many
+records before compilation checks the 16-texture limit.
 Pixel arrays are shared immutably between document/history copies; the viewport
 reuses a previously validated pixel allocation and still rechecks dimensions
 and texture parameters. The GPU cache is rebuilt when authored maps change.
