@@ -2564,6 +2564,12 @@ impl Atelier {
                         Color32::from_rgb(0xDB, 0x81, 0x05),
                     );
                 }
+                if let Some(points) = self.trim_drawing_points(&panel.id) {
+                    for p in points.iter().take(trim_preview_budget) {
+                        painter.circle_filled(point(*p), 3., Color32::from_rgb(0xDB, 0x81, 0x05));
+                    }
+                    trim_preview_budget = trim_preview_budget.saturating_sub(points.len());
+                }
                 for face in self.issue.faces.range(range.triangles.clone()) {
                     let triangle = &self.scene.garment.mesh.triangles[*face];
                     painter.add(egui::Shape::convex_polygon(

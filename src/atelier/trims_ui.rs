@@ -38,6 +38,8 @@ struct TrimDraft {
     width: String,
     rows: String,
     place_on_board: bool,
+    draw_backup: Option<String>,
+    draw_points: Vec<DVec2>,
     original: Option<Trim>,
     base: Option<Trim>,
 }
@@ -124,6 +126,8 @@ impl TrimDraft {
             width: (width * 1000.).to_string(),
             rows: rows.to_string(),
             place_on_board: false,
+            draw_backup: None,
+            draw_points: Vec::new(),
             original: Some(trim.clone()),
             base: Some(trim.clone()),
         }
@@ -198,6 +202,36 @@ impl TrimDraft {
         };
         trim.validate()?;
         Ok(trim)
+    }
+
+    fn begin_path(&mut self) {
+        self.draw_backup = Some(self.points.clone());
+        self.draw_points.clear();
+        self.points.clear();
+        self.place_on_board = false;
+    }
+
+    fn append_path_point(&mut self, point: DVec2) -> Result<(), String> {
+        if !point.is_finite() || self.draw_points.len() >= 128 {
+            return Err("Path needs finite coordinates and at most 128 points".into());
+        }
+        if self
+            .draw_points
+            .last()
+            .is_some_and(|p| p.distance(point) < 1e-6)
+        {
+            return Err("Choose a different point".into());
+        }
+        self.draw_points.push(point);
+        self.points = points_text(&self.draw_points);
+        Ok(())
+    }
+
+    fn cancel_path(&mut self) {
+        if let Some(previous) = self.draw_backup.take() {
+            self.points = previous;
+        }
+        self.draw_points.clear();
     }
 }
 
@@ -412,6 +446,14 @@ impl Atelier {
             .filter(|d| d.panel == panel)
             .and_then(|d| d.parse().ok())
     }
+    pub(super) fn trim_drawing_points(&self, panel: &str) -> Option<&[DVec2]> {
+        self.authoring
+            .trims
+            .draft
+            .as_ref()
+            .filter(|d| d.panel == panel && d.draw_backup.is_some())
+            .map(|d| d.draw_points.as_slice())
+    }
     pub(super) fn paint_trims_3d(&mut self, ui: &egui::Ui, rect: egui::Rect) {
         self.authoring
             .trims
@@ -492,6 +534,16 @@ fn trim_controls(
     if state.draft.as_ref().is_some_and(|d| d.panel != panel.id) {
         state.draft = None;
     }
+    if state
+        .draft
+        .as_ref()
+        .is_some_and(|d| d.place_on_board || d.draw_backup.is_some())
+        && ui.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Escape))
+        && let Some(draft) = state.draft.as_mut()
+    {
+        draft.place_on_board = false;
+        draft.cancel_path();
+    }
     let mut command = None;
     let section = egui::CollapsingHeader::new("Construction trims")
         .open(state.draft.as_ref().map(|_| true))
@@ -560,6 +612,8 @@ fn trim_controls(
                         width: if kind == 0 { "18" } else { "4" }.into(),
                         rows: "1".into(),
                         place_on_board: false,
+                        draw_backup: None,
+                        draw_points: Vec::new(),
                         original: None,
                         base: None,
                     });
@@ -567,7 +621,7 @@ fn trim_controls(
             });
             if let Some(draft) = state.draft.as_mut() {
                 ui.label("Material X, Y (mm) · one point per line");
-                let points = ui.add(
+                let points = ui.add_enabled(draft.draw_backup.is_none(),
                     egui::TextEdit::multiline(&mut draft.points).desired_rows(if draft.kind == 0 {
                         1
                     } else {
@@ -598,19 +652,40 @@ fn trim_controls(
                         ui.text_edit_singleline(&mut draft.rows);
                     });
                 }
-                let place = ui.button("Position first point on 2D board");
+                let place = ui.add_enabled(draft.draw_backup.is_none(), egui::Button::new("Position first point on 2D board"));
                 #[cfg(test)]
                 super::authoring_smoke::widget_harness::named(ui, &place, "trim.place");
                 if place.clicked() {
                     draft.place_on_board = true;
                 }
                 if draft.place_on_board { ui.small("Click the panel to position the first point · Escape cancels"); }
+                if matches!(draft.kind, 2 | 3) {
+                    if draft.draw_backup.is_none() {
+                        let draw = ui.button("Draw path on 2D board");
+                        #[cfg(test)]
+                        super::authoring_smoke::widget_harness::named(ui, &draw, "trim.draw");
+                        if draw.clicked() { draft.begin_path(); }
+                    } else {
+                        ui.small("Click points on the selected panel · 128 points maximum");
+                        ui.horizontal(|ui| {
+                            let finish = ui.add_enabled(draft.parse().is_ok(), egui::Button::new("Finish path"));
+                            #[cfg(test)]
+                            super::authoring_smoke::widget_harness::named(ui, &finish, "trim.finish_path");
+                            if finish.clicked() { draft.draw_backup = None; draft.draw_points.clear(); }
+                            let cancel_path = ui.button("Cancel drawing");
+                            #[cfg(test)]
+                            super::authoring_smoke::widget_harness::named(ui, &cancel_path, "trim.cancel_path");
+                            if cancel_path.clicked() { draft.cancel_path(); }
+                        });
+                    }
+                }
                 let parsed = draft.parse();
                 if let Err(error) = &parsed {
                     ui.colored_label(Color32::GOLD, error);
                 }
+                let can_apply = parsed.is_ok() && draft.draw_backup.is_none();
                 ui.horizontal(|ui| {
-                    let apply = ui.add_enabled(parsed.is_ok(), egui::Button::new("Apply"));
+                    let apply = ui.add_enabled(can_apply, egui::Button::new("Apply"));
                     #[cfg(test)]
                     super::authoring_smoke::widget_harness::named(ui, &apply, "trim.apply");
                     if apply.clicked() {
@@ -738,7 +813,7 @@ impl Atelier {
             .trims
             .draft
             .as_ref()
-            .is_some_and(|d| d.place_on_board)
+            .is_some_and(|d| d.place_on_board || d.draw_backup.is_some())
     }
 
     /// A board click moves the entire draft without committing an edit.
@@ -767,6 +842,14 @@ impl Atelier {
             self.authoring.board.world(rect, screen) - self.board_origin(index),
             -self.board_angle(index),
         );
+        if draft.draw_backup.is_some() {
+            let draft = self.authoring.trims.draft.as_mut().unwrap();
+            if let Err(error) = draft.append_path_point(local) {
+                self.authoring.error = Some(error.clone());
+                self.status = error;
+            }
+            return true;
+        }
         let result = draft
             .parse()
             .and_then(|trim| translate_first_point(trim, local));
@@ -793,6 +876,7 @@ impl Atelier {
     pub(super) fn cancel_trim_board_placement(&mut self) {
         if let Some(draft) = self.authoring.trims.draft.as_mut() {
             draft.place_on_board = false;
+            draft.cancel_path();
         }
     }
 }
@@ -864,6 +948,46 @@ mod tests {
                 .unwrap();
             harness.frame(&mut case, &mut draw);
             harness.click("trim.new", &mut case, &mut draw).unwrap();
+            if index == 2 {
+                let previous = case.ui.draft.as_ref().unwrap().points.clone();
+                harness.click("trim.draw", &mut case, &mut draw).unwrap();
+                harness.frame(&mut case, &mut draw);
+                assert!(harness.click("trim.apply", &mut case, &mut draw).is_err());
+                harness
+                    .click("trim.cancel_path", &mut case, &mut draw)
+                    .unwrap();
+                assert_eq!(case.ui.draft.as_ref().unwrap().points, previous);
+                harness.frame(&mut case, &mut draw);
+                harness.click("trim.draw", &mut case, &mut draw).unwrap();
+                case.ui
+                    .draft
+                    .as_mut()
+                    .unwrap()
+                    .append_path_point(DVec2::new(0.05, 0.05))
+                    .unwrap();
+                harness.frame(&mut case, &mut draw);
+                harness.click("trim.width", &mut case, &mut draw).unwrap();
+                harness
+                    .key(
+                        "trim.width",
+                        egui::Key::Escape,
+                        egui::Modifiers::NONE,
+                        &mut case,
+                        &mut draw,
+                    )
+                    .unwrap();
+                assert_eq!(case.ui.draft.as_ref().unwrap().points, previous);
+                harness.frame(&mut case, &mut draw);
+                harness.click("trim.draw", &mut case, &mut draw).unwrap();
+                let draft = case.ui.draft.as_mut().unwrap();
+                draft.append_path_point(DVec2::new(0.05, 0.05)).unwrap();
+                draft.append_path_point(DVec2::new(0.1, 0.1)).unwrap();
+                harness.frame(&mut case, &mut draw);
+                harness
+                    .click("trim.finish_path", &mut case, &mut draw)
+                    .unwrap();
+                harness.frame(&mut case, &mut draw);
+            }
             harness.click("trim.apply", &mut case, &mut draw).unwrap();
             assert_eq!(label(&case.template.trims[0].kind), expected);
             harness.frame(&mut case, &mut draw);
@@ -1053,6 +1177,31 @@ mod tests {
         };
         template.trims.push(changed);
         assert!(check_draft_revision(&draft, &template).is_err());
+    }
+
+    #[test]
+    fn path_drawing_bounds_and_cancel_preserve_the_prior_draft() {
+        let trim = Trim {
+            id: "trim_1".into(),
+            panel_id: "panel".into(),
+            kind: TrimKind::Zipper {
+                path_m: vec![DVec2::ZERO, DVec2::X],
+                width_m: 0.01,
+            },
+        };
+        let mut draft = TrimDraft::from_trim(&trim);
+        let original = draft.points.clone();
+        draft.begin_path();
+        assert!(draft.append_path_point(DVec2::splat(f64::NAN)).is_err());
+        for i in 0..128 {
+            draft
+                .append_path_point(DVec2::new(i as f64 * 0.001, 0.))
+                .unwrap();
+        }
+        assert!(draft.append_path_point(DVec2::new(1., 0.)).is_err());
+        draft.cancel_path();
+        assert_eq!(draft.points, original);
+        assert_eq!(draft.parse().unwrap(), trim);
     }
 
     #[test]

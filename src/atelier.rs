@@ -485,6 +485,7 @@ impl Atelier {
             Ok(scene) => {
                 self.document.dirty = true;
                 self.authoring.sewing = Default::default();
+                self.authoring.trims = Default::default();
                 if let Some(poly) = p.template.panels.iter().find_map(|p| p.polygon.as_ref()) {
                     let m = poly.meshing_settings();
                     self.mesh_mm = m.target_edge_m * 1000.;
@@ -682,6 +683,7 @@ impl eframe::App for Atelier {
             // Existing cancellation restores the captured drape and invalidates
             // stale worker responses; it does not record an authoring edit.
             self.cancel_preview();
+            self.cancel_trim_board_placement();
             self.authoring.selection.placement_marquee = None;
         }
         if self.authoring.tool != Tool::Place {
