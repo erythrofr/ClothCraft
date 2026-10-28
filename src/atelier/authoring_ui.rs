@@ -692,6 +692,10 @@ impl Atelier {
         }
     }
     fn undo_edit(&mut self, redo: bool) {
+        if let Some(message) = self.authoring.trims.intercept_history(redo) {
+            self.status = message.into();
+            return;
+        }
         self.cancel_preview();
         self.authoring.board.clear_preview();
         self.authoring.replace = false;
@@ -883,30 +887,38 @@ impl Atelier {
             }
             ui.separator();
             let undo = ui
-                .add_enabled_ui(self.authoring.history.can_undo(), |ui| {
-                    super::icons::icon_only(
-                        ui,
-                        super::icons::Icon::Undo,
-                        32.,
-                        false,
-                        "Undo · Ctrl+Z",
-                    )
-                })
+                .add_enabled_ui(
+                    self.authoring.history.can_undo()
+                        || self.authoring.trims.has_pending_history_step(),
+                    |ui| {
+                        super::icons::icon_only(
+                            ui,
+                            super::icons::Icon::Undo,
+                            32.,
+                            false,
+                            "Undo · Ctrl+Z",
+                        )
+                    },
+                )
                 .inner;
             self.smoke_target("undo", undo.rect.center());
             if undo.clicked() {
                 self.undo_edit(false);
             }
             let redo = ui
-                .add_enabled_ui(self.authoring.history.can_redo(), |ui| {
-                    super::icons::icon_only(
-                        ui,
-                        super::icons::Icon::Redo,
-                        32.,
-                        false,
-                        "Redo · Ctrl+Shift+Z",
-                    )
-                })
+                .add_enabled_ui(
+                    self.authoring.history.can_redo()
+                        && !self.authoring.trims.has_pending_history_step(),
+                    |ui| {
+                        super::icons::icon_only(
+                            ui,
+                            super::icons::Icon::Redo,
+                            32.,
+                            false,
+                            "Redo · Ctrl+Shift+Z",
+                        )
+                    },
+                )
                 .inner;
             self.smoke_target("redo", redo.rect.center());
             if redo.clicked() {
