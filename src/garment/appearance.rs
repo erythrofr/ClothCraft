@@ -47,6 +47,13 @@ impl AlbedoTexture {
         }
         Ok(())
     }
+
+    /// Map local panel material coordinates in metres to repeating image UVs.
+    /// The caller must validate this texture and the coordinate before use.
+    pub fn material_uv(&self, uv: glam::DVec2) -> glam::DVec2 {
+        (glam::DMat2::from_angle(self.rotation_degrees.to_radians()) * uv)
+            / glam::DVec2::from_array(self.tile_m)
+    }
 }
 impl Default for FabricAppearance {
     fn default() -> Self {
@@ -81,14 +88,14 @@ impl FabricAppearance {
 
 /// Rebind current document optics to physical panel material slots without
 /// modifying or rebuilding the compiled garment retained by the worker.
-pub fn bind(
-    template: &super::GarmentTemplate,
+pub fn bind<'a>(
+    template: &'a super::GarmentTemplate,
     garment: &super::CompiledGarment,
-) -> Vec<Option<FabricAppearance>> {
+) -> Vec<Option<&'a FabricAppearance>> {
     let mut result = vec![None; garment.materials.len()];
     for panel in &garment.panels {
         if let Some(source) = template.panels.iter().find(|p| p.id == panel.id) {
-            result[panel.material] = template.fabric_appearance.get(&source.fabric).cloned();
+            result[panel.material] = template.fabric_appearance.get(&source.fabric);
         }
     }
     result

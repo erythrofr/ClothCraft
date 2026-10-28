@@ -32,7 +32,7 @@ fn optics_are_validated_and_do_not_change_mechanics_or_legacy_bytes() {
     assert_eq!(edit.garment.initial_state.x, g.initial_state.x);
     assert_eq!(
         appearance::bind(&edit.template, &g),
-        vec![Some(optics); g.materials.len()]
+        vec![Some(&optics); g.materials.len()]
     );
     for roughness in [f64::NAN, -0.1, 1.1] {
         assert!(
@@ -80,6 +80,9 @@ fn embedded_albedo_roundtrips_and_preserves_physics() {
         tile_m: [0.1, 0.2],
         rotation_degrees: 45.,
     };
+    let mapped = texture.material_uv(glam::DVec2::new(0.1, 0.));
+    assert!((mapped.x - 2f64.sqrt() * 0.5).abs() < 1e-12);
+    assert!((mapped.y - 2f64.sqrt() * 0.25).abs() < 1e-12);
     let optics = FabricAppearance {
         albedo: Some(texture.clone()),
         ..Default::default()
@@ -154,10 +157,20 @@ fn cached_drape_reopens_after_appearance_change_with_identical_signature() {
     p.save(&file).unwrap();
     let mut before = FittingProject::load(&file).unwrap();
     let signature = before.mesh_signature.clone();
+    let textured = FabricAppearance {
+        albedo: Some(appearance::AlbedoTexture {
+            width: 1,
+            height: 1,
+            rgba_srgb: vec![120, 140, 160, 255],
+            tile_m: [0.2, 0.15],
+            rotation_degrees: 30.,
+        }),
+        ..Default::default()
+    };
     before
         .template
         .fabric_appearance
-        .insert(before.template.fabrics[0].id.clone(), Default::default());
+        .insert(before.template.fabrics[0].id.clone(), textured);
     let scene = before.compile().unwrap();
     assert_eq!(scene.state.x, state.x);
     assert_eq!(scene.state.v, state.v);

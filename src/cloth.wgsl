@@ -6,6 +6,8 @@ struct View {
     ambient: vec4f, // ambient gain, padding
 };
 @group(0) @binding(0) var<uniform> view: View;
+@group(1) @binding(0) var albedo_maps: texture_2d_array<f32>;
+@group(1) @binding(1) var albedo_sampler: sampler;
 struct VertexOut {
     @builtin(position) position: vec4<f32>,
     @location(0) normal: vec3<f32>,
@@ -13,15 +15,20 @@ struct VertexOut {
     @location(2) barycentric: vec3<f32>,
     @location(3) world: vec3f,
     @location(4) roughness: f32,
+    @location(5) texcoord: vec2f,
+    @location(6) @interpolate(flat) layer: i32,
 };
 
 @vertex
 fn vs_main(@location(0) clip: vec4<f32>, @location(1) normal: vec3<f32>,
-           @location(2) color: vec4<f32>, @location(3) bary: vec3<f32>, @location(4) roughness: f32) -> VertexOut {
+           @location(2) color: vec4<f32>, @location(3) bary: vec3<f32>, @location(4) roughness: f32,
+           @location(5) tex: vec3f) -> VertexOut {
     var out: VertexOut;
     out.position = view.projection * clip;
     out.world = clip.xyz;
     out.roughness = roughness;
+    out.texcoord = tex.xy;
+    out.layer = i32(tex.z);
     out.normal = normal;
     out.color = color;
     out.barycentric = bary;
@@ -63,6 +70,10 @@ fn fs_main(in: VertexOut, @builtin(front_facing) front: bool) -> @location(0) ve
     let gl = 2.0 * nl / max(nl + sqrt(a2 + (1.0 - a2) * nl * nl), 0.0001);
     let fresnel = 0.04 + 0.96 * pow(1.0 - vh, 5.0);
     let specular = distribution * gv * gl * fresnel / max(4.0 * nv, 0.0001);
-    let rgb = (in.color.rgb * (0.25 * view.ambient.x + 0.7 * view.light.w * nl * (1.0 - fresnel)) + vec3f(0.2 * view.light.w * specular)) * wire_factor;
+    var base_color = in.color.rgb;
+    if in.layer >= 0 {
+        base_color *= textureSampleLevel(albedo_maps, albedo_sampler, in.texcoord, in.layer, 0.0).rgb;
+    }
+    let rgb = (base_color * (0.25 * view.ambient.x + 0.7 * view.light.w * nl * (1.0 - fresnel)) + vec3f(0.2 * view.light.w * specular)) * wire_factor;
     return vec4f(encode_srgb(rgb), 1.0);
 }

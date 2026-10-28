@@ -1,16 +1,26 @@
 # Fabric appearance
 
 Work in progress for EXO-LOOK-001 (#126). CPU validation is separate from
-native-window/GPU acceptance. Texture loading, normal maps and measured textile
-BRDFs are not implemented by this slice.
+native-window/GPU acceptance. Normal maps and measured textile BRDFs are not
+implemented.
 
-An experimental embedded albedo field is being developed on a draft branch. It
-is not yet exposed by the inspector or rendered; do not treat the field as a
-supported user workflow or merge it before the image loader, renderer,
-resource limits and end-to-end validation are complete. The initial prototype
-stores bounded opaque sRGB pixels and material-space tile dimensions/rotation.
-Its storage and resolution limits require review against actual project size,
-runtime cost and portable clipboard/save workflows before they are final.
+An experimental embedded albedo workflow is being developed on a draft branch.
+Its PNG loader, inspector and shader path are implemented but have not been
+validated in an actual window. Do not merge or advertise it as supported until
+the GPU/window, rendering and end-to-end acceptance checks pass. The prototype
+stores opaque sRGB pixels, material-space tile dimensions and rotation. Its
+JSON representation and resolution limits require review against actual project
+size, runtime cost and portable clipboard/save workflows.
+
+The experimental loader limits PNG input to 1 MiB and dimensions to 256×256;
+it rejects transparency. At most 16 distinct fabric texture records are
+permitted in a document. Pixels are embedded in JSON, so project size can be
+substantially larger than the input PNG. Tile size is 0.001–100 m per axis;
+rotation is in degrees around the material-space origin, independent of panel
+placement and grain. An image is multiplied by the chosen fabric color. The
+draft renderer expands images to 256×256 with nearest-neighbor resampling and
+uses linear repeated sampling without mipmaps. This may alias at distance and
+is not a calibrated fabric appearance. Diagnostic overlays take precedence.
 
 ## Authored data and controls
 
@@ -49,17 +59,17 @@ Custom sRGB bytes are decoded to linear RGB. The shader applies a bounded
 fixed-light dielectric GGX highlight controlled by perceptual roughness and
 encodes the result to sRGB for the existing unorm viewport target. This is a
 presentation approximation, not a calibrated woven/knitted material model,
-film renderer or complete PBR pipeline. There are no texture maps, transparency,
-metalness, sheen, optical displacement or asset download controls.
+film renderer or complete PBR pipeline. There is no transparency, metalness,
+sheen, optical displacement or asset download control. The albedo workflow
+described above remains experimental and unverified on a GPU.
 
 Absent appearance and diagnostic overlays use the previous shading path.
 Marked faces, contact visualization and strain heatmaps retain their priority
 and are not tinted by custom optics. Wireframe strength is still independent
 of optical roughness. The avatar and sewing overlay use legacy shading.
 
-The camera uniform is 80 bytes: a 64-byte projection matrix and a 16-byte eye
-or orthographic direction. Mesh vertices contain 15 floats, including a final
-roughness value; a negative value selects legacy shading. WGSL is validated
+The camera uniform is 112 bytes. Mesh vertices contain 18 floats, including
+roughness and material UV/layer; negative roughness selects legacy shading. WGSL is validated
 on CPU, and real native-window acceptance remains pending explicit GPU access.
 
 ## Acceptance and reproduction

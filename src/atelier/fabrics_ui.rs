@@ -14,6 +14,7 @@ pub(super) struct FabricDraft {
     preset: Option<usize>,
     all_panels: bool,
     appearance: Option<marvelous_cloth::garment::appearance::FabricAppearance>,
+    appearance_error: Option<String>,
 }
 impl Atelier {
     pub(super) fn fabric_properties(&mut self, ui: &mut egui::Ui, panel: &Panel) {
@@ -50,12 +51,15 @@ impl Atelier {
                     .fabric_appearance
                     .get(&fabric.id)
                     .cloned(),
+                appearance_error: None,
             });
         }
         let mut appearance_targets = Vec::new();
+        let draft = self.authoring.fabric_draft.as_mut().unwrap();
         let appearance_action = appearance_controls(
             ui,
-            &mut self.authoring.fabric_draft.as_mut().unwrap().appearance,
+            &mut draft.appearance,
+            &mut draft.appearance_error,
             &mut appearance_targets,
         );
         for (name, rect) in appearance_targets {
@@ -197,6 +201,7 @@ fn value(
 fn appearance_controls(
     ui: &mut egui::Ui,
     draft: &mut Option<marvelous_cloth::garment::appearance::FabricAppearance>,
+    error: &mut Option<String>,
     targets: &mut Vec<(&'static str, egui::Rect)>,
 ) -> Option<Option<marvelous_cloth::garment::appearance::FabricAppearance>> {
     ui.strong("Fabric appearance");
@@ -247,6 +252,74 @@ fn appearance_controls(
                 egui::vec2(4., 4.),
             ),
         ));
+        ui.horizontal(|ui| {
+            if ui.button("Load albedo PNG…").clicked()
+                && let Some(path) = rfd::FileDialog::new()
+                    .add_filter("PNG image", &["png"])
+                    .pick_file()
+            {
+                match read_albedo(&path) {
+                    Ok(mut texture) => {
+                        if let Some(previous) = &value.albedo {
+                            texture.tile_m = previous.tile_m;
+                            texture.rotation_degrees = previous.rotation_degrees;
+                        }
+                        value.albedo = Some(texture);
+                        *error = None;
+                    }
+                    Err(message) => *error = Some(message),
+                }
+            }
+            if value.albedo.is_some() {
+                let remove = ui.button("Remove texture");
+                #[cfg(test)]
+                super::authoring_smoke::widget_harness::named(
+                    ui,
+                    &remove,
+                    "appearance.texture.remove",
+                );
+                if remove.clicked() {
+                    value.albedo = None;
+                    *error = None;
+                }
+            }
+        });
+        if let Some(texture) = &mut value.albedo {
+            ui.small(format!(
+                "Embedded PNG · {} × {} · sRGB",
+                texture.width, texture.height
+            ));
+            self::value(
+                ui,
+                "Tile width",
+                &mut texture.tile_m[0],
+                0.001,
+                0.001,
+                100.,
+                " m",
+            );
+            self::value(
+                ui,
+                "Tile height",
+                &mut texture.tile_m[1],
+                0.001,
+                0.001,
+                100.,
+                " m",
+            );
+            self::value(
+                ui,
+                "Rotation",
+                &mut texture.rotation_degrees,
+                1.,
+                -360_000.,
+                360_000.,
+                "°",
+            );
+        }
+        if let Some(message) = error {
+            ui.colored_label(egui::Color32::LIGHT_RED, message.as_str());
+        }
     }
     let apply = ui.button("Apply appearance");
     #[cfg(test)]
@@ -256,10 +329,92 @@ fn appearance_controls(
     apply.clicked().then(|| draft.clone())
 }
 
+fn read_albedo(
+    path: &std::path::Path,
+) -> Result<marvelous_cloth::garment::appearance::AlbedoTexture, String> {
+    use std::io::Read;
+    const MAX_PNG_BYTES: u64 = 1024 * 1024;
+    let file = std::fs::File::open(path).map_err(|e| format!("Cannot open PNG: {e}"))?;
+    let mut bytes = Vec::new();
+    file.take(MAX_PNG_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|e| format!("Cannot read PNG: {e}"))?;
+    if bytes.len() as u64 > MAX_PNG_BYTES {
+        return Err("PNG exceeds the 1 MiB limit".into());
+    }
+    decode_albedo(&bytes)
+}
+
+fn decode_albedo(
+    bytes: &[u8],
+) -> Result<marvelous_cloth::garment::appearance::AlbedoTexture, String> {
+    use marvelous_cloth::garment::appearance::AlbedoTexture;
+    let mut reader =
+        image::ImageReader::with_format(std::io::Cursor::new(bytes), image::ImageFormat::Png);
+    let mut limits = image::Limits::default();
+    limits.max_image_width = Some(AlbedoTexture::MAX_DIMENSION);
+    limits.max_image_height = Some(AlbedoTexture::MAX_DIMENSION);
+    limits.max_alloc = Some(4 * 1024 * 1024);
+    reader.limits(limits);
+    let image = reader
+        .decode()
+        .map_err(|e| format!("Invalid or oversized PNG: {e}"))?
+        .to_rgba8();
+    let texture = AlbedoTexture {
+        width: image.width(),
+        height: image.height(),
+        rgba_srgb: image.into_raw(),
+        tile_m: [0.1, 0.1],
+        rotation_degrees: 0.,
+    };
+    texture.validate()?;
+    Ok(texture)
+}
+
 #[cfg(test)]
 mod appearance_tests {
     use super::super::authoring_smoke::widget_harness::Harness;
     use super::*;
+    #[test]
+    fn png_decode_bounds_and_staged_texture_removal() {
+        use image::{DynamicImage, ImageFormat, Rgba, RgbaImage};
+        let encode = |width, height, alpha| {
+            let image = RgbaImage::from_pixel(width, height, Rgba([100, 150, 200, alpha]));
+            let mut out = std::io::Cursor::new(Vec::new());
+            DynamicImage::ImageRgba8(image)
+                .write_to(&mut out, ImageFormat::Png)
+                .unwrap();
+            out.into_inner()
+        };
+        let texture = decode_albedo(&encode(2, 3, 255)).unwrap();
+        assert_eq!((texture.width, texture.height), (2, 3));
+        assert_eq!(&texture.rgba_srgb[..4], &[100, 150, 200, 255]);
+        assert!(decode_albedo(&encode(2, 3, 2)).is_err());
+        assert!(decode_albedo(&encode(257, 1, 255)).is_err());
+        assert!(decode_albedo(b"not a png").is_err());
+        let optics = marvelous_cloth::garment::appearance::FabricAppearance {
+            albedo: Some(texture),
+            ..Default::default()
+        };
+        let mut state = (Some(optics), Vec::new());
+        let mut draw = |ui: &mut egui::Ui,
+                        state: &mut (
+            Option<marvelous_cloth::garment::appearance::FabricAppearance>,
+            Vec<Option<marvelous_cloth::garment::appearance::FabricAppearance>>,
+        )| {
+            if let Some(value) = appearance_controls(ui, &mut state.0, &mut None, &mut Vec::new()) {
+                state.1.push(value);
+            }
+        };
+        let mut h = Harness::new(egui::vec2(800., 600.));
+        h.frame(&mut state, &mut draw);
+        h.click("appearance.texture.remove", &mut state, &mut draw)
+            .unwrap();
+        assert!(state.0.as_ref().unwrap().albedo.is_none());
+        assert!(state.1.is_empty());
+        h.click("appearance.apply", &mut state, &mut draw).unwrap();
+        assert_eq!(state.1, vec![state.0.clone()]);
+    }
     #[test]
     fn color_channel_drag_stages_only_that_channel_until_apply() {
         let initial = marvelous_cloth::garment::appearance::FabricAppearance::default();
@@ -269,7 +424,7 @@ mod appearance_tests {
             Option<marvelous_cloth::garment::appearance::FabricAppearance>,
             Vec<Option<marvelous_cloth::garment::appearance::FabricAppearance>>,
         )| {
-            if let Some(value) = appearance_controls(ui, &mut state.0, &mut Vec::new()) {
+            if let Some(value) = appearance_controls(ui, &mut state.0, &mut None, &mut Vec::new()) {
                 state.1.push(value);
             }
         };
@@ -299,7 +454,7 @@ mod appearance_tests {
             Option<marvelous_cloth::garment::appearance::FabricAppearance>,
             Vec<Option<marvelous_cloth::garment::appearance::FabricAppearance>>,
         )| {
-            if let Some(value) = appearance_controls(ui, &mut state.0, &mut Vec::new()) {
+            if let Some(value) = appearance_controls(ui, &mut state.0, &mut None, &mut Vec::new()) {
                 state.1.push(value);
             }
         };

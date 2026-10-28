@@ -18,13 +18,13 @@ pub struct DrawModel<'a> {
     pub mesh: &'a Mesh,
     pub state: &'a State,
     pub materials: &'a [Material],
-    pub optics: Option<&'a [Option<crate::garment::appearance::FabricAppearance>]>,
+    pub optics: Option<&'a [Option<&'a crate::garment::appearance::FabricAppearance>]>,
     pub sphere: Option<&'a Sphere>,
     pub avatar: Option<&'a SurfaceMesh>,
     pub collider: Option<&'a dyn Collider>,
     pub seams: &'a [CompiledSeam],
 }
-const VERTEX_FLOATS: usize = 15;
+const VERTEX_FLOATS: usize = 18;
 
 fn cloth_surface(
     appearance: Option<&crate::garment::appearance::FabricAppearance>,
@@ -438,11 +438,37 @@ pub struct Viewport {
     timers: Option<Timers>,
     view_uniform: wgpu::Buffer,
     view_bind: wgpu::BindGroup,
+    albedo_texture: wgpu::Texture,
+    albedo_view: wgpu::TextureView,
+    albedo_sampler: wgpu::Sampler,
+    albedo_bind: wgpu::BindGroup,
+    albedo_cache: Vec<crate::garment::appearance::AlbedoTexture>,
     avatar_buffer: Option<wgpu::Buffer>,
     avatar_key: (usize, usize),
     avatar_count: u32,
 }
 impl Viewport {
+    fn albedo_bind(
+        device: &wgpu::Device,
+        pipeline: &wgpu::RenderPipeline,
+        view: &wgpu::TextureView,
+        sampler: &wgpu::Sampler,
+    ) -> wgpu::BindGroup {
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("fabric albedo maps"),
+            layout: &pipeline.get_bind_group_layout(1),
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(sampler),
+                },
+            ],
+        })
+    }
     fn target(device: &wgpu::Device, size: [u32; 2], depth: bool, samples: u32) -> wgpu::Texture {
         device.create_texture(&wgpu::TextureDescriptor {
             label: Some(if depth { "cloth-depth" } else { "cloth-color" }),
@@ -474,7 +500,7 @@ impl Viewport {
             label: Some("cloth-lit-wireframe"),
             source: wgpu::ShaderSource::Wgsl(include_str!("cloth.wgsl").into()),
         });
-        let attrs = wgpu::vertex_attr_array![0=>Float32x4,1=>Float32x3,2=>Float32x4,3=>Float32x3,4=>Float32];
+        let attrs = wgpu::vertex_attr_array![0=>Float32x4,1=>Float32x3,2=>Float32x4,3=>Float32x3,4=>Float32,5=>Float32x3];
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("cloth-viewport"),
             layout: None,
@@ -555,6 +581,32 @@ impl Viewport {
                 resource: view_uniform.as_entire_binding(),
             }],
         });
+        let albedo_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("fabric albedo array"),
+            size: wgpu::Extent3d {
+                width: 256,
+                height: 256,
+                depth_or_array_layers: 16,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+        let albedo_view = albedo_texture.create_view(&wgpu::TextureViewDescriptor {
+            dimension: Some(wgpu::TextureViewDimension::D2Array),
+            ..Default::default()
+        });
+        let albedo_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::Repeat,
+            address_mode_v: wgpu::AddressMode::Repeat,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            ..Default::default()
+        });
+        let albedo_bind = Self::albedo_bind(device, &pipeline, &albedo_view, &albedo_sampler);
         let color = color_texture.create_view(&Default::default());
         let depth = Self::target(device, [1, 1], true, samples).create_view(&Default::default());
         let texture_id = render_state.renderer.write().register_native_texture(
@@ -587,6 +639,11 @@ impl Viewport {
             timers: None,
             view_uniform,
             view_bind,
+            albedo_texture,
+            albedo_view,
+            albedo_sampler,
+            albedo_bind,
+            albedo_cache: Vec::new(),
             avatar_buffer: None,
             avatar_key: (0, 0),
             avatar_count: 0,
@@ -658,6 +715,12 @@ impl Viewport {
                     resource: self.view_uniform.as_entire_binding(),
                 }],
             });
+            self.albedo_bind = Self::albedo_bind(
+                device,
+                &self.pipeline,
+                &self.albedo_view,
+                &self.albedo_sampler,
+            );
             self.environment = environment::Environment::new(device, samples);
         }
         if size != self.size || samples != self.samples {
@@ -707,6 +770,62 @@ impl Viewport {
             avatar,
             state,
         );
+        let mut maps: Vec<&crate::garment::appearance::AlbedoTexture> = Vec::new();
+        let layers: Vec<Option<usize>> = optics
+            .unwrap_or_default()
+            .iter()
+            .map(|appearance| {
+                let map = appearance.and_then(|a| a.albedo.as_ref())?;
+                if map.validate().is_err() {
+                    return None;
+                }
+                if let Some(index) = maps.iter().position(|item| *item == map) {
+                    return Some(index);
+                }
+                if maps.len() == 16 {
+                    return None;
+                }
+                maps.push(map);
+                Some(maps.len() - 1)
+            })
+            .collect();
+        if !self.albedo_cache.iter().eq(maps.iter().copied()) {
+            for (layer, map) in maps.iter().enumerate() {
+                let pixels =
+                    image::RgbaImage::from_raw(map.width, map.height, map.rgba_srgb.clone())
+                        .expect("validated albedo pixel length");
+                let pixels = image::imageops::resize(
+                    &pixels,
+                    256,
+                    256,
+                    image::imageops::FilterType::Nearest,
+                );
+                self.render_state.queue.write_texture(
+                    wgpu::TexelCopyTextureInfo {
+                        texture: &self.albedo_texture,
+                        mip_level: 0,
+                        origin: wgpu::Origin3d {
+                            x: 0,
+                            y: 0,
+                            z: layer as u32,
+                        },
+                        aspect: wgpu::TextureAspect::All,
+                    },
+                    pixels.as_raw(),
+                    wgpu::TexelCopyBufferLayout {
+                        offset: 0,
+                        bytes_per_row: Some(1024),
+                        rows_per_image: Some(256),
+                    },
+                    wgpu::Extent3d {
+                        width: 256,
+                        height: 256,
+                        depth_or_array_layers: 1,
+                    },
+                );
+            }
+            self.albedo_cache = maps.iter().map(|map| (*map).clone()).collect();
+        }
         let mut data = Vec::<f32>::new();
         let mut smooth = vec![Vec3::ZERO; state.x.len()];
         for t in &mesh.triangles {
@@ -723,7 +842,9 @@ impl Viewport {
                             color: [f32; 3],
                             wire: bool,
                             normals: Option<[Vec3; 3]>,
-                            roughness: f32| {
+                            roughness: f32,
+                            texcoords: Option<[glam::Vec2; 3]>,
+                            layer: f32| {
             let normal = (points[1] - points[0])
                 .cross(points[2] - points[0])
                 .normalize_or_zero();
@@ -741,6 +862,8 @@ impl Viewport {
                     if i == 2 { 1.0 } else { 0.0 },
                 ]);
                 data.push(roughness);
+                let uv = texcoords.map_or(glam::Vec2::ZERO, |uv| uv[i]);
+                data.extend_from_slice(&[uv.x, uv.y, layer]);
             }
         };
         for (face, t) in mesh.triangles.iter().enumerate() {
@@ -761,19 +884,28 @@ impl Viewport {
                 });
             let appearance = optics
                 .and_then(|values| values.get(t.material))
-                .and_then(Option::as_ref);
+                .and_then(|value| *value);
             let (color, roughness) = cloth_surface(
                 appearance,
                 marked_faces.is_some_and(|faces| faces.contains(&face)),
                 contact,
                 heat.then_some(strain),
             );
+            let layer = if roughness >= 0. {
+                layers.get(t.material).copied().flatten()
+            } else {
+                None
+            };
             triangle(
                 t.vertices.map(|i| state.x[i].as_vec3()),
                 color,
                 wire,
                 Some(t.vertices.map(|i| smooth[i])),
                 roughness,
+                layer
+                    .and_then(|_| appearance.and_then(|a| a.albedo.as_ref()))
+                    .map(|map| t.vertices.map(|i| map.material_uv(mesh.uv[i]).as_vec2())),
+                layer.map_or(-1., |i| i as f32),
             );
         }
         for seam in seams {
@@ -793,8 +925,24 @@ impl Viewport {
                 for pair in points.windows(2) {
                     let [a, b] = [pair[0], pair[1]];
                     let d = (b - a).cross(Vec3::Z).normalize_or_zero() * 0.0013;
-                    triangle([a - d, a + d, b + d], [1.0, 0.72, 0.22], false, None, -1.);
-                    triangle([a - d, b + d, b - d], [1.0, 0.72, 0.22], false, None, -1.);
+                    triangle(
+                        [a - d, a + d, b + d],
+                        [1.0, 0.72, 0.22],
+                        false,
+                        None,
+                        -1.,
+                        None,
+                        -1.,
+                    );
+                    triangle(
+                        [a - d, b + d, b - d],
+                        [1.0, 0.72, 0.22],
+                        false,
+                        None,
+                        -1.,
+                        None,
+                        -1.,
+                    );
                 }
             }
         }
@@ -814,8 +962,8 @@ impl Viewport {
                         point(i, j + 1),
                         point(i + 1, j + 1),
                     ];
-                    triangle([a, c, b], [0.38, 0.4, 0.46], false, None, -1.);
-                    triangle([b, c, d], [0.38, 0.4, 0.46], false, None, -1.);
+                    triangle([a, c, b], [0.38, 0.4, 0.46], false, None, -1., None, -1.);
+                    triangle([b, c, d], [0.38, 0.4, 0.46], false, None, -1., None, -1.);
                 }
             }
         }
@@ -844,7 +992,9 @@ impl Viewport {
                     for (i, v) in p.into_iter().enumerate() {
                         body.extend_from_slice(&v.extend(1.).to_array());
                         body.extend_from_slice(&normals[t[i]].to_array());
-                        body.extend_from_slice(&[0.46, 0.47, 0.49, 0., 0., 0., 0., -1.]);
+                        body.extend_from_slice(&[
+                            0.46, 0.47, 0.49, 0., 0., 0., 0., -1., 0., 0., -1.,
+                        ]);
                     }
                 }
                 self.avatar_count = (body.len() / VERTEX_FLOATS) as u32;
@@ -913,6 +1063,7 @@ impl Viewport {
             pass.draw(0..3, 0..1);
             pass.set_pipeline(&self.pipeline);
             pass.set_bind_group(0, &self.view_bind, &[]);
+            pass.set_bind_group(1, &self.albedo_bind, &[]);
             pass.set_vertex_buffer(0, self.vertices.slice(..));
             pass.draw(0..(data.len() / VERTEX_FLOATS) as u32, 0..1);
             if let Some(body) = &self.avatar_buffer {
