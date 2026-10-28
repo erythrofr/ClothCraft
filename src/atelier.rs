@@ -712,8 +712,8 @@ impl eframe::App for Atelier {
             && self.authoring.sewing.start.is_none()
             && self.authoring.sewing.sides.iter().all(Vec::is_empty);
         let can_open_workspace = command_palette::can_launch(&ctx, palette_idle);
-        let can_open_palette =
-            can_open_workspace && !self.authoring.trims.has_pending_history_step();
+        let trim_pending = self.authoring.trims.has_pending_history_step();
+        let can_open_palette = can_open_workspace && !trim_pending;
         if command_palette::launch_shortcut(&ctx, can_open_palette) {
             self.palette.begin();
         }
@@ -777,7 +777,9 @@ impl eframe::App for Atelier {
                 ui.label(egui::RichText::new("ALPHA").small().color(Color32::GRAY))
                     .on_hover_text("Research prototype · most production features remain to be built");
                 ui.separator();
-                if command_palette::launch_button(ui, can_open_palette) {
+                let palette_reason = trim_pending
+                    .then_some("Apply or cancel the trim draft before opening Commands");
+                if command_palette::launch_button(ui, can_open_palette, palette_reason) {
                     self.palette.begin();
                 }
                 let play = ui.button(if self.playing {

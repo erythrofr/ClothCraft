@@ -104,10 +104,19 @@ pub(super) fn launch_shortcut(ctx: &egui::Context, enabled: bool) -> bool {
         })
 }
 
-pub(super) fn launch_button(ui: &mut egui::Ui, enabled: bool) -> bool {
+pub(super) fn launch_button(
+    ui: &mut egui::Ui,
+    enabled: bool,
+    disabled_reason: Option<&str>,
+) -> bool {
     let response = ui
         .add_enabled(enabled, egui::Button::new("Commands…"))
         .on_hover_text("Search actions · Ctrl/Cmd+Shift+P");
+    let response = if let Some(reason) = disabled_reason {
+        response.on_disabled_hover_text(reason)
+    } else {
+        response
+    };
     named(ui, &response, "palette.open");
     response.clicked()
 }
@@ -390,11 +399,29 @@ mod tests {
         assert_eq!(matches(" ").len(), commands::REGISTRY.len());
     }
     #[test]
+    fn launcher_with_trim_reason_stays_disabled() {
+        let mut count = 0;
+        let mut h = Harness::new(egui::vec2(900., 900.));
+        let mut draw = |ui: &mut egui::Ui, count: &mut usize| {
+            if launch_button(
+                ui,
+                false,
+                Some("Apply or cancel the trim draft before opening Commands"),
+            ) {
+                *count += 1;
+            }
+        };
+        h.frame(&mut count, &mut draw);
+        assert!(h.click("palette.open", &mut count, &mut draw).is_err());
+        assert_eq!(count, 0);
+    }
+
+    #[test]
     fn launcher_accepts_a_complete_pointer_gesture() {
         let mut count = 0;
         let mut h = Harness::new(egui::vec2(900., 900.));
         let mut draw = |ui: &mut egui::Ui, count: &mut usize| {
-            if launch_button(ui, true) {
+            if launch_button(ui, true, None) {
                 *count += 1;
             }
         };
