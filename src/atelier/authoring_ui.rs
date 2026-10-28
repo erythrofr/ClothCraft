@@ -2287,27 +2287,77 @@ mod transition_tests {
             rotation_degrees: 0.,
             side: marvelous_cloth::garment::graphics::GraphicSide::Front,
         };
-        let graphic =
-            authoring::apply(&state.project.template, Command::SetGraphic { placement }).unwrap();
-        state
-            .authoring
-            .history
-            .record(state.project.template.clone());
-        state.install(graphic);
-        assert_eq!(state.project.template.graphics.len(), 1);
-        for redo in [false, true, false] {
-            let edit = state
+        let mut updated = placement.clone();
+        updated.center_m += glam::DVec2::new(0.02, -0.01);
+        updated.rotation_degrees = 37.;
+        updated.side = marvelous_cloth::garment::graphics::GraphicSide::Back;
+        for (command, expected) in [
+            (
+                Command::SetGraphic {
+                    placement: placement.clone(),
+                },
+                vec![placement.clone()],
+            ),
+            (
+                Command::SetGraphic {
+                    placement: updated.clone(),
+                },
+                vec![updated.clone()],
+            ),
+            (
+                Command::RemoveGraphic {
+                    id: placement.id.clone(),
+                },
+                vec![],
+            ),
+        ] {
+            let edit = authoring::apply(&state.project.template, command).unwrap();
+            assert!(!edit.reset_simulation);
+            state
                 .authoring
                 .history
-                .restore(&state.project.template, redo)
-                .unwrap();
+                .record(state.project.template.clone());
             state.install(edit);
+            assert_eq!(state.project.template.graphics, expected);
             assert!(*state.playing && *state.pending);
             assert_eq!(*state.generation, 12);
             assert!(std::sync::Arc::ptr_eq(&retained_mesh, &state.scene.garment));
             assert_eq!(state.scene.state.x, saved.x);
             assert_eq!(state.scene.state.v, saved.v);
             assert_eq!(state.scene.state.time, saved.time);
+            assert_eq!(
+                state.project.mesh_signature.as_deref(),
+                Some("retained-cache")
+            );
+        }
+        for (redo, expected) in [
+            (false, vec![updated.clone()]),
+            (false, vec![placement.clone()]),
+            (false, vec![]),
+            (true, vec![placement.clone()]),
+            (true, vec![updated.clone()]),
+            (true, vec![]),
+            (false, vec![updated.clone()]),
+            (false, vec![placement]),
+            (false, vec![]),
+        ] {
+            let edit = state
+                .authoring
+                .history
+                .restore(&state.project.template, redo)
+                .unwrap();
+            state.install(edit);
+            assert_eq!(state.project.template.graphics, expected);
+            assert!(*state.playing && *state.pending);
+            assert_eq!(*state.generation, 12);
+            assert!(std::sync::Arc::ptr_eq(&retained_mesh, &state.scene.garment));
+            assert_eq!(state.scene.state.x, saved.x);
+            assert_eq!(state.scene.state.v, saved.v);
+            assert_eq!(state.scene.state.time, saved.time);
+            assert_eq!(
+                state.project.mesh_signature.as_deref(),
+                Some("retained-cache")
+            );
         }
         assert!(state.project.template.graphics.is_empty());
         assert!(
