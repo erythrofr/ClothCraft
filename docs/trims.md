@@ -26,6 +26,11 @@ zippers and topstitch paths it stages up to 128 clicked points. **Finish path**
 returns to the draft and **Cancel drawing** or
 Escape restores the previous path. A finished draft still needs **Apply**.
 In Edit mode, clicking an existing trim on the board opens its inspector draft.
+In the 3D view, an Edit-mode click can also select a visible trim preview;
+selection samples cloth and avatar visibility and is disabled in Clean view.
+These samples do not prove visibility for every pixel. Selection is bounded
+separately from drawing and may be unavailable on large meshes even if the
+preview is visible; skipped trims cannot be picked.
 The selected panel's board rotation and placement are respected. The 2D draft
 is amber; committed trims are purple. A changed or deleted object cannot be
 silently overwritten by a stale draft.

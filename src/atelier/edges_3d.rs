@@ -15,6 +15,13 @@ impl Atelier {
         if !matches!(self.authoring.tool, Tool::Edit | Tool::Sew) {
             return;
         }
+        if self.authoring.tool == Tool::Edit
+            && response.clicked()
+            && let Some(pointer) = response.interact_pointer_pos()
+            && self.pick_trim_3d(rect, pointer)
+        {
+            return;
+        }
         let Some(pointer) = response.hover_pos() else {
             return;
         };

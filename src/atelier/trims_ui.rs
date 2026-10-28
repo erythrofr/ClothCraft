@@ -24,6 +24,7 @@ struct TrimPreview {
     garment: std::sync::Arc<marvelous_cloth::garment::CompiledGarment>,
     trims: Vec<Trim>,
     paths: Vec<(
+        usize,
         bool,
         Vec<marvelous_cloth::garment::embedding::EmbeddedPoint>,
     )>,
@@ -352,7 +353,7 @@ fn build_preview(
     let mut paths = Vec::with_capacity(trims.len());
     let mut count = 0usize;
     let mut skipped = 0usize;
-    for trim in trims {
+    for (index, trim) in trims.iter().enumerate() {
         let Some(n) = garment
             .panels
             .iter()
@@ -399,7 +400,7 @@ fn build_preview(
             continue;
         }
         count += embedded.len();
-        paths.push((button, embedded));
+        paths.push((index, button, embedded));
     }
     Ok(TrimPreview {
         garment,
@@ -464,7 +465,127 @@ impl TrimUi {
     }
 }
 
+/// Find the closest projected marker or segment whose sampled surface is visible.
+/// The caller bounds the number of points and the cost of visibility queries.
+fn pick_visible_trim(
+    pointer: egui::Pos2,
+    paths: &[(usize, bool, Vec<Option<glam::DVec3>>)],
+    project: &impl Fn(glam::DVec3) -> Option<(egui::Pos2, f32)>,
+    visible: &impl Fn(glam::DVec3) -> bool,
+) -> Option<usize> {
+    let mut best = 8.0f32;
+    let mut selected = None;
+    for (index, button, points) in paths {
+        if *button {
+            if let Some(world) = points.first().copied().flatten()
+                && let Some((screen, _)) = project(world)
+                && screen.distance(pointer) <= best
+                && visible(world)
+            {
+                best = screen.distance(pointer);
+                selected = Some(*index);
+            }
+            continue;
+        }
+        for pair in points.windows(2) {
+            let (Some(a), Some(b)) = (pair[0], pair[1]) else {
+                continue;
+            };
+            let (Some((pa, wa)), Some((pb, wb))) = (project(a), project(b)) else {
+                continue;
+            };
+            let distance = super::authoring_ui::segment_distance(pointer, pa, pb);
+            if distance > best {
+                continue;
+            }
+            let direction = pb - pa;
+            let screen_t =
+                ((pointer - pa).dot(direction) / direction.length_sq().max(1e-12)).clamp(0., 1.);
+            let denominator = (1. - screen_t) / wa + screen_t / wb;
+            if !denominator.is_finite() || denominator <= 0. {
+                continue;
+            }
+            let t = (screen_t / wb) / denominator;
+            let world = a.lerp(b, t as f64);
+            if visible(a) && visible(b) && visible((a + b) * 0.5) && visible(world) {
+                best = distance;
+                selected = Some(*index);
+            }
+        }
+    }
+    selected
+}
+
 impl Atelier {
+    pub(super) fn pick_trim_3d(&mut self, rect: egui::Rect, pointer: egui::Pos2) -> bool {
+        if self.clean_view || self.authoring.trims.draft.is_some() {
+            return false;
+        }
+        self.authoring
+            .trims
+            .refresh_preview(&self.scene.garment, &self.project.template.trims);
+        let Some(preview) = self.authoring.trims.preview.as_ref() else {
+            return false;
+        };
+        let points: usize = preview.paths.iter().map(|(_, _, p)| p.len()).sum();
+        if points
+            .saturating_mul(4)
+            .saturating_mul(self.scene.garment.mesh.triangles.len())
+            > 200_000
+        {
+            return false;
+        }
+        let matrix = self.camera.matrix(rect.width() / rect.height());
+        let project = |world: glam::DVec3| {
+            let p = super::gizmo::project_matrix(matrix, rect, world)?;
+            let w = (matrix * world.as_vec3().extend(1.)).w;
+            (w.is_finite() && w > 0.).then_some((p, w))
+        };
+        let visible = |world: glam::DVec3| {
+            let Some((screen, _)) = project(world) else {
+                return false;
+            };
+            let (origin, direction) = self.camera.ray(screen, rect);
+            let distance = world.distance(origin) - 0.0001;
+            distance > 0.
+                && !self
+                    .scene
+                    .collider
+                    .occludes_ray(origin, direction, distance)
+                && !self.scene.garment.mesh.triangles.iter().any(|triangle| {
+                    picking::ray_triangle(
+                        origin,
+                        direction,
+                        triangle.vertices.map(|i| self.scene.state.x[i]),
+                    )
+                    .is_some_and(|(d, _)| d < distance)
+                })
+        };
+        let paths = preview
+            .paths
+            .iter()
+            .map(|(id, button, embedded)| {
+                (
+                    *id,
+                    *button,
+                    embedded
+                        .iter()
+                        .map(|p| p.evaluate(&self.scene.state.x).ok())
+                        .collect(),
+                )
+            })
+            .collect::<Vec<_>>();
+        let Some(index) = pick_visible_trim(pointer, &paths, &project, &visible) else {
+            return false;
+        };
+        let Some(trim) = preview.trims.get(index).cloned() else {
+            return false;
+        };
+        self.select_panel(trim.panel_id.clone(), false);
+        self.authoring.trims.draft = Some(TrimDraft::from_trim(&trim));
+        self.status = format!("Selected {} · {}", label(&trim.kind), trim.id);
+        true
+    }
     pub(super) fn trim_draft_preview(&self, panel: &str) -> Option<Trim> {
         self.authoring
             .trims
@@ -489,7 +610,7 @@ impl Atelier {
             return;
         };
         let triangle_count = self.scene.garment.mesh.triangles.len();
-        let points: usize = preview.paths.iter().map(|(_, p)| p.len()).sum();
+        let points: usize = preview.paths.iter().map(|(_, _, p)| p.len()).sum();
         if points.saturating_mul(3).saturating_mul(triangle_count) > 200_000 {
             self.authoring.trims.preview_warning =
                 Some("3D trim preview hidden to limit visibility-test cost".into());
@@ -525,7 +646,7 @@ impl Atelier {
             Some(screen)
         };
         let color = Color32::from_rgb(0xEA, 0x78, 0xD4);
-        for (button, embedded) in &preview.paths {
+        for (_, button, embedded) in &preview.paths {
             let world: Vec<_> = embedded
                 .iter()
                 .map(|p| p.evaluate(&self.scene.state.x).ok())
@@ -898,6 +1019,45 @@ mod tests {
     use marvelous_cloth::garment::GarmentTemplate;
 
     #[test]
+    fn three_dimensional_trim_pick_respects_visibility_and_original_ids() {
+        use glam::DVec3;
+        let paths = vec![
+            (2, true, vec![Some(DVec3::new(20., 20., 1.))]),
+            (
+                7,
+                false,
+                vec![
+                    Some(DVec3::new(10., 20., 2.)),
+                    Some(DVec3::new(30., 20., 2.)),
+                ],
+            ),
+        ];
+        let project = |p: DVec3| Some((egui::pos2(p.x as f32, p.y as f32), 1.));
+        let pointer = egui::pos2(20., 20.);
+        assert_eq!(
+            pick_visible_trim(pointer, &paths, &project, &|p| p.z == 1.),
+            Some(2)
+        );
+        assert_eq!(
+            pick_visible_trim(pointer, &paths, &project, &|p| p.z == 2.),
+            Some(7)
+        );
+        assert_eq!(
+            pick_visible_trim(pointer, &paths, &project, &|_| false),
+            None
+        );
+        assert_eq!(
+            pick_visible_trim(egui::pos2(20., 40.), &paths, &project, &|_| true),
+            None
+        );
+        // An occluder at the cursor is not bypassed by visible endpoints.
+        assert_eq!(
+            pick_visible_trim(pointer, &paths[1..], &project, &|p| p.x != 20.),
+            None
+        );
+    }
+
+    #[test]
     fn named_board_clicks_stage_a_rotated_path_without_editing_the_template() {
         use super::super::authoring_smoke::widget_harness::{Harness, named};
         struct Case {
@@ -1201,7 +1361,7 @@ mod tests {
             },
         };
         let preview = build_preview(garment.clone(), std::slice::from_ref(&trim)).unwrap();
-        let attachment = &preview.paths[0].1[0];
+        let attachment = &preview.paths[0].2[0];
         let before = attachment.evaluate(&garment.initial_state.x).unwrap();
         let mut moved = garment.initial_state.x.clone();
         for p in &mut moved {
@@ -1233,6 +1393,7 @@ mod tests {
         let preview = build_preview(garment, &[outside, valid]).unwrap();
         assert_eq!(preview.skipped, 1);
         assert_eq!(preview.paths.len(), 1);
+        assert_eq!(preview.paths[0].0, 1);
     }
 
     #[test]
