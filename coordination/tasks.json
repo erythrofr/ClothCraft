@@ -639,21 +639,26 @@
       "scope": [
         "src/atelier/trims_ui.rs",
         "src/atelier/board.rs",
+        "src/atelier/authoring_ui.rs",
+        "src/atelier/authoring_smoke.rs",
+        "src/atelier/chrome.rs",
+        "src/atelier/edges_3d.rs",
         "src/render.rs",
         "tests/trim_authoring.rs",
-        "src/atelier.rs"
+        "src/atelier.rs",
+        "docs/trims.md"
       ],
       "acceptance": [
-        "Create/select/move/delete trims in an inspector with clear attachment scope.",
-        "Preview placements in 2D/3D without changing rest geometry or simulation.",
-        "Save/reload and undo retain trim identity and parameters."
+        "Provide a native workflow to create, select, move, edit and delete all supported trim types, with explicit panel ownership, validation, cancellation and one undoable transaction per confirmed operation. Clearly label objects nonphysical.",
+        "Display trim previews on the rotated/translated 2D panel and on the corresponding deformed 3D surface without changing rest geometry or simulation. Resolve material coordinates using transient attachments, invalidate them on remesh, bound work and report unsupported/out-of-panel geometry rather than silently misplace it.",
+        "Exercise real controls and commands with the named-widget CPU harness, preview geometry and cache invalidation, rollback, undo/redo and Save/Open. Respect diagnostic overlays and visibility settings; distinguish CPU tests from opt-in native-window/GPU visual acceptance."
       ],
       "evidence": [
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/proceduralHardwarePreview.js",
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/clo7NativeHardwareActions.js"
       ],
       "related_prs": [],
-      "notes": ""
+      "notes": "Inspector and viewport integration require shared files also touched by open #6; inspect current claims and reconcile before editing. Existing embed_point/embed_path can derive transient 3D attachments from material coordinates, but their cost and out-of-panel behavior require explicit handling. This task remains blocked on accepted EXO-SEW-002."
     },
     {
       "id": "EXO-SEW-004",
