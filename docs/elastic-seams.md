@@ -143,8 +143,8 @@ transition reproducible; it is not a matched garment or performance benchmark.
 
 ## Remaining work
 
-- Separately compare equal-length and unequal-length fixtures without conflating
-  their geometry. Strict replay intentionally rejects a changed template.
+- Study additional matched fixtures: the partial-edge control changes seam coverage
+  and correspondence as well as the length ratio.
 - Report velocity, force residuals and windowed motion, not only endpoint motion.
 - Investigate contact-feature transitions in a sewn garment and compare force
   and energy continuity; the one-panel diagnostic case does not establish it.
@@ -152,3 +152,25 @@ transition reproducible; it is not a matched garment or performance benchmark.
   including slack/taut transitions, objectivity and pull/hold/release.
 - No calibrated elastic seam, nonlinear thread data, native UI, GPU implementation
   or production behavior change is delivered by this probe.
+
+## Matched partial-edge control, 28 October 2026
+
+This CPU-only probe compares the same initial 48-vertex panels, material,
+state, settings and 300 recorded pull/hold/release controls. The baseline sews
+the full 0.30 m edge to the full 0.345 m edge; the control sews it to a
+0.30 m portion of the latter edge. The control also changes coverage and
+correspondence, so it cannot isolate the effect of length ratio alone. The
+control refuses a mismatched baseline template, state, settings or step count.
+
+```powershell
+cargo run --locked --no-default-features -j 2 --example elastic_seam_probe -- --output output/seam-baseline --steps 300 --iterations 16
+cargo run --locked --no-default-features -j 2 --example elastic_seam_probe -- --output output/seam-control --steps 300 --iterations 16 --replay output/seam-baseline --equal-seam-control
+```
+
+On the tested Windows machine with two Rayon workers, tail high-pass motion
+was 26.80 µm for the baseline and 119.77 µm for the control; mean frozen-contact
+residual was 62.05 µN and 247.46 µN respectively. Mean step times were 6.21
+and 6.15 ms (single runs, without diagnostic time). Both passed the final
+intersection check; this is not continuous collision certification. Contact
+refresh energy was zero in both runs. More motion in the equal-length control
+does not establish a cause or a fix, and these tiny fixtures are not the dress.

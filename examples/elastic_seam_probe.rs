@@ -21,6 +21,9 @@ struct Args {
     /// Replay a previous run directory after checking its template and initial state.
     #[arg(long)]
     replay: Option<PathBuf>,
+    /// Replay the full-edge fixture with an equal-length partial-edge seam.
+    #[arg(long, requires = "replay")]
+    equal_seam_control: bool,
 }
 
 #[derive(serde::Deserialize)]
@@ -79,6 +82,27 @@ fn fixture(ratio: f64) -> GarmentTemplate {
     t
 }
 
+fn comparison_fixture(ratio: f64, equal_seam_control: bool) -> GarmentTemplate {
+    let mut template = fixture(ratio);
+    if equal_seam_control {
+        template.seams[0].b.range = [0., 1. / ratio];
+    }
+    template
+}
+
+fn validate_matched_settings(
+    summary: &serde_json::Value,
+    settings: &VbdSettings,
+    steps: usize,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if summary.get("settings") != Some(&serde_json::to_value(settings)?)
+        || summary.get("steps").and_then(serde_json::Value::as_u64) != Some(steps as u64)
+    {
+        return Err("Matched replay requires identical settings and step count".into());
+    }
+    Ok(())
+}
+
 /// Independent proposed tension-only thread law, NOT installed in VBD.
 /// EA [N], material rest length [m], current length [m]; returns (J, N).
 fn thread_law(length: f64, rest: f64, ea: f64) -> (f64, f64) {
@@ -121,7 +145,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build_global()?;
     // Refuse accidental replacement of an earlier experiment.
     fs::create_dir(&args.output)?;
-    let garment = Arc::new(fixture(args.ease_ratio).compile()?);
+    if args.equal_seam_control && args.ease_ratio <= 1. {
+        return Err("Equal seam control requires an ease ratio greater than 1".into());
+    }
+    let settings = VbdSettings {
+        dt: 1. / 60.,
+        iterations: args.iterations,
+        ..Default::default()
+    };
+    settings.validate()?;
+    let garment = Arc::new(comparison_fixture(args.ease_ratio, args.equal_seam_control).compile()?);
     let initial = garment.initial_state.clone();
     let replay = args
         .replay
@@ -138,6 +171,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if actual != expected {
                     return Err(format!("Replay {file} differs from current fixture").into());
                 }
+            }
+            if args.equal_seam_control {
+                let summary = serde_json::from_slice(&fs::read(dir.join("summary.json"))?)?;
+                validate_matched_settings(&summary, &settings, args.steps)?;
             }
             let rows = fs::read_to_string(dir.join("trace.jsonl"))?
                 .lines()
@@ -166,12 +203,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if max_error > 1e-7 {
         return Err("Production seam derivative check failed".into());
     }
-    let settings = VbdSettings {
-        dt: 1. / 60.,
-        iterations: args.iterations,
-        ..Default::default()
-    };
-    settings.validate()?;
     let mut solver = VbdSolver::new(garment.clone(), None, &initial)?;
     let mut state = initial.clone();
     // Select a free triangle by rest coordinates, not a serialized mesh index.
@@ -192,7 +223,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut trace = fs::File::create(args.output.join("trace.jsonl"))?;
     fs::write(
         args.output.join("template.json"),
-        serde_json::to_vec_pretty(&fixture(args.ease_ratio))?,
+        serde_json::to_vec_pretty(&comparison_fixture(
+            args.ease_ratio,
+            args.equal_seam_control,
+        ))?,
     )?;
     fs::write(
         args.output.join("initial.json"),
@@ -324,9 +358,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .world
         .validate_start(&solver.world.positions(&state.x))?;
     costs.sort_by(f64::total_cmp);
-    let report = json!({"kind":"production geometric easing baseline; no elastic thread integration",
+    let report = json!({"kind":if args.equal_seam_control { "matched equal-length partial seam control" } else { "production geometric easing baseline" },
         "gpu_used":false,"replay":args.replay,"settings":settings,"vertices":initial.x.len(),"iterations":args.iterations,"steps":args.steps,
-        "ease_ratio":args.ease_ratio,"gradient_max_error_n":max_error,
+        "ease_ratio":args.ease_ratio,"equal_seam_control":args.equal_seam_control,"gradient_max_error_n":max_error,
         "release_energy_start_j":release_start,"release_energy_end_j":final_energy,
         "release_positive_deltas":release_rises,"release_max_rise_j":maximum_release_rise,
         "step_wall_mean_ms":costs.iter().sum::<f64>()/costs.len() as f64,
@@ -351,6 +385,37 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn matched_control_changes_only_seam_coverage() {
+        let base = fixture(1.15);
+        let control = comparison_fixture(1.15, true);
+        let mut normalized = control.clone();
+        normalized.seams = base.seams.clone();
+        assert_eq!(
+            serde_json::to_value(&base).unwrap(),
+            serde_json::to_value(&normalized).unwrap()
+        );
+        assert!((control.seams[0].b.range[1] * 0.3 * 1.15 - 0.3).abs() < 1e-12);
+        let a = base.compile().unwrap();
+        let b = control.compile().unwrap();
+        assert_eq!(
+            serde_json::to_value(&a.initial_state).unwrap(),
+            serde_json::to_value(&b.initial_state).unwrap()
+        );
+    }
+    #[test]
+    fn matched_control_rejects_settings_and_step_changes() {
+        let settings = VbdSettings {
+            dt: 1. / 60.,
+            iterations: 16,
+            ..Default::default()
+        };
+        let mut report = json!({"settings": settings, "steps": 300});
+        assert!(validate_matched_settings(&report, &settings, 300).is_ok());
+        assert!(validate_matched_settings(&report, &settings, 301).is_err());
+        report["settings"]["iterations"] = json!(32);
+        assert!(validate_matched_settings(&report, &settings, 300).is_err());
+    }
     #[test]
     fn moving_patch_observes_natural_contact_refresh() {
         use marvelous_cloth::{avatar::SurfaceMesh, model::Pattern};
