@@ -757,6 +757,7 @@ impl Atelier {
             && self.authoring.board.shape.is_none()
             && self.authoring.board.group_shapes.is_empty()
             && !self.authoring.board.gesture_active()
+            && !self.authoring.trims.has_pending_history_step()
             && self.authoring.drag.is_none()
             && self.grab.is_none()
             && !self.authoring.radial.blocked
@@ -949,6 +950,7 @@ impl Atelier {
                 && !self.clean_view
                 && self.authoring.selection.garment_rect.is_some()
                 && !self.authoring.board.gesture_active()
+                && !self.authoring.trims.has_pending_history_step()
                 && self.authoring.drag.is_none()
                 && self.grab.is_none(),
         );
@@ -1090,24 +1092,37 @@ mod tests {
             template: GarmentTemplate,
             garment: Arc<CompiledGarment>,
             available: bool,
+            can_pick: bool,
         }
         let c = case();
         let mut c = PickCase {
             template: c.template,
             garment: Arc::new(c.garment),
             available: true,
+            can_pick: false,
         };
         let before = serde_json::to_vec(&c.template).unwrap();
         let mut draw = |ui: &mut egui::Ui, c: &mut PickCase| {
             let panel = &c.template.panels[0];
             assert!(
-                material_pin_controls(ui, &c.garment, &c.template, panel, c.available, false, true)
-                    .is_none()
+                material_pin_controls(
+                    ui,
+                    &c.garment,
+                    &c.template,
+                    panel,
+                    c.available,
+                    false,
+                    c.can_pick
+                )
+                .is_none()
             );
         };
         let mut h = Harness::new(egui::vec2(600., 500.));
         h.frame(&mut c, &mut draw);
         h.click("pins.material", &mut c, &mut draw).unwrap();
+        h.frame(&mut c, &mut draw);
+        assert!(h.click("pins.material.pick_3d", &mut c, &mut draw).is_err());
+        c.can_pick = true;
         h.frame(&mut c, &mut draw);
         h.click("pins.material.pick_3d", &mut c, &mut draw).unwrap();
         let pick = h
