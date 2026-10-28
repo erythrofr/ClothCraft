@@ -20,6 +20,10 @@ is snapped to that exact material coordinate, not stored as a mesh index. The
 lookup is limited to 100,000 vertices per panel and rejects ambiguous winners. The
 last lookup is cached for the same immutable mesh, panel and coordinates; a
 remesh or query change recomputes it. No lookup runs while the editor is busy.
+While the section is open, the panel is unfrozen and the editor is paused, a small X-ray marker in the
+3D view shows that exact vertex. It can appear through cloth or the avatar; it
+is a selection aid, not a visibility or collision test. It is hidden in clean
+view, outside the viewport, or when the section is closed or unavailable.
 The CPU editor-transition fixture also pins an interior vertex, releases it and
 undoes the release through the production installer. It checks exact material
 and world targets, JSON project round-trip, drape/time and free-vertex velocity,

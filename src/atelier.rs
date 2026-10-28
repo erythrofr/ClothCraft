@@ -922,6 +922,7 @@ impl eframe::App for Atelier {
                         _ => self.inspector(&mut pane),
                     }
                 }
+                self.paint_material_pin_preview(ui);
             });
         self.prefs_dirty |= self.prefs != previous_preferences;
         if self.prefs_dirty && !ctx.input(|i| i.pointer.any_down()) {

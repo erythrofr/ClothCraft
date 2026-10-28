@@ -81,7 +81,7 @@ fn nearest_material_vertex(
     garment: &CompiledGarment,
     panel: &str,
     requested: DVec2,
-) -> Result<(DVec2, f64), String> {
+) -> Result<(DVec2, f64, usize), String> {
     if !requested.is_finite() {
         return Err("Material position must be finite".into());
     }
@@ -94,8 +94,8 @@ fn nearest_material_vertex(
     {
         return Err("Invalid or oversized panel mesh".into());
     }
-    let mut best: Option<(DVec2, f64)> = None;
-    for &uv in &garment.mesh.uv[range.clone()] {
+    let mut best: Option<(DVec2, f64, usize)> = None;
+    for (index, &uv) in garment.mesh.uv[range.clone()].iter().enumerate() {
         if !uv.is_finite() {
             return Err("Invalid material coordinates".into());
         }
@@ -103,11 +103,11 @@ fn nearest_material_vertex(
         if !d2.is_finite() {
             return Err("Material position is out of range".into());
         }
-        if best.is_none_or(|(_, old)| d2 < old) {
-            best = Some((uv, d2));
+        if best.is_none_or(|(_, old, _)| d2 < old) {
+            best = Some((uv, d2, range.start + index));
         }
     }
-    let (uv, d2) = best.ok_or("Panel has no mesh vertices")?;
+    let (uv, d2, vertex) = best.ok_or("Panel has no mesh vertices")?;
     if garment.mesh.uv[range.clone()]
         .iter()
         .filter(|&&point| point == uv)
@@ -116,7 +116,7 @@ fn nearest_material_vertex(
     {
         return Err("Ambiguous material vertex".into());
     }
-    Ok((uv, d2.sqrt()))
+    Ok((uv, d2.sqrt(), vertex))
 }
 
 #[derive(Clone)]
@@ -124,7 +124,56 @@ struct PinSearchCache {
     garment: Arc<CompiledGarment>,
     panel: String,
     requested: DVec2,
-    result: Result<(DVec2, f64), String>,
+    result: Result<(DVec2, f64, usize), String>,
+}
+
+#[derive(Clone)]
+struct PinPreview {
+    garment: Arc<CompiledGarment>,
+    panel: String,
+    vertex: usize,
+    pass: u64,
+}
+
+fn pin_preview_id() -> egui::Id {
+    egui::Id::new("pin-material-preview")
+}
+
+fn preview_world(
+    preview: &PinPreview,
+    garment: &Arc<CompiledGarment>,
+    positions: &[glam::DVec3],
+    panel: &str,
+    pass: u64,
+) -> Option<glam::DVec3> {
+    if preview.pass != pass || preview.panel != panel || !Arc::ptr_eq(&preview.garment, garment) {
+        return None;
+    }
+    positions
+        .get(preview.vertex)
+        .copied()
+        .filter(|p| p.is_finite())
+}
+
+fn project_preview(matrix: glam::Mat4, rect: egui::Rect, point: glam::DVec3) -> Option<egui::Pos2> {
+    if !rect.is_positive() || !point.is_finite() || !matrix.is_finite() {
+        return None;
+    }
+    let clip = matrix * point.as_vec3().extend(1.);
+    if !clip.is_finite()
+        || clip.w <= 0.
+        || clip.z < 0.
+        || clip.z > clip.w
+        || clip.x.abs() > clip.w
+        || clip.y.abs() > clip.w
+    {
+        return None;
+    }
+    let ndc = clip.truncate() / clip.w;
+    Some(egui::pos2(
+        rect.center().x + ndc.x * rect.width() * 0.5,
+        rect.center().y - ndc.y * rect.height() * 0.5,
+    ))
 }
 
 /// Retaining an immutable Arc makes identity safe across remeshing and avoids
@@ -134,7 +183,7 @@ fn nearest_material_cached(
     garment: &Arc<CompiledGarment>,
     panel: &str,
     requested: DVec2,
-) -> Result<(DVec2, f64), String> {
+) -> Result<(DVec2, f64, usize), String> {
     let id = egui::Id::new("pin-material-last-search");
     if let Some(cache) = ctx.data(|data| data.get_temp::<PinSearchCache>(id))
         && Arc::ptr_eq(&cache.garment, garment)
@@ -192,7 +241,18 @@ fn material_pin_controls(
                 &panel.id,
                 DVec2::new(mm[0], mm[1]) * 0.001,
             ) {
-                Ok((uv, distance)) => {
+                Ok((uv, distance, vertex)) => {
+                    if !frozen && ui.is_enabled() {
+                        let preview = PinPreview {
+                            garment: garment.clone(),
+                            panel: panel.id.clone(),
+                            vertex,
+                            pass: ui.ctx().cumulative_pass_nr(),
+                        };
+                        ui.ctx()
+                            .data_mut(|data| data.insert_temp(pin_preview_id(), preview));
+                        ui.small("3D marker is X-ray and can show through surfaces.");
+                    }
                     ui.small(format!(
                         "Nearest: X {:.2} mm · Y {:.2} mm · offset {:.2} mm",
                         uv.x * 1000.,
@@ -456,6 +516,53 @@ fn selected_material_points(
 }
 
 impl Atelier {
+    pub(super) fn paint_material_pin_preview(&self, ui: &egui::Ui) {
+        if self.clean_view
+            || self.playing
+            || self.pending
+            || self.authoring.preview.is_some()
+            || self.authoring.board.shape.is_some()
+            || !self.authoring.board.group_shapes.is_empty()
+        {
+            return;
+        }
+        let (Some(panel), Some(rect), Some(preview)) = (
+            self.authoring.selected.as_deref(),
+            self.authoring.selection.garment_rect,
+            ui.ctx()
+                .data(|data| data.get_temp::<PinPreview>(pin_preview_id())),
+        ) else {
+            return;
+        };
+        let Some(world) = preview_world(
+            &preview,
+            &self.scene.garment,
+            &self.scene.state.x,
+            panel,
+            ui.ctx().cumulative_pass_nr(),
+        ) else {
+            return;
+        };
+        let Some(point) = project_preview(
+            self.camera.matrix(rect.width() / rect.height()),
+            rect,
+            world,
+        ) else {
+            return;
+        };
+        let painter = ui.painter().with_clip_rect(rect);
+        let color = egui::Color32::from_rgb(255, 199, 65);
+        painter.circle_stroke(point, 7., egui::Stroke::new(2., color));
+        painter.line_segment(
+            [point + egui::vec2(-10., 0.), point + egui::vec2(10., 0.)],
+            egui::Stroke::new(1., color),
+        );
+        painter.line_segment(
+            [point + egui::vec2(0., -10.), point + egui::vec2(0., 10.)],
+            egui::Stroke::new(1., color),
+        );
+    }
+
     pub(super) fn pin_properties(
         &mut self,
         ui: &mut egui::Ui,
@@ -603,6 +710,103 @@ mod tests {
             error: None,
         }
     }
+
+    #[test]
+    fn pin_preview_tracks_current_mesh_and_rejects_stale_or_offscreen_points() {
+        let c = case();
+        let garment = Arc::new(c.garment.clone());
+        let panel = &c.template.panels[0].id;
+        let requested = DVec2::new(
+            c.template.panels[0].pattern.width,
+            c.template.panels[0].pattern.height,
+        ) * 0.5;
+        let (uv, _, vertex) = nearest_material_vertex(&garment, panel, requested).unwrap();
+        assert_eq!(garment.mesh.uv[vertex], uv);
+        let preview = PinPreview {
+            garment: garment.clone(),
+            panel: panel.clone(),
+            vertex,
+            pass: 12,
+        };
+        assert_eq!(
+            preview_world(&preview, &garment, &c.state.x, panel, 12),
+            Some(c.state.x[vertex])
+        );
+        let mut moved = c.state.x.clone();
+        moved[vertex] += glam::DVec3::X;
+        assert_eq!(
+            preview_world(&preview, &garment, &moved, panel, 12),
+            Some(moved[vertex])
+        );
+        assert!(preview_world(&preview, &garment, &moved, panel, 13).is_none());
+        assert!(preview_world(&preview, &garment, &moved, "other", 12).is_none());
+        assert!(preview_world(&preview, &Arc::new(c.garment.clone()), &moved, panel, 12).is_none());
+        assert!(preview_world(&preview, &garment, &[], panel, 12).is_none());
+
+        let rect = egui::Rect::from_min_size(egui::pos2(20., 30.), egui::vec2(200., 100.));
+        assert_eq!(
+            project_preview(glam::Mat4::IDENTITY, rect, glam::DVec3::new(0., 0., 0.5)),
+            Some(rect.center())
+        );
+        assert!(
+            project_preview(glam::Mat4::IDENTITY, rect, glam::DVec3::new(0., 0., -0.1)).is_none()
+        );
+        assert!(
+            project_preview(glam::Mat4::IDENTITY, rect, glam::DVec3::new(2., 0., 0.5)).is_none()
+        );
+        assert!(
+            project_preview(glam::Mat4::IDENTITY, rect, glam::DVec3::splat(f64::NAN)).is_none()
+        );
+    }
+
+    #[test]
+    fn pin_preview_is_emitted_only_for_open_available_inspector() {
+        struct PreviewCase {
+            template: GarmentTemplate,
+            garment: Arc<CompiledGarment>,
+            available: bool,
+            frozen: bool,
+            present: bool,
+        }
+        let c = case();
+        let mut c = PreviewCase {
+            template: c.template,
+            garment: Arc::new(c.garment),
+            available: true,
+            frozen: false,
+            present: false,
+        };
+        let mut draw = |ui: &mut egui::Ui, c: &mut PreviewCase| {
+            let panel = &c.template.panels[0];
+            material_pin_controls(ui, &c.garment, &c.template, panel, c.available, c.frozen);
+            c.present = ui
+                .ctx()
+                .data(|data| data.get_temp::<PinPreview>(pin_preview_id()))
+                .is_some_and(|preview| preview.pass == ui.ctx().cumulative_pass_nr());
+        };
+        let mut harness = Harness::new(egui::vec2(600., 500.));
+        harness.frame(&mut c, &mut draw);
+        assert!(!c.present);
+        harness.click("pins.material", &mut c, &mut draw).unwrap();
+        harness.frame(&mut c, &mut draw);
+        assert!(c.present);
+        c.available = false;
+        harness.frame(&mut c, &mut draw);
+        assert!(!c.present);
+        c.available = true;
+        harness.frame(&mut c, &mut draw);
+        assert!(c.present);
+        c.frozen = true;
+        harness.frame(&mut c, &mut draw);
+        assert!(!c.present);
+        c.frozen = false;
+        harness.frame(&mut c, &mut draw);
+        assert!(c.present);
+        harness.click("pins.material", &mut c, &mut draw).unwrap();
+        harness.frame(&mut c, &mut draw);
+        assert!(!c.present);
+    }
+
     fn draw(ui: &mut egui::Ui, c: &mut Case) {
         let panel = c.template.panels[0].id.clone();
         let frozen = c.template.frozen_panels.iter().any(|p| p.panel == panel);
