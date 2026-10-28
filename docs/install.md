@@ -85,8 +85,11 @@ From PowerShell inside the extracted directory:
 
 The `example` command refuses to overwrite an existing file. `SHA256SUMS.txt`
 contains SHA256 hashes of each packaged file (relative to the extracted root).
-`BUILD-INFO.txt` records the source revision, compiler version, package time
-and build architecture. The separate `.zip.sha256` covers the archive itself.
+`BUILD-INFO.txt` records the revision supplied by the packager (or its checkout
+revision), package time and packaging host environment. The script accepts
+prebuilt binaries and does not verify that their source or build toolchain
+matches this metadata; use the associated workflow run for build provenance.
+The separate `.zip.sha256` covers the archive itself.
 
 ## Native editor acceptance checklist
 
@@ -130,8 +133,9 @@ clean-machine GUI release:
 
 1. Extract into a new writable directory whose path contains spaces. Launch
    `Start ClothCraft.cmd` and record Windows version, CPU/GPU, driver and the
-   Git commit in `BUILD-INFO.txt`. Compare the adapter/backend with the one in
-   the hosted workflow log; a software adapter is not hardware acceptance.
+   claimed Git commit in `BUILD-INFO.txt` and corroborate it against the
+   artifact's workflow run. Compare the adapter/backend with the hosted log;
+   a software adapter is not hardware acceptance.
 2. Open a sample garment, select and edit a panel, sew if applicable, then
    undo and redo. Confirm cancellation of Open and Save As dialogs does not
    modify the active document.
