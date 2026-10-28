@@ -162,6 +162,9 @@ pub struct GarmentTemplate {
     /// Nonphysical artwork placements; asset IDs are opaque, not file paths.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub graphics: Vec<super::graphics::GraphicPlacement>,
+    /// Construction annotations only; they do not create physical fasteners.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub trims: Vec<super::trims::Trim>,
     pub panels: Vec<Panel>,
     pub seams: Vec<SeamSpec>,
     /// Editable two-piece relations, never a solver constraint.
@@ -272,6 +275,16 @@ impl GarmentTemplate {
         unique_ids(self.graphics.iter().map(|g| g.id.as_str()), "graphic")?;
         for graphic in &self.graphics {
             graphic.validate_panel(self)?;
+        }
+        if self.trims.len() > 4096 {
+            return Err("At most 4096 trims are supported".into());
+        }
+        unique_ids(self.trims.iter().map(|t| t.id.as_str()), "trim")?;
+        for trim in &self.trims {
+            trim.validate()?;
+            if !self.panels.iter().any(|p| p.id == trim.panel_id) {
+                return Err("Trim references a missing panel".into());
+            }
         }
         let mut linked = std::collections::BTreeSet::new();
         for link in &self.mirror_links {
@@ -532,6 +545,7 @@ impl GarmentTemplate {
             frozen_panels: vec![],
             fabric_appearance: Default::default(),
             graphics: vec![],
+            trims: vec![],
             fabrics: vec![Fabric {
                 id: "woven-demo".into(),
                 name: "Uncalibrated woven reference".into(),

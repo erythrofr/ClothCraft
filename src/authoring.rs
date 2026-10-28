@@ -237,6 +237,12 @@ pub enum Command {
     RemoveGraphic {
         id: String,
     },
+    SetTrim {
+        trim: crate::garment::trims::Trim,
+    },
+    RemoveTrim {
+        id: String,
+    },
     Fabric {
         panel: String,
         name: String,
@@ -665,6 +671,7 @@ pub fn same_physics(a: &GarmentTemplate, b: &GarmentTemplate) -> bool {
         t.mirror_links.clear();
         t.fabric_appearance.clear();
         t.graphics.clear();
+        t.trims.clear();
         for p in &mut t.panels {
             p.layout_2d = None;
             p.layout_rotation_degrees = 0.;
@@ -680,13 +687,15 @@ pub fn same_physics(a: &GarmentTemplate, b: &GarmentTemplate) -> bool {
 }
 /// A strict visual-only change, distinct from other nonphysical board edits.
 pub fn only_appearance_changed(a: &GarmentTemplate, b: &GarmentTemplate) -> bool {
-    if a.fabric_appearance == b.fabric_appearance && a.graphics == b.graphics {
+    if a.fabric_appearance == b.fabric_appearance && a.graphics == b.graphics && a.trims == b.trims
+    {
         return false;
     }
     let strip = |source: &GarmentTemplate| {
         let mut t = source.clone();
         t.fabric_appearance.clear();
         t.graphics.clear();
+        t.trims.clear();
         serde_json::to_vec(&t).unwrap()
     };
     strip(a) == strip(b)
@@ -1172,6 +1181,18 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
     };
     if unsupported_graphic_mirror {
         return Err("Mirroring panels with graphics is not supported yet".into());
+    }
+    if matches!(&command, Command::Mirror { panel, .. } | Command::LinkedMirror { panel, .. } if source.trims.iter().any(|t| &t.panel_id == panel))
+    {
+        return Err("Mirroring panels with trims is not supported yet".into());
+    }
+    if !source.trims.is_empty()
+        && matches!(
+            &command,
+            Command::Primitive { replace: true, .. } | Command::Polygon { replace: true, .. }
+        )
+    {
+        return Err("Remove trims before replacing the garment".into());
     }
     if !source.graphics.is_empty()
         && matches!(
@@ -2100,6 +2121,12 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
                 graphic.panel_id = copy.id.clone();
                 template.graphics.push(graphic);
             }
+            for trim in source.trims.iter().filter(|t| t.panel_id == panel) {
+                let mut trim = trim.clone();
+                trim.id = unused_id("trim", template.trims.iter().map(|t| t.id.clone()));
+                trim.panel_id = copy.id.clone();
+                template.trims.push(trim);
+            }
             selected = Some(copy.id.clone());
             template.panels.push(copy);
         }
@@ -2212,6 +2239,27 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
             }
             template.graphics.retain(|g| g.id != id);
         }
+        Command::SetTrim { trim } => {
+            trim.validate()?;
+            if !template.panels.iter().any(|p| p.id == trim.panel_id) {
+                return Err("Trim references a missing panel".into());
+            }
+            selected = Some(trim.panel_id.clone());
+            if let Some(existing) = template.trims.iter_mut().find(|t| t.id == trim.id) {
+                if *existing == trim {
+                    return Err("Trim is unchanged".into());
+                }
+                *existing = trim;
+            } else {
+                template.trims.push(trim);
+            }
+        }
+        Command::RemoveTrim { id } => {
+            if !template.trims.iter().any(|t| t.id == id) {
+                return Err("Trim not found".into());
+            }
+            template.trims.retain(|t| t.id != id);
+        }
     }
     linked::synchronize(source, &mut template)?;
     // Placement coordinates refer to the existing material frame. Until topology
@@ -2237,9 +2285,32 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
             return Err("Remove graphics before changing their panel's material contour".into());
         }
     }
+    let mut checked_trim_panels = std::collections::BTreeSet::new();
+    for trim in &source.trims {
+        if !checked_trim_panels.insert(&trim.panel_id) {
+            continue;
+        }
+        let old = source
+            .panels
+            .iter()
+            .find(|p| p.id == trim.panel_id)
+            .ok_or("Trim references a missing panel")?;
+        let Some(new) = template.panels.iter().find(|p| p.id == trim.panel_id) else {
+            if deletes_panels {
+                continue;
+            }
+            return Err("Remove trims before replacing their panel".into());
+        };
+        if graphic_material_frame(old)? != graphic_material_frame(new)? {
+            return Err("Remove trims before changing their panel's material contour".into());
+        }
+    }
     template
         .graphics
         .retain(|g| template.panels.iter().any(|p| p.id == g.panel_id));
+    template
+        .trims
+        .retain(|t| template.panels.iter().any(|p| p.id == t.panel_id));
     template
         .pin_targets
         .retain(|target| template.panels.iter().any(|p| p.id == target.panel));

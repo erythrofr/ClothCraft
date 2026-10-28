@@ -18,5 +18,6 @@ pub mod seam;
 pub mod shapes;
 pub mod svg_import;
 pub mod template;
+pub mod trims;
 
 pub use template::{CompiledGarment, GarmentTemplate};
