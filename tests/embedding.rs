@@ -2,6 +2,122 @@ use glam::{DVec2, DVec3};
 use marvelous_cloth::garment::{GarmentTemplate, embedding::MaterialPath, export};
 
 #[test]
+fn reusable_material_index_matches_uncached_and_rejects_stale_panels() {
+    use marvelous_cloth::garment::embedding::MaterialPathIndex;
+    use std::sync::Arc;
+    let mut template = GarmentTemplate::two_panel_demo();
+    template.panels[0].pattern.nx = 12;
+    template.panels[0].pattern.ny = 10;
+    let garment = Arc::new(template.compile().unwrap());
+    let index = MaterialPathIndex::new(garment.clone(), "left").unwrap();
+    assert!(index.matches(&garment, "left"));
+    assert!(!index.matches(&garment, "right"));
+    let recompiled = Arc::new(template.compile().unwrap());
+    assert!(!index.matches(&recompiled, "left"));
+    for offset in [0., 0.01, 0.04] {
+        let path = MaterialPath {
+            panel: "left".into(),
+            points: vec![
+                DVec2::new(0.05 + offset, 0.07),
+                DVec2::new(0.35 + offset, 0.5),
+            ],
+        };
+        let cached = index.embed(&path).unwrap();
+        let fresh = garment.embed_path_bounded(&path).unwrap();
+        assert_eq!(cached.len(), fresh.len());
+        for (a, b) in cached.iter().zip(fresh.iter()) {
+            assert_eq!(a.vertices, b.vertices);
+            assert_eq!(a.weights, b.weights);
+            assert_eq!(a.uv, b.uv);
+        }
+    }
+    let wrong = MaterialPath {
+        panel: "right".into(),
+        points: vec![DVec2::new(0.1, 0.1), DVec2::new(0.2, 0.2)],
+    };
+    assert!(index.embed(&wrong).is_err());
+    let malformed = MaterialPath {
+        panel: "left".into(),
+        points: vec![DVec2::NAN, DVec2::ZERO],
+    };
+    assert!(index.embed(&malformed).is_err());
+    assert!(MaterialPathIndex::new(garment, "missing").is_err());
+}
+
+/// Diagnostic only: reproduce the prior output breakpoint count without its
+/// interval probes; not a correctness oracle for coverage or deformation.
+fn legacy_output_count(
+    garment: &marvelous_cloth::garment::CompiledGarment,
+    path: &MaterialPath,
+) -> usize {
+    let panel = garment.panels.iter().find(|p| p.id == path.panel).unwrap();
+    let mut count = 1;
+    for segment in path.points.windows(2) {
+        let mut breaks = vec![0.0_f64, 1.0];
+        for triangle in &garment.mesh.triangles[panel.triangles.clone()] {
+            let coords = |p: DVec2| {
+                let b = triangle.inv_dm * (p - triangle.rest[0]);
+                [1. - b.x - b.y, b.x, b.y]
+            };
+            let (a, b) = (coords(segment[0]), coords(segment[1]));
+            let (mut lo, mut hi) = (0.0_f64, 1.0_f64);
+            for i in 0..3 {
+                let slope = b[i] - a[i];
+                if slope.abs() < 1e-14 {
+                    if a[i] < -1e-10 {
+                        hi = -1.;
+                        break;
+                    }
+                } else if slope > 0. {
+                    lo = lo.max(-a[i] / slope);
+                } else {
+                    hi = hi.min(-a[i] / slope);
+                }
+            }
+            if hi >= lo && lo <= 1. && hi >= 0. {
+                breaks.extend([lo.max(0.), hi.min(1.)]);
+            }
+        }
+        breaks.sort_by(f64::total_cmp);
+        breaks.dedup();
+        breaks.dedup_by(|a, b| (*a - *b).abs() < 1e-10);
+        count += breaks.len() - 1;
+    }
+    count
+}
+
+#[test]
+fn crossing_count_for_dense_128_point_trim_paths() {
+    let mut template = GarmentTemplate::two_panel_demo();
+    template.panels[0].pattern.nx = 100;
+    template.panels[0].pattern.ny = 100;
+    let garment = template.compile().unwrap();
+    for shape in 0..3 {
+        let points = (0..128)
+            .map(|i| {
+                let t = i as f64 / 127.;
+                let y = match shape {
+                    0 => 0.3,
+                    1 => 0.12 + 0.3 * t,
+                    _ => 0.3 + 0.04 * (t * 20.).sin(),
+                };
+                DVec2::new(0.02 + 0.36 * t, y)
+            })
+            .collect();
+        let path = MaterialPath {
+            panel: "left".into(),
+            points,
+        };
+        let previous = legacy_output_count(&garment, &path);
+        let current = garment.embed_path_bounded(&path).unwrap().len();
+        eprintln!("shape {shape}: prior={previous}, current={current}, limit=4096");
+        // These specific paths fit the 3D trim preview's shared 512-point
+        // budget; denser scenes or multiple objects can still exceed it.
+        assert!(current >= previous && current <= 512);
+    }
+}
+
+#[test]
 fn dense_multisegment_path_matches_exhaustive() {
     let mut template = GarmentTemplate::two_panel_demo();
     template.panels[0].pattern.nx = 100;
@@ -24,7 +140,8 @@ fn dense_multisegment_path_matches_exhaustive() {
     let start = std::time::Instant::now();
     let actual = garment.embed_path_bounded(&path).unwrap();
     eprintln!(
-        "dense 20k triangles / 80 segments: exhaustive {exhaustive:?}; indexed including build {:?}",
+        "dense 20k triangles / 80 segments: {} attachments; exhaustive {exhaustive:?}; indexed including build {:?}",
+        actual.len(),
         start.elapsed()
     );
     assert_eq!(actual.len(), expected.len());
@@ -537,6 +654,76 @@ fn material_path_splits_at_fold_instead_of_cutting_through_surface() {
     let length: f64 = points.windows(2).map(|p| p[0].distance(p[1])).sum();
     assert!((length - 0.4).abs() < 1e-12);
     assert!(points[0].distance(*points.last().unwrap()) < length - 0.1);
+}
+
+#[test]
+fn close_triangle_crossings_follow_non_affine_surface() {
+    let mut template = GarmentTemplate::two_panel_demo();
+    template.seams.clear();
+    template.panels[0].pattern.nx = 2;
+    template.panels[0].pattern.ny = 2;
+    let garment = template.compile().unwrap();
+    let mut x = garment.initial_state.x.clone();
+    for i in garment.panels[0].vertices.clone() {
+        let uv = garment.mesh.uv[i];
+        x[i] = DVec3::new(
+            uv.x,
+            uv.y,
+            if uv.distance(DVec2::new(0.2, 0.3)) < 1e-12 {
+                1.
+            } else {
+                0.
+            },
+        );
+    }
+    let y = 0.3 + 1e-11;
+    for (start, end) in [(0.01, 0.39), (0.39, 0.01)] {
+        let path = MaterialPath {
+            panel: "left".into(),
+            points: vec![DVec2::new(start, y), DVec2::new(end, y)],
+        };
+        for embedded in [
+            garment.embed_path(&path).unwrap(),
+            garment.embed_path_bounded(&path).unwrap(),
+        ] {
+            for k in -30..=30 {
+                let u = 0.2 + k as f64 * 1e-12;
+                let uv = DVec2::new(u, y);
+                let expected = garment.mesh.triangles[garment.panels[0].triangles.clone()]
+                    .iter()
+                    .find_map(|triangle| {
+                        let b = triangle.inv_dm * (uv - triangle.rest[0]);
+                        let w = [1. - b.x - b.y, b.x, b.y];
+                        w.iter().all(|weight| *weight >= -1e-14).then(|| {
+                            triangle
+                                .vertices
+                                .iter()
+                                .zip(w)
+                                .map(|(index, weight)| x[*index] * weight)
+                                .sum::<DVec3>()
+                        })
+                    })
+                    .expect("sample belongs to mesh");
+                let pair = embedded
+                    .windows(2)
+                    .find(|pair| {
+                        let a = pair[0].uv.x;
+                        let b = pair[1].uv.x;
+                        u >= a.min(b) && u <= a.max(b) && a != b
+                    })
+                    .expect("sample covered by embedded path");
+                let ratio = (u - pair[0].uv.x) / (pair[1].uv.x - pair[0].uv.x);
+                let actual = pair[0]
+                    .evaluate(&x)
+                    .unwrap()
+                    .lerp(pair[1].evaluate(&x).unwrap(), ratio);
+                assert!(
+                    actual.distance(expected) < 1e-13,
+                    "u={u:.15} actual={actual:?} expected={expected:?}"
+                );
+            }
+        }
+    }
 }
 
 #[test]

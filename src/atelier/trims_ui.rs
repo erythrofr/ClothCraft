@@ -19,6 +19,9 @@ pub(super) struct TrimUi {
     )>,
     preview_warning: Option<String>,
     visibility: super::selection::ClothVisibilityCache,
+    text_focus: bool,
+    board_drag: Option<TrimBoardDrag>,
+    material_index: Option<marvelous_cloth::garment::embedding::MaterialPathIndex>,
 }
 
 struct TrimPreview {
@@ -35,6 +38,7 @@ struct TrimPreview {
 
 const MAX_PREVIEW_POINTS: usize = 512;
 
+#[derive(Clone)]
 struct TrimDraft {
     panel: String,
     id: String,
@@ -48,6 +52,15 @@ struct TrimDraft {
     draw_points: Vec<DVec2>,
     original: Option<Trim>,
     base: Option<Trim>,
+    repeat: bool,
+    repeat_copies: usize,
+    repeat_offset_mm: [f64; 2],
+}
+
+struct TrimBoardDrag {
+    before: TrimDraft,
+    origin: DVec2,
+    first: DVec2,
 }
 
 /// Stage a board click in material coordinates without editing the project.
@@ -487,6 +500,9 @@ impl TrimDraft {
             draw_points: Vec::new(),
             original: Some(trim.clone()),
             base: Some(trim.clone()),
+            repeat: false,
+            repeat_copies: 3,
+            repeat_offset_mm: [20., 0.],
         }
     }
 
@@ -679,9 +695,70 @@ fn validate_surface(
     Ok(())
 }
 
+/// Validate the complete repeated set with a shared work budget before the
+/// caller records history or installs any of it.
+fn prepare_repeat(
+    template: &marvelous_cloth::garment::GarmentTemplate,
+    garment: &marvelous_cloth::garment::CompiledGarment,
+    draft: &TrimDraft,
+) -> Result<authoring::Edit, String> {
+    check_draft_revision(draft, template)?;
+    let original = draft.base.as_ref().ok_or("Select a saved trim first")?;
+    let panel = garment
+        .panels
+        .iter()
+        .find(|p| p.id == original.panel_id)
+        .ok_or("Panel no longer exists")?;
+    let n = panel.triangles.len();
+    let segments = match &original.kind {
+        TrimKind::Button { .. } => None,
+        TrimKind::Buttonhole { .. } => Some(1),
+        TrimKind::Zipper { path_m, .. } | TrimKind::Topstitch { path_m, .. } => {
+            Some(path_m.len().saturating_sub(1))
+        }
+    };
+    let direct = segments.map_or(n, |s| n.saturating_mul(n).saturating_mul(s));
+    let per_copy = if direct <= 8_000_000 {
+        direct
+    } else if n <= 20_000 && segments.is_some() {
+        2_000_000
+    } else {
+        return Err("Repeat surface check exceeds the work limit".into());
+    };
+    if per_copy.saturating_mul(draft.repeat_copies) > 8_000_000 {
+        return Err(
+            "Repeat surface check exceeds the work limit; reduce the count or mesh density".into(),
+        );
+    }
+    let edit = authoring::apply(
+        template,
+        Command::RepeatTrim {
+            id: original.id.clone(),
+            copies: draft.repeat_copies,
+            offset_m: DVec2::new(draft.repeat_offset_mm[0], draft.repeat_offset_mm[1]) * 0.001,
+        },
+    )?;
+    if edit.reset_simulation {
+        return Err("Repeat unexpectedly changed physical state".into());
+    }
+    for trim in &edit.template.trims[template.trims.len()..] {
+        validate_surface(trim, garment)?;
+    }
+    Ok(edit)
+}
+
+#[cfg(test)]
 fn build_preview(
     garment: std::sync::Arc<marvelous_cloth::garment::CompiledGarment>,
     trims: &[Trim],
+) -> Result<TrimPreview, String> {
+    build_preview_cached(garment, trims, &mut None)
+}
+
+fn build_preview_cached(
+    garment: std::sync::Arc<marvelous_cloth::garment::CompiledGarment>,
+    trims: &[Trim],
+    cache: &mut Option<marvelous_cloth::garment::embedding::MaterialPathIndex>,
 ) -> Result<TrimPreview, String> {
     use marvelous_cloth::garment::embedding::MaterialPath;
     if trims.len() > 128 {
@@ -786,7 +863,20 @@ fn build_preview(
                     points,
                 };
                 if indexed {
-                    garment.embed_path_bounded(&path)
+                    if !cache
+                        .as_ref()
+                        .is_some_and(|index| index.matches(&garment, &trim.panel_id))
+                    {
+                        *cache = marvelous_cloth::garment::embedding::MaterialPathIndex::new(
+                            garment.clone(),
+                            &trim.panel_id,
+                        )
+                        .ok();
+                    }
+                    cache
+                        .as_ref()
+                        .ok_or_else(|| "Cannot index the trim panel".to_owned())
+                        .and_then(|index| index.embed(&path))
                 } else {
                     garment.embed_path(&path)
                 }
@@ -827,16 +917,105 @@ fn build_preview(
     })
 }
 
+fn trim_input_points(trim: &Trim) -> usize {
+    match &trim.kind {
+        TrimKind::Button { .. } => 1,
+        TrimKind::Buttonhole { .. } => 2,
+        TrimKind::Zipper { path_m, .. } | TrimKind::Topstitch { path_m, .. } => path_m.len(),
+    }
+}
+
+/// Prioritize staged objects while bounding the combined preview input.
+fn prioritized_preview<'a>(
+    committed: &'a [Trim],
+    mut staged: Vec<Trim>,
+    exclude_id: Option<&str>,
+    prefer_id: Option<&str>,
+    mut incomplete: bool,
+) -> (std::borrow::Cow<'a, [Trim]>, Option<(usize, usize)>, bool) {
+    let staged_count = staged.len();
+    let mut points = staged
+        .iter()
+        .fold(0usize, |n, trim| n.saturating_add(trim_input_points(trim)));
+    if staged_count > 128 || points > 4096 {
+        return (std::borrow::Cow::Borrowed(committed), None, true);
+    }
+    for trim in committed
+        .iter()
+        .filter(|trim| prefer_id == Some(trim.id.as_str()))
+        .chain(
+            committed
+                .iter()
+                .filter(|trim| prefer_id != Some(trim.id.as_str())),
+        )
+    {
+        if exclude_id == Some(trim.id.as_str()) {
+            continue;
+        }
+        let count = trim_input_points(trim);
+        if staged.len() >= 128 || points.saturating_add(count) > 4096 {
+            incomplete = true;
+            continue;
+        }
+        points += count;
+        staged.push(trim.clone());
+    }
+    (
+        std::borrow::Cow::Owned(staged),
+        (staged_count > 0).then_some((0, staged_count)),
+        incomplete,
+    )
+}
+
 /// Assemble bounded display-only inputs. The staged object replaces its old
 /// preview and is never inserted in the document until the author confirms it.
 fn preview_inputs<'a>(
     committed: &'a [Trim],
     draft: Option<&TrimDraft>,
-) -> (std::borrow::Cow<'a, [Trim]>, Option<usize>, bool) {
-    let mut inputs = std::borrow::Cow::Borrowed(committed);
+) -> (std::borrow::Cow<'a, [Trim]>, Option<(usize, usize)>, bool) {
+    let inputs = std::borrow::Cow::Borrowed(committed);
     let Some(draft) = draft else {
         return (inputs, None, false);
     };
+    if draft.repeat {
+        let Some(base) = draft.base.as_ref() else {
+            return (inputs, None, true);
+        };
+        if !committed.iter().any(|item| item == base) || !(1..=128).contains(&draft.repeat_copies) {
+            return (inputs, None, true);
+        }
+        let offset = DVec2::new(draft.repeat_offset_mm[0], draft.repeat_offset_mm[1]) * 0.001;
+        if !offset.is_finite() || offset.length_squared() < 1e-24 {
+            return (inputs, None, true);
+        }
+        let first = match &base.kind {
+            TrimKind::Button { center_m, .. } => *center_m,
+            TrimKind::Buttonhole { start_m, .. } => *start_m,
+            TrimKind::Zipper { path_m, .. } | TrimKind::Topstitch { path_m, .. } => {
+                let Some(point) = path_m.first() else {
+                    return (inputs, None, true);
+                };
+                *point
+            }
+        };
+        let base_points = trim_input_points(base).max(1);
+        let point_slots = 4096usize.saturating_sub(base_points) / base_points;
+        let count = draft.repeat_copies.min(16).min(127).min(point_slots);
+        let mut copies = Vec::with_capacity(count);
+        for i in 1..=count {
+            let Ok(copy) = translate_first_point(base.clone(), first + offset * i as f64) else {
+                return prioritized_preview(committed, copies, None, Some(&base.id), true);
+            };
+            copies.push(copy);
+        }
+        return prioritized_preview(
+            committed,
+            copies,
+            None,
+            Some(&base.id),
+            count < draft.repeat_copies,
+        );
+    }
     let staged = if draft.draw_backup.is_some() && draft.draw_points.len() == 1 {
         Some(Trim {
             id: draft.id.clone(),
@@ -854,26 +1033,79 @@ fn preview_inputs<'a>(
     let Some(staged) = staged else {
         return (inputs, None, false);
     };
-    if let Some(index) = draft
-        .base
-        .as_ref()
-        .and_then(|base| inputs.iter().position(|item| item.id == base.id))
-    {
-        inputs.to_mut()[index] = staged;
-        return (inputs, Some(index), false);
-    }
-    if inputs.len() >= 128 {
-        return (inputs, None, true);
-    }
-    let index = inputs.len();
-    inputs.to_mut().push(staged);
-    (inputs, Some(index), false)
+    prioritized_preview(
+        committed,
+        vec![staged],
+        draft.base.as_ref().map(|base| base.id.as_str()),
+        None,
+        false,
+    )
 }
 
 impl TrimUi {
+    fn begin_board_drag(&mut self, local: DVec2) -> Result<bool, String> {
+        let Some(draft) = self.draft.as_ref() else {
+            return Ok(false);
+        };
+        if !draft.place_on_board
+            || draft.place_on_3d
+            || draft.draw_backup.is_some()
+            || !local.is_finite()
+        {
+            return Ok(false);
+        }
+        let trim = draft.parse()?;
+        let first = match trim.kind {
+            TrimKind::Button { center_m, .. } => center_m,
+            TrimKind::Buttonhole { start_m, .. } => start_m,
+            TrimKind::Zipper { path_m, .. } | TrimKind::Topstitch { path_m, .. } => {
+                *path_m.first().ok_or("Trim path is empty")?
+            }
+        };
+        self.board_drag = Some(TrimBoardDrag {
+            before: draft.clone(),
+            origin: local,
+            first,
+        });
+        Ok(true)
+    }
+
+    fn update_board_drag(&mut self, local: DVec2) -> Result<(), String> {
+        let Some(drag) = self.board_drag.as_ref() else {
+            return Ok(());
+        };
+        if !local.is_finite() {
+            return Err("Trim drag position must be finite".into());
+        }
+        let mut next = drag.before.clone();
+        stage_board_click(&mut next, drag.first + local - drag.origin)?;
+        next.place_on_board = true;
+        self.draft = Some(next);
+        Ok(())
+    }
+
+    fn cancel_board_drag(&mut self) {
+        if let Some(drag) = self.board_drag.take() {
+            self.draft = Some(drag.before);
+        }
+    }
+
+    pub(super) fn finish_board_drag(&mut self) {
+        if self.board_drag.take().is_some()
+            && let Some(draft) = self.draft.as_mut()
+        {
+            draft.place_on_board = false;
+        }
+    }
+
+    pub(super) fn board_drag_active(&self) -> bool {
+        self.board_drag.is_some()
+    }
+
     pub(super) fn has_pending_history_step(&self) -> bool {
         self.draft.as_ref().is_some_and(|draft| {
-            draft.place_on_board
+            draft.repeat
+                || draft.place_on_board
                 || draft.place_on_3d
                 || draft.draw_backup.is_some()
                 || draft
@@ -892,7 +1124,12 @@ impl TrimUi {
         if redo {
             return Some("Finish or cancel the trim draft before redoing");
         }
+        self.cancel_board_drag();
         let draft = self.draft.as_mut().expect("pending trim draft");
+        if draft.repeat {
+            draft.repeat = false;
+            return Some("Trim repeat cancelled · Undo again for document history");
+        }
         if draft.place_on_board || draft.place_on_3d || draft.draw_backup.is_some() {
             draft.place_on_board = false;
             draft.place_on_3d = false;
@@ -915,6 +1152,7 @@ impl TrimUi {
         Some((|| {
             if !edit_mode
                 || draft.base.is_none()
+                || draft.repeat
                 || draft.draw_backup.is_some()
                 || draft.place_on_board
                 || draft.place_on_3d
@@ -929,10 +1167,25 @@ impl TrimUi {
     }
 
     pub(super) fn clear_deleted_draft(&mut self) {
+        self.board_drag = None;
         self.draft = None;
     }
 
     /// Display-only copies; material coordinates stay in the owning panel frame.
+    pub(super) fn repeat_board_previews(&self, panel: &str, committed: &[Trim]) -> Vec<Trim> {
+        let Some(draft) = self
+            .draft
+            .as_ref()
+            .filter(|draft| draft.repeat && draft.panel == panel)
+        else {
+            return Vec::new();
+        };
+        let (inputs, range, _) = preview_inputs(committed, Some(draft));
+        range.map_or_else(Vec::new, |(start, count)| {
+            inputs[start..start + count].to_vec()
+        })
+    }
+
     pub(super) fn board_placement_active(&self) -> bool {
         self.draft.as_ref().is_some_and(|draft| {
             draft.place_on_board || draft.place_on_3d || draft.draw_backup.is_some()
@@ -940,6 +1193,7 @@ impl TrimUi {
     }
 
     pub(super) fn cancel_board_placement(&mut self) {
+        self.cancel_board_drag();
         if let Some(draft) = self.draft.as_mut() {
             draft.place_on_board = false;
             draft.place_on_3d = false;
@@ -952,10 +1206,18 @@ impl TrimUi {
         garment: &std::sync::Arc<marvelous_cloth::garment::CompiledGarment>,
         trims: &[Trim],
     ) {
+        if self
+            .material_index
+            .as_ref()
+            .is_some_and(|index| !index.matches_garment(garment))
+        {
+            self.material_index = None;
+        }
         if trims.is_empty() {
             self.preview = None;
             self.preview_error = None;
             self.preview_warning = None;
+            self.material_index = None;
             return;
         }
         let input_points: usize = trims
@@ -985,7 +1247,7 @@ impl TrimUi {
                 self.preview_warning = Some(error.clone());
                 return;
             }
-            match build_preview(garment.clone(), trims) {
+            match build_preview_cached(garment.clone(), trims, &mut self.material_index) {
                 Ok(preview) => {
                     self.preview = Some(preview);
                     self.preview_error = None;
@@ -1123,7 +1385,7 @@ impl Atelier {
             .trims
             .draft
             .as_ref()
-            .filter(|d| d.panel == panel)
+            .filter(|d| d.panel == panel && !d.repeat)
             .and_then(|d| d.parse().ok())
     }
     pub(super) fn trim_drawing_points(&self, panel: &str) -> Option<&[DVec2]> {
@@ -1143,6 +1405,10 @@ impl Atelier {
             .trims
             .refresh_preview(&self.scene.garment, &inputs);
         let Some(preview) = self.authoring.trims.preview.as_ref() else {
+            if draft_limit && self.authoring.trims.preview_warning.is_none() {
+                self.authoring.trims.preview_warning =
+                    Some("3D trim preview incomplete: invalid input or preview limit".into());
+            }
             return;
         };
         let points: usize = preview.paths.iter().map(|(_, _, p)| p.len()).sum();
@@ -1187,10 +1453,12 @@ impl Atelier {
         };
         if draft_limit {
             self.authoring.trims.preview_warning =
-                Some("3D draft hidden: trim preview object limit reached".into());
+                Some("3D trim preview incomplete: invalid input or preview limit".into());
         }
         for (index, button, embedded) in &preview.paths {
-            let color = if Some(*index) == draft_index {
+            let color = if draft_index
+                .is_some_and(|(start, count)| *index >= start && *index < start + count)
+            {
                 Color32::from_rgb(0xFF, 0xC0, 0x58)
             } else {
                 Color32::from_rgb(0xEA, 0x78, 0xD4)
@@ -1221,6 +1489,7 @@ impl Atelier {
     }
 }
 
+#[cfg(test)]
 fn trim_controls(
     ui: &mut egui::Ui,
     state: &mut TrimUi,
@@ -1228,19 +1497,40 @@ fn trim_controls(
     panel: &Panel,
     can_place_3d: bool,
 ) -> Option<Command> {
+    trim_controls_with_views(ui, state, template, panel, (true, can_place_3d))
+}
+
+fn trim_controls_with_views(
+    ui: &mut egui::Ui,
+    state: &mut TrimUi,
+    template: &marvelous_cloth::garment::GarmentTemplate,
+    panel: &Panel,
+    views: (bool, bool),
+) -> Option<Command> {
     if state.draft.as_ref().is_some_and(|d| d.panel != panel.id) {
+        state.board_drag = None;
         state.draft = None;
+    }
+    if state.draft.as_ref().is_some_and(|d| d.repeat)
+        && !state.text_focus
+        && !ui.ctx().egui_wants_keyboard_input()
+        && ui.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Escape))
+        && let Some(draft) = state.draft.as_mut()
+    {
+        draft.repeat = false;
     }
     if state
         .draft
         .as_ref()
         .is_some_and(|d| d.place_on_board || d.place_on_3d || d.draw_backup.is_some())
+        && !state.text_focus
+        && !ui.ctx().egui_wants_keyboard_input()
         && ui.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Escape))
-        && let Some(draft) = state.draft.as_mut()
     {
-        draft.place_on_board = false;
-        draft.place_on_3d = false;
-        draft.cancel_path();
+        state.cancel_board_placement();
+    }
+    if !views.0 || !ui.input(|input| input.focused) {
+        state.cancel_board_drag();
     }
     let mut command = None;
     let section = egui::CollapsingHeader::new("Construction trims")
@@ -1332,10 +1622,39 @@ fn trim_controls(
                         draw_points: Vec::new(),
                         original: None,
                         base: None,
+                        repeat: false,
+                        repeat_copies: 3,
+                        repeat_offset_mm: [20., 0.],
                     });
                 }
             });
             if let Some(draft) = state.draft.as_mut() {
+                if draft.repeat {
+                    ui.strong("Repeat construction trim");
+                    ui.small("Copies use panel-local millimetres; Apply checks every center or path. The 2D/3D preview shows at most 16 copies and may be incomplete in busy scenes. Escape cancels when not editing text.");
+                    ui.horizontal(|ui| {
+                        ui.label("Copies");
+                        let count = ui.add(egui::DragValue::new(&mut draft.repeat_copies).range(1..=128));
+                        #[cfg(test)] super::authoring_smoke::widget_harness::named(ui, &count, "trim.repeat.count");
+                        #[cfg(not(test))] let _ = count;
+                    });
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label("Offset X / Y (mm)");
+                        ui.add(egui::DragValue::new(&mut draft.repeat_offset_mm[0]).speed(1.));
+                        ui.add(egui::DragValue::new(&mut draft.repeat_offset_mm[1]).speed(1.));
+                    });
+                    ui.horizontal(|ui| {
+                        let apply = ui.button("Apply repeat");
+                        #[cfg(test)] super::authoring_smoke::widget_harness::named(ui, &apply, "trim.repeat.apply");
+                        if apply.clicked() {
+                            command = Some(Command::RepeatTrim { id: draft.id.clone(), copies: draft.repeat_copies,
+                                offset_m: DVec2::new(draft.repeat_offset_mm[0], draft.repeat_offset_mm[1]) * 0.001 });
+                        }
+                        let cancel = ui.button("Cancel repeat");
+                        #[cfg(test)] super::authoring_smoke::widget_harness::named(ui, &cancel, "trim.repeat.cancel");
+                        if cancel.clicked() { draft.repeat = false; }
+                    });
+                } else {
                 ui.label("Material X, Y (mm) · one point per line");
                 let points = ui.add_enabled(draft.draw_backup.is_none(),
                     egui::TextEdit::multiline(&mut draft.points).desired_rows(if draft.kind == 0 {
@@ -1368,35 +1687,40 @@ fn trim_controls(
                         ui.text_edit_singleline(&mut draft.rows);
                     });
                 }
-                let place = ui.add_enabled(draft.draw_backup.is_none(), egui::Button::new("Position first point on 2D board"));
+                let place = ui.add_enabled(views.0 && draft.draw_backup.is_none(), egui::Button::new("Position first point on 2D board"))
+                    .on_disabled_hover_text("Open the 2D view and choose Edit mode first");
                 #[cfg(test)]
                 super::authoring_smoke::widget_harness::named(ui, &place, "trim.place");
                 if place.clicked() {
                     draft.place_on_board = true;
                     draft.place_on_3d = false;
                 }
-                if draft.place_on_board { ui.small("Click the panel to position the first point · Escape cancels"); }
-                let place_3d = ui.add_enabled(can_place_3d && draft.draw_backup.is_none(), egui::Button::new("Position first point on 3D cloth"))
-                    .on_disabled_hover_text("Choose Edit mode and finish drawing first");
+                if draft.place_on_board { ui.small(if views.0 { "Click the panel to position the first point · Escape cancels" } else { "2D view unavailable · restore it to continue or press Escape to cancel" }); }
+                let place_3d = ui.add_enabled(views.1 && draft.draw_backup.is_none(), egui::Button::new("Position first point on 3D cloth"))
+                    .on_disabled_hover_text("Open the 3D view, choose Edit mode and finish drawing first");
                 #[cfg(test)]
                 super::authoring_smoke::widget_harness::named(ui, &place_3d, "trim.place_3d");
                 if place_3d.clicked() {
                     draft.place_on_board = false;
                     draft.place_on_3d = true;
                 }
-                if draft.place_on_3d && draft.draw_backup.is_none() { ui.small("Click the visible owning panel in 3D · Escape cancels"); }
+                if draft.place_on_3d && draft.draw_backup.is_none() { ui.small(if views.1 { "Click the visible owning panel in 3D · Escape cancels" } else { "3D view unavailable · restore it to continue or press Escape to cancel" }); }
                 if matches!(draft.kind, 1..=3) {
                     if draft.draw_backup.is_none() {
-                        let draw = ui.button("Draw path on 2D board");
+                        let draw = ui.add_enabled(views.0, egui::Button::new("Draw path on 2D board"))
+                            .on_disabled_hover_text("Open the 2D view and choose Edit mode first");
                         #[cfg(test)]
                         super::authoring_smoke::widget_harness::named(ui, &draw, "trim.draw");
                         if draw.clicked() { draft.begin_path(); }
-                        let draw_3d = ui.add_enabled(can_place_3d, egui::Button::new("Draw path on 3D cloth"))
-                            .on_disabled_hover_text("Choose Edit mode first");
+                        let draw_3d = ui.add_enabled(views.1, egui::Button::new("Draw path on 3D cloth"))
+                            .on_disabled_hover_text("Open the 3D view and choose Edit mode first");
                         #[cfg(test)]
                         super::authoring_smoke::widget_harness::named(ui, &draw_3d, "trim.draw_3d");
                         if draw_3d.clicked() { draft.begin_path(); draft.place_on_3d = true; }
                     } else {
+                        if (draft.place_on_3d && !views.1) || (!draft.place_on_3d && !views.0) {
+                            ui.small("Target view unavailable · restore it to continue, or cancel drawing");
+                        }
                         ui.small(if draft.place_on_3d && draft.kind == 1 {
                             "Click the two buttonhole endpoints on the visible panel in 3D"
                         } else if draft.place_on_3d {
@@ -1423,6 +1747,13 @@ fn trim_controls(
                     ui.colored_label(Color32::GOLD, error);
                 }
                 let can_apply = parsed.is_ok() && draft.draw_backup.is_none();
+                let linked = template.mirror_links.iter().any(|link| link.a == draft.panel || link.b == draft.panel);
+                let can_repeat = !linked && draft.draw_backup.is_none() && !draft.place_on_board && !draft.place_on_3d
+                    && draft.base.as_ref().is_some_and(|base| parsed.as_ref().is_ok_and(|trim| trim == base));
+                let repeat = ui.add_enabled(can_repeat, egui::Button::new("Repeat…"))
+                    .on_disabled_hover_text(if linked { "Unlink the mirrored panel before repeating trims" } else { "Apply or cancel changes to the saved trim before repeating it" });
+                #[cfg(test)] super::authoring_smoke::widget_harness::named(ui, &repeat, "trim.repeat");
+                if repeat.clicked() { draft.repeat = true; }
                 ui.horizontal(|ui| {
                     let apply = ui.add_enabled(can_apply, egui::Button::new("Apply"));
                     #[cfg(test)]
@@ -1434,28 +1765,58 @@ fn trim_controls(
                     #[cfg(test)]
                     super::authoring_smoke::widget_harness::named(ui, &cancel, "trim.cancel");
                     if cancel.clicked() {
+                        state.board_drag = None;
                         state.draft = None;
                     }
                 });
+                }
             }
         });
     #[cfg(test)]
     super::authoring_smoke::widget_harness::named(ui, &section.header_response, "trim.section");
     #[cfg(not(test))]
     let _ = section;
+    state.text_focus = ui.ctx().egui_wants_keyboard_input();
     command
 }
 
 impl Atelier {
     pub(super) fn trim_properties(&mut self, ui: &mut egui::Ui, panel: &Panel) {
-        let command = trim_controls(
+        let edit = self.authoring.tool == super::authoring_ui::Tool::Edit;
+        let command = trim_controls_with_views(
             ui,
             &mut self.authoring.trims,
             &self.project.template,
             panel,
-            self.authoring.tool == super::authoring_ui::Tool::Edit,
+            (
+                edit && self.authoring.selection.board_rect.is_some(),
+                edit && self.authoring.selection.garment_rect.is_some(),
+            ),
         );
         if let Some(command) = command {
+            if matches!(&command, Command::RepeatTrim { .. }) {
+                let result = self
+                    .authoring
+                    .trims
+                    .draft
+                    .as_ref()
+                    .ok_or("Repeat draft missing".to_owned())
+                    .and_then(|draft| {
+                        prepare_repeat(&self.project.template, &self.scene.garment, draft)
+                    });
+                match result {
+                    Ok(edit) => {
+                        self.authoring.history.record(self.project.template.clone());
+                        self.install_edit(edit);
+                        self.authoring.trims.draft = None;
+                    }
+                    Err(error) => {
+                        self.authoring.error = Some(error.clone());
+                        self.status = error;
+                    }
+                }
+                return;
+            }
             if matches!(&command, Command::SetTrim { .. })
                 && let Some(draft) = self.authoring.trims.draft.as_ref()
                 && let Err(error) = check_draft_revision(draft, &self.project.template)
@@ -1486,6 +1847,69 @@ impl Atelier {
 }
 
 impl Atelier {
+    pub(super) fn begin_trim_board_drag(&mut self, rect: egui::Rect, screen: egui::Pos2) {
+        let Some(panel) = self
+            .authoring
+            .trims
+            .draft
+            .as_ref()
+            .filter(|d| d.place_on_board && !d.place_on_3d && d.draw_backup.is_none())
+            .map(|d| d.panel.clone())
+        else {
+            return;
+        };
+        if self.board_panel_at(rect, screen) != Some(panel.as_str()) {
+            return;
+        }
+        let Some(index) = self
+            .project
+            .template
+            .panels
+            .iter()
+            .position(|p| p.id == panel)
+        else {
+            return;
+        };
+        let local = board_local_point(
+            &self.authoring.board,
+            rect,
+            screen,
+            self.board_origin(index),
+            self.board_angle(index),
+        );
+        if let Err(error) = self.authoring.trims.begin_board_drag(local) {
+            self.status = error.clone();
+            self.authoring.error = Some(error);
+        }
+    }
+
+    pub(super) fn update_trim_board_drag(&mut self, rect: egui::Rect, screen: egui::Pos2) {
+        let Some(panel) = self.authoring.trims.draft.as_ref().map(|d| d.panel.clone()) else {
+            return;
+        };
+        let Some(index) = self
+            .project
+            .template
+            .panels
+            .iter()
+            .position(|p| p.id == panel)
+        else {
+            self.authoring.trims.cancel_board_placement();
+            return;
+        };
+        let local = board_local_point(
+            &self.authoring.board,
+            rect,
+            screen,
+            self.board_origin(index),
+            self.board_angle(index),
+        );
+        if let Err(error) = self.authoring.trims.update_board_drag(local) {
+            self.status = error.clone();
+            self.authoring.error = Some(error);
+        }
+    }
+
     pub(super) fn pick_trim_on_board(&mut self, rect: egui::Rect, screen: egui::Pos2) -> bool {
         if self.authoring.tool != super::authoring_ui::Tool::Edit
             || self.authoring.trims.draft.is_some()
@@ -1675,6 +2099,13 @@ mod tests {
         ui.draft.as_mut().unwrap().place_on_3d = true;
         assert!(ui.intercept_history(false).is_some());
         assert!(!ui.has_pending_history_step());
+        ui.draft.as_mut().unwrap().repeat = true;
+        assert!(ui.has_pending_history_step());
+        assert!(ui.intercept_history(true).is_some());
+        assert!(ui.draft.as_ref().unwrap().repeat);
+        assert!(ui.intercept_history(false).is_some());
+        assert!(!ui.draft.as_ref().unwrap().repeat);
+        assert!(!ui.has_pending_history_step());
         assert_eq!(serde_json::to_vec(&template).unwrap(), original);
         assert!(history.can_undo());
         assert!(!history.can_redo());
@@ -1692,16 +2123,19 @@ mod tests {
             },
         };
         template.trims.push(trim.clone());
-        for case in 0..10 {
-            let scenario = case % 5;
+        for case in 0..12 {
+            let scenario = case % 6;
             let mut trims = TrimUi::default();
-            if scenario <= 2 {
+            if scenario <= 2 || scenario == 5 {
                 let mut draft = TrimDraft::from_trim(&trim);
                 if scenario == 1 {
                     draft.base = None; // Unsaved creation.
                 }
                 if scenario == 2 {
                     draft.base.as_mut().unwrap().id = "stale".into();
+                }
+                if scenario == 5 {
+                    draft.repeat = true;
                 }
                 trims.draft = Some(draft);
             }
@@ -1714,7 +2148,7 @@ mod tests {
                     physical_key: None,
                     pressed: true,
                     repeat: false,
-                    modifiers: if case >= 5 {
+                    modifiers: if case >= 6 {
                         egui::Modifiers {
                             ctrl: true,
                             command: true,
@@ -1742,7 +2176,7 @@ mod tests {
             let (routed, later) = observed.unwrap();
             match scenario {
                 0 => assert!(matches!(routed, Some(Ok(Command::RemoveTrim { .. })))),
-                1 | 2 => assert!(matches!(routed, Some(Err(_)))),
+                1 | 2 | 5 => assert!(matches!(routed, Some(Err(_)))),
                 3 => assert!(matches!(routed, Some(Ok(Command::RemovePanels { .. })))),
                 _ => assert!(routed.is_none()),
             }
@@ -1781,11 +2215,12 @@ mod tests {
         assert!(ui.delete_shortcut(&template, true).unwrap().is_err());
         ui.draft.as_mut().unwrap().base = Some(trim.clone());
         assert!(ui.delete_shortcut(&template, false).unwrap().is_err());
-        for operation in 0..3 {
+        for operation in 0..4 {
             let draft = ui.draft.as_mut().unwrap();
-            draft.place_on_board = operation == 0;
-            draft.place_on_3d = operation == 1;
-            draft.draw_backup = (operation == 2).then(String::new);
+            draft.repeat = operation == 0;
+            draft.place_on_board = operation == 1;
+            draft.place_on_3d = operation == 2;
+            draft.draw_backup = (operation == 3).then(String::new);
             assert!(ui.delete_shortcut(&template, true).unwrap().is_err());
         }
         ui.draft = Some(TrimDraft::from_trim(&trim));
@@ -1932,6 +2367,206 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "opt-in CPU drag preview timing; no GPU or native window"]
+    fn benchmark_dense_drag_preview_cpu() {
+        let mut template = GarmentTemplate::two_panel_demo();
+        template.seams.clear();
+        template.panels[0].pattern.nx = 100;
+        template.panels[0].pattern.ny = 100;
+        let path = (0..128)
+            .map(|i| {
+                let t = i as f64 / 127.;
+                DVec2::new(0.04 + 0.30 * t, 0.3 + 0.03 * (20. * t).sin())
+            })
+            .collect();
+        let trim = Trim {
+            id: "profile".into(),
+            panel_id: template.panels[0].id.clone(),
+            kind: TrimKind::Topstitch {
+                path_m: path,
+                rows: 1,
+                spacing_m: 0.001,
+            },
+        };
+        template.trims.push(trim.clone());
+        let garment = std::sync::Arc::new(template.compile().unwrap());
+        let mut draft = TrimDraft::from_trim(&trim);
+        draft.place_on_board = true;
+        let mut state = TrimUi {
+            draft: Some(draft),
+            ..Default::default()
+        };
+        assert!(state.begin_board_drag(DVec2::new(0.1, 0.1)).unwrap());
+        let mut moved = Vec::new();
+        let mut cached = Vec::new();
+        for i in 0..20 {
+            let start = std::time::Instant::now();
+            state
+                .update_board_drag(DVec2::new(0.1 + i as f64 * 0.0001, 0.1))
+                .unwrap();
+            let (inputs, _, _) = preview_inputs(&template.trims, state.draft.as_ref());
+            state.refresh_preview(&garment, &inputs);
+            let preview = state.preview.as_ref().expect("valid preview");
+            assert_eq!(preview.skipped, 0);
+            assert!(!preview.paths.is_empty());
+            if i >= 2 {
+                moved.push(start.elapsed().as_secs_f64() * 1000.);
+            }
+            let start = std::time::Instant::now();
+            state.refresh_preview(&garment, &inputs);
+            if i >= 2 {
+                cached.push(start.elapsed().as_secs_f64() * 1000.);
+            }
+        }
+        for (label, samples) in [("moving", &mut moved), ("unchanged", &mut cached)] {
+            samples.sort_by(f64::total_cmp);
+            eprintln!(
+                "20k triangles / 128-point topstitch {label}: median {:.3} ms, p95 {:.3} ms (18 CPU samples, excludes rendering/visibility)",
+                samples[samples.len() / 2],
+                samples[((samples.len() - 1) as f64 * 0.95).ceil() as usize]
+            );
+        }
+    }
+
+    #[test]
+    fn repeat_board_previews_use_material_frame_and_shared_budget() {
+        let mut template = GarmentTemplate::two_panel_demo();
+        let original = Trim {
+            id: "source".into(),
+            panel_id: template.panels[0].id.clone(),
+            kind: TrimKind::Button {
+                center_m: DVec2::new(0.1, 0.1),
+                diameter_m: 0.01,
+            },
+        };
+        template.trims.push(original.clone());
+        let mut draft = TrimDraft::from_trim(&original);
+        draft.repeat = true;
+        draft.repeat_copies = 3;
+        let ui = TrimUi {
+            draft: Some(draft),
+            ..Default::default()
+        };
+        let copies = ui.repeat_board_previews(&original.panel_id, &template.trims);
+        assert_eq!(copies.len(), 3);
+        assert!(
+            ui.repeat_board_previews("other", &template.trims)
+                .is_empty()
+        );
+        let before = serde_json::to_vec(&template).unwrap();
+        let ctx = egui::Context::default();
+        let mut budget = 2;
+        let mut output = ctx.run_ui(
+            egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(500., 500.),
+                )),
+                ..Default::default()
+            },
+            |ui| {
+                let point = |p| {
+                    let p = authoring::rotate_2d(p, 90.);
+                    egui::pos2(200. + p.x as f32 * 1000., 50. + p.y as f32 * 1000.)
+                };
+                for trim in &copies {
+                    paint_trim_2d(ui.painter(), &point, trim, &mut budget, Color32::GOLD);
+                }
+            },
+        );
+        let centers: Vec<_> = output
+            .shapes
+            .iter()
+            .filter_map(|shape| match &shape.shape {
+                egui::Shape::Circle(circle) if circle.fill == Color32::GOLD => Some(circle.center),
+                _ => None,
+            })
+            .collect();
+        output.textures_delta.clear();
+        assert_eq!(centers.len(), 2);
+        assert!(centers[0].distance(egui::pos2(100., 170.)) < 0.01);
+        assert!(centers[1].distance(egui::pos2(100., 190.)) < 0.01);
+        assert_eq!(budget, 0);
+        assert_eq!(serde_json::to_vec(&template).unwrap(), before);
+    }
+
+    #[test]
+    fn repeat_preview_is_bounded_tracks_motion_and_never_commits() {
+        let mut template = GarmentTemplate::two_panel_demo();
+        let original = Trim {
+            id: "source".into(),
+            panel_id: template.panels[0].id.clone(),
+            kind: TrimKind::Button {
+                center_m: DVec2::new(0.1, 0.1),
+                diameter_m: 0.01,
+            },
+        };
+        template.trims.push(original.clone());
+        let garment = std::sync::Arc::new(template.compile().unwrap());
+        let before = serde_json::to_vec(&template).unwrap();
+        let mut draft = TrimDraft::from_trim(&original);
+        draft.repeat = true;
+        draft.repeat_copies = 3;
+        let (inputs, range, truncated) = preview_inputs(&template.trims, Some(&draft));
+        assert_eq!(range, Some((0, 3)));
+        assert!(!truncated);
+        assert_eq!(inputs[3], original);
+        let preview = build_preview(garment.clone(), &inputs).unwrap();
+        assert_eq!(preview.skipped, 0);
+        assert_eq!(preview.paths.len(), 4);
+        let world = preview.paths[1].2[0]
+            .evaluate(&garment.initial_state.x)
+            .unwrap();
+        let moved: Vec<_> = garment
+            .initial_state
+            .x
+            .iter()
+            .map(|p| *p + glam::DVec3::Y)
+            .collect();
+        assert!(
+            (preview.paths[1].2[0].evaluate(&moved).unwrap() - world - glam::DVec3::Y).length()
+                < 1e-10
+        );
+        assert_eq!(serde_json::to_vec(&template).unwrap(), before);
+        draft.repeat_copies = 128;
+        let (inputs, range, truncated) = preview_inputs(&template.trims, Some(&draft));
+        assert_eq!(range, Some((0, 16)));
+        assert!(truncated);
+        assert_eq!(inputs.len(), 17);
+        draft.repeat_offset_mm = [f64::NAN, 0.];
+        let (inputs, range, truncated) = preview_inputs(&template.trims, Some(&draft));
+        assert_eq!(inputs.len(), 1);
+        assert!(range.is_none() && truncated);
+        draft.repeat_offset_mm = [20., 0.];
+        let mut changed = template.trims.clone();
+        changed[0].id = "changed".into();
+        let (inputs, range, truncated) = preview_inputs(&changed, Some(&draft));
+        assert_eq!(inputs.len(), 1);
+        assert!(range.is_none() && truncated);
+        let long = Trim {
+            kind: TrimKind::Zipper {
+                path_m: (0..1000)
+                    .map(|i| DVec2::new(i as f64 * 0.00001, 0.1))
+                    .collect(),
+                width_m: 0.01,
+            },
+            ..original.clone()
+        };
+        let mut long_draft = TrimDraft::from_trim(&long);
+        long_draft.repeat = true;
+        long_draft.repeat_copies = 16;
+        let (inputs, range, truncated) =
+            preview_inputs(std::slice::from_ref(&long), Some(&long_draft));
+        assert_eq!(range, Some((0, 3)));
+        assert!(truncated);
+        assert_eq!(inputs.len(), 4);
+        draft.repeat = false;
+        let (_, range, truncated) = preview_inputs(&template.trims, Some(&draft));
+        assert_eq!(range, Some((0, 1)));
+        assert!(!truncated);
+    }
+
+    #[test]
     fn staged_3d_preview_tracks_drawing_and_cancel_without_document_edits() {
         let template = GarmentTemplate::two_panel_demo();
         let garment = std::sync::Arc::new(template.compile().unwrap());
@@ -1948,7 +2583,7 @@ mod tests {
         assert!(preview_inputs(&template.trims, Some(&draft)).0.is_empty());
         draft.append_path_point(DVec2::new(0.1, 0.1)).unwrap();
         let (inputs, index, limited) = preview_inputs(&template.trims, Some(&draft));
-        assert_eq!(index, Some(0));
+        assert_eq!(index, Some((0, 1)));
         assert!(!limited);
         let marker = build_preview(garment.clone(), &inputs).unwrap();
         assert!(marker.paths[0].1);
@@ -1967,7 +2602,7 @@ mod tests {
         );
         draft.append_path_point(DVec2::new(0.2, 0.2)).unwrap();
         let (inputs, index, _) = preview_inputs(&template.trims, Some(&draft));
-        assert_eq!(index, Some(0));
+        assert_eq!(index, Some((0, 1)));
         let path = build_preview(garment, &inputs).unwrap();
         assert!(!path.paths.is_empty() && !path.paths[0].1);
         assert!(template.trims.is_empty());
@@ -1975,7 +2610,7 @@ mod tests {
         assert_eq!(draft.parse().unwrap(), trim);
         let (inputs, index, _) = preview_inputs(std::slice::from_ref(&trim), Some(&draft));
         assert_eq!(inputs.len(), 1);
-        assert_eq!(index, Some(0));
+        assert_eq!(index, Some((0, 1)));
     }
 
     #[test]
@@ -1996,15 +2631,84 @@ mod tests {
         edit.id = "other".into();
         let existing = [trim.clone(), other.clone()];
         let (inputs, index, limited) = preview_inputs(&existing, Some(&edit));
-        assert_eq!(index, Some(0));
+        assert_eq!(index, Some((0, 1)));
         assert!(!limited);
         assert_eq!(inputs[1], other);
         let mut new_draft = TrimDraft::from_trim(&trim);
         new_draft.base = None;
         let many = vec![trim; 128];
         let (inputs, index, limited) = preview_inputs(&many, Some(&new_draft));
-        assert!(limited && index.is_none());
+        assert!(limited && index == Some((0, 1)));
         assert_eq!(inputs.len(), 128);
+
+        let mut unique = many;
+        for (i, item) in unique.iter_mut().enumerate() {
+            item.id = format!("item_{i}");
+        }
+        let base = unique.last().unwrap().clone();
+        let mut repeat = TrimDraft::from_trim(&base);
+        repeat.repeat = true;
+        repeat.repeat_copies = 1;
+        let (inputs, range, limited) = preview_inputs(&unique, Some(&repeat));
+        assert!(limited);
+        assert_eq!(range, Some((0, 1)));
+        assert_eq!(
+            inputs[1], base,
+            "the repeated source remains visible when other items are dropped"
+        );
+        assert_eq!(inputs.len(), 128);
+    }
+
+    #[test]
+    fn active_draft_precedes_dense_committed_paths_in_preview_budget() {
+        let mut template = GarmentTemplate::two_panel_demo();
+        template.panels[0].pattern.nx = 100;
+        template.panels[0].pattern.ny = 100;
+        let panel = template.panels[0].id.clone();
+        let path: Vec<_> = (0..128)
+            .map(|i| {
+                let t = i as f64 / 127.;
+                DVec2::new(0.02 + 0.36 * t, 0.3 + 0.04 * (t * 20.).sin())
+            })
+            .collect();
+        for id in ["dense_a", "dense_b"] {
+            template.trims.push(Trim {
+                id: id.into(),
+                panel_id: panel.clone(),
+                kind: TrimKind::Topstitch {
+                    path_m: path.clone(),
+                    rows: 1,
+                    spacing_m: 0.001,
+                },
+            });
+        }
+        let before = serde_json::to_vec(&template).unwrap();
+        let garment = std::sync::Arc::new(template.compile().unwrap());
+        let new = Trim {
+            id: "draft".into(),
+            panel_id: panel,
+            kind: TrimKind::Button {
+                center_m: DVec2::new(0.2, 0.3),
+                diameter_m: 0.01,
+            },
+        };
+        let mut draft = TrimDraft::from_trim(&new);
+        draft.base = None;
+        let (inputs, index, limited) = preview_inputs(&template.trims, Some(&draft));
+        assert_eq!(index, Some((0, 1)));
+        assert!(!limited);
+        let preview = build_preview(garment, &inputs).unwrap();
+        assert!(
+            preview
+                .paths
+                .iter()
+                .any(|(index, button, _)| *index == 0 && *button)
+        );
+        assert!(
+            preview.skipped > 0,
+            "fixture must exhaust shared attachment budget"
+        );
+        assert_eq!(serde_json::to_vec(&template).unwrap(), before);
     }
 
     #[test]
@@ -2083,6 +2787,69 @@ mod tests {
     }
 
     #[test]
+    fn trim_placement_controls_follow_visible_views_and_preserve_draft() {
+        use super::super::authoring_smoke::widget_harness::Harness;
+        struct Case {
+            state: TrimUi,
+            template: GarmentTemplate,
+            views: (bool, bool),
+        }
+        let mut c = Case {
+            state: Default::default(),
+            template: GarmentTemplate::two_panel_demo(),
+            views: (true, false),
+        };
+        let original = serde_json::to_vec(&c.template).unwrap();
+        let mut h = Harness::new(egui::vec2(1000., 700.));
+        let mut draw = |ui: &mut egui::Ui, c: &mut Case| {
+            let panel = &c.template.panels[0];
+            assert!(
+                trim_controls_with_views(ui, &mut c.state, &c.template, panel, c.views).is_none()
+            );
+        };
+        h.frame(&mut c, &mut draw);
+        h.click("trim.section", &mut c, &mut draw).unwrap();
+        h.click("trim.new", &mut c, &mut draw).unwrap();
+        h.frame(&mut c, &mut draw);
+        assert!(h.click("trim.place_3d", &mut c, &mut draw).is_err());
+        h.click("trim.place", &mut c, &mut draw).unwrap();
+        assert!(c.state.draft.as_ref().unwrap().place_on_board);
+        let before = c.state.draft.as_ref().unwrap().points.clone();
+        c.views = (false, true);
+        h.frame(&mut c, &mut draw);
+        assert!(c.state.draft.as_ref().unwrap().place_on_board);
+        assert_eq!(c.state.draft.as_ref().unwrap().points, before);
+        assert!(h.click("trim.place", &mut c, &mut draw).is_err());
+        h.click("trim.place_3d", &mut c, &mut draw).unwrap();
+        assert!(c.state.draft.as_ref().unwrap().place_on_3d);
+        assert!(!c.state.draft.as_ref().unwrap().place_on_board);
+        c.views = (true, false);
+        h.frame(&mut c, &mut draw);
+        assert!(c.state.draft.as_ref().unwrap().place_on_3d);
+        assert_eq!(c.state.draft.as_ref().unwrap().points, before);
+        h.click("trim.cancel", &mut c, &mut draw).unwrap();
+        h.click("trim.kind", &mut c, &mut draw).unwrap();
+        h.frame(&mut c, &mut draw);
+        h.click("trim.kind.2", &mut c, &mut draw).unwrap();
+        h.click("trim.new", &mut c, &mut draw).unwrap();
+        h.frame(&mut c, &mut draw);
+        assert!(h.click("trim.draw_3d", &mut c, &mut draw).is_err());
+        h.click("trim.draw", &mut c, &mut draw).unwrap();
+        c.state
+            .draft
+            .as_mut()
+            .unwrap()
+            .append_path_point(DVec2::new(0.05, 0.05))
+            .unwrap();
+        c.views = (false, true);
+        h.frame(&mut c, &mut draw);
+        assert_eq!(c.state.draft.as_ref().unwrap().draw_points.len(), 1);
+        h.click("trim.cancel_path", &mut c, &mut draw).unwrap();
+        assert!(c.state.draft.as_ref().unwrap().draw_backup.is_none());
+        assert_eq!(serde_json::to_vec(&c.template).unwrap(), original);
+    }
+
+    #[test]
     fn three_dimensional_placement_control_requires_edit_mode() {
         use super::super::authoring_smoke::widget_harness::Harness;
         let template = GarmentTemplate::two_panel_demo();
@@ -2157,6 +2924,10 @@ mod tests {
             &mut draw,
         )
         .unwrap();
+        assert!(case.ui.draft.as_ref().unwrap().place_on_3d);
+        assert!(case.ui.draft.as_ref().unwrap().draw_backup.is_some());
+        h.frame(&mut case, &mut draw);
+        h.click("trim.cancel_path", &mut case, &mut draw).unwrap();
         assert_eq!(case.ui.draft.as_ref().unwrap().points, previous);
         assert!(!case.ui.draft.as_ref().unwrap().place_on_3d);
         h.frame(&mut case, &mut draw);
@@ -3169,6 +3940,142 @@ mod tests {
     }
 
     #[test]
+    fn named_board_drag_preserves_grip_and_requires_apply() {
+        use super::super::authoring_smoke::widget_harness::{Harness, named};
+        struct Case {
+            board: super::super::board::Board,
+            template: GarmentTemplate,
+            ui: TrimUi,
+            history: authoring::History,
+            origin: DVec2,
+            angle: f64,
+        }
+        let mut template = GarmentTemplate::two_panel_demo();
+        let panel = template.panels[0].id.clone();
+        let trim = Trim {
+            id: "drag".into(),
+            panel_id: panel,
+            kind: TrimKind::Button {
+                center_m: DVec2::new(0.1, 0.1),
+                diameter_m: 0.01,
+            },
+        };
+        template.trims.push(trim.clone());
+        let before = serde_json::to_vec(&template).unwrap();
+        let mut draft = TrimDraft::from_trim(&trim);
+        draft.place_on_board = true;
+        let mut board = super::super::board::Board::default();
+        board.set_view_rotation_degrees(33.);
+        let origin = DVec2::new(0.4, -0.2);
+        let angle = 47.;
+        board.center = origin + authoring::rotate_2d(DVec2::new(0.1, 0.1), angle);
+        let mut c = Case {
+            board,
+            template,
+            ui: TrimUi {
+                draft: Some(draft),
+                ..Default::default()
+            },
+            history: Default::default(),
+            origin,
+            angle,
+        };
+        let mut draw = |ui: &mut egui::Ui, c: &mut Case| {
+            let (rect, response) =
+                ui.allocate_exact_size(egui::vec2(300., 220.), egui::Sense::click_and_drag());
+            named(ui, &response, "trim.drag.canvas");
+            if response.drag_started_by(egui::PointerButton::Primary)
+                && let Some(start) = ui.input(|i| i.pointer.press_origin())
+            {
+                let local = board_local_point(&c.board, rect, start, c.origin, c.angle);
+                c.ui.begin_board_drag(local).unwrap();
+            }
+            if response.dragged_by(egui::PointerButton::Primary)
+                && let Some(pos) = response.interact_pointer_pos()
+            {
+                let local = board_local_point(&c.board, rect, pos, c.origin, c.angle);
+                c.ui.update_board_drag(local).unwrap();
+            }
+            if response.drag_stopped_by(egui::PointerButton::Primary) {
+                c.ui.finish_board_drag();
+            }
+            let panel = c.template.panels[0].clone();
+            if let Some(command) = trim_controls(ui, &mut c.ui, &c.template, &panel, true) {
+                let edit = authoring::apply(&c.template, command).unwrap();
+                c.history.record(c.template.clone());
+                c.template = edit.template;
+                c.ui.draft = None;
+            }
+        };
+        let mut h = Harness::new(egui::vec2(800., 800.));
+        h.frame(&mut c, &mut draw);
+        let screen_delta = egui::vec2(24., 12.);
+        h.drag("trim.drag.canvas", screen_delta, 4, &mut c, &mut draw)
+            .unwrap();
+        let rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(300., 220.));
+        let expected_delta =
+            board_local_point(
+                &c.board,
+                rect,
+                rect.center() + screen_delta,
+                c.origin,
+                c.angle,
+            ) - board_local_point(&c.board, rect, rect.center(), c.origin, c.angle);
+        let staged = c.ui.draft.as_ref().unwrap().parse().unwrap();
+        let TrimKind::Button { center_m, .. } = staged.kind else {
+            panic!("button expected")
+        };
+        assert!(center_m.distance(DVec2::new(0.1, 0.1) + expected_delta) < 1e-6);
+        assert!(!c.ui.draft.as_ref().unwrap().place_on_board);
+        assert_eq!(serde_json::to_vec(&c.template).unwrap(), before);
+        assert!(!c.history.can_undo());
+        h.frame(&mut c, &mut draw);
+        h.click("trim.apply", &mut c, &mut draw).unwrap();
+        assert_eq!(c.template.trims.len(), 1);
+        assert!(c.history.can_undo());
+        assert_eq!(
+            c.history
+                .restore(&c.template, false)
+                .unwrap()
+                .template
+                .trims[0],
+            trim
+        );
+    }
+
+    #[test]
+    fn cancelling_or_undoing_trim_drag_restores_pre_drag_draft() {
+        let template = GarmentTemplate::two_panel_demo();
+        let trim = Trim {
+            id: "drag".into(),
+            panel_id: template.panels[0].id.clone(),
+            kind: TrimKind::Button {
+                center_m: DVec2::new(0.1, 0.1),
+                diameter_m: 0.01,
+            },
+        };
+        for undo in [false, true] {
+            let mut draft = TrimDraft::from_trim(&trim);
+            draft.place_on_board = true;
+            let mut state = TrimUi {
+                draft: Some(draft),
+                ..Default::default()
+            };
+            assert!(state.begin_board_drag(DVec2::new(0.12, 0.13)).unwrap());
+            state.update_board_drag(DVec2::new(0.17, 0.19)).unwrap();
+            assert_ne!(state.draft.as_ref().unwrap().parse().unwrap(), trim);
+            if undo {
+                assert!(state.intercept_history(false).is_some());
+            } else {
+                state.cancel_board_placement();
+            }
+            assert_eq!(state.draft.as_ref().unwrap().parse().unwrap(), trim);
+            assert!(!state.board_drag_active());
+            assert!(!state.draft.as_ref().unwrap().place_on_board);
+        }
+    }
+
+    #[test]
     fn inspector_created_trim_survives_mirrored_panel_copy() {
         use super::super::authoring_smoke::widget_harness::Harness;
         use marvelous_cloth::garment::shapes::{MirrorAxis, Primitive, primitive};
@@ -3255,6 +4162,381 @@ mod tests {
             .click(&format!("trim.edit.{}", mirrored.id), &mut case, &mut draw)
             .unwrap();
         assert_eq!(case.ui.draft.as_ref().unwrap().parse().unwrap(), mirrored);
+    }
+
+    #[test]
+    fn repeat_install_preserves_held_drape_worker_flags_and_saved_project() {
+        use super::super::authoring_ui::{AuthoringUi, EditorTransition};
+        use marvelous_cloth::{
+            authoring::prepare_pin_edit, fitting::FittingProject, garment::presets::GarmentKind,
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let avatar = dir.path().join("avatar.obj");
+        std::fs::write(&avatar, "v 10 0 -10\nv 11 0 -10\nv 10 1 -10\nf 1 2 3\n").unwrap();
+        let file = dir.path().join("repeat.clothcraft");
+        let mut project = FittingProject::basic(GarmentKind::Tshirt, 0, avatar);
+        project.template = GarmentTemplate::two_panel_demo();
+        project.template.seams.clear();
+        for (i, panel) in project.template.panels.iter_mut().enumerate() {
+            panel.pins.clear();
+            panel.pattern.nx = 2;
+            panel.pattern.ny = 2;
+            panel.placement.translation.x += i as f64 * 4.;
+        }
+        let garment = project.template.compile().unwrap();
+        let mut initial = garment.initial_state.clone();
+        let free = garment.panels[1].vertices.start;
+        initial.time = 5.;
+        initial.v[free] = glam::DVec3::new(0.1, 0.2, 0.3);
+        let panel = garment.panels[0].id.clone();
+        let center = garment.mesh.uv[garment.panels[0].vertices.start + 4];
+        let (held_edit, held) = prepare_pin_edit(
+            &project.template,
+            &garment,
+            &initial,
+            &panel,
+            &[center],
+            true,
+        )
+        .unwrap();
+        let original = Trim {
+            id: "source".into(),
+            panel_id: panel,
+            kind: TrimKind::Button {
+                center_m: DVec2::new(0.1, 0.1),
+                diameter_m: 0.01,
+            },
+        };
+        project.template = authoring::apply(
+            &held_edit.template,
+            Command::SetTrim {
+                trim: original.clone(),
+            },
+        )
+        .unwrap()
+        .template;
+        project.state = Some(held.clone());
+        project.save(&file).unwrap();
+        let mut project = FittingProject::load(&file).unwrap();
+        let mut scene = project.compile().unwrap();
+        let retained_mesh = scene.garment.clone();
+        let signature = project.mesh_signature.clone();
+        let mut authoring = AuthoringUi::default();
+        let mut issue = super::super::issue_ui::IssueUi::default();
+        let mut dirty = false;
+        let mut generation = 12;
+        let mut playing = true;
+        let mut pending = true;
+        let mut metrics = None;
+        let mut grab = None;
+        let mut plane = None;
+        let mut error = None;
+        let mut status = String::new();
+        let mut editor = EditorTransition {
+            authoring: &mut authoring,
+            project: &mut project,
+            scene: &mut scene,
+            issue: &mut issue,
+            dirty: &mut dirty,
+            generation: &mut generation,
+            playing: &mut playing,
+            pending: &mut pending,
+            metrics: &mut metrics,
+            grab: &mut grab,
+            drag_plane: &mut plane,
+            simulation_error: &mut error,
+            status: &mut status,
+            dt: 1. / 60.,
+        };
+        let mut draft = TrimDraft::from_trim(&original);
+        draft.repeat = true;
+        let edit = prepare_repeat(&editor.project.template, &editor.scene.garment, &draft).unwrap();
+        editor
+            .authoring
+            .history
+            .record(editor.project.template.clone());
+        editor.install(edit);
+        assert_eq!(editor.project.template.trims.len(), 4);
+        assert!(*editor.playing && *editor.pending && *editor.generation == 12);
+        assert!(std::sync::Arc::ptr_eq(
+            &retained_mesh,
+            &editor.scene.garment
+        ));
+        assert_eq!(editor.project.mesh_signature, signature);
+        assert_eq!(editor.scene.state.x, held.x);
+        assert_eq!(editor.scene.state.v, held.v);
+        assert_eq!(editor.scene.state.time, held.time);
+        for (redo, count) in [(false, 1), (true, 4)] {
+            let edit = editor
+                .authoring
+                .history
+                .restore(&editor.project.template, redo)
+                .unwrap();
+            editor.install(edit);
+            assert_eq!(editor.project.template.trims.len(), count);
+            assert!(*editor.playing && *editor.pending && *editor.generation == 12);
+            assert!(std::sync::Arc::ptr_eq(
+                &retained_mesh,
+                &editor.scene.garment
+            ));
+            assert_eq!(editor.scene.state.x, held.x);
+            assert_eq!(editor.scene.state.v, held.v);
+            assert_eq!(editor.scene.state.time, held.time);
+        }
+        editor.project.state = Some(editor.scene.state.clone());
+        editor.project.save(&file).unwrap();
+        let reopened = FittingProject::load(&file).unwrap();
+        let scene = reopened.compile().unwrap();
+        assert_eq!(scene.state.x, held.x);
+        assert_eq!(scene.state.v, held.v);
+        assert_eq!(scene.state.time, held.time);
+        assert_eq!(reopened.template.trims, editor.project.template.trims);
+        assert_eq!(
+            reopened.template.pin_targets,
+            editor.project.template.pin_targets
+        );
+        assert_eq!(reopened.template.pin_targets.len(), 1);
+    }
+
+    #[test]
+    fn linked_repeat_is_disabled_and_escape_cancels_only_outside_text_input() {
+        use super::super::authoring_smoke::widget_harness::Harness;
+        use marvelous_cloth::garment::{shapes::MirrorAxis, template::MirrorLink};
+        let mut template = GarmentTemplate::two_panel_demo();
+        let original = Trim {
+            id: "source".into(),
+            panel_id: template.panels[0].id.clone(),
+            kind: TrimKind::Button {
+                center_m: DVec2::new(0.1, 0.1),
+                diameter_m: 0.01,
+            },
+        };
+        template.trims.push(original.clone());
+        template.mirror_links.push(MirrorLink {
+            a: template.panels[0].id.clone(),
+            b: template.panels[1].id.clone(),
+            axis: MirrorAxis::X,
+        });
+        let panel = template.panels[0].clone();
+        let mut state = TrimUi {
+            draft: Some(TrimDraft::from_trim(&original)),
+            ..Default::default()
+        };
+        let before = serde_json::to_vec(&template).unwrap();
+        let mut h = Harness::new(egui::vec2(1000., 700.));
+        let mut draw = |ui: &mut egui::Ui, state: &mut TrimUi| {
+            assert!(trim_controls(ui, state, &template, &panel, true).is_none());
+        };
+        h.frame(&mut state, &mut draw);
+        assert!(h.click("trim.repeat", &mut state, &mut draw).is_err());
+        assert!(!state.draft.as_ref().unwrap().repeat);
+        let ctx = egui::Context::default();
+        let mut text = String::new();
+        let mut frame = |focus_text: bool, escape: bool, state: &mut TrimUi| {
+            let events = if escape {
+                vec![egui::Event::Key {
+                    key: egui::Key::Escape,
+                    physical_key: None,
+                    pressed: true,
+                    repeat: false,
+                    modifiers: egui::Modifiers::NONE,
+                }]
+            } else {
+                vec![]
+            };
+            let mut output = ctx.run_ui(
+                egui::RawInput {
+                    screen_rect: Some(egui::Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        egui::vec2(1000., 700.),
+                    )),
+                    focused: true,
+                    events,
+                    ..Default::default()
+                },
+                |ui| {
+                    egui::CentralPanel::default().show(ui, |ui| {
+                        if focus_text {
+                            ui.text_edit_singleline(&mut text).request_focus();
+                        }
+                        assert!(trim_controls(ui, state, &template, &panel, true).is_none());
+                    });
+                },
+            );
+            output.textures_delta.clear();
+        };
+        state.draft.as_mut().unwrap().repeat = true;
+        frame(true, false, &mut state);
+        frame(true, true, &mut state);
+        assert!(state.draft.as_ref().unwrap().repeat);
+        ctx.memory_mut(|m| m.surrender_focus(m.focused().unwrap()));
+        frame(false, false, &mut state);
+        frame(false, true, &mut state);
+        assert!(!state.draft.as_ref().unwrap().repeat);
+        state.draft.as_mut().unwrap().place_on_board = true;
+        frame(true, false, &mut state);
+        frame(true, true, &mut state);
+        assert!(state.draft.as_ref().unwrap().place_on_board);
+        ctx.memory_mut(|m| {
+            if let Some(focused) = m.focused() {
+                m.surrender_focus(focused);
+            }
+        });
+        frame(false, false, &mut state);
+        frame(false, true, &mut state);
+        assert!(!state.draft.as_ref().unwrap().place_on_board);
+        assert_eq!(state.draft.as_ref().unwrap().parse().unwrap(), original);
+        assert_eq!(serde_json::to_vec(&template).unwrap(), before);
+    }
+
+    #[test]
+    fn named_repeat_validates_all_copies_and_commits_once() {
+        use super::super::authoring_smoke::widget_harness::Harness;
+        struct Case {
+            ui: TrimUi,
+            template: GarmentTemplate,
+            history: authoring::History,
+            error: Option<String>,
+        }
+        let mut template = GarmentTemplate::two_panel_demo();
+        let source = Trim {
+            id: "source".into(),
+            panel_id: template.panels[0].id.clone(),
+            kind: TrimKind::Button {
+                center_m: DVec2::new(0.1, 0.1),
+                diameter_m: 0.01,
+            },
+        };
+        template.trims.push(source.clone());
+        let mut c = Case {
+            ui: TrimUi::default(),
+            template,
+            history: Default::default(),
+            error: None,
+        };
+        let mut draw = |ui: &mut egui::Ui, c: &mut Case| {
+            let panel = c.template.panels[0].clone();
+            if let Some(command) = trim_controls(ui, &mut c.ui, &c.template, &panel, true)
+                && matches!(command, Command::RepeatTrim { .. })
+            {
+                let garment = c.template.compile().unwrap();
+                match prepare_repeat(&c.template, &garment, c.ui.draft.as_ref().unwrap()) {
+                    Ok(edit) => {
+                        c.history.record(c.template.clone());
+                        c.template = edit.template;
+                        c.ui.draft = None;
+                        c.error = None;
+                    }
+                    Err(error) => c.error = Some(error),
+                }
+            }
+        };
+        let mut h = Harness::new(egui::vec2(1100., 900.));
+        h.frame(&mut c, &mut draw);
+        h.click("trim.section", &mut c, &mut draw).unwrap();
+        h.click("trim.edit.source", &mut c, &mut draw).unwrap();
+        h.resize(egui::vec2(240., 900.));
+        h.frame(&mut c, &mut draw);
+        h.click("trim.repeat", &mut c, &mut draw).unwrap();
+        h.frame(&mut c, &mut draw);
+        h.click("trim.repeat.cancel", &mut c, &mut draw).unwrap();
+        assert_eq!(c.template.trims, vec![source.clone()]);
+        assert!(!c.history.can_undo());
+        h.frame(&mut c, &mut draw);
+        h.click("trim.repeat", &mut c, &mut draw).unwrap();
+        c.ui.draft.as_mut().unwrap().repeat_offset_mm = [10000., 0.];
+        h.frame(&mut c, &mut draw);
+        h.click("trim.repeat.apply", &mut c, &mut draw).unwrap();
+        assert!(c.error.is_some());
+        assert_eq!(c.template.trims, vec![source.clone()]);
+        assert!(!c.history.can_undo());
+        c.ui.draft.as_mut().unwrap().repeat_offset_mm = [20., 0.];
+        h.frame(&mut c, &mut draw);
+        h.click("trim.repeat.apply", &mut c, &mut draw).unwrap();
+        assert!(c.error.is_none(), "{:?}", c.error);
+        assert_eq!(c.template.trims.len(), 4);
+        let undo = c.history.restore(&c.template, false).unwrap();
+        assert_eq!(undo.template.trims, vec![source]);
+        assert!(!undo.reset_simulation);
+    }
+
+    #[test]
+    fn repeat_surface_budget_and_stale_source_fail_atomically() {
+        let mut template = GarmentTemplate::two_panel_demo();
+        let original = Trim {
+            id: "source".into(),
+            panel_id: template.panels[0].id.clone(),
+            kind: TrimKind::Button {
+                center_m: DVec2::new(0.1, 0.1),
+                diameter_m: 0.01,
+            },
+        };
+        template.trims.push(original.clone());
+        let garment = template.compile().unwrap();
+        let mut draft = TrimDraft::from_trim(&original);
+        draft.repeat = true;
+        let mut changed = template.clone();
+        changed.trims[0].kind = TrimKind::Button {
+            center_m: DVec2::new(0.2, 0.1),
+            diameter_m: 0.01,
+        };
+        assert!(prepare_repeat(&changed, &garment, &draft).is_err());
+        let mut oversized = garment.clone();
+        oversized.panels[0].triangles = 0..100_000;
+        draft.repeat_copies = 128;
+        assert!(
+            prepare_repeat(&template, &oversized, &draft)
+                .err()
+                .unwrap()
+                .contains("work limit")
+        );
+        assert_eq!(template.trims, vec![original]);
+    }
+
+    #[test]
+    fn repeat_rejects_a_copy_inside_a_hole_without_partial_edit() {
+        use marvelous_cloth::garment::{
+            domain::Hole,
+            shapes::{Primitive, primitive},
+        };
+        let mut template = GarmentTemplate::two_panel_demo();
+        template.version = 2;
+        template.seams.clear();
+        template.panels[0].pins.clear();
+        let mut polygon = primitive(
+            Primitive::Rectangle,
+            DVec2::new(0.4, 0.6),
+            90.,
+            Default::default(),
+        )
+        .unwrap();
+        polygon.holes.push(Hole {
+            points: vec![
+                DVec2::new(0.15, 0.2),
+                DVec2::new(0.15, 0.4),
+                DVec2::new(0.25, 0.4),
+                DVec2::new(0.25, 0.2),
+            ],
+            edges: (0..4).map(|i| format!("hole_{i}")).collect(),
+        });
+        template.panels[0].polygon = Some(polygon);
+        let original = Trim {
+            id: "source".into(),
+            panel_id: template.panels[0].id.clone(),
+            kind: TrimKind::Button {
+                center_m: DVec2::new(0.1, 0.3),
+                diameter_m: 0.01,
+            },
+        };
+        template.trims.push(original.clone());
+        let garment = template.compile().unwrap();
+        let mut draft = TrimDraft::from_trim(&original);
+        draft.repeat = true;
+        draft.repeat_copies = 2;
+        draft.repeat_offset_mm = [50., 0.];
+        let before = serde_json::to_vec(&template).unwrap();
+        assert!(prepare_repeat(&template, &garment, &draft).is_err());
+        assert_eq!(serde_json::to_vec(&template).unwrap(), before);
     }
 
     #[test]
@@ -3492,7 +4774,7 @@ mod tests {
                 &mut draw,
             )
             .unwrap();
-        assert!(!case.ui.draft.as_ref().unwrap().place_on_3d);
+        assert!(case.ui.draft.as_ref().unwrap().place_on_3d);
         assert!(case.template.trims.is_empty() && !case.history.can_undo());
         harness.click("trim.cancel", &mut case, &mut draw).unwrap();
         assert!(case.template.trims.is_empty() && !case.history.can_undo());
@@ -3590,6 +4872,11 @@ mod tests {
                         &mut case,
                         &mut draw,
                     )
+                    .unwrap();
+                assert!(case.ui.draft.as_ref().unwrap().draw_backup.is_some());
+                harness.frame(&mut case, &mut draw);
+                harness
+                    .click("trim.cancel_path", &mut case, &mut draw)
                     .unwrap();
                 assert_eq!(case.ui.draft.as_ref().unwrap().points, previous);
                 harness.frame(&mut case, &mut draw);
@@ -3907,5 +5194,75 @@ mod tests {
         ));
         ui.refresh_preview(&remeshed, &[]);
         assert!(ui.preview.is_none());
+    }
+
+    #[test]
+    fn material_index_cache_tracks_mesh_and_panel_for_preview() {
+        use std::sync::Arc;
+        let mut template = GarmentTemplate::two_panel_demo();
+        template.panels[0].pattern.nx = 100;
+        template.panels[0].pattern.ny = 100;
+        let garment = Arc::new(template.compile().unwrap());
+        let panel = template.panels[0].id.clone();
+        let points: Vec<_> = (0..80)
+            .map(|i| DVec2::new(0.05 + i as f64 * 0.003, 0.3))
+            .collect();
+        let mut trim = Trim {
+            id: "cached".into(),
+            panel_id: panel.clone(),
+            kind: TrimKind::Topstitch {
+                path_m: points,
+                rows: 1,
+                spacing_m: 0.001,
+            },
+        };
+        let mut state = TrimUi::default();
+        state.refresh_preview(&garment, std::slice::from_ref(&trim));
+        assert!(
+            state
+                .material_index
+                .as_ref()
+                .unwrap()
+                .matches(&garment, &panel)
+        );
+        if let TrimKind::Topstitch { path_m, .. } = &mut trim.kind {
+            for p in path_m {
+                p.y += 0.001;
+            }
+        }
+        state.refresh_preview(&garment, std::slice::from_ref(&trim));
+        assert!(
+            state
+                .material_index
+                .as_ref()
+                .unwrap()
+                .matches(&garment, &panel)
+        );
+        let TrimKind::Topstitch { path_m, .. } = &trim.kind else {
+            unreachable!()
+        };
+        let direct = garment
+            .embed_path_bounded(&marvelous_cloth::garment::embedding::MaterialPath {
+                panel: panel.clone(),
+                points: path_m.clone(),
+            })
+            .unwrap();
+        let cached = &state.preview.as_ref().unwrap().paths[0].2;
+        assert_eq!(direct.len(), cached.len());
+        for (a, b) in direct.iter().zip(cached) {
+            assert_eq!(a.vertices, b.vertices);
+            assert_eq!(a.weights, b.weights);
+        }
+        template.panels[0].pattern.nx = 101;
+        let remeshed = Arc::new(template.compile().unwrap());
+        state.refresh_preview(&remeshed, std::slice::from_ref(&trim));
+        assert!(
+            state
+                .material_index
+                .as_ref()
+                .is_none_or(|index| index.matches_garment(&remeshed))
+        );
+        state.refresh_preview(&remeshed, &[]);
+        assert!(state.material_index.is_none());
     }
 }
