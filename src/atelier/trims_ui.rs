@@ -527,53 +527,111 @@ fn build_preview(
             skipped += 1;
             continue;
         };
-        let (button, points) = match &trim.kind {
-            TrimKind::Button { center_m, .. } => (true, vec![*center_m]),
-            TrimKind::Buttonhole { start_m, end_m, .. } => (false, vec![*start_m, *end_m]),
-            TrimKind::Zipper { path_m, .. } | TrimKind::Topstitch { path_m, .. } => {
-                (false, path_m.clone())
+        let (button, candidates): (bool, Option<Vec<Vec<DVec2>>>) = match &trim.kind {
+            TrimKind::Button { center_m, .. } => (true, Some(vec![vec![*center_m]])),
+            TrimKind::Buttonhole { start_m, end_m, .. } => {
+                (false, Some(vec![vec![*start_m, *end_m]]))
+            }
+            TrimKind::Zipper { path_m, .. } => (false, Some(vec![path_m.clone()])),
+            TrimKind::Topstitch {
+                path_m, rows: 1, ..
+            } => (false, Some(vec![path_m.clone()])),
+            TrimKind::Topstitch {
+                path_m,
+                rows,
+                spacing_m,
+            } => {
+                let segments = path_m
+                    .len()
+                    .saturating_sub(1)
+                    .saturating_mul(*rows as usize);
+                if !(2..=8).contains(rows)
+                    || segments.saturating_mul(2) > MAX_PREVIEW_POINTS.saturating_sub(count)
+                {
+                    (false, None)
+                } else {
+                    let mut lines = Vec::with_capacity(segments);
+                    let mut valid = true;
+                    for pair in path_m.windows(2) {
+                        for row in 0..*rows {
+                            if let Some(points) =
+                                topstitch_row(pair[0], pair[1], *rows, *spacing_m, row)
+                            {
+                                lines.push(points.to_vec());
+                            } else {
+                                valid = false;
+                            }
+                        }
+                    }
+                    (false, valid.then_some(lines))
+                }
             }
         };
-        let direct_cost = if button {
-            n
-        } else {
-            n.saturating_mul(n)
-                .saturating_mul(points.len().saturating_sub(1))
-        };
-        let indexed = !button && direct_cost > 8_000_000 && n <= 20_000;
-        // At most four expensive indexed paths per preview rebuild. Each
-        // bounded path enforces its own operation and attachment limits.
-        let cost = if indexed { 2_000_000 } else { direct_cost };
-        if work.saturating_add(cost) > 8_000_000 {
+        let Some(candidates) = candidates else {
             skipped += 1;
             continue;
-        }
-        work += cost;
-        let embedded = if button {
-            garment
-                .embed_point(&trim.panel_id, points[0])
-                .map(|p| vec![p])
-        } else {
-            let path = MaterialPath {
-                panel: trim.panel_id.clone(),
-                points,
-            };
-            if indexed {
-                garment.embed_path_bounded(&path)
+        };
+        // Multiple short rows can exceed the shared direct-work budget even
+        // when each row fits alone. Use the bounded index in that case too.
+        let total_direct = candidates.iter().fold(0usize, |total, points| {
+            total.saturating_add(if button {
+                n
             } else {
-                garment.embed_path(&path)
+                n.saturating_mul(n)
+                    .saturating_mul(points.len().saturating_sub(1))
+            })
+        });
+        let prefer_indexed = !button && n <= 20_000 && total_direct > 8_000_000;
+        let mut staged = Vec::new();
+        let mut staged_count = 0usize;
+        let mut valid = !candidates.is_empty();
+        for points in candidates {
+            let direct_cost = if button {
+                n
+            } else {
+                n.saturating_mul(n)
+                    .saturating_mul(points.len().saturating_sub(1))
+            };
+            let indexed = !button && n <= 20_000 && (direct_cost > 8_000_000 || prefer_indexed);
+            // The shared budget bounds both ordinary and indexed attempts.
+            let cost = if indexed { 2_000_000 } else { direct_cost };
+            if work.saturating_add(cost) > 8_000_000 {
+                valid = false;
+                break;
             }
-        };
-        let Ok(embedded) = embedded else {
-            skipped += 1;
-            continue;
-        };
-        if count.saturating_add(embedded.len()) > MAX_PREVIEW_POINTS {
+            work += cost;
+            let embedded = if button {
+                garment
+                    .embed_point(&trim.panel_id, points[0])
+                    .map(|p| vec![p])
+            } else {
+                let path = MaterialPath {
+                    panel: trim.panel_id.clone(),
+                    points,
+                };
+                if indexed {
+                    garment.embed_path_bounded(&path)
+                } else {
+                    garment.embed_path(&path)
+                }
+            };
+            let Ok(embedded) = embedded else {
+                valid = false;
+                break;
+            };
+            staged_count = staged_count.saturating_add(embedded.len());
+            if count.saturating_add(staged_count) > MAX_PREVIEW_POINTS {
+                valid = false;
+                break;
+            }
+            staged.push((index, button, embedded));
+        }
+        if !valid {
             skipped += 1;
             continue;
         }
-        count += embedded.len();
-        paths.push((index, button, embedded));
+        count += staged_count;
+        paths.extend(staged);
     }
     Ok(TrimPreview {
         garment,
@@ -1205,6 +1263,176 @@ impl Atelier {
 mod tests {
     use super::*;
     use marvelous_cloth::garment::GarmentTemplate;
+
+    #[test]
+    fn topstitch_rows_follow_folded_surface_and_refuse_partial_previews() {
+        let mut template = GarmentTemplate::two_panel_demo();
+        template.panels[0].pattern.nx = 2;
+        template.panels[0].pattern.ny = 1;
+        let garment = std::sync::Arc::new(template.compile().unwrap());
+        let trim = Trim {
+            id: "stitch".into(),
+            panel_id: "left".into(),
+            kind: TrimKind::Topstitch {
+                path_m: vec![DVec2::new(0.05, 0.3), DVec2::new(0.35, 0.3)],
+                rows: 3,
+                spacing_m: 0.02,
+            },
+        };
+        let preview = build_preview(garment.clone(), std::slice::from_ref(&trim)).unwrap();
+        assert_eq!(preview.skipped, 0);
+        assert_eq!(preview.paths.len(), 3);
+        let mut x = garment.initial_state.x.clone();
+        for (i, p) in x.iter_mut().enumerate() {
+            let uv = garment.mesh.uv[i];
+            *p = if uv.x <= 0.2 {
+                glam::DVec3::new(uv.x, uv.y, 0.)
+            } else {
+                glam::DVec3::new(0.2, uv.y, uv.x - 0.2)
+            };
+        }
+        for (i, (_, button, embedded)) in preview.paths.iter().enumerate() {
+            assert!(!button);
+            let expected_y = 0.28 + 0.02 * i as f64;
+            assert!(embedded.iter().all(|p| (p.uv.y - expected_y).abs() < 1e-12));
+            assert!(embedded.iter().any(|p| (p.uv.x - 0.2).abs() < 1e-12));
+            let positions: Vec<_> = embedded.iter().map(|p| p.evaluate(&x).unwrap()).collect();
+            let length: f64 = positions
+                .windows(2)
+                .map(|pair| pair[0].distance(pair[1]))
+                .sum();
+            assert!((length - 0.3).abs() < 1e-12);
+        }
+        let projected_paths: Vec<_> = preview
+            .paths
+            .iter()
+            .map(|(id, button, points)| {
+                (
+                    *id,
+                    *button,
+                    points.iter().map(|p| p.evaluate(&x).ok()).collect(),
+                )
+            })
+            .collect();
+        let project =
+            |p: glam::DVec3| Some((egui::pos2((p.x * 1000.) as f32, (p.y * 1000.) as f32), 1.));
+        assert_eq!(
+            pick_visible_trim(
+                egui::pos2(100., 280.),
+                &projected_paths,
+                &project,
+                &mut |_| true
+            ),
+            Some(0)
+        );
+        assert_eq!(
+            pick_visible_trim(
+                egui::pos2(100., 280.),
+                &projected_paths,
+                &project,
+                &mut |_| false
+            ),
+            None
+        );
+        let outside = Trim {
+            kind: TrimKind::Topstitch {
+                path_m: vec![DVec2::new(0.05, 0.001), DVec2::new(0.35, 0.001)],
+                rows: 3,
+                spacing_m: 0.02,
+            },
+            ..trim.clone()
+        };
+        let button = Trim {
+            id: "button".into(),
+            kind: TrimKind::Button {
+                center_m: DVec2::new(0.1, 0.1),
+                diameter_m: 0.01,
+            },
+            ..trim.clone()
+        };
+        let rejected = build_preview(garment.clone(), &[outside, button]).unwrap();
+        assert_eq!(rejected.skipped, 1);
+        assert_eq!(rejected.paths.len(), 1);
+        assert_eq!(rejected.paths[0].0, 1);
+        let oversized = Trim {
+            kind: TrimKind::Topstitch {
+                path_m: (0..41)
+                    .map(|i| DVec2::new(0.05 + 0.005 * i as f64, 0.3))
+                    .collect(),
+                rows: 8,
+                spacing_m: 0.005,
+            },
+            ..trim
+        };
+        let rejected = build_preview(garment, &[oversized]).unwrap();
+        assert_eq!(rejected.skipped, 1);
+        assert!(rejected.paths.is_empty());
+    }
+
+    #[test]
+    fn multiple_topstitch_rows_use_bounded_index_when_direct_work_exceeds_budget() {
+        let mut template = GarmentTemplate::two_panel_demo();
+        template.panels[0].pattern.nx = 34;
+        template.panels[0].pattern.ny = 34;
+        let garment = std::sync::Arc::new(template.compile().unwrap());
+        let n = garment.panels[0].triangles.len();
+        assert!(n * n < 8_000_000 && n * n * 3 > 8_000_000);
+        let trim = Trim {
+            id: "stitch".into(),
+            panel_id: "left".into(),
+            kind: TrimKind::Topstitch {
+                path_m: vec![DVec2::new(0.05, 0.3), DVec2::new(0.35, 0.3)],
+                rows: 3,
+                spacing_m: 0.02,
+            },
+        };
+        let preview = build_preview(garment, &[trim]).unwrap();
+        assert_eq!(preview.skipped, 0);
+        assert_eq!(preview.paths.len(), 3);
+    }
+
+    #[test]
+    fn topstitch_row_crossing_hole_skips_the_whole_preview() {
+        use marvelous_cloth::garment::{
+            domain::Hole,
+            shapes::{Primitive, primitive},
+        };
+        let mut template = GarmentTemplate::two_panel_demo();
+        template.version = 2;
+        template.seams.clear();
+        template.panels[0].pins.clear();
+        let mut polygon = primitive(
+            Primitive::Rectangle,
+            DVec2::new(0.4, 0.6),
+            90.,
+            Default::default(),
+        )
+        .unwrap();
+        polygon.holes.push(Hole {
+            points: vec![
+                DVec2::new(0.15, 0.2),
+                DVec2::new(0.15, 0.4),
+                DVec2::new(0.25, 0.4),
+                DVec2::new(0.25, 0.2),
+            ],
+            edges: (0..4).map(|i| format!("hole_{i}")).collect(),
+        });
+        template.panels[0].polygon = Some(polygon);
+        let garment = std::sync::Arc::new(template.compile().unwrap());
+        let trim = Trim {
+            id: "stitch".into(),
+            panel_id: "left".into(),
+            kind: TrimKind::Topstitch {
+                path_m: vec![DVec2::new(0.05, 0.19), DVec2::new(0.35, 0.19)],
+                rows: 3,
+                spacing_m: 0.02,
+            },
+        };
+        validate_surface(&trim, &garment).unwrap();
+        let preview = build_preview(garment, &[trim]).unwrap();
+        assert_eq!(preview.skipped, 1);
+        assert!(preview.paths.is_empty());
+    }
 
     #[test]
     fn topstitch_rows_render_and_pick_in_material_space() {

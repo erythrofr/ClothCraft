@@ -50,8 +50,11 @@ is amber; committed trims are purple. A changed or deleted object cannot be
 silently overwritten by a stale draft.
 
 The 3D overlay follows the deformed surface using transient material attachments,
-rebuilt after remeshing. It displays center lines or button markers, not actual
-hardware shapes or widths. Occlusion is sampled at line endpoints and midpoints,
+rebuilt after remeshing. Multi-row topstitch uses the authored material-space
+offsets, embedded segment by segment; the segments are not joined at bends.
+If any row leaves the panel or exceeds a limit, the entire object is skipped
+with a warning. Buttons remain markers and zipper/buttonhole paths remain center
+lines, not actual hardware shapes or widths. Occlusion is sampled at line endpoints and midpoints,
 not per pixel. Preview work is bounded: at most 128 objects, 4096 input points,
 512 embedded points. Visibility uses direct ray tests for small batches and a
 cached, position-refitted editor BVH for larger batches, with a 100,000-triangle
@@ -59,8 +62,7 @@ limit and safe refusal if its bounds cannot be built. Unsupported or out-of-pane
 objects are skipped with a warning; oversized scenes can hide the 3D preview.
 Clean view hides the 3D overlay. The 2D preview has a separate 4096-unit work
 budget that also accounts for the extra width-outline segments.
-The 3D view shows topstitch, zipper and buttonhole center lines; these are not
-manufacturing-accurate previews.
+These overlays are not manufacturing-accurate previews.
 
 One local CPU test with 10,000 synthetic triangles and 1,536 rays measured
 170.29 ms exhaustive versus 5.94 ms including BVH construction; after moving
