@@ -85,7 +85,8 @@ fn matches(query: &str) -> Vec<CommandId> {
         .filter_map(|(index, d)| {
             let label = d.label.to_lowercase();
             let key = d.key.to_lowercase();
-            let text = format!("{} {} {}", label, key, aliases(d.id));
+            let shortcut = d.shortcut.unwrap_or_default().to_lowercase();
+            let text = format!("{} {} {} {}", label, key, shortcut, aliases(d.id));
             let mut fuzzy_words = 0usize;
             for word in query.split_whitespace() {
                 if text.contains(word) {
@@ -103,9 +104,10 @@ fn matches(query: &str) -> Vec<CommandId> {
             let term = query.trim();
             // Favor an actual command name over a match in a broad alias,
             // while leaving an empty search in the original registry order.
-            let relevance = if term.is_empty() || label == term || key == term {
+            let relevance = if term.is_empty() || label == term || key == term || shortcut == term {
                 0
-            } else if label.starts_with(term) || key.starts_with(term) {
+            } else if label.starts_with(term) || key.starts_with(term) || shortcut.starts_with(term)
+            {
                 1
             } else if label
                 .split(|c: char| !c.is_alphanumeric())
@@ -485,6 +487,24 @@ mod tests {
         h.click("palette.command.tool.edit", &mut c, &mut draw)
             .unwrap();
         assert_eq!(c.commands, vec![CommandId::ToolEdit]);
+    }
+
+    #[test]
+    fn named_shortcut_search_finds_and_dispatches_the_associated_command() {
+        let mut c = case();
+        let mut h = Harness::new(egui::vec2(900., 900.));
+        frames(&mut h, &mut c);
+        h.replace_text("palette.query", "Space", &mut c, &mut draw)
+            .unwrap();
+        h.key(
+            "palette.query",
+            egui::Key::Enter,
+            egui::Modifiers::NONE,
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert_eq!(c.commands, vec![CommandId::ToggleSimulation]);
     }
 
     #[test]
