@@ -63,6 +63,9 @@ fn charge(work: &mut usize, amount: usize) -> Result<(), String> {
 impl MaterialIndex {
     fn new(g: &CompiledGarment, range: std::ops::Range<usize>) -> Result<Self, String> {
         use crate::ogc::bvh::{Bounds, Bvh};
+        if range.start >= range.end || range.end > g.mesh.triangles.len() {
+            return Err("Invalid compiled panel triangle range".into());
+        }
         if range.len() > 100_000 {
             return Err("Material path exceeds the triangle limit".into());
         }

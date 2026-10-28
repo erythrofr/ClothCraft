@@ -330,6 +330,30 @@ fn indexed_path_refuses_near_degenerate_material_triangles() {
 }
 
 #[test]
+fn bounded_path_rejects_invalid_compiled_panel_triangle_ranges() {
+    let original = GarmentTemplate::two_panel_demo().compile().unwrap();
+    let path = MaterialPath {
+        panel: "left".into(),
+        points: vec![DVec2::new(0.05, 0.05), DVec2::new(0.1, 0.1)],
+    };
+    assert!(original.embed_path_bounded(&path).is_ok());
+    let triangle_count = original.mesh.triangles.len();
+    for range in [
+        0..triangle_count + 1,
+        triangle_count + 1..triangle_count + 2,
+        std::ops::Range { start: 2, end: 1 },
+        0..0,
+    ] {
+        let mut garment = original.clone();
+        garment.panels[0].triangles = range.clone();
+        let error = garment
+            .embed_path_bounded(&path)
+            .expect_err(&format!("invalid range {range:?} must fail"));
+        assert!(error.contains("triangle range"), "{error}");
+    }
+}
+
+#[test]
 fn indexed_path_rejects_finite_inverse_with_nonfinite_products() {
     let mut garment = GarmentTemplate::two_panel_demo().compile().unwrap();
     let index = garment.panels[0].triangles.start;
