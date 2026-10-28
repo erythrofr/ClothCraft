@@ -226,7 +226,9 @@ impl Store {
         // atomic replacement. Noncooperating processes can still bypass it.
         let _lock = lock_profile(path)?;
         if read_source(path)? != self.source_text {
-            return Err("Workspace profiles changed on disk. Close and reopen the profiles dialog before saving.".into());
+            return Err(
+                "Workspace profiles changed on disk. Reload saved profiles before saving.".into(),
+            );
         }
         let text = serde_json::to_string_pretty(self).map_err(|e| e.to_string())?;
         if text.len() as u64 > MAX_BYTES {
@@ -291,6 +293,13 @@ impl ProfileUi {
             ui.heading("Workspace profiles");
             ui.small("Layout, viewport appearance and tool rail only. Garment and simulation settings stay unchanged.");
             if let Some(error)=&self.error { ui.colored_label(egui::Color32::LIGHT_RED,error); }
+            if self.error.is_some() && self.store.is_some() && self.pending.is_none()
+                && button(ui,"profiles.reload","Reload saved profiles",true) {
+                match Store::load(path) {
+                    Ok(store)=>{self.store=Some(store);self.selected=None;self.error=None;},
+                    Err(e)=>self.error=Some(e),
+                }
+            }
             if self.store.is_none() {
                 ui.label("The existing file is preserved. Fix it or move it aside, then retry.");
                 if button(ui,"profiles.retry","Retry loading",true) { self.begin(path); }
@@ -845,15 +854,61 @@ mod tests {
         assert!(c.ui.error.as_deref().unwrap().contains("changed on disk"));
         assert_eq!(std::fs::read(&path).unwrap(), saved);
         assert!(c.restored.is_none());
-        c.ui.begin(&path);
         for _ in 0..5 {
             h.frame(&mut c, &mut draw);
         }
-        h.replace_text("profiles.name", "Mine", &mut c, &mut draw)
-            .unwrap();
+        h.click("profiles.reload", &mut c, &mut draw).unwrap();
+        assert_eq!(c.ui.name, "Mine");
+        assert!(c.ui.error.is_none());
+        for _ in 0..5 {
+            h.frame(&mut c, &mut draw);
+        }
         h.click("profiles.save", &mut c, &mut draw).unwrap();
         assert_eq!(Store::load(&path).unwrap().profiles.len(), 2);
         assert!(c.restored.is_none());
+    }
+
+    #[test]
+    fn failed_reload_preserves_loaded_store_name_and_file() {
+        struct ConflictCase {
+            ui: ProfileUi,
+            path: std::path::PathBuf,
+        }
+        let mut draw = |ui: &mut egui::Ui, c: &mut ConflictCase| {
+            c.ui.show(ui.ctx(), &c.path, &Snapshot::default());
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(FILE_NAME);
+        Store::default()
+            .save_profile(&path, "Original", Snapshot::default(), false)
+            .unwrap();
+        let mut c = ConflictCase {
+            ui: ProfileUi::default(),
+            path: path.clone(),
+        };
+        c.ui.begin(&path);
+        let original = c.ui.store.clone().unwrap();
+        let mut h = Harness::new(egui::vec2(1100., 700.));
+        for _ in 0..5 {
+            h.frame(&mut c, &mut draw);
+        }
+        std::fs::write(&path, "broken externally").unwrap();
+        h.replace_text("profiles.name", "Mine", &mut c, &mut draw)
+            .unwrap();
+        h.click("profiles.save", &mut c, &mut draw).unwrap();
+        for _ in 0..5 {
+            h.frame(&mut c, &mut draw);
+        }
+        h.click("profiles.reload", &mut c, &mut draw).unwrap();
+        assert!(
+            c.ui.error
+                .as_deref()
+                .unwrap()
+                .contains("Invalid workspace profiles")
+        );
+        assert_eq!(c.ui.store.as_ref().unwrap(), &original);
+        assert_eq!(c.ui.name, "Mine");
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "broken externally");
     }
 
     #[test]
