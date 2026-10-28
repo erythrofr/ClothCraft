@@ -20,7 +20,8 @@ are implemented.
 Select an existing trim and choose **Repeat…** to create 1–128 copies at a
 fixed panel-local X/Y offset in millimetres. Apply checks each generated center
 or path against the panel surface and uses one undo transaction; widths and
-row offsets can extend beyond the panel. Cancel returns to the original. Large requests can be refused by the shared work limit, and linked
+row offsets can extend beyond the panel. Cancel or Escape (outside text editing)
+returns to the original. Large requests can be refused by the shared work limit, and linked
 mirror panels are refused until paired trim synchronization is supported.
 While editing, up to 16 copies appear in amber on the 2D board and 3D cloth,
 using their existing drawing and bounded surface/visibility budgets. A warning marks incomplete or

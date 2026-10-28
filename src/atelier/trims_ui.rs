@@ -1297,6 +1297,13 @@ fn trim_controls(
     if state.draft.as_ref().is_some_and(|d| d.panel != panel.id) {
         state.draft = None;
     }
+    if state.draft.as_ref().is_some_and(|d| d.repeat)
+        && !ui.ctx().egui_wants_keyboard_input()
+        && ui.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Escape))
+        && let Some(draft) = state.draft.as_mut()
+    {
+        draft.repeat = false;
+    }
     if state
         .draft
         .as_ref()
@@ -1407,7 +1414,7 @@ fn trim_controls(
             if let Some(draft) = state.draft.as_mut() {
                 if draft.repeat {
                     ui.strong("Repeat construction trim");
-                    ui.small("Copies use panel-local millimetres; Apply checks every center or path. The 2D/3D preview shows at most 16 copies and may be incomplete in busy scenes.");
+                    ui.small("Copies use panel-local millimetres; Apply checks every center or path. The 2D/3D preview shows at most 16 copies and may be incomplete in busy scenes. Escape cancels when not editing text.");
                     ui.horizontal(|ui| {
                         ui.label("Copies");
                         let count = ui.add(egui::DragValue::new(&mut draft.repeat_copies).range(1..=128));
@@ -1518,9 +1525,11 @@ fn trim_controls(
                     ui.colored_label(Color32::GOLD, error);
                 }
                 let can_apply = parsed.is_ok() && draft.draw_backup.is_none();
-                let can_repeat = draft.draw_backup.is_none() && !draft.place_on_board && !draft.place_on_3d
+                let linked = template.mirror_links.iter().any(|link| link.a == draft.panel || link.b == draft.panel);
+                let can_repeat = !linked && draft.draw_backup.is_none() && !draft.place_on_board && !draft.place_on_3d
                     && draft.base.as_ref().is_some_and(|base| parsed.as_ref().is_ok_and(|trim| trim == base));
-                let repeat = ui.add_enabled(can_repeat, egui::Button::new("Repeat…"));
+                let repeat = ui.add_enabled(can_repeat, egui::Button::new("Repeat…"))
+                    .on_disabled_hover_text(if linked { "Unlink the mirrored panel before repeating trims" } else { "Apply or cancel changes to the saved trim before repeating it" });
                 #[cfg(test)] super::authoring_smoke::widget_harness::named(ui, &repeat, "trim.repeat");
                 if repeat.clicked() { draft.repeat = true; }
                 ui.horizontal(|ui| {
@@ -3395,6 +3404,85 @@ mod tests {
             editor.project.template.pin_targets
         );
         assert_eq!(reopened.template.pin_targets.len(), 1);
+    }
+
+    #[test]
+    fn linked_repeat_is_disabled_and_escape_cancels_only_outside_text_input() {
+        use super::super::authoring_smoke::widget_harness::Harness;
+        use marvelous_cloth::garment::{shapes::MirrorAxis, template::MirrorLink};
+        let mut template = GarmentTemplate::two_panel_demo();
+        let original = Trim {
+            id: "source".into(),
+            panel_id: template.panels[0].id.clone(),
+            kind: TrimKind::Button {
+                center_m: DVec2::new(0.1, 0.1),
+                diameter_m: 0.01,
+            },
+        };
+        template.trims.push(original.clone());
+        template.mirror_links.push(MirrorLink {
+            a: template.panels[0].id.clone(),
+            b: template.panels[1].id.clone(),
+            axis: MirrorAxis::X,
+        });
+        let panel = template.panels[0].clone();
+        let mut state = TrimUi {
+            draft: Some(TrimDraft::from_trim(&original)),
+            ..Default::default()
+        };
+        let before = serde_json::to_vec(&template).unwrap();
+        let mut h = Harness::new(egui::vec2(1000., 700.));
+        let mut draw = |ui: &mut egui::Ui, state: &mut TrimUi| {
+            assert!(trim_controls(ui, state, &template, &panel, true).is_none());
+        };
+        h.frame(&mut state, &mut draw);
+        assert!(h.click("trim.repeat", &mut state, &mut draw).is_err());
+        assert!(!state.draft.as_ref().unwrap().repeat);
+        let ctx = egui::Context::default();
+        let mut text = String::new();
+        let mut frame = |focus_text: bool, escape: bool, state: &mut TrimUi| {
+            let events = if escape {
+                vec![egui::Event::Key {
+                    key: egui::Key::Escape,
+                    physical_key: None,
+                    pressed: true,
+                    repeat: false,
+                    modifiers: egui::Modifiers::NONE,
+                }]
+            } else {
+                vec![]
+            };
+            let mut output = ctx.run_ui(
+                egui::RawInput {
+                    screen_rect: Some(egui::Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        egui::vec2(1000., 700.),
+                    )),
+                    focused: true,
+                    events,
+                    ..Default::default()
+                },
+                |ui| {
+                    egui::CentralPanel::default().show(ui, |ui| {
+                        if focus_text {
+                            ui.text_edit_singleline(&mut text).request_focus();
+                        }
+                        assert!(trim_controls(ui, state, &template, &panel, true).is_none());
+                    });
+                },
+            );
+            output.textures_delta.clear();
+        };
+        state.draft.as_mut().unwrap().repeat = true;
+        frame(true, false, &mut state);
+        frame(true, true, &mut state);
+        assert!(state.draft.as_ref().unwrap().repeat);
+        ctx.memory_mut(|m| m.surrender_focus(m.focused().unwrap()));
+        frame(false, false, &mut state);
+        frame(false, true, &mut state);
+        assert!(!state.draft.as_ref().unwrap().repeat);
+        assert_eq!(state.draft.as_ref().unwrap().parse().unwrap(), original);
+        assert_eq!(serde_json::to_vec(&template).unwrap(), before);
     }
 
     #[test]
