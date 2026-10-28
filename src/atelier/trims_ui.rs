@@ -1354,7 +1354,7 @@ impl Atelier {
     }
 }
 
-fn trim_controls(
+pub(super) fn trim_controls(
     ui: &mut egui::Ui,
     state: &mut TrimUi,
     template: &marvelous_cloth::garment::GarmentTemplate,
