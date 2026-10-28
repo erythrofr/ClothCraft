@@ -2632,5 +2632,131 @@ mod transition_tests {
         assert_eq!(state.scene.state.x, frozen_state.x);
         assert_eq!(state.scene.state.v, frozen_state.v);
         assert_eq!(state.scene.state.time, frozen_state.time);
+
+        // The numeric inspector can select an interior vertex, not only a
+        // contour point. Exercise its pin/release through the same installer.
+        let range = state
+            .scene
+            .garment
+            .panels
+            .iter()
+            .find(|p| p.id == panel)
+            .unwrap();
+        let boundary: std::collections::BTreeSet<_> = range
+            .boundaries
+            .values()
+            .flat_map(|vertices| vertices.iter().copied())
+            .collect();
+        let vertex = range
+            .vertices
+            .clone()
+            .find(|i| !boundary.contains(i))
+            .expect("fixture needs an interior vertex");
+        let free = state
+            .scene
+            .garment
+            .panels
+            .iter()
+            .find(|p| p.id != panel)
+            .unwrap()
+            .vertices
+            .start;
+        let uv = state.scene.garment.mesh.uv[vertex];
+        state.scene.state.v[vertex] = DVec3::X;
+        state.scene.state.v[free] = DVec3::Y;
+        let before_pin = state.scene.state.clone();
+        let (pin, candidate) = authoring::prepare_pin_edit(
+            &state.project.template,
+            &state.scene.garment,
+            &state.scene.state,
+            &panel,
+            &[uv],
+            true,
+        )
+        .unwrap();
+        super::super::pins_ui::validate(&pin, &candidate, Some(&state.scene.collider.surface))
+            .unwrap();
+        state
+            .authoring
+            .history
+            .record(state.project.template.clone());
+        *state.pending = true; // Simulate a stale result; this is not a worker run.
+        state.install(pin);
+        assert_eq!(*state.generation, 19);
+        assert!(!*state.pending && !*state.playing);
+        assert!(super::super::current_worker_result(response(18), *state.generation).is_none());
+        assert_eq!(state.scene.state.x, before_pin.x);
+        assert_eq!(state.scene.state.time, before_pin.time);
+        assert_eq!(state.scene.state.v[vertex], DVec3::ZERO);
+        assert_eq!(state.scene.state.v[free], DVec3::Y);
+        let stored = state
+            .project
+            .template
+            .pin_targets
+            .iter()
+            .find(|p| p.panel == panel && p.uv == uv)
+            .unwrap();
+        assert_eq!(stored.world, before_pin.x[vertex]);
+        let json = serde_json::to_vec(&state.project).unwrap();
+        let reopened: FittingProject = serde_json::from_slice(&json).unwrap();
+        assert_eq!(
+            reopened.template.pin_targets,
+            state.project.template.pin_targets
+        );
+
+        let (release, candidate) = authoring::prepare_pin_edit(
+            &state.project.template,
+            &state.scene.garment,
+            &state.scene.state,
+            &panel,
+            &[uv],
+            false,
+        )
+        .unwrap();
+        super::super::pins_ui::validate(&release, &candidate, Some(&state.scene.collider.surface))
+            .unwrap();
+        state
+            .authoring
+            .history
+            .record(state.project.template.clone());
+        state.install(release);
+        assert_eq!(*state.generation, 20);
+        assert_eq!(state.scene.state.x, before_pin.x);
+        assert_eq!(state.scene.state.v[free], DVec3::Y);
+        assert!(
+            !state
+                .project
+                .template
+                .pin_targets
+                .iter()
+                .any(|p| p.panel == panel && p.uv == uv)
+        );
+        let previous = state.scene.garment.clone();
+        let current = state.scene.state.clone();
+        let undo = state
+            .authoring
+            .history
+            .restore_checked(&state.project.template, false, |edit| {
+                super::super::pins_ui::validate(
+                    edit,
+                    &edit.state_after(&previous, &current),
+                    Some(&state.scene.collider.surface),
+                )
+            })
+            .unwrap();
+        state.install(undo);
+        assert_eq!(*state.generation, 21);
+        assert!(super::super::current_worker_result(response(20), *state.generation).is_none());
+        assert_eq!(state.scene.state.x, before_pin.x);
+        assert_eq!(state.scene.state.v[vertex], DVec3::ZERO);
+        assert_eq!(state.scene.state.v[free], DVec3::Y);
+        assert!(
+            state
+                .project
+                .template
+                .pin_targets
+                .iter()
+                .any(|p| p.panel == panel && p.uv == uv && p.world == before_pin.x[vertex])
+        );
     }
 }

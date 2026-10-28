@@ -20,6 +20,11 @@ is snapped to that exact material coordinate, not stored as a mesh index. The
 lookup is limited to 100,000 vertices per panel and rejects ambiguous winners. The
 last lookup is cached for the same immutable mesh, panel and coordinates; a
 remesh or query change recomputes it. No lookup runs while the editor is busy.
+The CPU editor-transition fixture also pins an interior vertex, releases it and
+undoes the release through the production installer. It checks exact material
+and world targets, JSON project round-trip, drape/time and free-vertex velocity,
+and rejects results from older generations. The pending flag is simulated; this
+is not a live-worker, native-window or GPU test.
 
 Expand **Individual authored pins** to see their material coordinates and
 release one pin without removing the others. The list is virtualized for large
