@@ -871,6 +871,39 @@ fn preview_inputs<'a>(
 }
 
 impl TrimUi {
+    pub(super) fn has_pending_history_step(&self) -> bool {
+        self.draft.as_ref().is_some_and(|draft| {
+            draft.place_on_board
+                || draft.place_on_3d
+                || draft.draw_backup.is_some()
+                || draft
+                    .base
+                    .as_ref()
+                    .is_none_or(|base| !draft.parse().as_ref().is_ok_and(|current| current == base))
+        })
+    }
+
+    /// Cancel a transient step before document history, or refuse redo while
+    /// that step is pending. Clean saved selections do not intercept history.
+    pub(super) fn intercept_history(&mut self, redo: bool) -> Option<&'static str> {
+        if !self.has_pending_history_step() {
+            return None;
+        }
+        if redo {
+            return Some("Finish or cancel the trim draft before redoing");
+        }
+        let draft = self.draft.as_mut().expect("pending trim draft");
+        if draft.place_on_board || draft.place_on_3d || draft.draw_backup.is_some() {
+            draft.place_on_board = false;
+            draft.place_on_3d = false;
+            draft.cancel_path();
+            Some("Trim gesture cancelled · Undo again for document history")
+        } else {
+            self.draft = None;
+            Some("Trim draft cancelled · Undo again for document history")
+        }
+    }
+
     /// An active trim draft owns Delete, even when it cannot be deleted yet.
     /// `None` means there is no trim draft and panel deletion may proceed.
     pub(super) fn delete_shortcut(
@@ -1591,6 +1624,61 @@ impl Atelier {
 mod tests {
     use super::*;
     use marvelous_cloth::garment::GarmentTemplate;
+
+    #[test]
+    fn pending_trim_history_cancels_gesture_then_draft_without_touching_history() {
+        let mut template = GarmentTemplate::two_panel_demo();
+        let trim = Trim {
+            id: "trim_1".into(),
+            panel_id: template.panels[0].id.clone(),
+            kind: TrimKind::Zipper {
+                path_m: vec![DVec2::new(0.1, 0.1), DVec2::new(0.2, 0.1)],
+                width_m: 0.01,
+            },
+        };
+        template.trims.push(trim.clone());
+        let mut history = authoring::History::default();
+        history.record(template.clone());
+        let original = serde_json::to_vec(&template).unwrap();
+        let mut ui = TrimUi::default();
+        assert!(!ui.has_pending_history_step());
+        ui.draft = Some(TrimDraft::from_trim(&trim));
+        assert!(!ui.has_pending_history_step());
+        assert_eq!(ui.intercept_history(false), None);
+        assert_eq!(ui.intercept_history(true), None);
+
+        ui.draft.as_mut().unwrap().width = "invalid".into();
+        assert!(ui.has_pending_history_step());
+        assert!(ui.intercept_history(true).is_some());
+        assert_eq!(ui.draft.as_ref().unwrap().width, "invalid");
+        assert!(ui.intercept_history(false).is_some());
+        assert!(ui.draft.is_none());
+
+        let mut draft = TrimDraft::from_trim(&trim);
+        draft.base = None;
+        draft.begin_path();
+        draft.append_path_point(DVec2::new(0.15, 0.2)).unwrap();
+        ui.draft = Some(draft);
+        assert!(ui.intercept_history(false).is_some());
+        let restored = ui.draft.as_ref().unwrap();
+        assert!(restored.draw_backup.is_none());
+        assert_eq!(restored.points, TrimDraft::from_trim(&trim).points);
+        assert!(ui.has_pending_history_step()); // Unsaved new item remains.
+        assert!(ui.intercept_history(false).is_some());
+        assert!(ui.draft.is_none());
+
+        ui.draft = Some(TrimDraft::from_trim(&trim));
+        ui.draft.as_mut().unwrap().place_on_board = true;
+        assert!(ui.intercept_history(false).is_some());
+        assert!(!ui.has_pending_history_step());
+        assert!(ui.draft.is_some());
+        ui.draft.as_mut().unwrap().place_on_3d = true;
+        assert!(ui.intercept_history(false).is_some());
+        assert!(!ui.has_pending_history_step());
+        assert_eq!(serde_json::to_vec(&template).unwrap(), original);
+        assert!(history.can_undo());
+        assert!(!history.can_redo());
+    }
 
     #[test]
     fn routed_delete_is_consumed_before_later_seam_shortcuts() {
