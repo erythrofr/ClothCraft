@@ -143,6 +143,16 @@ fn topstitch_paths(points: &[DVec2], rows: u8, spacing: f64) -> Option<Vec<Vec<D
     Some(result)
 }
 
+/// Two offset edges connected at both ends, in material coordinates.
+fn trim_width_outline(points: &[DVec2], width: f64) -> Option<Vec<DVec2>> {
+    let mut edges = topstitch_paths(points, 2, width)?.into_iter();
+    let mut outline = edges.next()?;
+    let first = *outline.first()?;
+    outline.extend(edges.next()?.into_iter().rev());
+    outline.push(first);
+    Some(outline)
+}
+
 fn board_trim_cost(points: usize, strip: bool, rows: Option<u8>) -> usize {
     let extra = if strip {
         4
@@ -564,17 +574,17 @@ fn build_preview(
                     width_m,
                 } => {
                     let center = vec![*start_m, *end_m];
-                    let edges = topstitch_paths(&center, 2, *width_m);
+                    let outline = trim_width_outline(&center, *width_m);
                     let mut candidates = vec![center];
-                    if let Some(edges) = edges {
-                        candidates.extend(edges);
+                    if let Some(outline) = outline {
+                        candidates.push(outline);
                     }
                     (false, Some(candidates), true)
                 }
                 TrimKind::Zipper { path_m, width_m } => {
                     let mut candidates = vec![path_m.clone()];
-                    if let Some(edges) = topstitch_paths(path_m, 2, *width_m) {
-                        candidates.extend(edges);
+                    if let Some(outline) = trim_width_outline(path_m, *width_m) {
+                        candidates.push(outline);
                     }
                     (false, Some(candidates), true)
                 }
@@ -599,7 +609,7 @@ fn build_preview(
             skipped += 1;
             continue;
         };
-        let width_missing = width_fallback && candidates.len() != 3;
+        let width_missing = width_fallback && candidates.len() != 2;
         // Multiple short rows can exceed the shared direct-work budget even
         // when each row fits alone. Use the bounded index in that case too.
         let total_direct = candidates.iter().fold(0usize, |total, points| {
@@ -1320,7 +1330,7 @@ mod tests {
         let preview = build_preview(garment.clone(), std::slice::from_ref(&trim)).unwrap();
         assert_eq!(
             (preview.skipped, preview.simplified, preview.paths.len()),
-            (0, 0, 3)
+            (0, 0, 2)
         );
         let mut x = garment.initial_state.x.clone();
         for (i, p) in x.iter_mut().enumerate() {
@@ -1331,8 +1341,7 @@ mod tests {
                 glam::DVec3::new(0.2, uv.y, uv.x - 0.2)
             };
         }
-        for ((_, _, embedded), y) in preview.paths.iter().zip([0.3, 0.28, 0.32]) {
-            assert!(embedded.iter().all(|p| (p.uv.y - y).abs() < 1e-12));
+        for ((_, _, embedded), expected_length) in preview.paths.iter().zip([0.3, 0.68]) {
             assert!(embedded.iter().any(|p| (p.uv.x - 0.2).abs() < 1e-12));
             let positions: Vec<_> = embedded.iter().map(|p| p.evaluate(&x).unwrap()).collect();
             assert!(
@@ -1340,7 +1349,7 @@ mod tests {
                     .windows(2)
                     .map(|p| p[0].distance(p[1]))
                     .sum::<f64>()
-                    - 0.3)
+                    - expected_length)
                     .abs()
                     < 1e-12
             );
@@ -1361,6 +1370,15 @@ mod tests {
         assert_eq!(
             pick_visible_trim(
                 egui::pos2(100., 280.),
+                &projected_paths,
+                &project,
+                &mut |_| true
+            ),
+            Some(0)
+        );
+        assert_eq!(
+            pick_visible_trim(
+                egui::pos2(50., 290.),
                 &projected_paths,
                 &project,
                 &mut |_| true
@@ -1631,6 +1649,70 @@ mod tests {
         let preview = build_preview(garment, &[corner]).unwrap();
         assert_eq!(preview.skipped, 1);
         assert!(preview.paths.is_empty());
+    }
+
+    #[test]
+    fn buttonhole_end_cap_crossing_hole_keeps_only_centerline() {
+        use marvelous_cloth::garment::{
+            domain::Hole,
+            embedding::MaterialPath,
+            shapes::{Primitive, primitive},
+        };
+        let mut template = GarmentTemplate::two_panel_demo();
+        template.version = 2;
+        template.seams.clear();
+        template.panels[0].pins.clear();
+        let mut polygon = primitive(
+            Primitive::Rectangle,
+            DVec2::new(0.4, 0.6),
+            90.,
+            Default::default(),
+        )
+        .unwrap();
+        polygon.holes.push(Hole {
+            points: vec![
+                DVec2::new(0.15, 0.21),
+                DVec2::new(0.15, 0.22),
+                DVec2::new(0.25, 0.22),
+                DVec2::new(0.25, 0.21),
+            ],
+            edges: (0..4).map(|i| format!("hole_{i}")).collect(),
+        });
+        template.panels[0].polygon = Some(polygon);
+        let garment = std::sync::Arc::new(template.compile().unwrap());
+        let start = DVec2::new(0.2, 0.19);
+        let end = DVec2::new(0.35, 0.19);
+        let edges = topstitch_paths(&[start, end], 2, 0.1).unwrap();
+        for points in &edges {
+            assert!(
+                garment
+                    .embed_path(&MaterialPath {
+                        panel: "left".into(),
+                        points: points.clone()
+                    })
+                    .is_ok()
+            );
+        }
+        let cap = MaterialPath {
+            panel: "left".into(),
+            points: vec![edges[0][0], edges[1][0]],
+        };
+        assert!(garment.embed_path(&cap).is_err());
+        let trim = Trim {
+            id: "hole".into(),
+            panel_id: "left".into(),
+            kind: TrimKind::Buttonhole {
+                start_m: start,
+                end_m: end,
+                width_m: 0.1,
+            },
+        };
+        validate_surface(&trim, &garment).unwrap();
+        let preview = build_preview(garment, &[trim]).unwrap();
+        assert_eq!(
+            (preview.skipped, preview.simplified, preview.paths.len()),
+            (0, 1, 1)
+        );
     }
 
     #[test]
@@ -2302,7 +2384,7 @@ mod tests {
         let preview = build_preview(garment, &[trim]).unwrap();
         assert_eq!(preview.skipped, 0);
         assert_eq!(preview.simplified, 0);
-        assert_eq!(preview.paths.len(), 3);
+        assert_eq!(preview.paths.len(), 2);
     }
 
     #[test]
