@@ -2,6 +2,46 @@ use glam::{DVec2, DVec3};
 use marvelous_cloth::garment::{GarmentTemplate, embedding::MaterialPath, export};
 
 #[test]
+fn path_rejects_resolvable_narrow_gap_between_triangles() {
+    let mut t = GarmentTemplate::two_panel_demo();
+    t.panels[0].pattern.nx = 100;
+    t.panels[0].pattern.ny = 2;
+    let mut g = t.compile().unwrap();
+    let continuous = g.clone();
+    let gap = 2e-11;
+    for triangle in &mut g.mesh.triangles[g.panels[0].triangles.clone()] {
+        if triangle.rest.iter().all(|p| p.x >= 0.2 - 1e-12) {
+            for p in &mut triangle.rest {
+                p.x += gap;
+            }
+            triangle.inv_dm = glam::DMat2::from_cols(
+                triangle.rest[1] - triangle.rest[0],
+                triangle.rest[2] - triangle.rest[0],
+            )
+            .inverse();
+        }
+    }
+    let middle = DVec2::new(0.2 + gap / 2., 0.29);
+    assert!(g.embed_point("left", middle).is_err());
+    for points in [
+        vec![DVec2::new(0.001, 0.29), DVec2::new(0.399, 0.29)],
+        vec![DVec2::new(0.399, 0.29), DVec2::new(0.001, 0.29)],
+    ] {
+        let path = MaterialPath {
+            panel: "left".into(),
+            points,
+        };
+        assert!(continuous.embed_path(&path).is_ok(), "continuous reference");
+        assert!(
+            continuous.embed_path_bounded(&path).is_ok(),
+            "continuous indexed"
+        );
+        assert!(g.embed_path(&path).is_err(), "exhaustive accepted gap");
+        assert!(g.embed_path_bounded(&path).is_err(), "indexed accepted gap");
+    }
+}
+
+#[test]
 fn bounded_path_matches_exhaustive_on_edges_interior_and_dense_mesh() {
     let mut t = GarmentTemplate::two_panel_demo();
     t.panels[0].pattern.nx = 100;

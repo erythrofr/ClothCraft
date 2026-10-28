@@ -191,7 +191,15 @@ impl CompiledGarment {
                 continue;
             }
             charge(&mut work, range.len())?;
-            let breaks = self.material_breaks(range.clone(), segment[0], segment[1]);
+            let (breaks, probes) = self.material_breaks(range.clone(), segment[0], segment[1]);
+            for probe in probes {
+                index.point(
+                    self,
+                    &path.panel,
+                    segment[0].lerp(segment[1], probe),
+                    &mut work,
+                )?;
+            }
             for interval in breaks.windows(2) {
                 if result.len() >= 4096 {
                     return Err("Material path exceeds the attachment limit".into());
@@ -218,7 +226,7 @@ impl CompiledGarment {
         triangles: std::ops::Range<usize>,
         start: DVec2,
         end: DVec2,
-    ) -> Vec<f64> {
+    ) -> (Vec<f64>, Vec<f64>) {
         let mut breaks = vec![0.0, 1.0];
         for triangle in triangles {
             let a = weights(self, triangle, start);
@@ -243,8 +251,16 @@ impl CompiledGarment {
             }
         }
         breaks.sort_by(f64::total_cmp);
+        // Preserve coverage checks for narrow intervals that output-point
+        // deduplication would otherwise erase, including small holes.
+        breaks.dedup();
+        let probes = breaks
+            .windows(2)
+            .filter(|pair| pair[1] - pair[0] < 1e-10)
+            .map(|pair| (pair[0] + pair[1]) * 0.5)
+            .collect();
         breaks.dedup_by(|a, b| (*a - *b).abs() < 1e-10);
-        breaks
+        (breaks, probes)
     }
     /// Boundary ties resolve to the first triangle in deterministic mesh order.
     pub fn embed_point(&self, panel: &str, uv: DVec2) -> Result<EmbeddedPoint, String> {
@@ -284,7 +300,11 @@ impl CompiledGarment {
             if segment[0].distance_squared(segment[1]) < 1e-24 {
                 continue;
             }
-            let breaks = self.material_breaks(range.triangles.clone(), segment[0], segment[1]);
+            let (breaks, probes) =
+                self.material_breaks(range.triangles.clone(), segment[0], segment[1]);
+            for probe in probes {
+                self.embed_point(&path.panel, segment[0].lerp(segment[1], probe))?;
+            }
             for interval in breaks.windows(2) {
                 // Reject paths crossing holes if arbitrary panels are added later.
                 self.embed_point(
