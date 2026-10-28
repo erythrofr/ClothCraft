@@ -1,6 +1,79 @@
 use glam::{DVec2, DVec3};
 use marvelous_cloth::garment::{GarmentTemplate, embedding::MaterialPath, export};
 
+/// Diagnostic only: reproduce the prior output breakpoint count without its
+/// interval probes; not a correctness oracle for coverage or deformation.
+fn legacy_output_count(
+    garment: &marvelous_cloth::garment::CompiledGarment,
+    path: &MaterialPath,
+) -> usize {
+    let panel = garment.panels.iter().find(|p| p.id == path.panel).unwrap();
+    let mut count = 1;
+    for segment in path.points.windows(2) {
+        let mut breaks = vec![0.0_f64, 1.0];
+        for triangle in &garment.mesh.triangles[panel.triangles.clone()] {
+            let coords = |p: DVec2| {
+                let b = triangle.inv_dm * (p - triangle.rest[0]);
+                [1. - b.x - b.y, b.x, b.y]
+            };
+            let (a, b) = (coords(segment[0]), coords(segment[1]));
+            let (mut lo, mut hi) = (0.0_f64, 1.0_f64);
+            for i in 0..3 {
+                let slope = b[i] - a[i];
+                if slope.abs() < 1e-14 {
+                    if a[i] < -1e-10 {
+                        hi = -1.;
+                        break;
+                    }
+                } else if slope > 0. {
+                    lo = lo.max(-a[i] / slope);
+                } else {
+                    hi = hi.min(-a[i] / slope);
+                }
+            }
+            if hi >= lo && lo <= 1. && hi >= 0. {
+                breaks.extend([lo.max(0.), hi.min(1.)]);
+            }
+        }
+        breaks.sort_by(f64::total_cmp);
+        breaks.dedup();
+        breaks.dedup_by(|a, b| (*a - *b).abs() < 1e-10);
+        count += breaks.len() - 1;
+    }
+    count
+}
+
+#[test]
+fn crossing_count_for_dense_128_point_trim_paths() {
+    let mut template = GarmentTemplate::two_panel_demo();
+    template.panels[0].pattern.nx = 100;
+    template.panels[0].pattern.ny = 100;
+    let garment = template.compile().unwrap();
+    for shape in 0..3 {
+        let points = (0..128)
+            .map(|i| {
+                let t = i as f64 / 127.;
+                let y = match shape {
+                    0 => 0.3,
+                    1 => 0.12 + 0.3 * t,
+                    _ => 0.3 + 0.04 * (t * 20.).sin(),
+                };
+                DVec2::new(0.02 + 0.36 * t, y)
+            })
+            .collect();
+        let path = MaterialPath {
+            panel: "left".into(),
+            points,
+        };
+        let previous = legacy_output_count(&garment, &path);
+        let current = garment.embed_path_bounded(&path).unwrap().len();
+        eprintln!("shape {shape}: prior={previous}, current={current}, limit=4096");
+        // These specific paths fit the 3D trim preview's shared 512-point
+        // budget; denser scenes or multiple objects can still exceed it.
+        assert!(current >= previous && current <= 512);
+    }
+}
+
 #[test]
 fn dense_multisegment_path_matches_exhaustive() {
     let mut template = GarmentTemplate::two_panel_demo();

@@ -36,6 +36,23 @@ impl EmbeddedPoint {
         Ok(p)
     }
 }
+
+/// Two attachments are interchangeable for every vertex state only when
+/// their sparse vertex coefficients are exactly equal. Zero-weight vertices
+/// need not be shared by neighboring triangles.
+fn same_attachment(a: &EmbeddedPoint, b: &EmbeddedPoint) -> bool {
+    a.vertices.iter().chain(b.vertices.iter()).all(|&vertex| {
+        let weight = |point: &EmbeddedPoint| {
+            point
+                .vertices
+                .iter()
+                .zip(point.weights)
+                .filter_map(|(&id, value)| (id == vertex).then_some(value))
+                .sum::<f64>()
+        };
+        weight(a) == weight(b)
+    })
+}
 fn weights(g: &CompiledGarment, triangle: usize, uv: DVec2) -> [f64; 3] {
     let t = &g.mesh.triangles[triangle];
     let b = t.inv_dm * (uv - t.rest[0]);
@@ -233,21 +250,29 @@ impl CompiledGarment {
             let candidates = index.segment_candidates(segment[0], segment[1], &mut work)?;
             let breaks = self.material_breaks(candidates.into_iter(), segment[0], segment[1]);
             for interval in breaks.windows(2) {
-                if result.len() >= 4096 {
-                    return Err("Material path exceeds the attachment limit".into());
-                }
                 index.point(
                     self,
                     &path.panel,
                     segment[0].lerp(segment[1], (interval[0] + interval[1]) * 0.5),
                     &mut work,
                 )?;
-                result.push(index.point(
+                let point = index.point(
                     self,
                     &path.panel,
                     segment[0].lerp(segment[1], interval[1]),
                     &mut work,
-                )?);
+                )?;
+                if interval[1] != 1.
+                    && result
+                        .last()
+                        .is_some_and(|last| same_attachment(last, &point))
+                {
+                    continue;
+                }
+                if result.len() >= 4096 {
+                    return Err("Material path exceeds the attachment limit".into());
+                }
+                result.push(point);
             }
         }
         Ok(result)
@@ -345,8 +370,16 @@ impl CompiledGarment {
                     &path.panel,
                     segment[0].lerp(segment[1], (interval[0] + interval[1]) * 0.5),
                 )?;
-                result
-                    .push(self.embed_point(&path.panel, segment[0].lerp(segment[1], interval[1]))?);
+                let point =
+                    self.embed_point(&path.panel, segment[0].lerp(segment[1], interval[1]))?;
+                if interval[1] != 1.
+                    && result
+                        .last()
+                        .is_some_and(|last| same_attachment(last, &point))
+                {
+                    continue;
+                }
+                result.push(point);
             }
         }
         Ok(result)
