@@ -138,7 +138,7 @@ if ($Verify) {
     }
     [System.IO.Compression.ZipFile]::ExtractToDirectory($zip, $verifyRoot)
     $seen = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-    foreach ($line in Get-Content -LiteralPath (Join-Path $verifyRoot 'SHA256SUMS.txt')) {
+    foreach ($line in Get-Content -LiteralPath (Join-Path $verifyRoot 'SHA256SUMS.txt') -Encoding UTF8) {
         if ($line -notmatch '^([0-9a-f]{64})  (.+)$') { throw "Invalid manifest record: $line" }
         $expectedHash = $Matches[1]
         $relative = $Matches[2]
@@ -177,16 +177,46 @@ if ($Verify) {
         '{"protocol":"clothcraft.authoring","protocolVersion":1,"requestId":"package-snapshot","payload":{"op":"snapshot"}}'
     )
     [IO.File]::WriteAllText($sessionInput, ($requests -join "`n") + "`n", $utf8)
-    $sessionProcess = Start-Process -FilePath (Join-Path $verifyRoot 'cloth-session.exe') `
-        -WorkingDirectory $verifyRoot -WindowStyle Hidden -PassThru `
-        -RedirectStandardInput $sessionInput -RedirectStandardOutput $sessionOutput -RedirectStandardError $sessionError
-    if (-not $sessionProcess.WaitForExit(30000)) {
-        $sessionProcess.Kill()
-        $sessionProcess.WaitForExit()
-        throw 'Packaged authoring session timed out; inspect session-error.log'
+    # Start-Process -PassThru can lose a very fast child's exit code on
+    # Windows PowerShell 5.1. Process.Start retains the handle; drain both
+    # redirected streams concurrently so a full pipe cannot block shutdown.
+    $sessionStart = New-Object System.Diagnostics.ProcessStartInfo
+    $sessionStart.FileName = Join-Path $verifyRoot 'cloth-session.exe'
+    $sessionStart.WorkingDirectory = $verifyRoot
+    $sessionStart.UseShellExecute = $false
+    $sessionStart.CreateNoWindow = $true
+    $sessionStart.RedirectStandardInput = $true
+    $sessionStart.RedirectStandardOutput = $true
+    $sessionStart.RedirectStandardError = $true
+    $sessionStart.StandardOutputEncoding = $utf8
+    $sessionStart.StandardErrorEncoding = $utf8
+    $sessionProcess = New-Object System.Diagnostics.Process
+    $sessionProcess.StartInfo = $sessionStart
+    $sessionStarted = $false
+    try {
+        if (-not $sessionProcess.Start()) { throw 'Could not start packaged authoring session' }
+        $sessionStarted = $true
+        $stdoutTask = $sessionProcess.StandardOutput.ReadToEndAsync()
+        $stderrTask = $sessionProcess.StandardError.ReadToEndAsync()
+        $sessionProcess.StandardInput.Write([IO.File]::ReadAllText($sessionInput, $utf8))
+        $sessionProcess.StandardInput.Close()
+        $timedOut = -not $sessionProcess.WaitForExit(30000)
+        if ($timedOut) {
+            $sessionProcess.Kill()
+            $sessionProcess.WaitForExit()
+        }
+        [IO.File]::WriteAllText($sessionOutput, $stdoutTask.GetAwaiter().GetResult(), $utf8)
+        [IO.File]::WriteAllText($sessionError, $stderrTask.GetAwaiter().GetResult(), $utf8)
+        if ($timedOut) { throw 'Packaged authoring session timed out; inspect session-error.log' }
+        if ($sessionProcess.ExitCode -ne 0) { throw 'Packaged authoring session failed; inspect session-error.log' }
+    } finally {
+        if ($sessionStarted -and -not $sessionProcess.HasExited) {
+            $sessionProcess.Kill()
+            $sessionProcess.WaitForExit()
+        }
+        $sessionProcess.Dispose()
     }
-    if ($sessionProcess.ExitCode -ne 0) { throw 'Packaged authoring session failed; inspect session-error.log' }
-    $responses = @(Get-Content -LiteralPath $sessionOutput | ForEach-Object { $_ | ConvertFrom-Json })
+    $responses = @(Get-Content -LiteralPath $sessionOutput -Encoding UTF8 | ForEach-Object { $_ | ConvertFrom-Json })
     if ($responses.Count -ne 2) { throw 'Packaged session did not return exactly two JSON responses' }
     for ($i = 0; $i -lt 2; $i++) {
         $expectedId = @('package-hello', 'package-snapshot')[$i]
