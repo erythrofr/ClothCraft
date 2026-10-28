@@ -81,8 +81,24 @@ fn label(kind: &TrimKind) -> &'static str {
     }
 }
 
-/// Draw a bounded center-line preview on the drafting board. Coordinates are
-/// transformed by the owning panel's presentation, never by the cloth state.
+/// Material-space strip corners for one straight preview segment.
+fn strip_corners(a: DVec2, b: DVec2, width: f64) -> Option<[DVec2; 4]> {
+    let d = b - a;
+    let length = d.length();
+    if !a.is_finite()
+        || !b.is_finite()
+        || !width.is_finite()
+        || width <= 0.
+        || !length.is_finite()
+        || length <= 0.
+    {
+        return None;
+    }
+    let n = DVec2::new(-d.y, d.x) * (0.5 * width / length);
+    let corners = [a + n, b + n, b - n, a - n];
+    corners.iter().all(|p| p.is_finite()).then_some(corners)
+}
+
 pub(super) fn paint_trim_2d(
     painter: &egui::Painter,
     point: &impl Fn(DVec2) -> egui::Pos2,
@@ -90,21 +106,31 @@ pub(super) fn paint_trim_2d(
     budget: &mut usize,
     color: Color32,
 ) {
-    let (points, diameter) = match &trim.kind {
+    let (points, diameter, strip_width) = match &trim.kind {
         TrimKind::Button {
             center_m,
             diameter_m,
-        } => (vec![*center_m], Some(*diameter_m)),
-        TrimKind::Buttonhole { start_m, end_m, .. } => (vec![*start_m, *end_m], None),
-        TrimKind::Zipper { path_m, .. } | TrimKind::Topstitch { path_m, .. } => {
-            (path_m.clone(), None)
-        }
+        } => (vec![*center_m], Some(*diameter_m), None),
+        TrimKind::Buttonhole {
+            start_m,
+            end_m,
+            width_m,
+        } => (vec![*start_m, *end_m], None, Some(*width_m)),
+        TrimKind::Zipper { path_m, width_m } => (path_m.clone(), None, Some(*width_m)),
+        TrimKind::Topstitch { path_m, .. } => (path_m.clone(), None, None),
     };
-    if points.len() > *budget {
+    // Each outlined segment contributes four more shapes. Account for these
+    // in the shared board budget so width previews remain bounded.
+    let cost = points.len().saturating_add(if strip_width.is_some() {
+        points.len().saturating_sub(1).saturating_mul(4)
+    } else {
+        0
+    });
+    if cost > *budget {
         *budget = 0;
         return;
     }
-    *budget -= points.len();
+    *budget -= cost;
     if let Some(diameter) = diameter {
         let p = point(points[0]);
         let radius = p
@@ -115,6 +141,16 @@ pub(super) fn paint_trim_2d(
     } else {
         for pair in points.windows(2) {
             painter.line_segment([point(pair[0]), point(pair[1])], Stroke::new(2., color));
+            if let Some(corners) =
+                strip_width.and_then(|width| strip_corners(pair[0], pair[1], width))
+            {
+                for i in 0..4 {
+                    painter.line_segment(
+                        [point(corners[i]), point(corners[(i + 1) % 4])],
+                        Stroke::new(1., color),
+                    );
+                }
+            }
         }
     }
 }
@@ -724,7 +760,7 @@ fn trim_controls(
     let section = egui::CollapsingHeader::new("Construction trims")
         .open(state.draft.as_ref().map(|_| true))
         .show(ui, |ui| {
-            ui.small("Visual construction notes · no physical closures. Paths preview their center line; widths may extend outside the panel.");
+            ui.small("Visual construction notes · no physical closures. 3D paths use center lines; 2D widths may extend outside the panel.");
             if let Some(warning) = &state.preview_warning { ui.colored_label(Color32::GOLD, warning); }
         let editing = state.draft.is_some();
             for trim in template.trims
@@ -1038,6 +1074,66 @@ impl Atelier {
 mod tests {
     use super::*;
     use marvelous_cloth::garment::GarmentTemplate;
+
+    #[test]
+    fn material_strip_preview_tracks_width_rotation_and_budget() {
+        let a = DVec2::new(0.1, 0.2);
+        let b = DVec2::new(0.3, 0.2);
+        let corners = strip_corners(a, b, 0.02).unwrap();
+        assert!((corners[0].distance(corners[3]) - 0.02).abs() < 1e-14);
+        assert!((corners[1].distance(corners[2]) - 0.02).abs() < 1e-14);
+        let rotation = glam::DMat2::from_angle(0.71);
+        let translation = DVec2::new(2., -3.);
+        let transformed =
+            strip_corners(translation + rotation * a, translation + rotation * b, 0.02).unwrap();
+        for (original, rotated) in corners.into_iter().zip(transformed) {
+            assert!((translation + rotation * original).distance(rotated) < 1e-14);
+        }
+        assert!(strip_corners(a, a, 0.02).is_none());
+        assert!(strip_corners(a, b, f64::NAN).is_none());
+        assert!(strip_corners(a, a + DVec2::new(1e-6, 0.), 0.02).is_some());
+
+        let trim = Trim {
+            id: "trim_1".into(),
+            panel_id: "left".into(),
+            kind: TrimKind::Buttonhole {
+                start_m: a,
+                end_m: b,
+                width_m: 0.02,
+            },
+        };
+        let context = egui::Context::default();
+        let paint = |trim: &Trim, budget: &mut usize| {
+            let mut output = context.run_ui(egui::RawInput::default(), |ui| {
+                let painter = ui.ctx().layer_painter(egui::LayerId::background());
+                paint_trim_2d(
+                    &painter,
+                    &|p| egui::pos2(p.x as f32, p.y as f32),
+                    trim,
+                    budget,
+                    Color32::WHITE,
+                );
+            });
+            output.textures_delta.clear();
+            output.shapes.len()
+        };
+        let mut budget = 6;
+        assert_eq!(paint(&trim, &mut budget), 5);
+        assert_eq!(budget, 0);
+        let mut budget = 5;
+        assert_eq!(paint(&trim, &mut budget), 0);
+        assert_eq!(budget, 0);
+        let zipper = Trim {
+            kind: TrimKind::Zipper {
+                path_m: vec![a, b, b + DVec2::Y * 0.1],
+                width_m: 0.02,
+            },
+            ..trim
+        };
+        let mut budget = 11;
+        assert_eq!(paint(&zipper, &mut budget), 10);
+        assert_eq!(budget, 0);
+    }
 
     #[test]
     fn changing_or_reselecting_a_tool_cancels_unfinished_trim_gestures() {

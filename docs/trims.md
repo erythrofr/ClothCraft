@@ -35,7 +35,11 @@ panel body when pieces overlap; polygon holes expose the panel underneath.
 In the 3D view, an Edit-mode click can also select a visible trim preview;
 selection samples cloth and avatar visibility and is disabled in Clean view.
 These samples do not prove visibility for every pixel. Skipped trims cannot be
-picked.
+picked. On the 2D board buttonholes and zipper segments show width outlines in
+material coordinates. Each zipper segment is outlined separately, so bends are
+not joined or clipped to the panel and are not a manufacturing cutline. Click
+near the center line to select an object; the added outlines do not change the
+selection hit area.
 The selected panel's board rotation and placement are respected. The 2D draft
 is amber; committed trims are purple. A changed or deleted object cannot be
 silently overwritten by a stale draft.
@@ -48,9 +52,11 @@ not per pixel. Preview work is bounded: at most 128 objects, 4096 input points,
 cached, position-refitted editor BVH for larger batches, with a 100,000-triangle
 limit and safe refusal if its bounds cannot be built. Unsupported or out-of-panel
 objects are skipped with a warning; oversized scenes can hide the 3D preview.
-Clean view hides the 3D overlay. The 2D preview has a separate 4096-point budget.
-Multiple topstitch rows and zipper widths are stored, but both views currently
-show only their center line; they are not manufacturing-accurate previews.
+Clean view hides the 3D overlay. The 2D preview has a separate 4096-unit work
+budget that also accounts for the extra width-outline segments.
+Multiple topstitch rows are stored but shown as a center line. The 3D view also
+shows zipper and buttonhole center lines; these are not manufacturing-accurate
+previews.
 
 One local CPU test with 10,000 synthetic triangles and 1,536 rays measured
 170.29 ms exhaustive versus 5.94 ms including BVH construction; after moving
