@@ -272,7 +272,10 @@ impl Palette {
                                 .selected(index == self.selected && availability.is_ok()),
                         );
                         named(ui, &row, &format!("palette.command.{}", descriptor.key));
-                        if (up || down) && index == self.selected {
+                        if (up || down || response.changed() || selection_changed)
+                            && index == self.selected
+                            && availability.is_ok()
+                        {
                             row.scroll_to_me(Some(egui::Align::Center));
                         }
                         if row.clicked() {
@@ -456,6 +459,32 @@ mod tests {
         assert!(matches(&"a".repeat(MAX_QUERY_CHARS + 1)).is_empty());
         assert!(is_subsequence("fhn", "freehand"));
         assert!(!is_subsequence("hfn", "freehand"));
+    }
+
+    #[test]
+    fn changed_search_reveals_new_selection_after_keyboard_scroll() {
+        let mut c = case();
+        let mut h = Harness::new(egui::vec2(700., 480.));
+        frames(&mut h, &mut c);
+        h.replace_text("palette.query", "tool", &mut c, &mut draw)
+            .unwrap();
+        for _ in 0..10 {
+            h.key(
+                "palette.query",
+                egui::Key::ArrowDown,
+                egui::Modifiers::NONE,
+                &mut c,
+                &mut draw,
+            )
+            .unwrap();
+        }
+        frames(&mut h, &mut c);
+        h.replace_text("palette.query", "tool.", &mut c, &mut draw)
+            .unwrap();
+        frames(&mut h, &mut c);
+        h.click("palette.command.tool.edit", &mut c, &mut draw)
+            .unwrap();
+        assert_eq!(c.commands, vec![CommandId::ToolEdit]);
     }
 
     #[test]
