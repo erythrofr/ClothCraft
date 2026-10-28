@@ -1368,6 +1368,95 @@ mod tests {
     }
 
     #[test]
+    fn inspector_created_trim_survives_mirrored_panel_copy() {
+        use super::super::authoring_smoke::widget_harness::Harness;
+        use marvelous_cloth::garment::shapes::{MirrorAxis, Primitive, primitive};
+        struct Case {
+            ui: TrimUi,
+            template: GarmentTemplate,
+            panel: String,
+        }
+        let mut template = GarmentTemplate::two_panel_demo();
+        template.version = 2;
+        template.seams.clear();
+        template.panels[0].pins.clear();
+        template.panels[0].polygon = Some(
+            primitive(
+                Primitive::Rectangle,
+                DVec2::new(0.4, 0.6),
+                90.,
+                Default::default(),
+            )
+            .unwrap(),
+        );
+        let panel = template.panels[0].id.clone();
+        let mut case = Case {
+            ui: TrimUi::default(),
+            template,
+            panel,
+        };
+        let mut draw = |ui: &mut egui::Ui, case: &mut Case| {
+            let panel = case
+                .template
+                .panels
+                .iter()
+                .find(|p| p.id == case.panel)
+                .unwrap()
+                .clone();
+            if let Some(command) = trim_controls(ui, &mut case.ui, &case.template, &panel) {
+                if let Command::SetTrim { trim } = &command {
+                    validate_surface(trim, &case.template.compile().unwrap()).unwrap();
+                }
+                case.template = authoring::apply(&case.template, command).unwrap().template;
+                case.ui.draft = None;
+            }
+        };
+        let mut harness = Harness::new(egui::vec2(1000., 700.));
+        harness.frame(&mut case, &mut draw);
+        harness.click("trim.section", &mut case, &mut draw).unwrap();
+        harness.click("trim.new", &mut case, &mut draw).unwrap();
+        case.ui.draft.as_mut().unwrap().points = "100, 200".into();
+        harness.click("trim.apply", &mut case, &mut draw).unwrap();
+        let original = case.template.trims[0].clone();
+        let edit = authoring::apply(
+            &case.template,
+            Command::Mirror {
+                panel: case.panel.clone(),
+                axis: MirrorAxis::X,
+                copy_side: Some(1),
+            },
+        )
+        .unwrap();
+        case.panel = edit.selected.unwrap();
+        case.template = edit.template;
+        let mirrored = case
+            .template
+            .trims
+            .iter()
+            .find(|t| t.panel_id == case.panel)
+            .unwrap()
+            .clone();
+        assert_ne!(mirrored.id, original.id);
+        assert_eq!(
+            mirrored.kind,
+            TrimKind::Button {
+                center_m: DVec2::new(0.4 - 0.1, 0.2),
+                diameter_m: 0.018
+            }
+        );
+        let garment = std::sync::Arc::new(case.template.compile().unwrap());
+        let preview = build_preview(garment, &case.template.trims).unwrap();
+        assert_eq!(preview.paths.len(), 2);
+        assert_eq!(preview.skipped, 0);
+        assert_eq!(preview.paths[1].2[0].uv, DVec2::new(0.4 - 0.1, 0.2));
+        harness.frame(&mut case, &mut draw);
+        harness
+            .click(&format!("trim.edit.{}", mirrored.id), &mut case, &mut draw)
+            .unwrap();
+        assert_eq!(case.ui.draft.as_ref().unwrap().parse().unwrap(), mirrored);
+    }
+
+    #[test]
     fn named_controls_create_cancel_edit_and_delete_a_trim() {
         use super::super::authoring_smoke::widget_harness::Harness;
         struct Case {
