@@ -1355,12 +1355,23 @@ impl Atelier {
     }
 }
 
+#[cfg(test)]
 fn trim_controls(
     ui: &mut egui::Ui,
     state: &mut TrimUi,
     template: &marvelous_cloth::garment::GarmentTemplate,
     panel: &Panel,
     can_place_3d: bool,
+) -> Option<Command> {
+    trim_controls_with_views(ui, state, template, panel, (true, can_place_3d))
+}
+
+fn trim_controls_with_views(
+    ui: &mut egui::Ui,
+    state: &mut TrimUi,
+    template: &marvelous_cloth::garment::GarmentTemplate,
+    panel: &Panel,
+    views: (bool, bool),
 ) -> Option<Command> {
     if state.draft.as_ref().is_some_and(|d| d.panel != panel.id) {
         state.draft = None;
@@ -1541,35 +1552,40 @@ fn trim_controls(
                         ui.text_edit_singleline(&mut draft.rows);
                     });
                 }
-                let place = ui.add_enabled(draft.draw_backup.is_none(), egui::Button::new("Position first point on 2D board"));
+                let place = ui.add_enabled(views.0 && draft.draw_backup.is_none(), egui::Button::new("Position first point on 2D board"))
+                    .on_disabled_hover_text("Open the 2D view and choose Edit mode first");
                 #[cfg(test)]
                 super::authoring_smoke::widget_harness::named(ui, &place, "trim.place");
                 if place.clicked() {
                     draft.place_on_board = true;
                     draft.place_on_3d = false;
                 }
-                if draft.place_on_board { ui.small("Click the panel to position the first point · Escape cancels"); }
-                let place_3d = ui.add_enabled(can_place_3d && draft.draw_backup.is_none(), egui::Button::new("Position first point on 3D cloth"))
-                    .on_disabled_hover_text("Choose Edit mode and finish drawing first");
+                if draft.place_on_board { ui.small(if views.0 { "Click the panel to position the first point · Escape cancels" } else { "2D view unavailable · restore it to continue or press Escape to cancel" }); }
+                let place_3d = ui.add_enabled(views.1 && draft.draw_backup.is_none(), egui::Button::new("Position first point on 3D cloth"))
+                    .on_disabled_hover_text("Open the 3D view, choose Edit mode and finish drawing first");
                 #[cfg(test)]
                 super::authoring_smoke::widget_harness::named(ui, &place_3d, "trim.place_3d");
                 if place_3d.clicked() {
                     draft.place_on_board = false;
                     draft.place_on_3d = true;
                 }
-                if draft.place_on_3d && draft.draw_backup.is_none() { ui.small("Click the visible owning panel in 3D · Escape cancels"); }
+                if draft.place_on_3d && draft.draw_backup.is_none() { ui.small(if views.1 { "Click the visible owning panel in 3D · Escape cancels" } else { "3D view unavailable · restore it to continue or press Escape to cancel" }); }
                 if matches!(draft.kind, 1..=3) {
                     if draft.draw_backup.is_none() {
-                        let draw = ui.button("Draw path on 2D board");
+                        let draw = ui.add_enabled(views.0, egui::Button::new("Draw path on 2D board"))
+                            .on_disabled_hover_text("Open the 2D view and choose Edit mode first");
                         #[cfg(test)]
                         super::authoring_smoke::widget_harness::named(ui, &draw, "trim.draw");
                         if draw.clicked() { draft.begin_path(); }
-                        let draw_3d = ui.add_enabled(can_place_3d, egui::Button::new("Draw path on 3D cloth"))
-                            .on_disabled_hover_text("Choose Edit mode first");
+                        let draw_3d = ui.add_enabled(views.1, egui::Button::new("Draw path on 3D cloth"))
+                            .on_disabled_hover_text("Open the 3D view and choose Edit mode first");
                         #[cfg(test)]
                         super::authoring_smoke::widget_harness::named(ui, &draw_3d, "trim.draw_3d");
                         if draw_3d.clicked() { draft.begin_path(); draft.place_on_3d = true; }
                     } else {
+                        if (draft.place_on_3d && !views.1) || (!draft.place_on_3d && !views.0) {
+                            ui.small("Target view unavailable · restore it to continue, or cancel drawing");
+                        }
                         ui.small(if draft.place_on_3d && draft.kind == 1 {
                             "Click the two buttonhole endpoints on the visible panel in 3D"
                         } else if draft.place_on_3d {
@@ -1630,12 +1646,16 @@ fn trim_controls(
 
 impl Atelier {
     pub(super) fn trim_properties(&mut self, ui: &mut egui::Ui, panel: &Panel) {
-        let command = trim_controls(
+        let edit = self.authoring.tool == super::authoring_ui::Tool::Edit;
+        let command = trim_controls_with_views(
             ui,
             &mut self.authoring.trims,
             &self.project.template,
             panel,
-            self.authoring.tool == super::authoring_ui::Tool::Edit,
+            (
+                edit && self.authoring.selection.board_rect.is_some(),
+                edit && self.authoring.selection.garment_rect.is_some(),
+            ),
         );
         if let Some(command) = command {
             if matches!(&command, Command::RepeatTrim { .. }) {
@@ -2434,6 +2454,69 @@ mod tests {
         assert!(
             visible_material_hit(&garment, &invalid, origin, -normal, |_, _, _| false).is_err()
         );
+    }
+
+    #[test]
+    fn trim_placement_controls_follow_visible_views_and_preserve_draft() {
+        use super::super::authoring_smoke::widget_harness::Harness;
+        struct Case {
+            state: TrimUi,
+            template: GarmentTemplate,
+            views: (bool, bool),
+        }
+        let mut c = Case {
+            state: Default::default(),
+            template: GarmentTemplate::two_panel_demo(),
+            views: (true, false),
+        };
+        let original = serde_json::to_vec(&c.template).unwrap();
+        let mut h = Harness::new(egui::vec2(1000., 700.));
+        let mut draw = |ui: &mut egui::Ui, c: &mut Case| {
+            let panel = &c.template.panels[0];
+            assert!(
+                trim_controls_with_views(ui, &mut c.state, &c.template, panel, c.views).is_none()
+            );
+        };
+        h.frame(&mut c, &mut draw);
+        h.click("trim.section", &mut c, &mut draw).unwrap();
+        h.click("trim.new", &mut c, &mut draw).unwrap();
+        h.frame(&mut c, &mut draw);
+        assert!(h.click("trim.place_3d", &mut c, &mut draw).is_err());
+        h.click("trim.place", &mut c, &mut draw).unwrap();
+        assert!(c.state.draft.as_ref().unwrap().place_on_board);
+        let before = c.state.draft.as_ref().unwrap().points.clone();
+        c.views = (false, true);
+        h.frame(&mut c, &mut draw);
+        assert!(c.state.draft.as_ref().unwrap().place_on_board);
+        assert_eq!(c.state.draft.as_ref().unwrap().points, before);
+        assert!(h.click("trim.place", &mut c, &mut draw).is_err());
+        h.click("trim.place_3d", &mut c, &mut draw).unwrap();
+        assert!(c.state.draft.as_ref().unwrap().place_on_3d);
+        assert!(!c.state.draft.as_ref().unwrap().place_on_board);
+        c.views = (true, false);
+        h.frame(&mut c, &mut draw);
+        assert!(c.state.draft.as_ref().unwrap().place_on_3d);
+        assert_eq!(c.state.draft.as_ref().unwrap().points, before);
+        h.click("trim.cancel", &mut c, &mut draw).unwrap();
+        h.click("trim.kind", &mut c, &mut draw).unwrap();
+        h.frame(&mut c, &mut draw);
+        h.click("trim.kind.2", &mut c, &mut draw).unwrap();
+        h.click("trim.new", &mut c, &mut draw).unwrap();
+        h.frame(&mut c, &mut draw);
+        assert!(h.click("trim.draw_3d", &mut c, &mut draw).is_err());
+        h.click("trim.draw", &mut c, &mut draw).unwrap();
+        c.state
+            .draft
+            .as_mut()
+            .unwrap()
+            .append_path_point(DVec2::new(0.05, 0.05))
+            .unwrap();
+        c.views = (false, true);
+        h.frame(&mut c, &mut draw);
+        assert_eq!(c.state.draft.as_ref().unwrap().draw_points.len(), 1);
+        h.click("trim.cancel_path", &mut c, &mut draw).unwrap();
+        assert!(c.state.draft.as_ref().unwrap().draw_backup.is_none());
+        assert_eq!(serde_json::to_vec(&c.template).unwrap(), original);
     }
 
     #[test]
