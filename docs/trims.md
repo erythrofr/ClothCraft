@@ -10,9 +10,12 @@ not validate containment, sew fabric, create fasteners or affect contacts.
 The authoring API can create, update and remove trims with undo/redo. Empty
 lists are omitted so older documents remain readable. Duplicating or pasting a
 panel creates fresh trim identities and remaps panel IDs; deleting a panel also
-deletes its trims. Remeshing retains the same material coordinates. Mirroring,
-replacing the whole garment and changing the material contour of a panel with
-trims are rejected until their mapping policies are implemented.
+deletes its trims. Remeshing retains the same material coordinates. Standalone
+X/Y mirror operations reflect trim coordinates in the panel's material frame;
+an in-place mirror retains trim IDs, while a mirrored copy gets fresh IDs.
+Linked mirroring with trims, replacing the whole garment and other material
+contour changes on a panel with trims are rejected until their mapping policies
+are implemented.
 
 Trim-only edits are classified as nonphysical and excluded from fitting mesh
 signatures. Native creation tools, visual previews, curved paths, attachment
