@@ -526,6 +526,78 @@ mod tests {
         assert_eq!(c.state.v[free], glam::DVec3::new(0.3, -0.1, 0.2));
         assert_eq!(c.state.time, 1.25);
     }
+
+    #[test]
+    fn individual_pin_list_scrolls_to_and_releases_the_correct_last_row() {
+        struct ListCase {
+            points: Vec<DVec2>,
+            top: egui::Pos2,
+            selected: Option<Action>,
+            available: bool,
+        }
+        let mut case = ListCase {
+            points: (0..100)
+                .map(|i| DVec2::new(i as f64 * 0.001, 0.02))
+                .collect(),
+            top: egui::Pos2::ZERO,
+            selected: None,
+            available: true,
+        };
+        let mut draw = |ui: &mut egui::Ui, c: &mut ListCase| {
+            c.top = ui.next_widget_position();
+            if let Some(action) = individual_pin_controls(ui, "left", c.available, false, &c.points)
+            {
+                c.selected = Some(action);
+            }
+        };
+        let mut h = Harness::new(egui::vec2(400., 300.));
+        h.frame(&mut case, &mut draw);
+        h.click("pins.individual", &mut case, &mut draw).unwrap();
+        assert!(
+            h.click("pins.release_one.99", &mut case, &mut draw)
+                .is_err()
+        );
+        assert!(case.selected.is_none());
+        let pointer = case.top + egui::vec2(30., 60.);
+        let mut output = h.ctx.run_ui(
+            egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(400., 300.),
+                )),
+                time: Some(0.055),
+                focused: true,
+                events: vec![
+                    egui::Event::PointerMoved(pointer),
+                    egui::Event::MouseWheel {
+                        unit: egui::MouseWheelUnit::Point,
+                        delta: egui::vec2(0., -10_000.),
+                        phase: egui::TouchPhase::Move,
+                        modifiers: egui::Modifiers::NONE,
+                    },
+                ],
+                ..Default::default()
+            },
+            |ui| {
+                egui::CentralPanel::default().show(ui, |ui| draw(ui, &mut case));
+            },
+        );
+        output.textures_delta.clear();
+        for _ in 0..20 {
+            h.frame(&mut case, &mut draw);
+        }
+        h.click("pins.release_one.99", &mut case, &mut draw)
+            .unwrap();
+        assert_eq!(case.selected, Some(Action::ReleaseOne(case.points[99])));
+        case.available = false;
+        case.selected = None;
+        h.frame(&mut case, &mut draw);
+        assert!(
+            h.click("pins.release_one.99", &mut case, &mut draw)
+                .is_err()
+        );
+        assert!(case.selected.is_none());
+    }
     #[test]
     fn disabled_and_invalid_requests_do_not_modify_history() {
         let mut c = case();
