@@ -43,15 +43,15 @@ material coordinates. Each zipper segment is outlined separately, so bends are
 not joined or clipped to the panel and are not a manufacturing cutline. Inside
 the owning panel, clicking an outlined strip or its interior also selects the
 object. Topstitch rows are shown at their authored spacing and can be selected
-near a row or the center line. Rows are offset independently per straight
-segment; bends are not joined or clipped to the panel.
+near a row or the center line. Straight offsets use bevel connectors at bends;
+the result is not clipped to the panel or a manufacturing stitch path.
 The selected panel's board rotation and placement are respected. The 2D draft
 is amber; committed trims are purple. A changed or deleted object cannot be
 silently overwritten by a stale draft.
 
 The 3D overlay follows the deformed surface using transient material attachments,
 rebuilt after remeshing. Multi-row topstitch uses the authored material-space
-offsets, embedded segment by segment; the segments are not joined at bends.
+offsets and the same bevel connectors, embedded along the surface.
 If any row leaves the panel or exceeds a limit, the entire object is skipped
 with a warning. Buttons remain markers and zipper/buttonhole paths remain center
 lines, not actual hardware shapes or widths. Occlusion is sampled at line endpoints and midpoints,

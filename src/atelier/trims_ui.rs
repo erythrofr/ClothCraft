@@ -119,13 +119,38 @@ fn topstitch_row(a: DVec2, b: DVec2, rows: u8, spacing: f64, row: u8) -> Option<
     result.iter().all(|p| p.is_finite()).then_some(result)
 }
 
+/// Join offset segments with a straight bevel in material space. A join is
+/// omitted when adjacent offsets already coincide (for example on a straight line).
+fn topstitch_paths(points: &[DVec2], rows: u8, spacing: f64) -> Option<Vec<Vec<DVec2>>> {
+    if !(2..=1024).contains(&points.len()) || !(1..=8).contains(&rows) {
+        return None;
+    }
+    let mut result = Vec::new();
+    for row in 0..rows {
+        let mut path = Vec::new();
+        let mut previous_end: Option<DVec2> = None;
+        for pair in points.windows(2) {
+            let segment = topstitch_row(pair[0], pair[1], rows, spacing, row)?;
+            if previous_end.is_none_or(|end| end.distance(segment[0]) > 1e-12) {
+                path.push(segment[0]);
+            }
+            path.push(segment[1]);
+            previous_end = Some(segment[1]);
+        }
+        result.push(path);
+    }
+    Some(result)
+}
+
 fn board_trim_cost(points: usize, strip: bool, rows: Option<u8>) -> usize {
     let extra = if strip {
         4
     } else {
         rows.unwrap_or(1).saturating_sub(1) as usize
     };
-    points.saturating_add(points.saturating_sub(1).saturating_mul(extra))
+    points
+        .saturating_add(points.saturating_sub(1).saturating_mul(extra))
+        .saturating_add((rows.unwrap_or(0) as usize).saturating_mul(points.saturating_sub(2)))
 }
 
 /// Distance to a projected strip, including its interior. A degenerate or
@@ -191,15 +216,13 @@ fn board_topstitch_distance(
     project: &impl Fn(DVec2) -> egui::Pos2,
 ) -> f32 {
     let mut distance = board_trim_distance(screen, points, None, project);
-    for pair in points.windows(2) {
-        for row in 0..rows.min(8) {
-            if let Some(segment) = topstitch_row(pair[0], pair[1], rows, spacing, row) {
-                distance = distance.min(super::authoring_ui::segment_distance(
-                    screen,
-                    project(segment[0]),
-                    project(segment[1]),
-                ));
-            }
+    if let Some(paths) = topstitch_paths(points, rows, spacing) {
+        for segment in paths.iter().flat_map(|path| path.windows(2)) {
+            distance = distance.min(super::authoring_ui::segment_distance(
+                screen,
+                project(segment[0]),
+                project(segment[1]),
+            ));
         }
     }
     distance
@@ -253,15 +276,18 @@ pub(super) fn paint_trim_2d(
         painter.circle_stroke(p, radius, Stroke::new(1.5, color));
         painter.circle_filled(p, 2., color);
     } else {
-        for pair in points.windows(2) {
-            if let Some((rows, spacing)) = topstitch {
-                for row in 0..rows.min(8) {
-                    if let Some(segment) = topstitch_row(pair[0], pair[1], rows, spacing, row) {
-                        painter.line_segment(segment.map(point), Stroke::new(2., color));
-                    }
+        if let Some((rows, spacing)) = topstitch {
+            if let Some(paths) = topstitch_paths(&points, rows, spacing) {
+                for segment in paths.iter().flat_map(|path| path.windows(2)) {
+                    painter.line_segment(
+                        [point(segment[0]), point(segment[1])],
+                        Stroke::new(2., color),
+                    );
                 }
-                continue;
             }
+            return;
+        }
+        for pair in points.windows(2) {
             painter.line_segment([point(pair[0]), point(pair[1])], Stroke::new(2., color));
             if let Some(corners) =
                 strip_width.and_then(|width| strip_corners(pair[0], pair[1], width))
@@ -541,30 +567,13 @@ fn build_preview(
                 rows,
                 spacing_m,
             } => {
-                let segments = path_m
-                    .len()
-                    .saturating_sub(1)
-                    .saturating_mul(*rows as usize);
-                if !(2..=8).contains(rows)
-                    || segments.saturating_mul(2) > MAX_PREVIEW_POINTS.saturating_sub(count)
-                {
-                    (false, None)
-                } else {
-                    let mut lines = Vec::with_capacity(segments);
-                    let mut valid = true;
-                    for pair in path_m.windows(2) {
-                        for row in 0..*rows {
-                            if let Some(points) =
-                                topstitch_row(pair[0], pair[1], *rows, *spacing_m, row)
-                            {
-                                lines.push(points.to_vec());
-                            } else {
-                                valid = false;
-                            }
-                        }
-                    }
-                    (false, valid.then_some(lines))
-                }
+                let lines = topstitch_paths(path_m, *rows, *spacing_m).filter(|paths| {
+                    paths
+                        .iter()
+                        .fold(0usize, |sum, path| sum.saturating_add(path.len()))
+                        <= MAX_PREVIEW_POINTS.saturating_sub(count)
+                });
+                (false, lines)
             }
         };
         let Some(candidates) = candidates else {
@@ -1354,10 +1363,36 @@ mod tests {
         assert_eq!(rejected.skipped, 1);
         assert_eq!(rejected.paths.len(), 1);
         assert_eq!(rejected.paths[0].0, 1);
+        let corner_points = vec![
+            DVec2::new(0.05, 0.15),
+            DVec2::new(0.2, 0.15),
+            DVec2::new(0.2, 0.3),
+        ];
+        let joined = topstitch_paths(&corner_points, 2, 0.02).unwrap();
+        let corner_trim = Trim {
+            kind: TrimKind::Topstitch {
+                path_m: corner_points,
+                rows: 2,
+                spacing_m: 0.02,
+            },
+            ..trim.clone()
+        };
+        let corner_preview = build_preview(garment.clone(), &[corner_trim]).unwrap();
+        assert_eq!(corner_preview.skipped, 0);
+        assert_eq!(corner_preview.paths.len(), 2);
+        for (row, (_, _, embedded)) in corner_preview.paths.iter().enumerate() {
+            for target in &joined[row] {
+                assert!(
+                    embedded
+                        .iter()
+                        .any(|point| point.uv.distance(*target) < 1e-12)
+                );
+            }
+        }
         let oversized = Trim {
             kind: TrimKind::Topstitch {
-                path_m: (0..41)
-                    .map(|i| DVec2::new(0.05 + 0.005 * i as f64, 0.3))
+                path_m: (0..81)
+                    .map(|i| DVec2::new(0.05 + 0.003 * i as f64, 0.3))
                     .collect(),
                 rows: 8,
                 spacing_m: 0.005,
@@ -1429,9 +1464,74 @@ mod tests {
             },
         };
         validate_surface(&trim, &garment).unwrap();
-        let preview = build_preview(garment, &[trim]).unwrap();
+        let preview = build_preview(garment.clone(), std::slice::from_ref(&trim)).unwrap();
         assert_eq!(preview.skipped, 1);
         assert!(preview.paths.is_empty());
+        let points = vec![
+            DVec2::new(0.05, 0.195),
+            DVec2::new(0.145, 0.195),
+            DVec2::new(0.145, 0.1),
+        ];
+        let rows = topstitch_paths(&points, 2, 0.04).unwrap();
+        let row = &rows[1];
+        assert_eq!(row.len(), 4);
+        for (range, valid) in [((0, 1), true), ((1, 2), false), ((2, 3), true)] {
+            let path = marvelous_cloth::garment::embedding::MaterialPath {
+                panel: "left".into(),
+                points: vec![row[range.0], row[range.1]],
+            };
+            assert_eq!(garment.embed_path(&path).is_ok(), valid);
+        }
+        let corner = Trim {
+            kind: TrimKind::Topstitch {
+                path_m: points,
+                rows: 2,
+                spacing_m: 0.04,
+            },
+            ..trim
+        };
+        validate_surface(&corner, &garment).unwrap();
+        let preview = build_preview(garment, &[corner]).unwrap();
+        assert_eq!(preview.skipped, 1);
+        assert!(preview.paths.is_empty());
+    }
+
+    #[test]
+    fn topstitch_bevels_join_and_pick_across_rotated_corners() {
+        let a = DVec2::new(0.1, 0.1);
+        let b = DVec2::new(0.2, 0.1);
+        let c = DVec2::new(0.2, 0.2);
+        let paths = topstitch_paths(&[a, b, c], 2, 0.02).unwrap();
+        assert_eq!(paths.len(), 2);
+        assert!(paths.iter().all(|path| path.len() == 4));
+        let first = topstitch_row(a, b, 2, 0.02, 0).unwrap();
+        let second = topstitch_row(b, c, 2, 0.02, 0).unwrap();
+        assert_eq!(paths[0], vec![first[0], first[1], second[0], second[1]]);
+        let rotation = glam::DMat2::from_angle(0.51);
+        let shift = DVec2::new(0.3, -0.1);
+        let transformed = topstitch_paths(
+            &[
+                shift + rotation * a,
+                shift + rotation * b,
+                shift + rotation * c,
+            ],
+            2,
+            0.02,
+        )
+        .unwrap();
+        for (original, rotated) in paths.iter().flatten().zip(transformed.iter().flatten()) {
+            assert!((shift + rotation * *original).distance(*rotated) < 1e-13);
+        }
+        let project = |p: DVec2| {
+            let p = rotation * p * 1000.;
+            egui::pos2(p.x as f32, p.y as f32)
+        };
+        let join_middle = project((first[1] + second[0]) * 0.5);
+        assert!(board_topstitch_distance(join_middle, &[a, b, c], 2, 0.02, &project) < 0.01);
+        let straight = topstitch_paths(&[a, b, b + (b - a)], 2, 0.02).unwrap();
+        assert!(straight.iter().all(|path| path.len() == 3));
+        let reversal = topstitch_paths(&[a, b, a], 2, 0.02).unwrap();
+        assert!(reversal.iter().flatten().all(|point| point.is_finite()));
     }
 
     #[test]
