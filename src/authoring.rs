@@ -711,6 +711,9 @@ fn strip_graphic_frame_metadata(polygon: &mut serde_json::Value) {
             "target_lengths",
             "seam_allowances",
             "notches",
+            // The independently reviewed #1 proposal uses annotations for
+            // text-only draft notes; they do not alter the material contour.
+            "annotations",
         ] {
             fields.remove(key);
         }
@@ -731,11 +734,12 @@ mod graphic_frame_tests {
     fn only_reviewed_nonphysical_fields_are_ignored() {
         let mut polygon = serde_json::json!({"points": [[0, 0]], "meshing": {}, "subdivisions": 1,
             "target_lengths": {}, "seam_allowances": {"edge": 0.01}, "notches": {"edge": []},
-            "future_geometry": [1, 2]});
+            "annotations": [{"text": "front", "position": [0.1, 0.2]}],
+            "free_curve_points": {"edge": [[0.3, 0.4]]}, "future_geometry": [1, 2]});
         strip_graphic_frame_metadata(&mut polygon);
         assert_eq!(
             polygon,
-            serde_json::json!({"points": [[0, 0]], "future_geometry": [1, 2]})
+            serde_json::json!({"points": [[0, 0]], "free_curve_points": {"edge": [[0.3, 0.4]]}, "future_geometry": [1, 2]})
         );
     }
 }
