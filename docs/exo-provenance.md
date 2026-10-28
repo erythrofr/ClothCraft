@@ -171,6 +171,30 @@ failure or approve the PR. Preserve the outstanding engineering review and
 the separate #66 source-origin question. No code, assets or permissions are
 imported by this evidence update.
 
+## Follow-up: MARK-01 review at 372cb7e (2026-10-28)
+
+[PR #6](https://github.com/erythrofr/ClothCraft/pull/6) is now at
+`372cb7e9f3b09e76935926b4094de6f519d7d658`. Its
+[LICENSE](https://github.com/FireflyTheReal/ClothCraft/blob/372cb7e9f3b09e76935926b4094de6f519d7d658/LICENSE)
+remains blob `e9aeff0bad01690535d6b92b2ab27f7f725f4c3c`. The pinned
+[implementation notes](https://github.com/FireflyTheReal/ClothCraft/blob/372cb7e9f3b09e76935926b4094de6f519d7d658/docs/markings.md)
+(blob `0708ff57de461a594e2f2b26edd4152b264164dc`) attribute the design and
+state that its model, geometry and tests were independently written, with no
+source or assets copied from PR #1. These are contributor statements, not an
+independent similarity or rights-holder audit. The implementation and marking
+test blobs are `d55afd481860d195e5a098132ee43ada8ebeced9` and
+`1f3d84745e638501bfe4be6eac7460a156d00e82`, respectively.
+
+The [targeted follow-up](https://github.com/erythrofr/ClothCraft/pull/6#issuecomment-6475377300)
+rechecked and resolved the prior clipped-sheet, collapsed-hole and malformed-hole
+threads; the current tests also cover malformed outer contours and the reported
+cut-segment intrusion. The [contributor's review evidence](https://github.com/erythrofr/ClothCraft/pull/6#issuecomment-6475277395)
+records the limits of those fixes. Notches are sewing-line guides; no separate
+cut-edge notch is generated. Seven hosted checks passed at this exact head.
+These findings neither approve the complete PR nor certify a native workflow or
+physical cutting. The independent #66 source-origin question remains open.
+This evidence update imports no source, assets or rights.
+
 ## Evidence required before an actual code or asset transfer
 
 For **each path** proposed for copying or adapting, attach a review record to
