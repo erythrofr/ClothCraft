@@ -99,6 +99,35 @@ fn strip_corners(a: DVec2, b: DVec2, width: f64) -> Option<[DVec2; 4]> {
     corners.iter().all(|p| p.is_finite()).then_some(corners)
 }
 
+fn topstitch_row(a: DVec2, b: DVec2, rows: u8, spacing: f64, row: u8) -> Option<[DVec2; 2]> {
+    let d = b - a;
+    let length = d.length();
+    if !(1..=8).contains(&rows)
+        || row >= rows
+        || !spacing.is_finite()
+        || spacing <= 0.
+        || !a.is_finite()
+        || !b.is_finite()
+        || !length.is_finite()
+        || length <= 0.
+    {
+        return None;
+    }
+    let offset = (f64::from(row) - (f64::from(rows) - 1.) * 0.5) * spacing;
+    let normal = DVec2::new(-d.y, d.x) * (offset / length);
+    let result = [a + normal, b + normal];
+    result.iter().all(|p| p.is_finite()).then_some(result)
+}
+
+fn board_trim_cost(points: usize, strip: bool, rows: Option<u8>) -> usize {
+    let extra = if strip {
+        4
+    } else {
+        rows.unwrap_or(1).saturating_sub(1) as usize
+    };
+    points.saturating_add(points.saturating_sub(1).saturating_mul(extra))
+}
+
 /// Distance to a projected strip, including its interior. A degenerate or
 /// non-finite projection cannot make the whole viewport selectable.
 fn projected_strip_distance(pointer: egui::Pos2, corners: [egui::Pos2; 4]) -> Option<f32> {
@@ -154,6 +183,28 @@ fn board_trim_distance(
         .fold(f32::INFINITY, f32::min)
 }
 
+fn board_topstitch_distance(
+    screen: egui::Pos2,
+    points: &[DVec2],
+    rows: u8,
+    spacing: f64,
+    project: &impl Fn(DVec2) -> egui::Pos2,
+) -> f32 {
+    let mut distance = board_trim_distance(screen, points, None, project);
+    for pair in points.windows(2) {
+        for row in 0..rows.min(8) {
+            if let Some(segment) = topstitch_row(pair[0], pair[1], rows, spacing, row) {
+                distance = distance.min(super::authoring_ui::segment_distance(
+                    screen,
+                    project(segment[0]),
+                    project(segment[1]),
+                ));
+            }
+        }
+    }
+    distance
+}
+
 fn closer_trim(candidate: (f32, f32), previous: (f32, f32)) -> bool {
     candidate.0 < previous.0 || (candidate.0 == previous.0 && candidate.1 < previous.1)
 }
@@ -165,26 +216,30 @@ pub(super) fn paint_trim_2d(
     budget: &mut usize,
     color: Color32,
 ) {
-    let (points, diameter, strip_width) = match &trim.kind {
+    let (points, diameter, strip_width, topstitch) = match &trim.kind {
         TrimKind::Button {
             center_m,
             diameter_m,
-        } => (vec![*center_m], Some(*diameter_m), None),
+        } => (vec![*center_m], Some(*diameter_m), None, None),
         TrimKind::Buttonhole {
             start_m,
             end_m,
             width_m,
-        } => (vec![*start_m, *end_m], None, Some(*width_m)),
-        TrimKind::Zipper { path_m, width_m } => (path_m.clone(), None, Some(*width_m)),
-        TrimKind::Topstitch { path_m, .. } => (path_m.clone(), None, None),
+        } => (vec![*start_m, *end_m], None, Some(*width_m), None),
+        TrimKind::Zipper { path_m, width_m } => (path_m.clone(), None, Some(*width_m), None),
+        TrimKind::Topstitch {
+            path_m,
+            rows,
+            spacing_m,
+        } => (path_m.clone(), None, None, Some((*rows, *spacing_m))),
     };
     // Each outlined segment contributes four more shapes. Account for these
     // in the shared board budget so width previews remain bounded.
-    let cost = points.len().saturating_add(if strip_width.is_some() {
-        points.len().saturating_sub(1).saturating_mul(4)
-    } else {
-        0
-    });
+    let cost = board_trim_cost(
+        points.len(),
+        strip_width.is_some(),
+        topstitch.map(|(rows, _)| rows),
+    );
     if cost > *budget {
         *budget = 0;
         return;
@@ -199,6 +254,14 @@ pub(super) fn paint_trim_2d(
         painter.circle_filled(p, 2., color);
     } else {
         for pair in points.windows(2) {
+            if let Some((rows, spacing)) = topstitch {
+                for row in 0..rows.min(8) {
+                    if let Some(segment) = topstitch_row(pair[0], pair[1], rows, spacing, row) {
+                        painter.line_segment(segment.map(point), Stroke::new(2., color));
+                    }
+                }
+                continue;
+            }
             painter.line_segment([point(pair[0]), point(pair[1])], Stroke::new(2., color));
             if let Some(corners) =
                 strip_width.and_then(|width| strip_corners(pair[0], pair[1], width))
@@ -1040,21 +1103,25 @@ impl Atelier {
             else {
                 continue;
             };
-            let (points, width) = match &trim.kind {
-                TrimKind::Button { center_m, .. } => (vec![*center_m], None),
+            let (points, width, topstitch) = match &trim.kind {
+                TrimKind::Button { center_m, .. } => (vec![*center_m], None, None),
                 TrimKind::Buttonhole {
                     start_m,
                     end_m,
                     width_m,
-                } => (vec![*start_m, *end_m], Some(*width_m)),
-                TrimKind::Zipper { path_m, width_m } => (path_m.clone(), Some(*width_m)),
-                TrimKind::Topstitch { path_m, .. } => (path_m.clone(), None),
+                } => (vec![*start_m, *end_m], Some(*width_m), None),
+                TrimKind::Zipper { path_m, width_m } => (path_m.clone(), Some(*width_m), None),
+                TrimKind::Topstitch {
+                    path_m,
+                    rows,
+                    spacing_m,
+                } => (path_m.clone(), None, Some((*rows, *spacing_m))),
             };
-            let cost = points.len().saturating_add(if width.is_some() {
-                points.len().saturating_sub(1).saturating_mul(4)
-            } else {
-                0
-            });
+            let cost = board_trim_cost(
+                points.len(),
+                width.is_some(),
+                topstitch.map(|(rows, _)| rows),
+            );
             if cost > remaining {
                 break;
             }
@@ -1066,7 +1133,11 @@ impl Atelier {
                     .board
                     .screen(rect, origin + authoring::rotate_2d(p, angle))
             };
-            let distance = board_trim_distance(screen, &points, width, &screen_point);
+            let distance = if let Some((rows, spacing)) = topstitch {
+                board_topstitch_distance(screen, &points, rows, spacing, &screen_point)
+            } else {
+                board_trim_distance(screen, &points, width, &screen_point)
+            };
             let center_distance = board_trim_distance(screen, &points, None, &screen_point);
             let score = (distance, center_distance);
             if distance <= 8.
@@ -1134,6 +1205,64 @@ impl Atelier {
 mod tests {
     use super::*;
     use marvelous_cloth::garment::GarmentTemplate;
+
+    #[test]
+    fn topstitch_rows_render_and_pick_in_material_space() {
+        let a = DVec2::new(0.1, 0.2);
+        let b = DVec2::new(0.3, 0.2);
+        for (rows, expected) in [
+            (1, vec![0.]),
+            (2, vec![-0.01, 0.01]),
+            (3, vec![-0.02, 0., 0.02]),
+        ] {
+            for (row, y) in expected.into_iter().enumerate() {
+                let segment = topstitch_row(a, b, rows, 0.02, row as u8).unwrap();
+                assert!((segment[0] - (a + DVec2::Y * y)).length() < 1e-14);
+                assert!((segment[1] - (b + DVec2::Y * y)).length() < 1e-14);
+            }
+        }
+        assert!(topstitch_row(a, a, 2, 0.02, 0).is_none());
+        assert!(topstitch_row(a, b, 8, 0.02, 7).is_some());
+        assert!(topstitch_row(a, b, 9, 0.02, 0).is_none());
+        assert!(topstitch_row(a, b, 2, f64::NAN, 0).is_none());
+        let rotation = glam::DMat2::from_angle(0.71);
+        let project = |p: DVec2| {
+            let p = rotation * p * 1000. + DVec2::new(300., 200.);
+            egui::pos2(p.x as f32, p.y as f32)
+        };
+        let pointer = project(DVec2::new(0.2, 0.22));
+        assert!(board_topstitch_distance(pointer, &[a, b], 3, 0.02, &project) < 0.01);
+        assert!(board_topstitch_distance(pointer, &[a, b], 1, 0.02, &project) > 8.);
+        let trim = Trim {
+            id: "trim_1".into(),
+            panel_id: "left".into(),
+            kind: TrimKind::Topstitch {
+                path_m: vec![a, b],
+                rows: 3,
+                spacing_m: 0.02,
+            },
+        };
+        let context = egui::Context::default();
+        let paint = |budget: &mut usize| {
+            let mut output = context.run_ui(egui::RawInput::default(), |ui| {
+                paint_trim_2d(
+                    &ui.ctx().layer_painter(egui::LayerId::background()),
+                    &project,
+                    &trim,
+                    budget,
+                    Color32::WHITE,
+                );
+            });
+            output.textures_delta.clear();
+            output.shapes.len()
+        };
+        let mut budget = 4;
+        assert_eq!(paint(&mut budget), 3);
+        assert_eq!(budget, 0);
+        let mut budget = 3;
+        assert_eq!(paint(&mut budget), 0);
+        assert_eq!(budget, 0);
+    }
 
     #[test]
     fn board_trim_hit_testing_matches_visible_strips() {

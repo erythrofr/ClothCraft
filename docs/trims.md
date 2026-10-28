@@ -42,7 +42,9 @@ picked. On the 2D board buttonholes and zipper segments show width outlines in
 material coordinates. Each zipper segment is outlined separately, so bends are
 not joined or clipped to the panel and are not a manufacturing cutline. Inside
 the owning panel, clicking an outlined strip or its interior also selects the
-object. Topstitch selection continues to use its center line.
+object. Topstitch rows are shown at their authored spacing and can be selected
+near a row or the center line. Rows are offset independently per straight
+segment; bends are not joined or clipped to the panel.
 The selected panel's board rotation and placement are respected. The 2D draft
 is amber; committed trims are purple. A changed or deleted object cannot be
 silently overwritten by a stale draft.
@@ -57,9 +59,8 @@ limit and safe refusal if its bounds cannot be built. Unsupported or out-of-pane
 objects are skipped with a warning; oversized scenes can hide the 3D preview.
 Clean view hides the 3D overlay. The 2D preview has a separate 4096-unit work
 budget that also accounts for the extra width-outline segments.
-Multiple topstitch rows are stored but shown as a center line. The 3D view also
-shows zipper and buttonhole center lines; these are not manufacturing-accurate
-previews.
+The 3D view shows topstitch, zipper and buttonhole center lines; these are not
+manufacturing-accurate previews.
 
 One local CPU test with 10,000 synthetic triangles and 1,536 rays measured
 170.29 ms exhaustive versus 5.94 ms including BVH construction; after moving
