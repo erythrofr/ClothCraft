@@ -20,6 +20,10 @@ are implemented.
 Trim-only edits are classified as nonphysical and excluded from fitting mesh
 signatures.
 
+For repeated details, **Duplicate** opens a fresh-ID draft of an existing trim.
+Position it on the 2D board or 3D cloth, then Apply once; Cancel leaves the
+original and the document unchanged.
+
 In the Piece inspector, expand **Construction trims**, choose a type and click
 **New**. Edit local X, Y coordinates in millimetres; paths use one comma-separated
 pair per line. **Position first point on 2D board** moves the whole draft by a
