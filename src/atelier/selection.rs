@@ -86,6 +86,7 @@ pub(super) struct Selection {
     pub clipboard: Option<PatternClipboard>,
     pub paste_count: u32,
     pub placement_marquee: Option<PlacementMarquee>,
+    visibility_cache: ClothVisibilityCache,
 }
 
 pub(super) struct PlacementMarquee {
@@ -219,7 +220,7 @@ fn apply_marquee_selection<T: Ord>(
     current
 }
 
-/// Per-repaint visibility broad phase, rebuilt from the current draped positions.
+/// Visibility broad phase, refitted from the current draped positions.
 /// This is only for editor markers; it is not used by collision detection.
 struct ClothVisibility {
     tree: marvelous_cloth::ogc::bvh::Bvh,
@@ -233,19 +234,8 @@ impl ClothVisibility {
         positions: &[glam::DVec3],
         triangles: &[marvelous_cloth::model::Triangle],
     ) -> Option<Self> {
-        use marvelous_cloth::ogc::bvh::{Bounds, Bvh};
-        let mut boxes = Vec::with_capacity(triangles.len());
-        for triangle in triangles {
-            let p = triangle.vertices.map(|i| positions[i]);
-            if p.iter()
-                .any(|v| !v.is_finite() || v.abs().max_element() > MAX_VISIBILITY_COORD)
-            {
-                return None;
-            }
-            let magnitude = p.iter().map(|v| v.abs().max_element()).fold(1., f64::max);
-            boxes.push(Bounds::points(p).inflate(1e-12 + 16. * f64::EPSILON * magnitude));
-        }
-        let tree = Bvh::new(&boxes, &vec![true; boxes.len()]);
+        let boxes = visibility_bounds(positions, triangles)?;
+        let tree = marvelous_cloth::ogc::bvh::Bvh::new(&boxes, &vec![true; boxes.len()]);
         let nodes = tree.nodes().collect();
         Some(Self { tree, nodes })
     }
@@ -293,6 +283,73 @@ impl ClothVisibility {
     }
 }
 
+fn visibility_bounds(
+    positions: &[glam::DVec3],
+    triangles: &[marvelous_cloth::model::Triangle],
+) -> Option<Vec<marvelous_cloth::ogc::bvh::Bounds>> {
+    use marvelous_cloth::ogc::bvh::Bounds;
+    let mut boxes = Vec::with_capacity(triangles.len());
+    for triangle in triangles {
+        let [a, b, c] = triangle.vertices;
+        let p = [*positions.get(a)?, *positions.get(b)?, *positions.get(c)?];
+        if p.iter()
+            .any(|v| !v.is_finite() || v.abs().max_element() > MAX_VISIBILITY_COORD)
+        {
+            return None;
+        }
+        let magnitude = p.iter().map(|v| v.abs().max_element()).fold(1., f64::max);
+        boxes.push(Bounds::points(p).inflate(1e-12 + 16. * f64::EPSILON * magnitude));
+    }
+    Some(boxes)
+}
+
+/// The exact topology and position snapshots prevent using stale visibility boxes.
+#[derive(Default)]
+struct ClothVisibilityCache {
+    tree: Option<ClothVisibility>,
+    topology: Vec<[usize; 3]>,
+    positions: Vec<glam::DVec3>,
+}
+impl ClothVisibilityCache {
+    fn prepare(
+        &mut self,
+        positions: &[glam::DVec3],
+        triangles: &[marvelous_cloth::model::Triangle],
+    ) {
+        let same_topology = self.tree.is_some()
+            && self.topology.len() == triangles.len()
+            && self
+                .topology
+                .iter()
+                .zip(triangles)
+                .all(|(a, b)| *a == b.vertices);
+        if same_topology && self.positions == positions {
+            return;
+        }
+        if same_topology {
+            if let Some(boxes) = visibility_bounds(positions, triangles) {
+                let tree = self.tree.as_mut().unwrap();
+                tree.tree.refit(&boxes);
+                tree.nodes.clear();
+                tree.nodes.extend(tree.tree.nodes());
+                self.positions.clear();
+                self.positions.extend_from_slice(positions);
+                return;
+            }
+            *self = Self::default();
+            return;
+        }
+        let tree = ClothVisibility::new(positions, triangles);
+        if tree.is_none() {
+            *self = Self::default();
+            return;
+        }
+        self.tree = tree;
+        self.topology = triangles.iter().map(|t| t.vertices).collect();
+        self.positions = positions.to_vec();
+    }
+}
+
 /// Start with the exact exhaustive query. Build only after the accumulated
 /// work is comparable to eight full scans, on a subsequent valid query. This
 /// avoids building for cheap early occluders and adapts to mixed visibility.
@@ -302,13 +359,14 @@ struct ClothVisibilityQueries<'a> {
     eligible: bool,
     attempted: bool,
     scanned: usize,
-    tree: Option<ClothVisibility>,
+    cache: &'a mut ClothVisibilityCache,
 }
 impl<'a> ClothVisibilityQueries<'a> {
     fn new(
         positions: &'a [glam::DVec3],
         triangles: &'a [marvelous_cloth::model::Triangle],
         point_count: usize,
+        cache: &'a mut ClothVisibilityCache,
     ) -> Self {
         Self {
             positions,
@@ -316,7 +374,7 @@ impl<'a> ClothVisibilityQueries<'a> {
             eligible: point_count >= 64 && triangles.len() >= 256,
             attempted: false,
             scanned: 0,
-            tree: None,
+            cache,
         }
     }
     fn occludes(&mut self, origin: glam::DVec3, direction: glam::DVec3, limit: f64) -> bool {
@@ -333,9 +391,10 @@ impl<'a> ClothVisibilityQueries<'a> {
             && self.scanned >= self.triangles.len().saturating_mul(8)
         {
             self.attempted = true;
-            self.tree = ClothVisibility::new(self.positions, self.triangles);
+            self.cache.prepare(self.positions, self.triangles);
         }
-        if let Some(tree) = &self.tree
+        if let Some(tree) = &self.cache.tree
+            && self.attempted
             && valid
         {
             return tree.occludes(origin, direction, limit, self.positions, self.triangles);
@@ -688,7 +747,7 @@ impl Atelier {
             Err(error) => self.status = error,
         }
     }
-    pub(super) fn paint_selected_points_3d(&self, ui: &egui::Ui, rect: egui::Rect) {
+    pub(super) fn paint_selected_points_3d(&mut self, ui: &egui::Ui, rect: egui::Rect) {
         if self.authoring.tool != Tool::Edit {
             return;
         }
@@ -697,7 +756,12 @@ impl Atelier {
         let mesh = &self.scene.garment.mesh;
         let positions = &self.scene.state.x;
         let point_count: usize = selections.values().map(Vec::len).sum();
-        let mut visibility = ClothVisibilityQueries::new(positions, &mesh.triangles, point_count);
+        let mut visibility = ClothVisibilityQueries::new(
+            positions,
+            &mesh.triangles,
+            point_count,
+            &mut self.authoring.selection.visibility_cache,
+        );
         for (index, panel) in self.project.template.panels.iter().enumerate() {
             let Some(points) = selections.get(&panel.id) else {
                 continue;
@@ -1193,23 +1257,26 @@ mod tests {
             "tested {tested} of {} triangles",
             triangles.len()
         );
-        let mut early = ClothVisibilityQueries::new(&positions, &triangles, 64);
+        let mut early_cache = ClothVisibilityCache::default();
+        let mut early = ClothVisibilityQueries::new(&positions, &triangles, 64, &mut early_cache);
         for _ in 0..64 {
             assert!(early.occludes(DVec3::new(1.2, 0.2, 1.), -DVec3::Z, 2.));
         }
-        assert!(!early.attempted && early.tree.is_none());
-        let mut mixed = ClothVisibilityQueries::new(&positions, &triangles, 64);
+        assert!(!early.attempted && early.cache.tree.is_none());
+        let mut mixed_cache = ClothVisibilityCache::default();
+        let mut mixed = ClothVisibilityQueries::new(&positions, &triangles, 64, &mut mixed_cache);
         for _ in 0..8 {
             assert!(!mixed.occludes(DVec3::new(15.7, 15.7, 1.), -DVec3::Z, 2.));
         }
         assert!(!mixed.attempted);
         assert!(mixed.occludes(DVec3::new(1.2, 0.2, 1.), -DVec3::Z, 2.));
-        assert!(mixed.attempted && mixed.tree.is_some());
-        let mut small = ClothVisibilityQueries::new(&positions, &triangles, 63);
+        assert!(mixed.attempted && mixed.cache.tree.is_some());
+        let mut small_cache = ClothVisibilityCache::default();
+        let mut small = ClothVisibilityQueries::new(&positions, &triangles, 63, &mut small_cache);
         for _ in 0..64 {
             assert!(!small.occludes(DVec3::new(15.7, 15.7, 1.), -DVec3::Z, 2.));
         }
-        assert!(!small.attempted && small.tree.is_none());
+        assert!(!small.attempted && small.cache.tree.is_none());
         for i in 0..64 {
             let origin = DVec3::new((i % 32) as f64 + 0.2, (i / 32) as f64 + 0.2, 1.);
             let direct = triangles.iter().any(|t| {
@@ -1218,6 +1285,69 @@ mod tests {
             });
             assert_eq!(mixed.occludes(origin, -DVec3::Z, 2.), direct);
         }
+        let mut cache = ClothVisibilityCache::default();
+        cache.prepare(&positions, &triangles);
+        assert!(cache.tree.is_some());
+        let mut moved = positions.clone();
+        for vertex in triangles[1].vertices {
+            moved[vertex].z = 0.5;
+        }
+        let origin = DVec3::new(1.2, 0.2, 1.);
+        assert!(!cache.tree.as_ref().unwrap().occludes(
+            origin,
+            -DVec3::Z,
+            0.75,
+            &positions,
+            &triangles
+        ));
+        cache.prepare(&moved, &triangles);
+        assert!(
+            cache
+                .tree
+                .as_ref()
+                .unwrap()
+                .occludes(origin, -DVec3::Z, 0.75, &moved, &triangles)
+        );
+        cache.prepare(&deformed, &triangles);
+        assert_eq!(cache.positions, deformed);
+        for i in 0..64 {
+            let origin = DVec3::new((i % 32) as f64 + 0.2, (i / 32) as f64 + 0.2, 1.);
+            let direct = triangles.iter().any(|t| {
+                picking::ray_triangle(origin, -DVec3::Z, t.vertices.map(|v| deformed[v]))
+                    .is_some_and(|(d, _)| d < 2.)
+            });
+            assert_eq!(
+                cache
+                    .tree
+                    .as_ref()
+                    .unwrap()
+                    .occludes(origin, -DVec3::Z, 2., &deformed, &triangles),
+                direct
+            );
+        }
+        let mut reordered = triangles.clone();
+        reordered.swap(1, 2);
+        cache.prepare(&deformed, &reordered);
+        assert_eq!(cache.topology[1], reordered[1].vertices);
+        for i in 0..32 {
+            let origin = DVec3::new(i as f64 + 0.2, 0.2, 1.);
+            let direct = reordered.iter().any(|t| {
+                picking::ray_triangle(origin, -DVec3::Z, t.vertices.map(|v| deformed[v]))
+                    .is_some_and(|(d, _)| d < 2.)
+            });
+            assert_eq!(
+                cache
+                    .tree
+                    .as_ref()
+                    .unwrap()
+                    .occludes(origin, -DVec3::Z, 2., &deformed, &reordered),
+                direct
+            );
+        }
+        cache.prepare(&invalid_positions, &reordered);
+        assert!(cache.tree.is_none());
+        cache.prepare(&positions, &triangles);
+        assert!(cache.tree.is_some());
         // An informational synthetic timing, never a machine-dependent gate.
         // Each ray passes through a triangle's box but misses its surface.
         for count in [32, 64, 128, 512] {
@@ -1236,7 +1366,9 @@ mod tests {
             let direct = start.elapsed();
             let start = std::time::Instant::now();
             for _ in 0..10 {
-                let mut queries = ClothVisibilityQueries::new(&positions, &triangles, count);
+                let mut cache = ClothVisibilityCache::default();
+                let mut queries =
+                    ClothVisibilityQueries::new(&positions, &triangles, count, &mut cache);
                 for &origin in &rays {
                     std::hint::black_box(queries.occludes(origin, -DVec3::Z, 2.));
                 }
@@ -1278,8 +1410,13 @@ mod tests {
                 let direct = start.elapsed();
                 let start = std::time::Instant::now();
                 for _ in 0..3 {
-                    let mut queries =
-                        ClothVisibilityQueries::new(&large_positions, &large_triangles, count);
+                    let mut cache = ClothVisibilityCache::default();
+                    let mut queries = ClothVisibilityQueries::new(
+                        &large_positions,
+                        &large_triangles,
+                        count,
+                        &mut cache,
+                    );
                     for &origin in &rays {
                         std::hint::black_box(queries.occludes(origin, -DVec3::Z, 2.));
                     }
@@ -1316,8 +1453,13 @@ mod tests {
                 let direct = start.elapsed();
                 let start = std::time::Instant::now();
                 for _ in 0..3 {
-                    let mut queries =
-                        ClothVisibilityQueries::new(&large_positions, &large_triangles, 64);
+                    let mut cache = ClothVisibilityCache::default();
+                    let mut queries = ClothVisibilityQueries::new(
+                        &large_positions,
+                        &large_triangles,
+                        64,
+                        &mut cache,
+                    );
                     for &origin in &rays {
                         std::hint::black_box(queries.occludes(origin, -DVec3::Z, 2.));
                     }
@@ -1328,6 +1470,31 @@ mod tests {
                     start.elapsed()
                 );
             }
+            let start = std::time::Instant::now();
+            for _ in 0..3 {
+                std::hint::black_box(
+                    ClothVisibility::new(&large_positions, &large_triangles).unwrap(),
+                );
+            }
+            let rebuild = start.elapsed();
+            let mut cache = ClothVisibilityCache::default();
+            cache.prepare(&large_positions, &large_triangles);
+            let start = std::time::Instant::now();
+            for _ in 0..3 {
+                cache.prepare(&large_positions, &large_triangles);
+            }
+            let reuse = start.elapsed();
+            let mut moving = large_positions.clone();
+            let start = std::time::Instant::now();
+            for _ in 0..3 {
+                moving[3].z += 0.001;
+                cache.prepare(&moving, &large_triangles);
+            }
+            eprintln!(
+                "large visibility cache, {} triangles, 3 repeats: rebuild={rebuild:?}, unchanged={reuse:?}, refit={:?}",
+                large_triangles.len(),
+                start.elapsed()
+            );
         }
     }
     #[test]
