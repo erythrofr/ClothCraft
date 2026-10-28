@@ -13,6 +13,12 @@ holds its current shape; **Unfreeze panel** releases the freeze while retaining
 individual pins. On polygon panels, selected contour points across panels
 can be pinned/unpinned in one atomic history action. **Release panel pins**
 removes all authored individual pins on that panel. These controls leave legacy template pins unchanged.
+Expand **Pin a material position** to enter local 2D X/Y in millimetres. The
+inspector displays the nearest compiled mesh vertex and distance before you pin
+or release it; this works for interior vertices as well as contours. Selection
+is snapped to that exact material coordinate, not stored as a mesh index. The
+lookup is limited to 100,000 vertices per panel and rejects ambiguous winners.
+
 Expand **Individual authored pins** to see their material coordinates and
 release one pin without removing the others. The list is virtualized for large
 selections; its Release buttons require a paused, unfrozen panel and use the

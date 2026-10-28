@@ -17,6 +17,8 @@ enum Action {
     ReleasePins,
     ReleaseOne(DVec2),
     ReleaseSelectedPins,
+    PinMaterial(DVec2),
+    UnpinMaterial(DVec2),
     FreezeSelected,
     ThawSelected,
 }
@@ -68,6 +70,131 @@ fn individual_pin_controls(
         });
     #[cfg(test)]
     super::authoring_smoke::widget_harness::named(ui, &section.header_response, "pins.individual");
+    #[cfg(not(test))]
+    let _ = section;
+    action
+}
+
+/// Find a mesh vertex in this panel only, returning its exact rest UV.
+/// Ties choose mesh order; a duplicate winning UV is refused as ambiguous.
+fn nearest_material_vertex(
+    garment: &CompiledGarment,
+    panel: &str,
+    requested: DVec2,
+) -> Result<(DVec2, f64), String> {
+    if !requested.is_finite() {
+        return Err("Material position must be finite".into());
+    }
+    let mut panels = garment.panels.iter().filter(|p| p.id == panel);
+    let range = &panels.next().ok_or("Unknown panel")?.vertices;
+    if panels.next().is_some()
+        || range.start >= range.end
+        || range.end > garment.mesh.uv.len()
+        || range.len() > 100_000
+    {
+        return Err("Invalid or oversized panel mesh".into());
+    }
+    let mut best: Option<(DVec2, f64)> = None;
+    for &uv in &garment.mesh.uv[range.clone()] {
+        if !uv.is_finite() {
+            return Err("Invalid material coordinates".into());
+        }
+        let d2 = uv.distance_squared(requested);
+        if !d2.is_finite() {
+            return Err("Material position is out of range".into());
+        }
+        if best.is_none_or(|(_, old)| d2 < old) {
+            best = Some((uv, d2));
+        }
+    }
+    let (uv, d2) = best.ok_or("Panel has no mesh vertices")?;
+    if garment.mesh.uv[range.clone()]
+        .iter()
+        .filter(|&&point| point == uv)
+        .count()
+        != 1
+    {
+        return Err("Ambiguous material vertex".into());
+    }
+    Ok((uv, d2.sqrt()))
+}
+
+fn material_pin_controls(
+    ui: &mut egui::Ui,
+    garment: &CompiledGarment,
+    template: &GarmentTemplate,
+    panel: &marvelous_cloth::garment::template::Panel,
+    available: bool,
+    frozen: bool,
+) -> Option<Action> {
+    let mut action = None;
+    let section = egui::CollapsingHeader::new("Pin a material position")
+        .id_salt(("pin-material", &panel.id))
+        .show(ui, |ui| {
+            ui.small("Enter a 2D position; the nearest mesh vertex is shown before pinning.");
+            let id = egui::Id::new(("pin-material-position", &panel.id));
+            let mut mm = ui
+                .ctx()
+                .data(|data| data.get_temp::<[f64; 2]>(id))
+                .unwrap_or([panel.pattern.width * 500., panel.pattern.height * 500.]);
+            ui.horizontal(|ui| {
+                ui.label("X / Y (mm)");
+                ui.add(egui::DragValue::new(&mut mm[0]).speed(1.));
+                ui.add(egui::DragValue::new(&mut mm[1]).speed(1.));
+            });
+            ui.ctx().data_mut(|data| data.insert_temp(id, mm));
+            if !available {
+                ui.small("Pause simulation and finish placement to select a mesh vertex.");
+                return;
+            }
+            match nearest_material_vertex(garment, &panel.id, DVec2::new(mm[0], mm[1]) * 0.001) {
+                Ok((uv, distance)) => {
+                    ui.small(format!(
+                        "Nearest: X {:.2} mm · Y {:.2} mm · offset {:.2} mm",
+                        uv.x * 1000.,
+                        uv.y * 1000.,
+                        distance * 1000.
+                    ));
+                    let pinned = template
+                        .pin_targets
+                        .iter()
+                        .any(|p| p.panel == panel.id && p.uv == uv);
+                    ui.horizontal_wrapped(|ui| {
+                        let pin = ui.add_enabled(
+                            available && !frozen && !pinned,
+                            egui::Button::new("Pin nearest"),
+                        );
+                        #[cfg(test)]
+                        super::authoring_smoke::widget_harness::named(
+                            ui,
+                            &pin,
+                            "pins.material.pin",
+                        );
+                        if pin.clicked() {
+                            action = Some(Action::PinMaterial(uv));
+                        }
+                        let unpin = ui.add_enabled(
+                            available && !frozen && pinned,
+                            egui::Button::new("Release nearest"),
+                        );
+                        #[cfg(test)]
+                        super::authoring_smoke::widget_harness::named(
+                            ui,
+                            &unpin,
+                            "pins.material.unpin",
+                        );
+                        if unpin.clicked() {
+                            action = Some(Action::UnpinMaterial(uv));
+                        }
+                    });
+                }
+                Err(error) => {
+                    ui.colored_label(egui::Color32::GOLD, error);
+                }
+            }
+        });
+    #[cfg(test)]
+    super::authoring_smoke::widget_harness::named(ui, &section.header_response, "pins.material");
     #[cfg(not(test))]
     let _ = section;
     action
@@ -175,6 +302,14 @@ fn prepare(
             state,
             panel,
             action == Action::Freeze,
+        )?,
+        Action::PinMaterial(uv) | Action::UnpinMaterial(uv) => authoring::prepare_pin_edit(
+            template,
+            garment,
+            state,
+            panel,
+            &[uv],
+            matches!(action, Action::PinMaterial(_)),
         )?,
         Action::Pin | Action::Unpin => authoring::prepare_pin_group_edit(
             template,
@@ -346,7 +481,15 @@ impl Atelier {
             (selected_panels.len(), frozen_selected, pins_selected),
         );
         let individual = individual_pin_controls(ui, &panel.id, available, frozen, &pin_points);
-        if let Some(action) = action.or(individual) {
+        let material = material_pin_controls(
+            ui,
+            &self.scene.garment,
+            &self.project.template,
+            panel,
+            available,
+            frozen,
+        );
+        if let Some(action) = action.or(individual).or(material) {
             let result = (|| {
                 // Full-panel actions do not depend on contour selection validity.
                 let empty = BTreeMap::new();
@@ -437,7 +580,16 @@ mod tests {
             (1, usize::from(frozen), pins),
         );
         let individual = individual_pin_controls(ui, &panel, c.available, frozen, &pin_points);
-        if let Some(action) = action.or(individual) {
+        let panel_data = c.template.panels[0].clone();
+        let material = material_pin_controls(
+            ui,
+            &c.garment,
+            &c.template,
+            &panel_data,
+            c.available,
+            frozen,
+        );
+        if let Some(action) = action.or(individual).or(material) {
             match prepare(
                 &c.template,
                 &c.garment,
@@ -461,6 +613,82 @@ mod tests {
             }
         }
     }
+    #[test]
+    fn material_position_controls_pin_and_release_interior_with_undo() {
+        let mut c = case();
+        let panel = c.template.panels[0].id.clone();
+        let center = DVec2::new(
+            c.template.panels[0].pattern.width,
+            c.template.panels[0].pattern.height,
+        ) * 0.5;
+        let center_vertex = c.garment.panels[0].vertices.start + 4;
+        let free_vertex = c.garment.panels[1].vertices.start;
+        c.state.v[center_vertex] = glam::DVec3::X;
+        c.state.v[free_vertex] = glam::DVec3::Y;
+        let before = c.state.x.clone();
+        let target = nearest_material_vertex(&c.garment, &panel, center).unwrap();
+        assert_eq!(target.0, center);
+        let mut h = Harness::new(egui::vec2(1000., 700.));
+        h.frame(&mut c, &mut draw);
+        h.click("pins.material", &mut c, &mut draw).unwrap();
+        c.available = false;
+        h.frame(&mut c, &mut draw);
+        assert!(h.click("pins.material.pin", &mut c, &mut draw).is_err());
+        c.available = true;
+        h.frame(&mut c, &mut draw);
+        h.click("pins.material.pin", &mut c, &mut draw).unwrap();
+        assert!(c.error.is_none(), "{:?}", c.error);
+        assert_eq!(c.template.pin_targets.len(), 1);
+        assert_eq!(c.template.pin_targets[0].uv, center);
+        assert_eq!(c.template.pin_targets[0].world, before[center_vertex]);
+        assert_eq!(c.state.x, before);
+        assert_eq!(c.state.v[center_vertex], glam::DVec3::ZERO);
+        assert_eq!(c.state.v[free_vertex], glam::DVec3::Y);
+        h.frame(&mut c, &mut draw);
+        h.click("pins.material.unpin", &mut c, &mut draw).unwrap();
+        assert!(c.template.pin_targets.is_empty());
+        assert_eq!(c.state.x, before);
+        assert_eq!(c.state.v[center_vertex], glam::DVec3::ZERO);
+        assert_eq!(c.state.v[free_vertex], glam::DVec3::Y);
+        let undo = c.history.restore(&c.template, false).unwrap();
+        assert_eq!(undo.template.pin_targets.len(), 1);
+    }
+
+    #[test]
+    fn nearest_pin_vertex_is_panel_scoped_and_rejects_invalid_or_ambiguous_meshes() {
+        let c = case();
+        let first = &c.template.panels[0].id;
+        let p = c.garment.mesh.uv[c.garment.panels[0].vertices.start];
+        assert_eq!(nearest_material_vertex(&c.garment, first, p).unwrap().0, p);
+        assert!(nearest_material_vertex(&c.garment, first, DVec2::splat(f64::NAN)).is_err());
+        assert!(nearest_material_vertex(&c.garment, "missing", p).is_err());
+        let mut isolated = c.garment.clone();
+        let request = DVec2::new(-10., -10.);
+        let second = isolated.panels[1].vertices.start;
+        isolated.mesh.uv[second] = request;
+        assert_ne!(
+            nearest_material_vertex(&isolated, first, request)
+                .unwrap()
+                .0,
+            request
+        );
+        let range = isolated.panels[0].vertices.clone();
+        let a = isolated.mesh.uv[range.start];
+        let b = isolated.mesh.uv[range.start + 1];
+        assert_eq!(
+            nearest_material_vertex(&isolated, first, (a + b) * 0.5)
+                .unwrap()
+                .0,
+            a
+        );
+        let mut invalid = c.garment.clone();
+        let range = invalid.panels[0].vertices.clone();
+        invalid.mesh.uv[range.start + 1] = p;
+        assert!(nearest_material_vertex(&invalid, first, p).is_err());
+        invalid.panels[0].vertices.end = invalid.mesh.uv.len() + 1;
+        assert!(nearest_material_vertex(&invalid, first, p).is_err());
+    }
+
     #[test]
     fn named_controls_pin_freeze_thaw_release_without_moving_drape() {
         let mut c = case();
