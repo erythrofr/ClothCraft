@@ -21,8 +21,9 @@ In the Piece inspector, expand **Construction trims**, choose a type and click
 **New**. Edit local X, Y coordinates in millimetres; paths use one comma-separated
 pair per line. **Position first point on 2D board** moves the whole draft by a
 click; **Apply** validates and commits once, while **Cancel** discards the draft.
-For zippers and topstitch paths, **Draw path on 2D board** stages up to 128
-clicked points; **Finish path** returns to the draft and **Cancel drawing** or
+For buttonholes, **Draw path on 2D board** stages exactly two endpoints; for
+zippers and topstitch paths it stages up to 128 clicked points. **Finish path**
+returns to the draft and **Cancel drawing** or
 Escape restores the previous path. A finished draft still needs **Apply**.
 In Edit mode, clicking an existing trim on the board opens its inspector draft.
 The selected panel's board rotation and placement are respected. The 2D draft

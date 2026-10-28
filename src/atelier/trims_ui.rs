@@ -236,6 +236,9 @@ impl TrimDraft {
     }
 
     fn append_path_point(&mut self, point: DVec2) -> Result<(), String> {
+        if self.kind == 1 && self.draw_points.len() >= 2 {
+            return Err("Buttonholes need exactly two points; finish or cancel drawing".into());
+        }
         if !point.is_finite() || self.draw_points.len() >= 128 {
             return Err("Path needs finite coordinates and at most 128 points".into());
         }
@@ -683,14 +686,18 @@ fn trim_controls(
                     draft.place_on_board = true;
                 }
                 if draft.place_on_board { ui.small("Click the panel to position the first point · Escape cancels"); }
-                if matches!(draft.kind, 2 | 3) {
+                if matches!(draft.kind, 1..=3) {
                     if draft.draw_backup.is_none() {
                         let draw = ui.button("Draw path on 2D board");
                         #[cfg(test)]
                         super::authoring_smoke::widget_harness::named(ui, &draw, "trim.draw");
                         if draw.clicked() { draft.begin_path(); }
                     } else {
-                        ui.small("Click points on the selected panel · 128 points maximum");
+                        ui.small(if draft.kind == 1 {
+                            "Click the two buttonhole endpoints on the selected panel"
+                        } else {
+                            "Click points on the selected panel · 128 points maximum"
+                        });
                         ui.horizontal(|ui| {
                             let finish = ui.add_enabled(draft.parse().is_ok(), egui::Button::new("Finish path"));
                             #[cfg(test)]
@@ -1009,6 +1016,45 @@ mod tests {
                 .unwrap();
             harness.frame(&mut case, &mut draw);
             harness.click("trim.new", &mut case, &mut draw).unwrap();
+            if index == 1 {
+                let previous = case.ui.draft.as_ref().unwrap().points.clone();
+                harness.click("trim.draw", &mut case, &mut draw).unwrap();
+                harness.frame(&mut case, &mut draw);
+                assert!(
+                    harness
+                        .click("trim.finish_path", &mut case, &mut draw)
+                        .is_err()
+                );
+                let draft = case.ui.draft.as_mut().unwrap();
+                stage_board_click(draft, DVec2::new(0.05, 0.05)).unwrap();
+                harness.frame(&mut case, &mut draw);
+                assert!(
+                    harness
+                        .click("trim.finish_path", &mut case, &mut draw)
+                        .is_err()
+                );
+                let draft = case.ui.draft.as_mut().unwrap();
+                stage_board_click(draft, DVec2::new(0.1, 0.1)).unwrap();
+                let points = draft.points.clone();
+                assert!(stage_board_click(draft, DVec2::new(0.15, 0.15)).is_err());
+                assert_eq!(draft.points, points);
+                assert!(case.template.trims.is_empty());
+                harness.frame(&mut case, &mut draw);
+                harness
+                    .click("trim.cancel_path", &mut case, &mut draw)
+                    .unwrap();
+                assert_eq!(case.ui.draft.as_ref().unwrap().points, previous);
+                harness.frame(&mut case, &mut draw);
+                harness.click("trim.draw", &mut case, &mut draw).unwrap();
+                let draft = case.ui.draft.as_mut().unwrap();
+                stage_board_click(draft, DVec2::new(0.05, 0.05)).unwrap();
+                stage_board_click(draft, DVec2::new(0.1, 0.1)).unwrap();
+                harness.frame(&mut case, &mut draw);
+                harness
+                    .click("trim.finish_path", &mut case, &mut draw)
+                    .unwrap();
+                harness.frame(&mut case, &mut draw);
+            }
             if index == 2 {
                 let previous = case.ui.draft.as_ref().unwrap().points.clone();
                 harness.click("trim.draw", &mut case, &mut draw).unwrap();
