@@ -59,6 +59,9 @@ In the Piece inspector, expand **Construction trims**, choose a type and click
 **New**. Edit local X, Y coordinates in millimetres; paths use one comma-separated
 pair per line. **Position first point on 2D board** moves the whole draft by a
 click; **Apply** validates and commits once, while **Cancel** discards the draft.
+Alternatively drag on the owning panel while this placement tool is armed; the
+draft moves with the original grip offset and becomes final only after Apply.
+Escape or losing focus during a drag restores its pre-drag position.
 For paths that exceed the direct validation estimate, panels up to 20,000
 triangles use a bounded material-space index. Ill-conditioned meshes, excessive
 work or too many attachments are rejected. A preview rebuild allows at most

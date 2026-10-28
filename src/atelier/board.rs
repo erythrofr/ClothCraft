@@ -1722,6 +1722,7 @@ impl Atelier {
     /// the coordinate that lands is the one the on-canvas indicator promised.
     fn board_press(&mut self, start: egui::Pos2, rect: egui::Rect, ctx: &egui::Context) {
         if self.trim_board_placement_active() {
+            self.begin_trim_board_drag(rect, start);
             return;
         }
         if self.authoring.tool == Tool::InternalLine && !self.internal_line_target(rect, start) {
@@ -2009,6 +2010,17 @@ impl Atelier {
                 let ctx = response.ctx.clone();
                 self.board_press(start, rect, &ctx);
             }
+        }
+        if self.authoring.trims.board_drag_active() {
+            if response.dragged_by(egui::PointerButton::Primary)
+                && let Some(pos) = pos
+            {
+                self.update_trim_board_drag(rect, pos);
+            }
+            if response.drag_stopped_by(egui::PointerButton::Primary) {
+                self.authoring.trims.finish_board_drag();
+            }
+            return;
         }
         if response.dragged_by(egui::PointerButton::Primary)
             && let Some(pos) = pos
