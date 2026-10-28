@@ -18,13 +18,82 @@ pub struct DrawModel<'a> {
     pub mesh: &'a Mesh,
     pub state: &'a State,
     pub materials: &'a [Material],
-    pub optics: Option<&'a [Option<crate::garment::appearance::FabricAppearance>]>,
+    pub optics: Option<&'a [Option<&'a crate::garment::appearance::FabricAppearance>]>,
     pub sphere: Option<&'a Sphere>,
     pub avatar: Option<&'a SurfaceMesh>,
     pub collider: Option<&'a dyn Collider>,
     pub seams: &'a [CompiledSeam],
 }
-const VERTEX_FLOATS: usize = 15;
+const VERTEX_FLOATS: usize = 18;
+const ALBEDO_SIZE: u32 = 256;
+const ALBEDO_LEVELS: u32 = 9;
+
+/// Filter opaque sRGB texture pixels in linear light. The caller supplies a
+/// square, power-of-two image; levels are generated only when a map changes.
+fn albedo_mip_chain(base: Vec<u8>, size: u32) -> Vec<Vec<u8>> {
+    debug_assert!(size.is_power_of_two() && base.len() == size as usize * size as usize * 4);
+    let mut linear = [0.0_f32; 256];
+    for (i, value) in linear.iter_mut().enumerate() {
+        let s = i as f32 / 255.;
+        *value = if s <= 0.04045 {
+            s / 12.92
+        } else {
+            ((s + 0.055) / 1.055).powf(2.4)
+        };
+    }
+    let mut chain = vec![base];
+    let mut width = size as usize;
+    while width > 1 {
+        let src = chain.last().expect("base mip");
+        let next_width = width / 2;
+        let mut next = vec![255u8; next_width * next_width * 4];
+        for y in 0..next_width {
+            for x in 0..next_width {
+                for channel in 0..3 {
+                    let mut sum = 0.;
+                    for dy in 0..2 {
+                        for dx in 0..2 {
+                            sum += linear
+                                [src[((y * 2 + dy) * width + x * 2 + dx) * 4 + channel] as usize];
+                        }
+                    }
+                    let c = sum * 0.25;
+                    let s = if c <= 0.0031308 {
+                        c * 12.92
+                    } else {
+                        1.055 * c.powf(1. / 2.4) - 0.055
+                    };
+                    next[(y * next_width + x) * 4 + channel] =
+                        (s.clamp(0., 1.) * 255.).round() as u8;
+                }
+            }
+        }
+        chain.push(next);
+        width = next_width;
+    }
+    chain
+}
+
+fn valid_albedo(
+    map: &crate::garment::appearance::AlbedoTexture,
+    cache: &[crate::garment::appearance::AlbedoTexture],
+) -> bool {
+    map.validate_parameters().is_ok()
+        && (cache.iter().any(|cached| {
+            cached.width == map.width
+                && cached.height == map.height
+                && std::sync::Arc::ptr_eq(&cached.rgba_srgb, &map.rgba_srgb)
+        }) || map.validate().is_ok())
+}
+
+fn same_albedo_pixels(
+    a: &crate::garment::appearance::AlbedoTexture,
+    b: &crate::garment::appearance::AlbedoTexture,
+) -> bool {
+    a.width == b.width
+        && a.height == b.height
+        && (std::sync::Arc::ptr_eq(&a.rgba_srgb, &b.rgba_srgb) || a.rgba_srgb == b.rgba_srgb)
+}
 
 fn cloth_surface(
     appearance: Option<&crate::garment::appearance::FabricAppearance>,
@@ -438,11 +507,37 @@ pub struct Viewport {
     timers: Option<Timers>,
     view_uniform: wgpu::Buffer,
     view_bind: wgpu::BindGroup,
+    albedo_texture: wgpu::Texture,
+    albedo_view: wgpu::TextureView,
+    albedo_sampler: wgpu::Sampler,
+    albedo_bind: wgpu::BindGroup,
+    albedo_cache: Vec<crate::garment::appearance::AlbedoTexture>,
     avatar_buffer: Option<wgpu::Buffer>,
     avatar_key: (usize, usize),
     avatar_count: u32,
 }
 impl Viewport {
+    fn albedo_bind(
+        device: &wgpu::Device,
+        pipeline: &wgpu::RenderPipeline,
+        view: &wgpu::TextureView,
+        sampler: &wgpu::Sampler,
+    ) -> wgpu::BindGroup {
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("fabric albedo maps"),
+            layout: &pipeline.get_bind_group_layout(1),
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(sampler),
+                },
+            ],
+        })
+    }
     fn target(device: &wgpu::Device, size: [u32; 2], depth: bool, samples: u32) -> wgpu::Texture {
         device.create_texture(&wgpu::TextureDescriptor {
             label: Some(if depth { "cloth-depth" } else { "cloth-color" }),
@@ -474,7 +569,7 @@ impl Viewport {
             label: Some("cloth-lit-wireframe"),
             source: wgpu::ShaderSource::Wgsl(include_str!("cloth.wgsl").into()),
         });
-        let attrs = wgpu::vertex_attr_array![0=>Float32x4,1=>Float32x3,2=>Float32x4,3=>Float32x3,4=>Float32];
+        let attrs = wgpu::vertex_attr_array![0=>Float32x4,1=>Float32x3,2=>Float32x4,3=>Float32x3,4=>Float32,5=>Float32x3];
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("cloth-viewport"),
             layout: None,
@@ -555,6 +650,33 @@ impl Viewport {
                 resource: view_uniform.as_entire_binding(),
             }],
         });
+        let albedo_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("fabric albedo array"),
+            size: wgpu::Extent3d {
+                width: ALBEDO_SIZE,
+                height: ALBEDO_SIZE,
+                depth_or_array_layers: 16,
+            },
+            mip_level_count: ALBEDO_LEVELS,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+        let albedo_view = albedo_texture.create_view(&wgpu::TextureViewDescriptor {
+            dimension: Some(wgpu::TextureViewDimension::D2Array),
+            ..Default::default()
+        });
+        let albedo_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::Repeat,
+            address_mode_v: wgpu::AddressMode::Repeat,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::MipmapFilterMode::Linear,
+            ..Default::default()
+        });
+        let albedo_bind = Self::albedo_bind(device, &pipeline, &albedo_view, &albedo_sampler);
         let color = color_texture.create_view(&Default::default());
         let depth = Self::target(device, [1, 1], true, samples).create_view(&Default::default());
         let texture_id = render_state.renderer.write().register_native_texture(
@@ -587,6 +709,11 @@ impl Viewport {
             timers: None,
             view_uniform,
             view_bind,
+            albedo_texture,
+            albedo_view,
+            albedo_sampler,
+            albedo_bind,
+            albedo_cache: Vec::new(),
             avatar_buffer: None,
             avatar_key: (0, 0),
             avatar_count: 0,
@@ -658,6 +785,12 @@ impl Viewport {
                     resource: self.view_uniform.as_entire_binding(),
                 }],
             });
+            self.albedo_bind = Self::albedo_bind(
+                device,
+                &self.pipeline,
+                &self.albedo_view,
+                &self.albedo_sampler,
+            );
             self.environment = environment::Environment::new(device, samples);
         }
         if size != self.size || samples != self.samples {
@@ -707,6 +840,74 @@ impl Viewport {
             avatar,
             state,
         );
+        let mut maps: Vec<&crate::garment::appearance::AlbedoTexture> = Vec::new();
+        let layers: Vec<Option<usize>> = optics
+            .unwrap_or_default()
+            .iter()
+            .map(|appearance| {
+                let map = appearance.and_then(|a| a.albedo.as_ref())?;
+                if !valid_albedo(map, &self.albedo_cache) {
+                    return None;
+                }
+                if let Some(index) = maps.iter().position(|item| same_albedo_pixels(item, map)) {
+                    return Some(index);
+                }
+                if maps.len() == 16 {
+                    return None;
+                }
+                maps.push(map);
+                Some(maps.len() - 1)
+            })
+            .collect();
+        if self.albedo_cache.len() != maps.len()
+            || !self
+                .albedo_cache
+                .iter()
+                .zip(&maps)
+                .all(|(cached, map)| same_albedo_pixels(cached, map))
+        {
+            for (layer, map) in maps.iter().enumerate() {
+                let pixels =
+                    image::RgbaImage::from_raw(map.width, map.height, map.rgba_srgb.to_vec())
+                        .expect("validated albedo pixel length");
+                let pixels = image::imageops::resize(
+                    &pixels,
+                    ALBEDO_SIZE,
+                    ALBEDO_SIZE,
+                    image::imageops::FilterType::Nearest,
+                );
+                for (level, pixels) in albedo_mip_chain(pixels.into_raw(), ALBEDO_SIZE)
+                    .iter()
+                    .enumerate()
+                {
+                    let size = ALBEDO_SIZE >> level;
+                    self.render_state.queue.write_texture(
+                        wgpu::TexelCopyTextureInfo {
+                            texture: &self.albedo_texture,
+                            mip_level: level as u32,
+                            origin: wgpu::Origin3d {
+                                x: 0,
+                                y: 0,
+                                z: layer as u32,
+                            },
+                            aspect: wgpu::TextureAspect::All,
+                        },
+                        pixels,
+                        wgpu::TexelCopyBufferLayout {
+                            offset: 0,
+                            bytes_per_row: Some(size * 4),
+                            rows_per_image: Some(size),
+                        },
+                        wgpu::Extent3d {
+                            width: size,
+                            height: size,
+                            depth_or_array_layers: 1,
+                        },
+                    );
+                }
+            }
+            self.albedo_cache = maps.iter().map(|map| (*map).clone()).collect();
+        }
         let mut data = Vec::<f32>::new();
         let mut smooth = vec![Vec3::ZERO; state.x.len()];
         for t in &mesh.triangles {
@@ -723,7 +924,9 @@ impl Viewport {
                             color: [f32; 3],
                             wire: bool,
                             normals: Option<[Vec3; 3]>,
-                            roughness: f32| {
+                            roughness: f32,
+                            texcoords: Option<[glam::Vec2; 3]>,
+                            layer: f32| {
             let normal = (points[1] - points[0])
                 .cross(points[2] - points[0])
                 .normalize_or_zero();
@@ -741,6 +944,8 @@ impl Viewport {
                     if i == 2 { 1.0 } else { 0.0 },
                 ]);
                 data.push(roughness);
+                let uv = texcoords.map_or(glam::Vec2::ZERO, |uv| uv[i]);
+                data.extend_from_slice(&[uv.x, uv.y, layer]);
             }
         };
         for (face, t) in mesh.triangles.iter().enumerate() {
@@ -761,19 +966,28 @@ impl Viewport {
                 });
             let appearance = optics
                 .and_then(|values| values.get(t.material))
-                .and_then(Option::as_ref);
+                .and_then(|value| *value);
             let (color, roughness) = cloth_surface(
                 appearance,
                 marked_faces.is_some_and(|faces| faces.contains(&face)),
                 contact,
                 heat.then_some(strain),
             );
+            let layer = if roughness >= 0. {
+                layers.get(t.material).copied().flatten()
+            } else {
+                None
+            };
             triangle(
                 t.vertices.map(|i| state.x[i].as_vec3()),
                 color,
                 wire,
                 Some(t.vertices.map(|i| smooth[i])),
                 roughness,
+                layer
+                    .and_then(|_| appearance.and_then(|a| a.albedo.as_ref()))
+                    .map(|map| t.vertices.map(|i| map.material_uv(mesh.uv[i]).as_vec2())),
+                layer.map_or(-1., |i| i as f32),
             );
         }
         for seam in seams {
@@ -793,8 +1007,24 @@ impl Viewport {
                 for pair in points.windows(2) {
                     let [a, b] = [pair[0], pair[1]];
                     let d = (b - a).cross(Vec3::Z).normalize_or_zero() * 0.0013;
-                    triangle([a - d, a + d, b + d], [1.0, 0.72, 0.22], false, None, -1.);
-                    triangle([a - d, b + d, b - d], [1.0, 0.72, 0.22], false, None, -1.);
+                    triangle(
+                        [a - d, a + d, b + d],
+                        [1.0, 0.72, 0.22],
+                        false,
+                        None,
+                        -1.,
+                        None,
+                        -1.,
+                    );
+                    triangle(
+                        [a - d, b + d, b - d],
+                        [1.0, 0.72, 0.22],
+                        false,
+                        None,
+                        -1.,
+                        None,
+                        -1.,
+                    );
                 }
             }
         }
@@ -814,8 +1044,8 @@ impl Viewport {
                         point(i, j + 1),
                         point(i + 1, j + 1),
                     ];
-                    triangle([a, c, b], [0.38, 0.4, 0.46], false, None, -1.);
-                    triangle([b, c, d], [0.38, 0.4, 0.46], false, None, -1.);
+                    triangle([a, c, b], [0.38, 0.4, 0.46], false, None, -1., None, -1.);
+                    triangle([b, c, d], [0.38, 0.4, 0.46], false, None, -1., None, -1.);
                 }
             }
         }
@@ -844,7 +1074,9 @@ impl Viewport {
                     for (i, v) in p.into_iter().enumerate() {
                         body.extend_from_slice(&v.extend(1.).to_array());
                         body.extend_from_slice(&normals[t[i]].to_array());
-                        body.extend_from_slice(&[0.46, 0.47, 0.49, 0., 0., 0., 0., -1.]);
+                        body.extend_from_slice(&[
+                            0.46, 0.47, 0.49, 0., 0., 0., 0., -1., 0., 0., -1.,
+                        ]);
                     }
                 }
                 self.avatar_count = (body.len() / VERTEX_FLOATS) as u32;
@@ -913,6 +1145,7 @@ impl Viewport {
             pass.draw(0..3, 0..1);
             pass.set_pipeline(&self.pipeline);
             pass.set_bind_group(0, &self.view_bind, &[]);
+            pass.set_bind_group(1, &self.albedo_bind, &[]);
             pass.set_vertex_buffer(0, self.vertices.slice(..));
             pass.draw(0..(data.len() / VERTEX_FLOATS) as u32, 0..1);
             if let Some(body) = &self.avatar_buffer {
@@ -1042,6 +1275,49 @@ impl Drop for Viewport {
 /// Camera navigation is pure math: these tests need no GPU and no window.
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn albedo_mips_filter_in_linear_light_and_cover_complete_texture() {
+        let mixed = vec![
+            0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 0, 255,
+        ];
+        let chain = super::albedo_mip_chain(mixed.clone(), 2);
+        assert_eq!(chain[0], mixed);
+        assert_eq!(chain[1], vec![188, 188, 188, 255]);
+        let base = vec![255; (super::ALBEDO_SIZE * super::ALBEDO_SIZE * 4) as usize];
+        let chain = super::albedo_mip_chain(base, super::ALBEDO_SIZE);
+        assert_eq!(chain.len(), super::ALBEDO_LEVELS as usize);
+        for (level, pixels) in chain.iter().enumerate() {
+            let size = (super::ALBEDO_SIZE >> level) as usize;
+            assert_eq!(pixels.len(), size * size * 4);
+            assert!(pixels.iter().all(|p| *p == 255));
+        }
+    }
+    #[test]
+    fn cached_albedo_validation_rechecks_changed_pixels_and_parameters() {
+        use crate::garment::appearance::AlbedoTexture;
+        let map = AlbedoTexture {
+            width: 1,
+            height: 1,
+            rgba_srgb: vec![1, 2, 3, 255].into(),
+            tile_m: [0.1, 0.1],
+            rotation_degrees: 0.,
+        };
+        let cache = vec![map.clone()];
+        assert!(super::valid_albedo(&map, &cache));
+        let mut retiled = map.clone();
+        retiled.tile_m = [0.2, 0.3];
+        assert!(super::same_albedo_pixels(&map, &retiled));
+        let mut changed = map.clone();
+        std::sync::Arc::make_mut(&mut changed.rgba_srgb)[3] = 0;
+        assert!(!super::same_albedo_pixels(&map, &changed));
+        assert!(!super::valid_albedo(&changed, &cache));
+        let mut bad_params = map.clone();
+        bad_params.tile_m[0] = 0.;
+        assert!(!super::valid_albedo(&bad_params, &cache));
+        let mut bad_size = map;
+        bad_size.width = 2;
+        assert!(!super::valid_albedo(&bad_size, &cache));
+    }
     use super::*;
 
     fn viewport(width: f32, height: f32) -> egui::Rect {
@@ -1375,6 +1651,7 @@ mod tests {
         let optics = crate::garment::appearance::FabricAppearance {
             color_srgb: [255, 0, 0],
             roughness: 0.3,
+            albedo: None,
         };
         assert_eq!(
             cloth_surface(None, false, false, None),
