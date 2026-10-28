@@ -27,6 +27,7 @@ pub(super) struct AuthoringUi {
     pub construction: ConstructionDraft,
     pub sewing: super::sewing_ui::SewingDraft,
     pub sewing_audit: super::sewing_ui::SewingAuditUi,
+    pub trims: super::trims_ui::TrimUi,
     pub radial: super::radial::Radial,
     pub selection: super::selection::Selection,
     pub tool: Tool,
@@ -597,6 +598,24 @@ fn construction_controls(
     }
 }
 
+/// Cancel an unfinished trim gesture even when the requested tool is already
+/// selected. This changes the draft only and never commits an authoring edit.
+pub(super) fn prepare_tool_transition(
+    authoring: &mut AuthoringUi,
+    tool: Tool,
+    rotate: bool,
+) -> bool {
+    if authoring.tool == tool
+        && (tool != Tool::Place || authoring.rotate == rotate)
+        && !authoring.board.freehand.enabled
+        && !authoring.trims.board_placement_active()
+    {
+        return false;
+    }
+    authoring.trims.cancel_board_placement();
+    true
+}
+
 impl Atelier {
     fn dart_properties(&mut self, ui: &mut egui::Ui) {
         if self.authoring.tool != Tool::Edit {
@@ -673,6 +692,10 @@ impl Atelier {
         }
     }
     fn undo_edit(&mut self, redo: bool) {
+        if let Some(message) = self.authoring.trims.intercept_history(redo) {
+            self.status = message.into();
+            return;
+        }
         self.cancel_preview();
         self.authoring.board.clear_preview();
         self.authoring.replace = false;
@@ -864,30 +887,38 @@ impl Atelier {
             }
             ui.separator();
             let undo = ui
-                .add_enabled_ui(self.authoring.history.can_undo(), |ui| {
-                    super::icons::icon_only(
-                        ui,
-                        super::icons::Icon::Undo,
-                        32.,
-                        false,
-                        "Undo · Ctrl+Z",
-                    )
-                })
+                .add_enabled_ui(
+                    self.authoring.history.can_undo()
+                        || self.authoring.trims.has_pending_history_step(),
+                    |ui| {
+                        super::icons::icon_only(
+                            ui,
+                            super::icons::Icon::Undo,
+                            32.,
+                            false,
+                            "Undo · Ctrl+Z",
+                        )
+                    },
+                )
                 .inner;
             self.smoke_target("undo", undo.rect.center());
             if undo.clicked() {
                 self.undo_edit(false);
             }
             let redo = ui
-                .add_enabled_ui(self.authoring.history.can_redo(), |ui| {
-                    super::icons::icon_only(
-                        ui,
-                        super::icons::Icon::Redo,
-                        32.,
-                        false,
-                        "Redo · Ctrl+Shift+Z",
-                    )
-                })
+                .add_enabled_ui(
+                    self.authoring.history.can_redo()
+                        && !self.authoring.trims.has_pending_history_step(),
+                    |ui| {
+                        super::icons::icon_only(
+                            ui,
+                            super::icons::Icon::Redo,
+                            32.,
+                            false,
+                            "Redo · Ctrl+Shift+Z",
+                        )
+                    },
+                )
                 .inner;
             self.smoke_target("redo", redo.rect.center());
             if redo.clicked() {
@@ -896,10 +927,7 @@ impl Atelier {
         });
     }
     pub(super) fn set_authoring_tool(&mut self, tool: Tool, rotate: bool) {
-        if self.authoring.tool == tool
-            && (tool != Tool::Place || self.authoring.rotate == rotate)
-            && !self.authoring.board.freehand.enabled
-        {
+        if !prepare_tool_transition(&mut self.authoring, tool, rotate) {
             return;
         }
         self.authoring.dart = None;
@@ -1112,6 +1140,7 @@ impl Atelier {
         };
         ui.label(&panel.name);
         self.pin_properties(ui, &panel);
+        self.trim_properties(ui, &panel);
         if let Some(fabric) = self
             .project
             .template
