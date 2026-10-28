@@ -206,6 +206,50 @@ fn indexed_paths_match_exhaustive_on_transformed_and_anisotropic_rest_meshes() {
 }
 
 #[test]
+fn indexed_paths_match_exhaustive_near_triangle_boundaries() {
+    let mut template = GarmentTemplate::two_panel_demo();
+    template.panels[0].pattern.nx = 8;
+    template.panels[0].pattern.ny = 9;
+    let garment = template.compile().unwrap();
+    let mut comparisons = 0;
+    let mut successes = 0;
+    for triangle in &garment.mesh.triangles[garment.panels[0].triangles.clone()] {
+        let [a, b, c] = triangle.rest;
+        let center = (a + b + c) / 3.0;
+        for (start, end) in [(a, b), (b, c), (c, a)] {
+            let midpoint = (start + end) * 0.5;
+            let inward = (center - midpoint).normalize();
+            for delta in [-1e-8, -1e-11, 0.0, 1e-11, 1e-8] {
+                let path = MaterialPath {
+                    panel: "left".into(),
+                    points: vec![midpoint + inward * delta, center],
+                };
+                let exhaustive = garment.embed_path(&path);
+                let indexed = garment.embed_path_bounded(&path);
+                comparisons += 1;
+                match (exhaustive, indexed) {
+                    (Ok(a), Ok(b)) => {
+                        successes += 1;
+                        assert_eq!(a.len(), b.len(), "{path:?}");
+                        for (a, b) in a.iter().zip(&b) {
+                            assert_eq!(a.vertices, b.vertices, "{path:?}");
+                            assert_eq!(a.weights, b.weights, "{path:?}");
+                            assert_eq!(a.uv, b.uv, "{path:?}");
+                        }
+                    }
+                    (Err(_), Err(_)) => {}
+                    (a, b) => {
+                        panic!("different result for {path:?}: exhaustive={a:?}, indexed={b:?}")
+                    }
+                }
+            }
+        }
+    }
+    assert!(comparisons >= 2000);
+    assert!(successes >= 1800);
+}
+
+#[test]
 fn indexed_path_refuses_near_degenerate_material_triangles() {
     let mut garment = GarmentTemplate::two_panel_demo().compile().unwrap();
     for triangle in &mut garment.mesh.triangles[garment.panels[0].triangles.clone()] {
