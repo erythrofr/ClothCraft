@@ -243,6 +243,12 @@ pub enum Command {
     RemoveTrim {
         id: String,
     },
+    /// Repeat a nonphysical trim using a panel-local offset in metres.
+    RepeatTrim {
+        id: String,
+        copies: usize,
+        offset_m: DVec2,
+    },
     Fabric {
         panel: String,
         name: String,
@@ -2273,6 +2279,68 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
                 return Err("Trim not found".into());
             }
             template.trims.retain(|t| t.id != id);
+        }
+        Command::RepeatTrim {
+            id,
+            copies,
+            offset_m,
+        } => {
+            use crate::garment::trims::TrimKind;
+            if !(1..=128).contains(&copies)
+                || !offset_m.is_finite()
+                || offset_m.length_squared() < 1e-24
+                || template.trims.len().saturating_add(copies) > 4096
+            {
+                return Err(
+                    "Repeat requires 1–128 copies, a finite nonzero offset and at most 4096 trims"
+                        .into(),
+                );
+            }
+            let original = template
+                .trims
+                .iter()
+                .find(|t| t.id == id)
+                .cloned()
+                .ok_or("Trim not found")?;
+            if template
+                .mirror_links
+                .iter()
+                .any(|link| link.a == original.panel_id || link.b == original.panel_id)
+            {
+                return Err("Unlink the mirrored panel before repeating trims".into());
+            }
+            let mut ids: std::collections::HashSet<String> =
+                template.trims.iter().map(|t| t.id.clone()).collect();
+            let mut next = 1usize;
+            let mut additions = Vec::with_capacity(copies);
+            for i in 1..=copies {
+                let mut copy = original.clone();
+                loop {
+                    let candidate = format!("trim_{next}");
+                    next += 1;
+                    if ids.insert(candidate.clone()) {
+                        copy.id = candidate;
+                        break;
+                    }
+                }
+                let delta = offset_m * i as f64;
+                match &mut copy.kind {
+                    TrimKind::Button { center_m, .. } => *center_m += delta,
+                    TrimKind::Buttonhole { start_m, end_m, .. } => {
+                        *start_m += delta;
+                        *end_m += delta;
+                    }
+                    TrimKind::Zipper { path_m, .. } | TrimKind::Topstitch { path_m, .. } => {
+                        for point in path_m {
+                            *point += delta;
+                        }
+                    }
+                }
+                copy.validate()?;
+                additions.push(copy);
+            }
+            selected = Some(original.panel_id);
+            template.trims.extend(additions);
         }
     }
     linked::synchronize(source, &mut template)?;
