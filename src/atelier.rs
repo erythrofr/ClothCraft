@@ -917,11 +917,25 @@ impl eframe::App for Atelier {
                     );
                     pane.set_clip_rect(rect);
                     match id {
-                        "garment" => self.garment_view(&mut pane),
+                        "garment" => {
+                            let picking = self.material_pin_pick_active(&ctx);
+                            let shield = pins_ui::pin_pick_shield(&ctx);
+                            let was_blocked = self.quick.blocked;
+                            if picking || shield {
+                                self.quick.blocked = true;
+                            }
+                            self.garment_view(&mut pane);
+                            self.quick.blocked = was_blocked;
+                            if picking && !shield {
+                                self.material_pin_pick_click(&pane);
+                            }
+                        }
                         "patterns" => self.patterns(&mut pane),
                         _ => self.inspector(&mut pane),
                     }
                 }
+                self.finish_material_pin_pick(&ctx);
+                self.paint_material_pin_preview(ui);
             });
         self.prefs_dirty |= self.prefs != previous_preferences;
         if self.prefs_dirty && !ctx.input(|i| i.pointer.any_down()) {
