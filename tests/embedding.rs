@@ -24,7 +24,8 @@ fn dense_multisegment_path_matches_exhaustive() {
     let start = std::time::Instant::now();
     let actual = garment.embed_path_bounded(&path).unwrap();
     eprintln!(
-        "dense 20k triangles / 80 segments: exhaustive {exhaustive:?}; indexed including build {:?}",
+        "dense 20k triangles / 80 segments: {} attachments; exhaustive {exhaustive:?}; indexed including build {:?}",
+        actual.len(),
         start.elapsed()
     );
     assert_eq!(actual.len(), expected.len());
@@ -537,6 +538,76 @@ fn material_path_splits_at_fold_instead_of_cutting_through_surface() {
     let length: f64 = points.windows(2).map(|p| p[0].distance(p[1])).sum();
     assert!((length - 0.4).abs() < 1e-12);
     assert!(points[0].distance(*points.last().unwrap()) < length - 0.1);
+}
+
+#[test]
+fn close_triangle_crossings_follow_non_affine_surface() {
+    let mut template = GarmentTemplate::two_panel_demo();
+    template.seams.clear();
+    template.panels[0].pattern.nx = 2;
+    template.panels[0].pattern.ny = 2;
+    let garment = template.compile().unwrap();
+    let mut x = garment.initial_state.x.clone();
+    for i in garment.panels[0].vertices.clone() {
+        let uv = garment.mesh.uv[i];
+        x[i] = DVec3::new(
+            uv.x,
+            uv.y,
+            if uv.distance(DVec2::new(0.2, 0.3)) < 1e-12 {
+                1.
+            } else {
+                0.
+            },
+        );
+    }
+    let y = 0.3 + 1e-11;
+    for (start, end) in [(0.01, 0.39), (0.39, 0.01)] {
+        let path = MaterialPath {
+            panel: "left".into(),
+            points: vec![DVec2::new(start, y), DVec2::new(end, y)],
+        };
+        for embedded in [
+            garment.embed_path(&path).unwrap(),
+            garment.embed_path_bounded(&path).unwrap(),
+        ] {
+            for k in -30..=30 {
+                let u = 0.2 + k as f64 * 1e-12;
+                let uv = DVec2::new(u, y);
+                let expected = garment.mesh.triangles[garment.panels[0].triangles.clone()]
+                    .iter()
+                    .find_map(|triangle| {
+                        let b = triangle.inv_dm * (uv - triangle.rest[0]);
+                        let w = [1. - b.x - b.y, b.x, b.y];
+                        w.iter().all(|weight| *weight >= -1e-14).then(|| {
+                            triangle
+                                .vertices
+                                .iter()
+                                .zip(w)
+                                .map(|(index, weight)| x[*index] * weight)
+                                .sum::<DVec3>()
+                        })
+                    })
+                    .expect("sample belongs to mesh");
+                let pair = embedded
+                    .windows(2)
+                    .find(|pair| {
+                        let a = pair[0].uv.x;
+                        let b = pair[1].uv.x;
+                        u >= a.min(b) && u <= a.max(b) && a != b
+                    })
+                    .expect("sample covered by embedded path");
+                let ratio = (u - pair[0].uv.x) / (pair[1].uv.x - pair[0].uv.x);
+                let actual = pair[0]
+                    .evaluate(&x)
+                    .unwrap()
+                    .lerp(pair[1].evaluate(&x).unwrap(), ratio);
+                assert!(
+                    actual.distance(expected) < 1e-13,
+                    "u={u:.15} actual={actual:?} expected={expected:?}"
+                );
+            }
+        }
+    }
 }
 
 #[test]

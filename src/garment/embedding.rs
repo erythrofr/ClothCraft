@@ -130,6 +130,7 @@ impl MaterialIndex {
         }
         let query = Bounds::points([uv.extend(0.)]);
         let mut best: Option<(usize, [f64; 3])> = None;
+        let mut strict: Option<(usize, [f64; 3])> = None;
         let mut index = 0;
         while index < self.nodes.len() {
             charge(work, 1)?;
@@ -145,18 +146,22 @@ impl MaterialIndex {
                         continue;
                     }
                     let triangle = self.first + id;
-                    if best.as_ref().is_some_and(|(old, _)| triangle >= *old) {
-                        continue;
-                    }
                     let w = weights(g, triangle, uv);
                     if w.iter().all(|v| *v >= -1e-10 && *v <= 1.0 + 1e-10) {
-                        best = Some((triangle, w));
+                        if best.as_ref().is_none_or(|(old, _)| triangle < *old) {
+                            best = Some((triangle, w));
+                        }
+                        if w.iter().all(|v| *v >= 0. && *v <= 1.)
+                            && strict.as_ref().is_none_or(|(old, _)| triangle < *old)
+                        {
+                            strict = Some((triangle, w));
+                        }
                     }
                 }
             }
             index += 1;
         }
-        let Some((triangle, weights)) = best else {
+        let Some((triangle, weights)) = strict.or(best) else {
             return Err(format!("Material coordinate {uv:?} outside panel {panel}"));
         };
         Ok(EmbeddedPoint {
@@ -226,16 +231,7 @@ impl CompiledGarment {
                 continue;
             }
             let candidates = index.segment_candidates(segment[0], segment[1], &mut work)?;
-            let (breaks, probes) =
-                self.material_breaks(candidates.into_iter(), segment[0], segment[1]);
-            for probe in probes {
-                index.point(
-                    self,
-                    &path.panel,
-                    segment[0].lerp(segment[1], probe),
-                    &mut work,
-                )?;
-            }
+            let breaks = self.material_breaks(candidates.into_iter(), segment[0], segment[1]);
             for interval in breaks.windows(2) {
                 if result.len() >= 4096 {
                     return Err("Material path exceeds the attachment limit".into());
@@ -262,7 +258,7 @@ impl CompiledGarment {
         triangles: impl Iterator<Item = usize>,
         start: DVec2,
         end: DVec2,
-    ) -> (Vec<f64>, Vec<f64>) {
+    ) -> Vec<f64> {
         let mut breaks = vec![0.0, 1.0];
         for triangle in triangles {
             let a = weights(self, triangle, start);
@@ -287,18 +283,14 @@ impl CompiledGarment {
             }
         }
         breaks.sort_by(f64::total_cmp);
-        // Preserve coverage checks for narrow intervals that output-point
-        // deduplication would otherwise erase, including small holes.
+        // Preserve distinct crossings even when their parameter values are
+        // very close: each can represent a genuine fold after deformation.
+        // The caller checks every interval for narrow gaps and holes.
         breaks.dedup();
-        let probes = breaks
-            .windows(2)
-            .filter(|pair| pair[1] - pair[0] < 1e-10)
-            .map(|pair| (pair[0] + pair[1]) * 0.5)
-            .collect();
-        breaks.dedup_by(|a, b| (*a - *b).abs() < 1e-10);
-        (breaks, probes)
+        breaks
     }
-    /// Boundary ties resolve to the first triangle in deterministic mesh order.
+    /// Prefer actual containment, then the first tolerated boundary triangle.
+    /// Ties within either class resolve in deterministic mesh order.
     pub fn embed_point(&self, panel: &str, uv: DVec2) -> Result<EmbeddedPoint, String> {
         if !uv.is_finite() {
             return Err("Non-finite material coordinate".into());
@@ -309,15 +301,25 @@ impl CompiledGarment {
             .find(|p| p.id == panel)
             .ok_or_else(|| format!("Unknown panel {panel}"))?;
         validate_triangle_range(self, &range.triangles)?;
+        let mut tolerant = None;
         for triangle in range.triangles.clone() {
             let w = weights(self, triangle, uv);
             if w.iter().all(|v| *v >= -1e-10 && *v <= 1.0 + 1e-10) {
-                return Ok(EmbeddedPoint {
+                let point = EmbeddedPoint {
                     vertices: self.mesh.triangles[triangle].vertices,
                     weights: w,
                     uv,
-                });
+                };
+                if w.iter().all(|v| *v >= 0. && *v <= 1.) {
+                    return Ok(point);
+                }
+                if tolerant.is_none() {
+                    tolerant = Some(point);
+                }
             }
+        }
+        if let Some(point) = tolerant {
+            return Ok(point);
         }
         Err(format!("Material coordinate {uv:?} outside panel {panel}"))
     }
@@ -336,11 +338,7 @@ impl CompiledGarment {
             if segment[0].distance_squared(segment[1]) < 1e-24 {
                 continue;
             }
-            let (breaks, probes) =
-                self.material_breaks(range.triangles.clone(), segment[0], segment[1]);
-            for probe in probes {
-                self.embed_point(&path.panel, segment[0].lerp(segment[1], probe))?;
-            }
+            let breaks = self.material_breaks(range.triangles.clone(), segment[0], segment[1]);
             for interval in breaks.windows(2) {
                 // Reject paths crossing holes if arbitrary panels are added later.
                 self.embed_point(
