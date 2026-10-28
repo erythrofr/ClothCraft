@@ -42,6 +42,16 @@ fn weights(g: &CompiledGarment, triangle: usize, uv: DVec2) -> [f64; 3] {
     [1.0 - b.x - b.y, b.x, b.y]
 }
 
+fn validate_triangle_range(
+    g: &CompiledGarment,
+    range: &std::ops::Range<usize>,
+) -> Result<(), String> {
+    if range.start >= range.end || range.end > g.mesh.triangles.len() {
+        return Err("Invalid compiled panel triangle range".into());
+    }
+    Ok(())
+}
+
 /// An ephemeral material-space index. It is rebuilt for each bounded path and
 /// never persisted or used as a collision structure.
 struct MaterialIndex {
@@ -63,9 +73,7 @@ fn charge(work: &mut usize, amount: usize) -> Result<(), String> {
 impl MaterialIndex {
     fn new(g: &CompiledGarment, range: std::ops::Range<usize>) -> Result<Self, String> {
         use crate::ogc::bvh::{Bounds, Bvh};
-        if range.start >= range.end || range.end > g.mesh.triangles.len() {
-            return Err("Invalid compiled panel triangle range".into());
-        }
+        validate_triangle_range(g, &range)?;
         if range.len() > 100_000 {
             return Err("Material path exceeds the triangle limit".into());
         }
@@ -248,6 +256,7 @@ impl CompiledGarment {
             .iter()
             .find(|p| p.id == panel)
             .ok_or_else(|| format!("Unknown panel {panel}"))?;
+        validate_triangle_range(self, &range.triangles)?;
         for triangle in range.triangles.clone() {
             let w = weights(self, triangle, uv);
             if w.iter().all(|v| *v >= -1e-10 && *v <= 1.0 + 1e-10) {

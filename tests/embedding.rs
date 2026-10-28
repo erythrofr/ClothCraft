@@ -354,6 +354,41 @@ fn bounded_path_rejects_invalid_compiled_panel_triangle_ranges() {
 }
 
 #[test]
+fn exhaustive_embedding_rejects_invalid_compiled_panel_triangle_ranges() {
+    let original = GarmentTemplate::two_panel_demo().compile().unwrap();
+    let path = MaterialPath {
+        panel: "left".into(),
+        points: vec![DVec2::new(0.05, 0.05), DVec2::new(0.1, 0.1)],
+    };
+    assert!(original.embed_point("left", path.points[0]).is_ok());
+    assert!(original.embed_path(&path).is_ok());
+    let count = original.mesh.triangles.len();
+    for range in [
+        0..count + 1,
+        count + 1..count + 2,
+        std::ops::Range { start: 2, end: 1 },
+        0..0,
+    ] {
+        let mut garment = original.clone();
+        garment.panels[0].triangles = range.clone();
+        let path_error = garment
+            .embed_path(&path)
+            .expect_err("invalid range must not embed a path");
+        assert!(
+            path_error.contains("triangle range"),
+            "{range:?}: {path_error}"
+        );
+        let point_error = garment
+            .embed_point("left", path.points[0])
+            .expect_err("invalid range must not embed a point");
+        assert!(
+            point_error.contains("triangle range"),
+            "{range:?}: {point_error}"
+        );
+    }
+}
+
+#[test]
 fn indexed_path_rejects_finite_inverse_with_nonfinite_products() {
     let mut garment = GarmentTemplate::two_panel_demo().compile().unwrap();
     let index = garment.panels[0].triangles.start;
