@@ -1799,16 +1799,19 @@ mod tests {
             },
         };
         template.trims.push(trim.clone());
-        for case in 0..10 {
-            let scenario = case % 5;
+        for case in 0..12 {
+            let scenario = case % 6;
             let mut trims = TrimUi::default();
-            if scenario <= 2 {
+            if scenario <= 2 || scenario == 5 {
                 let mut draft = TrimDraft::from_trim(&trim);
                 if scenario == 1 {
                     draft.base = None; // Unsaved creation.
                 }
                 if scenario == 2 {
                     draft.base.as_mut().unwrap().id = "stale".into();
+                }
+                if scenario == 5 {
+                    draft.repeat = true;
                 }
                 trims.draft = Some(draft);
             }
@@ -1821,7 +1824,7 @@ mod tests {
                     physical_key: None,
                     pressed: true,
                     repeat: false,
-                    modifiers: if case >= 5 {
+                    modifiers: if case >= 6 {
                         egui::Modifiers {
                             ctrl: true,
                             command: true,
@@ -1849,7 +1852,7 @@ mod tests {
             let (routed, later) = observed.unwrap();
             match scenario {
                 0 => assert!(matches!(routed, Some(Ok(Command::RemoveTrim { .. })))),
-                1 | 2 => assert!(matches!(routed, Some(Err(_)))),
+                1 | 2 | 5 => assert!(matches!(routed, Some(Err(_)))),
                 3 => assert!(matches!(routed, Some(Ok(Command::RemovePanels { .. })))),
                 _ => assert!(routed.is_none()),
             }
