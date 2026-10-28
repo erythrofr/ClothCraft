@@ -690,9 +690,19 @@ impl eframe::App for Atelier {
         let previous_simulation = self.settings.clone();
         let profiles_blocked = self.profiles.open;
         let profile_path = self.output.join(workspace_profiles::FILE_NAME);
-        let presentation = workspace_profiles::Snapshot::capture(&self.prefs, self.tools_visible);
+        let presentation = workspace_profiles::Snapshot::capture(
+            &self.prefs,
+            self.tools_visible,
+            self.wire,
+            self.seam_links,
+        );
         if let Some(snapshot) = self.profiles.show(&ctx, &profile_path, &presentation) {
-            snapshot.apply(&mut self.prefs, &mut self.tools_visible);
+            snapshot.apply(
+                &mut self.prefs,
+                &mut self.tools_visible,
+                &mut self.wire,
+                &mut self.seam_links,
+            );
         }
         let palette_idle = !profiles_blocked
             && !self.settings_open

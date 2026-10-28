@@ -15,6 +15,10 @@ pub(super) struct Snapshot {
     layout: WorkspaceLayout,
     appearance: Appearance,
     tools_visible: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    wireframe: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    seam_links: Option<bool>,
 }
 impl Default for Snapshot {
     fn default() -> Self {
@@ -22,29 +26,53 @@ impl Default for Snapshot {
             layout: Default::default(),
             appearance: Default::default(),
             tools_visible: true,
+            wireframe: None,
+            seam_links: None,
         }
     }
 }
 impl Snapshot {
-    pub fn capture(prefs: &Preferences, tools_visible: bool) -> Self {
+    pub fn capture(
+        prefs: &Preferences,
+        tools_visible: bool,
+        wireframe: bool,
+        seam_links: bool,
+    ) -> Self {
         let mut snapshot = Self {
             layout: prefs.workspace.clone(),
             appearance: prefs.viewport.clone(),
             tools_visible,
+            wireframe: Some(wireframe),
+            seam_links: Some(seam_links),
         };
         snapshot.sanitize();
         snapshot
+    }
+    fn has_overlay_settings(&self) -> bool {
+        self.wireframe.is_some() || self.seam_links.is_some()
     }
     fn sanitize(&mut self) {
         self.layout.sanitize();
         self.appearance.sanitize();
     }
-    pub fn apply(&self, prefs: &mut Preferences, tools_visible: &mut bool) {
+    pub fn apply(
+        &self,
+        prefs: &mut Preferences,
+        tools_visible: &mut bool,
+        wireframe: &mut bool,
+        seam_links: &mut bool,
+    ) {
         let mut safe = self.clone();
         safe.sanitize();
         prefs.workspace = safe.layout;
         prefs.viewport = safe.appearance;
         *tools_visible = safe.tools_visible;
+        if let Some(value) = safe.wireframe {
+            *wireframe = value;
+        }
+        if let Some(value) = safe.seam_links {
+            *seam_links = value;
+        }
     }
 }
 
@@ -92,7 +120,7 @@ impl Store {
         }
         let mut store: Self =
             serde_json::from_str(&text).map_err(|e| format!("Invalid workspace profiles: {e}"))?;
-        if store.version != 1 || store.profiles.len() > MAX_PROFILES {
+        if !matches!(store.version, 1 | 2) || store.profiles.len() > MAX_PROFILES {
             return Err("Unsupported profile version or too many profiles".into());
         }
         let mut names = std::collections::BTreeSet::new();
@@ -102,6 +130,16 @@ impl Store {
                 return Err("Duplicate workspace profile names".into());
             }
             profile.snapshot.sanitize();
+        }
+        // Early preview builds wrote overlay fields as version 1. Once such a
+        // file is loaded, every subsequent write must use the newer version,
+        // even if the last overlay profile is later removed.
+        if store
+            .profiles
+            .iter()
+            .any(|p| p.snapshot.has_overlay_settings())
+        {
+            store.version = 2;
         }
         Ok(store)
     }
@@ -121,6 +159,9 @@ impl Store {
             .position(|p| p.name.to_lowercase() == name.to_lowercase());
         let mut snapshot = snapshot;
         snapshot.sanitize();
+        if snapshot.has_overlay_settings() {
+            next.version = 2;
+        }
         match (found, replace) {
             (Some(index), true) => {
                 next.profiles[index] = Profile {
@@ -240,7 +281,7 @@ impl ProfileUi {
         let modal = egui::Modal::new(egui::Id::new("workspace-profiles")).show(ctx, |ui| {
             ui.set_width((ctx.content_rect().width()-64.).clamp(200.,500.));
             ui.heading("Workspace profiles");
-            ui.small("Layout, viewport appearance and tool rail only. Garment and simulation settings stay unchanged.");
+            ui.small("Layout, viewport, tool rail and overlay visibility. Garment and simulation settings stay unchanged.");
             if let Some(error)=&self.error { ui.colored_label(egui::Color32::LIGHT_RED,error); }
             if self.store.is_none() {
                 ui.label("The existing file is preserved. Fix it or move it aside, then retry.");
@@ -333,17 +374,51 @@ mod tests {
         path: std::path::PathBuf,
         prefs: Preferences,
         tools: bool,
+        wire: bool,
+        seams: bool,
     }
     fn draw(ui: &mut egui::Ui, c: &mut Case) {
-        let current = Snapshot::capture(&c.prefs, c.tools);
+        let current = Snapshot::capture(&c.prefs, c.tools, c.wire, c.seams);
         if let Some(snapshot) = c.ui.show(ui.ctx(), &c.path, &current) {
-            snapshot.apply(&mut c.prefs, &mut c.tools);
+            snapshot.apply(&mut c.prefs, &mut c.tools, &mut c.wire, &mut c.seams);
         }
     }
     fn frames(h: &mut Harness, c: &mut Case) {
         for _ in 0..5 {
             h.frame(c, &mut draw);
         }
+    }
+    #[test]
+    fn named_save_and_restore_recalls_live_overlays() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(FILE_NAME);
+        let mut c = Case {
+            ui: ProfileUi::default(),
+            path: path.clone(),
+            prefs: Preferences::default(),
+            tools: true,
+            wire: true,
+            seams: false,
+        };
+        let original_prefs = c.prefs.clone();
+        c.ui.begin(&path);
+        let mut h = Harness::new(egui::vec2(1100., 700.));
+        frames(&mut h, &mut c);
+        h.replace_text("profiles.name", "Clean", &mut c, &mut draw)
+            .unwrap();
+        h.click("profiles.save", &mut c, &mut draw).unwrap();
+        c.wire = false;
+        c.seams = true;
+        c.ui.begin(&path);
+        frames(&mut h, &mut c);
+        h.click("profiles.row.0", &mut c, &mut draw).unwrap();
+        h.click("profiles.restore", &mut c, &mut draw).unwrap();
+        assert!(c.wire);
+        assert!(!c.seams);
+        assert_eq!(c.prefs, original_prefs);
+        let reloaded = Store::load(&path).unwrap();
+        assert_eq!(reloaded.profiles[0].snapshot.wireframe, Some(true));
+        assert_eq!(reloaded.profiles[0].snapshot.seam_links, Some(false));
     }
     #[test]
     fn duplicate_selected_uses_saved_snapshot_and_survives_reload() {
@@ -361,6 +436,8 @@ mod tests {
             path: path.clone(),
             prefs: Preferences::default(),
             tools: true,
+            wire: false,
+            seams: true,
         };
         c.ui.begin(&path);
         // Exercise the application's configured minimum desktop viewport.
@@ -438,9 +515,11 @@ mod tests {
             path: path.clone(),
             prefs: Preferences::default(),
             tools: true,
+            wire: false,
+            seams: true,
         };
         c.prefs.workspace.split = 0.7;
-        let before = Snapshot::capture(&c.prefs, c.tools);
+        let before = Snapshot::capture(&c.prefs, c.tools, c.wire, c.seams);
         c.ui.begin(&path);
         let mut h = Harness::new(egui::vec2(1000., 1000.));
         frames(&mut h, &mut c);
@@ -450,7 +529,10 @@ mod tests {
         h.click("profiles.rename", &mut c, &mut draw).unwrap();
         frames(&mut h, &mut c);
         assert_eq!(c.ui.selected.as_deref(), Some("Sewing"));
-        assert_eq!(Snapshot::capture(&c.prefs, c.tools), before);
+        assert_eq!(
+            Snapshot::capture(&c.prefs, c.tools, c.wire, c.seams),
+            before
+        );
         let reloaded = Store::load(&path).unwrap();
         assert_eq!(reloaded.profiles[0].name, "Sewing");
         assert_eq!(reloaded.profiles[0].snapshot, saved);
@@ -546,6 +628,8 @@ mod tests {
             path: dir.path().join(FILE_NAME),
             prefs: Preferences::default(),
             tools: false,
+            wire: false,
+            seams: true,
         };
         c.ui.begin(&c.path);
         c.prefs.workspace.split = 0.7;
@@ -598,6 +682,8 @@ mod tests {
             path,
             prefs: Preferences::default(),
             tools: true,
+            wire: false,
+            seams: true,
         };
         c.ui.begin(&c.path);
         let mut h = Harness::new(egui::vec2(1000., 1000.));
@@ -615,7 +701,7 @@ mod tests {
         let mut prefs = Preferences::default();
         prefs.workspace.split = 0.7;
         prefs.viewport.floor = false;
-        let snapshot = Snapshot::capture(&prefs, false);
+        let snapshot = Snapshot::capture(&prefs, false, true, false);
         store
             .save_profile(&path, "Drafting", snapshot.clone(), false)
             .unwrap();
@@ -632,7 +718,11 @@ mod tests {
         prefs.snap_mm = 17.;
         prefs.workspace.split = 0.3;
         let mut tools = true;
-        snapshot.apply(&mut prefs, &mut tools);
+        let mut wire = false;
+        let mut seams = true;
+        snapshot.apply(&mut prefs, &mut tools, &mut wire, &mut seams);
+        assert!(wire);
+        assert!(!seams);
         assert_eq!(prefs.dt, 0.02);
         assert_eq!(prefs.iterations, 55);
         assert_eq!(prefs.snap_mm, 17.);
@@ -643,6 +733,73 @@ mod tests {
             .unwrap();
         store.remove(&path, "Drafting").unwrap();
         assert!(Store::load(&path).unwrap().profiles.is_empty());
+    }
+    #[test]
+    fn overlay_profiles_upgrade_the_format_and_do_not_downgrade() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(FILE_NAME);
+        std::fs::write(
+            &path,
+            r#"{"version":1,"profiles":[{"name":"Legacy","snapshot":{}}]}"#,
+        )
+        .unwrap();
+        let mut store = Store::load(&path).unwrap();
+        assert_eq!(store.version, 1);
+        let overlay = Snapshot {
+            wireframe: Some(true),
+            seam_links: Some(false),
+            ..Default::default()
+        };
+        store
+            .save_profile(&path, "Overlay", overlay, false)
+            .unwrap();
+        let json: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        assert_eq!(json["version"], 2);
+        assert_eq!(json["profiles"][1]["snapshot"]["wireframe"], true);
+        let mut reopened = Store::load(&path).unwrap();
+        reopened.rename(&path, "Legacy", "Renamed").unwrap();
+        reopened
+            .save_profile(&path, "Overlay", Snapshot::default(), true)
+            .unwrap();
+        assert_eq!(Store::load(&path).unwrap().version, 2);
+        reopened.remove(&path, "Overlay").unwrap();
+        assert_eq!(Store::load(&path).unwrap().version, 2);
+    }
+
+    #[test]
+    fn preview_v1_overlay_files_upgrade_on_the_next_write() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(FILE_NAME);
+        std::fs::write(
+            &path,
+            r#"{"version":1,"profiles":[{"name":"Preview","snapshot":{"wireframe":true}}]}"#,
+        )
+        .unwrap();
+        let mut store = Store::load(&path).unwrap();
+        assert_eq!(store.version, 2);
+        store.remove(&path, "Preview").unwrap();
+        let json: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        assert_eq!(json["version"], 2);
+    }
+
+    #[test]
+    fn legacy_profiles_preserve_current_overlays_and_startup_preferences() {
+        let snapshot: Snapshot = serde_json::from_str("{}").unwrap();
+        let mut prefs = Preferences {
+            wireframe: false,
+            seam_links: true,
+            ..Preferences::default()
+        };
+        let mut tools = false;
+        let mut wire = true;
+        let mut seams = false;
+        snapshot.apply(&mut prefs, &mut tools, &mut wire, &mut seams);
+        assert!(wire);
+        assert!(!seams);
+        assert!(!prefs.wireframe);
+        assert!(prefs.seam_links);
     }
     #[test]
     fn schema_defaults_bounds_and_resource_limits() {
@@ -664,7 +821,7 @@ mod tests {
         assert_eq!(bounded.profiles[0].snapshot.layout.inspector_width, 240.);
         assert_eq!(bounded.profiles[0].snapshot.appearance.shadow_opacity, 0.8);
         for text in [
-            r#"{"version":2,"profiles":[]}"#,
+            r#"{"version":3,"profiles":[]}"#,
             r#"{"version":1,"profiles":[{"name":"A","snapshot":{}},{"name":"a","snapshot":{}}]}"#,
         ] {
             std::fs::write(&path, text).unwrap();
