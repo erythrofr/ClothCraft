@@ -52,6 +52,9 @@ new or modified trim draft before it reaches document history. Redo is
 unavailable while such a step is pending. Selecting an unchanged saved trim
 does not block history. Text editing retains its own keyboard shortcuts.
 
+In Edit mode, the 2D and 3D placement/drawing buttons require their respective
+view to be open. Hiding the target view preserves the draft and any staged path
+points; restore the view to continue or cancel the gesture in the inspector.
 In the Piece inspector, expand **Construction trims**, choose a type and click
 **New**. Edit local X, Y coordinates in millimetres; paths use one comma-separated
 pair per line. **Position first point on 2D board** moves the whole draft by a
