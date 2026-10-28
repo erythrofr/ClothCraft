@@ -335,6 +335,22 @@ struct Atelier {
     smoke_captured: bool,
     smoke_initial: Vec<glam::DVec3>,
 }
+/// Reject example replacement when a trim draft has not been committed.
+fn check_trim_draft_for_command(
+    id: commands::CommandId,
+    trim_pending: bool,
+) -> Result<(), &'static str> {
+    if trim_pending
+        && matches!(
+            id,
+            commands::CommandId::LoadTshirt | commands::CommandId::LoadDress
+        )
+    {
+        return Err("Apply or cancel the trim draft before loading an example");
+    }
+    Ok(())
+}
+
 /// Retired worker generations cannot overwrite an edit or a restored preview.
 fn current_worker_result(done: Option<worker::Done>, generation: u64) -> Option<worker::Done> {
     done.filter(|d| d.generation == generation)
@@ -373,6 +389,8 @@ impl Atelier {
         use commands::CommandId as Id;
         commands::availability(id, self.command_context())
             .map_err(|reason| reason.message().to_owned())?;
+        check_trim_draft_for_command(id, self.authoring.trims.has_pending_history_step())
+            .map_err(str::to_owned)?;
         match id {
             Id::ToggleSimulation => {
                 if self.playing {
@@ -1033,6 +1051,22 @@ impl eframe::App for Atelier {
 #[cfg(test)]
 mod command_action_tests {
     use super::*;
+
+    #[test]
+    fn pending_trim_draft_prevents_example_replacement_but_not_other_commands() {
+        use commands::CommandId;
+        for id in [CommandId::LoadTshirt, CommandId::LoadDress] {
+            assert!(check_trim_draft_for_command(id, true).is_err());
+            assert!(check_trim_draft_for_command(id, false).is_ok());
+        }
+        for id in [
+            CommandId::ToolEdit,
+            CommandId::SplitView,
+            CommandId::ToggleSimulation,
+        ] {
+            assert!(check_trim_draft_for_command(id, true).is_ok());
+        }
+    }
 
     #[test]
     fn simulation_submission_reports_disconnection_without_running_a_solver() {
