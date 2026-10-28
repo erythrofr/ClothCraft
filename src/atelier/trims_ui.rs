@@ -1826,6 +1826,64 @@ mod tests {
     use marvelous_cloth::garment::GarmentTemplate;
 
     #[test]
+    fn trim_controls_report_pending_work_for_pin_mode_exclusion() {
+        use super::super::authoring_smoke::widget_harness::Harness;
+        struct Case {
+            ui: TrimUi,
+            template: GarmentTemplate,
+        }
+        let mut template = GarmentTemplate::two_panel_demo();
+        let trim = Trim {
+            id: "trim_1".into(),
+            panel_id: template.panels[0].id.clone(),
+            kind: TrimKind::Button {
+                center_m: DVec2::new(0.1, 0.1),
+                diameter_m: 0.01,
+            },
+        };
+        template.trims.push(trim);
+        let before = serde_json::to_vec(&template).unwrap();
+        let mut c = Case {
+            ui: TrimUi::default(),
+            template,
+        };
+        let mut draw = |ui: &mut egui::Ui, c: &mut Case| {
+            let panel = c.template.panels[0].clone();
+            assert!(trim_controls(ui, &mut c.ui, &c.template, &panel, true).is_none());
+        };
+        let mut h = Harness::new(egui::vec2(1000., 900.));
+        h.frame(&mut c, &mut draw);
+        h.click("trim.section", &mut c, &mut draw).unwrap();
+        h.frame(&mut c, &mut draw);
+        assert!(!c.ui.has_pending_history_step());
+        h.click("trim.edit.trim_1", &mut c, &mut draw).unwrap();
+        assert!(!c.ui.has_pending_history_step());
+        h.frame(&mut c, &mut draw);
+        h.click("trim.repeat", &mut c, &mut draw).unwrap();
+        assert!(c.ui.has_pending_history_step());
+        h.frame(&mut c, &mut draw);
+        h.click("trim.repeat.cancel", &mut c, &mut draw).unwrap();
+        assert!(!c.ui.has_pending_history_step());
+        h.frame(&mut c, &mut draw);
+        h.click("trim.place_3d", &mut c, &mut draw).unwrap();
+        assert!(c.ui.has_pending_history_step());
+        c.ui.cancel_board_placement();
+        assert!(!c.ui.has_pending_history_step());
+        h.frame(&mut c, &mut draw);
+        h.replace_text("trim.width", "invalid", &mut c, &mut draw)
+            .unwrap();
+        assert!(c.ui.has_pending_history_step());
+        h.click("trim.cancel", &mut c, &mut draw).unwrap();
+        assert!(!c.ui.has_pending_history_step());
+        h.frame(&mut c, &mut draw);
+        h.click("trim.new", &mut c, &mut draw).unwrap();
+        assert!(c.ui.has_pending_history_step());
+        h.click("trim.cancel", &mut c, &mut draw).unwrap();
+        assert!(!c.ui.has_pending_history_step());
+        assert_eq!(serde_json::to_vec(&c.template).unwrap(), before);
+    }
+
+    #[test]
     fn pending_trim_history_cancels_gesture_then_draft_without_touching_history() {
         let mut template = GarmentTemplate::two_panel_demo();
         let trim = Trim {
