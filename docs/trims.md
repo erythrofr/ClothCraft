@@ -145,6 +145,11 @@ median 10.09 ms, p95 11.06 ms for draft update and preview rebuilding; unchanged
 cache checks were median 0.001 ms. This excludes rendering, visibility, window
 input, GPU and simulation. It is one synthetic machine result, not a frame-rate
 claim; rebuilding the material index on every changed path warrants profiling.
+With a one-panel immutable index cache on the same fixture, a follow-up run
+measured median 0.577 ms and p95 0.705 ms for changed drafts (18 samples).
+The cache is invalidated on garment replacement/remesh and is not used for
+physics. It holds at most one panel, so alternating panels can rebuild it; the
+measurement still excludes rendering, visibility, GPU and simulation.
 
 One local CPU test with 10,000 synthetic triangles and 1,536 rays measured
 170.29 ms exhaustive versus 5.94 ms including BVH construction; after moving

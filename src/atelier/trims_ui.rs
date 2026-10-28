@@ -21,6 +21,7 @@ pub(super) struct TrimUi {
     visibility: super::selection::ClothVisibilityCache,
     text_focus: bool,
     board_drag: Option<TrimBoardDrag>,
+    material_index: Option<marvelous_cloth::garment::embedding::MaterialPathIndex>,
 }
 
 struct TrimPreview {
@@ -746,9 +747,18 @@ fn prepare_repeat(
     Ok(edit)
 }
 
+#[cfg(test)]
 fn build_preview(
     garment: std::sync::Arc<marvelous_cloth::garment::CompiledGarment>,
     trims: &[Trim],
+) -> Result<TrimPreview, String> {
+    build_preview_cached(garment, trims, &mut None)
+}
+
+fn build_preview_cached(
+    garment: std::sync::Arc<marvelous_cloth::garment::CompiledGarment>,
+    trims: &[Trim],
+    cache: &mut Option<marvelous_cloth::garment::embedding::MaterialPathIndex>,
 ) -> Result<TrimPreview, String> {
     use marvelous_cloth::garment::embedding::MaterialPath;
     if trims.len() > 128 {
@@ -853,7 +863,20 @@ fn build_preview(
                     points,
                 };
                 if indexed {
-                    garment.embed_path_bounded(&path)
+                    if !cache
+                        .as_ref()
+                        .is_some_and(|index| index.matches(&garment, &trim.panel_id))
+                    {
+                        *cache = marvelous_cloth::garment::embedding::MaterialPathIndex::new(
+                            garment.clone(),
+                            &trim.panel_id,
+                        )
+                        .ok();
+                    }
+                    cache
+                        .as_ref()
+                        .ok_or_else(|| "Cannot index the trim panel".to_owned())
+                        .and_then(|index| index.embed(&path))
                 } else {
                     garment.embed_path(&path)
                 }
@@ -1183,10 +1206,18 @@ impl TrimUi {
         garment: &std::sync::Arc<marvelous_cloth::garment::CompiledGarment>,
         trims: &[Trim],
     ) {
+        if self
+            .material_index
+            .as_ref()
+            .is_some_and(|index| !index.matches_garment(garment))
+        {
+            self.material_index = None;
+        }
         if trims.is_empty() {
             self.preview = None;
             self.preview_error = None;
             self.preview_warning = None;
+            self.material_index = None;
             return;
         }
         let input_points: usize = trims
@@ -1216,7 +1247,7 @@ impl TrimUi {
                 self.preview_warning = Some(error.clone());
                 return;
             }
-            match build_preview(garment.clone(), trims) {
+            match build_preview_cached(garment.clone(), trims, &mut self.material_index) {
                 Ok(preview) => {
                     self.preview = Some(preview);
                     self.preview_error = None;
@@ -5163,5 +5194,75 @@ mod tests {
         ));
         ui.refresh_preview(&remeshed, &[]);
         assert!(ui.preview.is_none());
+    }
+
+    #[test]
+    fn material_index_cache_tracks_mesh_and_panel_for_preview() {
+        use std::sync::Arc;
+        let mut template = GarmentTemplate::two_panel_demo();
+        template.panels[0].pattern.nx = 100;
+        template.panels[0].pattern.ny = 100;
+        let garment = Arc::new(template.compile().unwrap());
+        let panel = template.panels[0].id.clone();
+        let points: Vec<_> = (0..80)
+            .map(|i| DVec2::new(0.05 + i as f64 * 0.003, 0.3))
+            .collect();
+        let mut trim = Trim {
+            id: "cached".into(),
+            panel_id: panel.clone(),
+            kind: TrimKind::Topstitch {
+                path_m: points,
+                rows: 1,
+                spacing_m: 0.001,
+            },
+        };
+        let mut state = TrimUi::default();
+        state.refresh_preview(&garment, std::slice::from_ref(&trim));
+        assert!(
+            state
+                .material_index
+                .as_ref()
+                .unwrap()
+                .matches(&garment, &panel)
+        );
+        if let TrimKind::Topstitch { path_m, .. } = &mut trim.kind {
+            for p in path_m {
+                p.y += 0.001;
+            }
+        }
+        state.refresh_preview(&garment, std::slice::from_ref(&trim));
+        assert!(
+            state
+                .material_index
+                .as_ref()
+                .unwrap()
+                .matches(&garment, &panel)
+        );
+        let TrimKind::Topstitch { path_m, .. } = &trim.kind else {
+            unreachable!()
+        };
+        let direct = garment
+            .embed_path_bounded(&marvelous_cloth::garment::embedding::MaterialPath {
+                panel: panel.clone(),
+                points: path_m.clone(),
+            })
+            .unwrap();
+        let cached = &state.preview.as_ref().unwrap().paths[0].2;
+        assert_eq!(direct.len(), cached.len());
+        for (a, b) in direct.iter().zip(cached) {
+            assert_eq!(a.vertices, b.vertices);
+            assert_eq!(a.weights, b.weights);
+        }
+        template.panels[0].pattern.nx = 101;
+        let remeshed = Arc::new(template.compile().unwrap());
+        state.refresh_preview(&remeshed, std::slice::from_ref(&trim));
+        assert!(
+            state
+                .material_index
+                .as_ref()
+                .is_none_or(|index| index.matches_garment(&remeshed))
+        );
+        state.refresh_preview(&remeshed, &[]);
+        assert!(state.material_index.is_none());
     }
 }
