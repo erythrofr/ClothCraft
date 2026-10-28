@@ -27,6 +27,7 @@ pub(super) struct AuthoringUi {
     pub construction: ConstructionDraft,
     pub sewing: super::sewing_ui::SewingDraft,
     pub sewing_audit: super::sewing_ui::SewingAuditUi,
+    pub trims: super::trims_ui::TrimUi,
     pub radial: super::radial::Radial,
     pub selection: super::selection::Selection,
     pub tool: Tool,
@@ -1112,6 +1113,7 @@ impl Atelier {
         };
         ui.label(&panel.name);
         self.pin_properties(ui, &panel);
+        self.trim_properties(ui, &panel);
         if let Some(fabric) = self
             .project
             .template

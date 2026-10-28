@@ -58,6 +58,8 @@ mod settings;
 mod sewing_ui;
 #[path = "atelier/stage_settings.rs"]
 mod stage_settings;
+#[path = "atelier/trims_ui.rs"]
+mod trims_ui;
 #[cfg(test)]
 #[path = "atelier/ui_preview.rs"]
 mod ui_preview;

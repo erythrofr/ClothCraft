@@ -2474,6 +2474,7 @@ impl Atelier {
                 Stroke::new(0.5, Color32::from_gray(0xDC)),
             );
         }
+        let mut trim_preview_budget = 4096;
         if !self.authoring.replace {
             for (i, panel) in self.project.template.panels.iter().enumerate() {
                 let origin = self.board_origin(i);
@@ -2520,6 +2521,23 @@ impl Atelier {
                     }
                 }
                 painter.add(egui::Shape::mesh(mesh));
+                for trim in self
+                    .project
+                    .template
+                    .trims
+                    .iter()
+                    .filter(|t| t.panel_id == panel.id)
+                {
+                    super::trims_ui::paint_trim_2d(
+                        &painter,
+                        &point,
+                        trim,
+                        &mut trim_preview_budget,
+                    );
+                    if trim_preview_budget == 0 {
+                        break;
+                    }
+                }
                 for face in self.issue.faces.range(range.triangles.clone()) {
                     let triangle = &self.scene.garment.mesh.triangles[*face];
                     painter.add(egui::Shape::convex_polygon(
