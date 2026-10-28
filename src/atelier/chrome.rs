@@ -436,6 +436,7 @@ impl Atelier {
         );
         if !self.clean_view {
             self.issue_brush(ui, &response, rect);
+            self.paint_trims_3d(ui, rect);
             self.paint_edges_3d(ui, rect);
             self.paint_seam_links(&ui.painter().with_clip_rect(rect), rect, true);
             self.paint_sewing_ranges(ui, rect, true);

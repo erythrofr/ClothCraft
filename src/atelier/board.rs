@@ -1650,6 +1650,9 @@ impl Atelier {
     /// Point placement and point grabbing both use [`Board::resolve_snap`], so
     /// the coordinate that lands is the one the on-canvas indicator promised.
     fn board_press(&mut self, start: egui::Pos2, rect: egui::Rect, ctx: &egui::Context) {
+        if self.trim_board_placement_active() {
+            return;
+        }
         if self.authoring.tool == Tool::InternalLine && !self.internal_line_target(rect, start) {
             return;
         }
@@ -2238,7 +2241,11 @@ impl Atelier {
         if response.clicked()
             && let Some(pos) = pos
         {
-            if self.insert_hint_clicked(rect, pos) {
+            if self.place_trim_on_board(rect, pos) {
+                // Placement changes only the inspector draft until Apply.
+            } else if self.pick_trim_on_board(rect, pos) {
+                // A trim click opens its inspector draft.
+            } else if self.insert_hint_clicked(rect, pos) {
                 // Consumed by the visible insert marker.
             } else if let Some((panel, k)) = self.delete_badge_at(rect, pos) {
                 self.edit(Command::RemovePoint { panel, point: k });
@@ -2330,6 +2337,7 @@ impl Atelier {
         }
         if !response.ctx.egui_wants_keyboard_input() {
             if response.ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+                self.cancel_trim_board_placement();
                 self.authoring.board.clear_preview();
                 self.authoring.draft.clear();
                 self.authoring.tangents.clear();
@@ -2533,10 +2541,20 @@ impl Atelier {
                         &point,
                         trim,
                         &mut trim_preview_budget,
+                        Color32::from_rgb(0x9B, 0x42, 0x95),
                     );
                     if trim_preview_budget == 0 {
                         break;
                     }
+                }
+                if let Some(draft) = self.trim_draft_preview(&panel.id) {
+                    super::trims_ui::paint_trim_2d(
+                        &painter,
+                        &point,
+                        &draft,
+                        &mut trim_preview_budget,
+                        Color32::from_rgb(0xDB, 0x81, 0x05),
+                    );
                 }
                 for face in self.issue.faces.range(range.triangles.clone()) {
                     let triangle = &self.scene.garment.mesh.triangles[*face];

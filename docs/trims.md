@@ -15,6 +15,25 @@ replacing the whole garment and changing the material contour of a panel with
 trims are rejected until their mapping policies are implemented.
 
 Trim-only edits are classified as nonphysical and excluded from fitting mesh
-signatures. Native creation tools, visual previews, curved paths, attachment
-to named edges, manufacturing output and physically simulated closures are
-future work. No imported artwork or third-party assets are included.
+signatures.
+
+In the Piece inspector, expand **Construction trims**, choose a type and click
+**New**. Edit local X, Y coordinates in millimetres; paths use one comma-separated
+pair per line. **Position first point on 2D board** moves the whole draft by a
+click; **Apply** validates and commits once, while **Cancel** discards the draft.
+In Edit mode, clicking an existing trim on the board opens its inspector draft.
+The selected panel's board rotation and placement are respected. The 2D draft
+is amber; committed trims are purple. A changed or deleted object cannot be
+silently overwritten by a stale draft.
+
+The 3D overlay follows the deformed surface using transient material attachments,
+rebuilt after remeshing. It displays center lines or button markers, not actual
+hardware shapes or widths. Occlusion is sampled at line endpoints and midpoints,
+not per pixel. Preview work is bounded: at most 128 objects, 4096 input points,
+128 embedded points and a capped ray-test budget. Unsupported or out-of-panel
+objects are skipped with a warning; oversized scenes can hide the 3D preview.
+Clean view hides the 3D overlay. The 2D preview has a separate 4096-point budget.
+
+Curved paths, attachment to named edges, manufacturing output and physically
+simulated closures remain future work. Native-window appearance and performance
+require separate testing. No imported artwork or third-party assets are included.
