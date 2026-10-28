@@ -598,9 +598,10 @@ impl TrimDraft {
 }
 
 fn next_id(items: &[Trim]) -> String {
+    let used: std::collections::HashSet<&str> = items.iter().map(|trim| trim.id.as_str()).collect();
     (1..)
         .map(|i| format!("trim_{i}"))
-        .find(|id| items.iter().all(|t| &t.id != id))
+        .find(|id| !used.contains(id.as_str()))
         .unwrap()
 }
 
@@ -2936,6 +2937,25 @@ mod tests {
             .click(&format!("trim.edit.{}", mirrored.id), &mut case, &mut draw)
             .unwrap();
         assert_eq!(case.ui.draft.as_ref().unwrap().parse().unwrap(), mirrored);
+    }
+
+    #[test]
+    fn trim_ids_choose_lowest_unused_with_gaps_and_dense_inputs() {
+        let make = |id: String| Trim {
+            id,
+            panel_id: "panel".into(),
+            kind: TrimKind::Button {
+                center_m: DVec2::ZERO,
+                diameter_m: 0.01,
+            },
+        };
+        let mut items: Vec<_> = (1..=4096).map(|i| make(format!("trim_{i}"))).collect();
+        assert_eq!(next_id(&items), "trim_4097");
+        items.remove(1);
+        items.push(make("trim_02".into()));
+        items.push(make("trim_0".into()));
+        assert_eq!(next_id(&items), "trim_2");
+        assert_eq!(next_id(&[]), "trim_1");
     }
 
     #[test]
