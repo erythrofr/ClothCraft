@@ -643,7 +643,10 @@
         "src/atelier/authoring_smoke.rs",
         "src/atelier/chrome.rs",
         "src/atelier/edges_3d.rs",
+        "src/atelier/selection.rs",
         "src/render.rs",
+        "src/garment/embedding.rs",
+        "tests/embedding.rs",
         "tests/trim_authoring.rs",
         "src/atelier.rs",
         "docs/trims.md"
@@ -651,6 +654,7 @@
       "acceptance": [
         "Provide a native workflow to create, select, move, edit and delete all supported trim types, with explicit panel ownership, validation, cancellation and one undoable transaction per confirmed operation. Clearly label objects nonphysical.",
         "Display trim previews on the rotated/translated 2D panel and on the corresponding deformed 3D surface without changing rest geometry or simulation. Resolve material coordinates using transient attachments, invalidate them on remesh, bound work and report unsupported/out-of-panel geometry rather than silently misplace it.",
+        "For detailed panels, investigate bounded material-space embedding and reuse the existing editor visibility acceleration instead of quadratic path rejection or repeated exhaustive rays. Preserve deterministic triangle ties, hole rejection, current-position cache invalidation and safe failure; compare accelerated results with exhaustive CPU references, and measure cost without claiming simulation or window FPS gains. Never reuse an editor visibility cache as a collision guarantee.",
         "Exercise real controls and commands with the named-widget CPU harness, preview geometry and cache invalidation, rollback, undo/redo and Save/Open. Respect diagnostic overlays and visibility settings; distinguish CPU tests from opt-in native-window/GPU visual acceptance."
       ],
       "evidence": [
@@ -658,7 +662,7 @@
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/clo7NativeHardwareActions.js"
       ],
       "related_prs": [],
-      "notes": "The concrete persistent trim foundation merged in #195 (0df7bb5); it is sufficient to start the native workflow without waiting for the broader SEW-002 review of independent open contributions. SEW-002 remains open, and this change does not claim its acceptance or reduce this task's UI/preview requirements. Inspector and viewport paths overlap #6 and SEW-002; check the live board and open PRs before claiming. Existing embed_point/embed_path can derive transient 3D attachments, but cost, remesh invalidation and out-of-panel behavior require explicit handling."
+      "notes": "The concrete persistent trim foundation merged in #195 (0df7bb5); it is sufficient to start the native workflow without waiting for the broader SEW-002 review of independent open contributions. SEW-002 remains open, and this change does not claim its acceptance or reduce this task's UI/preview requirements. Inspector and viewport paths overlap #6 and SEW-002; check the live board and open PRs before claiming. Existing embed_point/embed_path can derive transient 3D attachments, but cost, remesh invalidation and out-of-panel behavior require explicit handling. The scalability scope adds the shared material embedding and editor visibility implementation and tests; coordinate with EXO-UX-004 and existing contributors, release and reclaim after any scope change, and do not change physical collision behavior."
     },
     {
       "id": "EXO-SEW-004",
