@@ -2503,6 +2503,7 @@ Status: ready. Dependencies: EXO-UX-001.
 
 - `src/atelier/commands.rs`
 - `src/atelier/command_palette.rs`
+- `src/atelier/board.rs`
 - `src/atelier.rs`
 - `tests/command_registry.rs`
 - `docs/command-registry.md`
@@ -2511,11 +2512,13 @@ Status: ready. Dependencies: EXO-UX-001.
 
 - Add descriptors and search aliases for existing native authoring tools; do not advertise nonexistent operations or unwired shortcuts.
 - Dispatch through the same set_authoring_tool transition as the toolbar/radial menu, including existing move/rotate modes; preserve draft, focus, modal and runtime availability behavior.
+- Expose the existing freehand mode through the palette using one shared activation transition with the board toolbar. Preserve cancellation, replace mode and draft semantics; do not advertise an unwired shortcut or alter the drawing algorithm.
 - CPU tests cover stable unique registry keys, each tool mapping, palette search, keyboard activation, disabled contexts and existing input isolation. Native-window acceptance is separate and GPU opt-in.
 - Keep Firefly-owned authoring_ui.rs untouched; no changes to garment physics, geometry, contact or solver.
 
 **Evidence and related contributions**
 
 - https://github.com/erythrofr/ClothCraft/issues/171
+- https://github.com/erythrofr/ClothCraft/pull/173
 
-Follow-up to #110/#162: the current palette has simulation and workspace commands but does not expose real authoring tools. Register #171 and obtain a confirmed claim before editing.
+PR #173 merged the existing authoring tool descriptors and dispatch. Freehand remains a separate existing mode whose activation is inline in board.rs. The scope expansion allows one shared transition for palette and toolbar, not a claim or proof of native-window acceptance. Board changes overlap draft #200 and open contribution #6; coordinate their live scopes and review existing diffs before editing.

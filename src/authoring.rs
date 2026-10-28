@@ -1186,10 +1186,20 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
     if unsupported_graphic_mirror {
         return Err("Mirroring panels with graphics is not supported yet".into());
     }
-    if matches!(&command, Command::Mirror { panel, .. } | Command::LinkedMirror { panel, .. } if source.trims.iter().any(|t| &t.panel_id == panel))
+    if matches!(&command, Command::LinkedMirror { panel, .. } if source.trims.iter().any(|t| &t.panel_id == panel))
     {
-        return Err("Mirroring panels with trims is not supported yet".into());
+        return Err("Linked mirroring panels with trims is not supported yet".into());
     }
+    // Only this command explicitly reflects the existing trim coordinates;
+    // all other contour changes still go through the material-frame guard.
+    let mirrored_trim_panel = match &command {
+        Command::Mirror {
+            panel,
+            copy_side: None,
+            ..
+        } => Some(panel.clone()),
+        _ => None,
+    };
     if !source.trims.is_empty()
         && matches!(
             &command,
@@ -2305,7 +2315,9 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
             }
             return Err("Remove trims before replacing their panel".into());
         };
-        if graphic_material_frame(old)? != graphic_material_frame(new)? {
+        if mirrored_trim_panel.as_ref() != Some(&trim.panel_id)
+            && graphic_material_frame(old)? != graphic_material_frame(new)?
+        {
             return Err("Remove trims before changing their panel's material contour".into());
         }
     }

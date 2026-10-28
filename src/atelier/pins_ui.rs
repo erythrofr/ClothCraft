@@ -15,9 +15,62 @@ enum Action {
     Freeze,
     Thaw,
     ReleasePins,
+    ReleaseOne(DVec2),
     ReleaseSelectedPins,
     FreezeSelected,
     ThawSelected,
+}
+
+/// List only authored pins; legacy arrangement pins cannot be released here.
+fn individual_pin_controls(
+    ui: &mut egui::Ui,
+    panel: &str,
+    available: bool,
+    frozen: bool,
+    points: &[DVec2],
+) -> Option<Action> {
+    if points.is_empty() {
+        return None;
+    }
+    let mut action = None;
+    let section = egui::CollapsingHeader::new("Individual authored pins")
+        .id_salt(("individual-pins", panel))
+        .show(ui, |ui| {
+            egui::ScrollArea::vertical()
+                .id_salt(("individual-pin-scroll", panel))
+                .max_height(144.)
+                .show_rows(ui, 24., points.len(), |ui, rows| {
+                    for index in rows {
+                        let uv = points[index];
+                        ui.push_id((uv.x.to_bits(), uv.y.to_bits()), |ui| {
+                            ui.horizontal(|ui| {
+                                let release = ui.add_enabled(
+                                    available && !frozen,
+                                    egui::Button::new("Release"),
+                                );
+                                #[cfg(test)]
+                                super::authoring_smoke::widget_harness::named(
+                                    ui,
+                                    &release,
+                                    format!("pins.release_one.{index}"),
+                                );
+                                if release.clicked() {
+                                    action = Some(Action::ReleaseOne(uv));
+                                }
+                                let coordinates =
+                                    format!("X {:.2} mm · Y {:.2} mm", uv.x * 1000., uv.y * 1000.);
+                                ui.add(egui::Label::new(&coordinates).truncate())
+                                    .on_hover_text(coordinates);
+                            });
+                        });
+                    }
+                });
+        });
+    #[cfg(test)]
+    super::authoring_smoke::widget_harness::named(ui, &section.header_response, "pins.individual");
+    #[cfg(not(test))]
+    let _ = section;
+    action
 }
 
 fn controls(
@@ -146,6 +199,9 @@ fn prepare(
                 .collect();
             authoring::prepare_pin_edit(template, garment, state, panel, &points, false)?
         }
+        Action::ReleaseOne(uv) => {
+            authoring::prepare_pin_edit(template, garment, state, panel, &[uv], false)?
+        }
         Action::ReleaseSelectedPins => {
             let ids: std::collections::BTreeSet<_> = selected_panels.iter().collect();
             if selected_panels.len() < 2
@@ -246,13 +302,15 @@ impl Atelier {
             .frozen_panels
             .iter()
             .any(|p| p.panel == panel.id);
-        let pins = self
+        let pin_points: Vec<_> = self
             .project
             .template
             .pin_targets
             .iter()
             .filter(|p| p.panel == panel.id)
-            .count();
+            .map(|pin| pin.uv)
+            .collect();
+        let pins = pin_points.len();
         let selected_panels = self.selected_panels();
         let frozen_selected = selected_panels
             .iter()
@@ -278,7 +336,7 @@ impl Atelier {
             && self.authoring.preview.is_none()
             && self.authoring.board.shape.is_none()
             && self.authoring.board.group_shapes.is_empty();
-        if let Some(action) = controls(
+        let action = controls(
             ui,
             available,
             frozen,
@@ -286,7 +344,9 @@ impl Atelier {
             count,
             pins,
             (selected_panels.len(), frozen_selected, pins_selected),
-        ) {
+        );
+        let individual = individual_pin_controls(ui, &panel.id, available, frozen, &pin_points);
+        if let Some(action) = action.or(individual) {
             let result = (|| {
                 // Full-panel actions do not depend on contour selection validity.
                 let empty = BTreeMap::new();
@@ -359,13 +419,15 @@ mod tests {
     fn draw(ui: &mut egui::Ui, c: &mut Case) {
         let panel = c.template.panels[0].id.clone();
         let frozen = c.template.frozen_panels.iter().any(|p| p.panel == panel);
-        let pins = c
+        let pin_points: Vec<_> = c
             .template
             .pin_targets
             .iter()
             .filter(|p| p.panel == panel)
-            .count();
-        if let Some(action) = controls(
+            .map(|p| p.uv)
+            .collect();
+        let pins = pin_points.len();
+        let action = controls(
             ui,
             c.available,
             frozen,
@@ -373,7 +435,9 @@ mod tests {
             c.selected.len(),
             pins,
             (1, usize::from(frozen), pins),
-        ) {
+        );
+        let individual = individual_pin_controls(ui, &panel, c.available, frozen, &pin_points);
+        if let Some(action) = action.or(individual) {
             match prepare(
                 &c.template,
                 &c.garment,
@@ -418,6 +482,121 @@ mod tests {
         assert!(c.template.pin_targets.is_empty());
         assert_eq!(c.state.x, before);
         assert!(c.history.can_undo());
+    }
+
+    #[test]
+    fn named_individual_pin_release_preserves_other_holds_and_undoes() {
+        let mut c = case();
+        c.selected = vec![c.garment.mesh.uv[0], c.garment.mesh.uv[1]];
+        let free = c.garment.panels[1].vertices.start;
+        c.state.v[free] = glam::DVec3::new(0.3, -0.1, 0.2);
+        c.state.time = 1.25;
+        let before = c.state.x.clone();
+        let mut h = Harness::new(egui::vec2(1000., 700.));
+        h.frame(&mut c, &mut draw);
+        h.click("pins.pin", &mut c, &mut draw).unwrap();
+        assert_eq!(c.template.pin_targets.len(), 2);
+        let original = c.template.pin_targets.clone();
+        h.frame(&mut c, &mut draw);
+        h.click("pins.individual", &mut c, &mut draw).unwrap();
+        h.resize(egui::vec2(240., 700.));
+        h.frame(&mut c, &mut draw);
+        c.available = false;
+        h.frame(&mut c, &mut draw);
+        assert!(h.click("pins.release_one.0", &mut c, &mut draw).is_err());
+        assert_eq!(c.template.pin_targets, original);
+        c.available = true;
+        h.frame(&mut c, &mut draw);
+        h.click("pins.freeze", &mut c, &mut draw).unwrap();
+        h.frame(&mut c, &mut draw);
+        assert!(h.click("pins.release_one.0", &mut c, &mut draw).is_err());
+        h.click("pins.thaw", &mut c, &mut draw).unwrap();
+        h.frame(&mut c, &mut draw);
+        h.click("pins.release_one.0", &mut c, &mut draw).unwrap();
+        assert!(c.error.is_none(), "{:?}", c.error);
+        assert_eq!(c.template.pin_targets, vec![original[1].clone()]);
+        assert_eq!(c.state.x, before);
+        assert_eq!(c.state.v[free], glam::DVec3::new(0.3, -0.1, 0.2));
+        assert_eq!(c.state.time, 1.25);
+        let edit = c.history.restore(&c.template, false).unwrap();
+        c.state = edit.state_after(&c.garment, &c.state);
+        c.template = edit.template;
+        assert_eq!(c.template.pin_targets, original);
+        assert_eq!(c.state.x, before);
+        assert_eq!(c.state.v[free], glam::DVec3::new(0.3, -0.1, 0.2));
+        assert_eq!(c.state.time, 1.25);
+    }
+
+    #[test]
+    fn individual_pin_list_scrolls_to_and_releases_the_correct_last_row() {
+        struct ListCase {
+            points: Vec<DVec2>,
+            top: egui::Pos2,
+            selected: Option<Action>,
+            available: bool,
+        }
+        let mut case = ListCase {
+            points: (0..100)
+                .map(|i| DVec2::new(i as f64 * 0.001, 0.02))
+                .collect(),
+            top: egui::Pos2::ZERO,
+            selected: None,
+            available: true,
+        };
+        let mut draw = |ui: &mut egui::Ui, c: &mut ListCase| {
+            c.top = ui.next_widget_position();
+            if let Some(action) = individual_pin_controls(ui, "left", c.available, false, &c.points)
+            {
+                c.selected = Some(action);
+            }
+        };
+        let mut h = Harness::new(egui::vec2(400., 300.));
+        h.frame(&mut case, &mut draw);
+        h.click("pins.individual", &mut case, &mut draw).unwrap();
+        assert!(
+            h.click("pins.release_one.99", &mut case, &mut draw)
+                .is_err()
+        );
+        assert!(case.selected.is_none());
+        let pointer = case.top + egui::vec2(30., 60.);
+        let mut output = h.ctx.run_ui(
+            egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(400., 300.),
+                )),
+                time: Some(0.055),
+                focused: true,
+                events: vec![
+                    egui::Event::PointerMoved(pointer),
+                    egui::Event::MouseWheel {
+                        unit: egui::MouseWheelUnit::Point,
+                        delta: egui::vec2(0., -10_000.),
+                        phase: egui::TouchPhase::Move,
+                        modifiers: egui::Modifiers::NONE,
+                    },
+                ],
+                ..Default::default()
+            },
+            |ui| {
+                egui::CentralPanel::default().show(ui, |ui| draw(ui, &mut case));
+            },
+        );
+        output.textures_delta.clear();
+        for _ in 0..20 {
+            h.frame(&mut case, &mut draw);
+        }
+        h.click("pins.release_one.99", &mut case, &mut draw)
+            .unwrap();
+        assert_eq!(case.selected, Some(Action::ReleaseOne(case.points[99])));
+        case.available = false;
+        case.selected = None;
+        h.frame(&mut case, &mut draw);
+        assert!(
+            h.click("pins.release_one.99", &mut case, &mut draw)
+                .is_err()
+        );
+        assert!(case.selected.is_none());
     }
     #[test]
     fn disabled_and_invalid_requests_do_not_modify_history() {

@@ -26,6 +26,12 @@ the palette. Viewport input is blocked while the palette is open, including
 its closing frame. Commands use the same checked dispatch route as buttons;
 starting a simulation still queues work rather than certifying completion.
 
+Search **Freehand** or **Sketch** to select the existing freehand drawing mode.
+It uses the same activation as the board toolbar: an unfinished drawing draft
+is cleared and replacement mode is turned off. Draw a stroke on the board,
+then review and create the panel using its existing controls. No separate
+shortcut is assigned.
+
 PR #110 merged as `742b4ef` after seven green checks at `d38e3d0`. Five CPU
 fixtures exercise the actual launcher/search controls, aliases, navigation,
 disabled context at activation, single request and Escape. The complete desktop

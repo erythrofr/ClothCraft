@@ -30,6 +30,7 @@ fn aliases(id: CommandId) -> &'static str {
         LoadDress => "dress example preset",
         ToolEdit => "select edit point piece",
         ToolDraw => "pen bezier pattern cloth",
+        ToolFreehand => "freehand sketch stroke outline pattern",
         ToolRectangle => "square shape primitive",
         ToolEllipse => "circle shape primitive",
         ToolSector => "arc shape primitive",
@@ -49,6 +50,7 @@ pub(super) fn tool_for_command(id: CommandId) -> Option<(Tool, bool)> {
     Some(match id {
         ToolEdit => (Tool::Edit, false),
         ToolDraw => (Tool::Draw, false),
+        ToolFreehand => (Tool::Draw, false),
         ToolRectangle => (Tool::Rectangle, false),
         ToolEllipse => (Tool::Ellipse, false),
         ToolSector => (Tool::Sector, false),
@@ -657,6 +659,7 @@ mod tests {
         let expected = [
             (CommandId::ToolEdit, Tool::Edit, false),
             (CommandId::ToolDraw, Tool::Draw, false),
+            (CommandId::ToolFreehand, Tool::Draw, false),
             (CommandId::ToolRectangle, Tool::Rectangle, false),
             (CommandId::ToolEllipse, Tool::Ellipse, false),
             (CommandId::ToolSector, Tool::Sector, false),
@@ -717,5 +720,24 @@ mod tests {
         .unwrap();
         assert_eq!(c.commands, vec![CommandId::ToolMeasure]);
         assert!(c.palette.open);
+    }
+
+    #[test]
+    fn palette_search_activates_freehand_by_keyboard() {
+        let mut c = case();
+        let mut h = Harness::new(egui::vec2(900., 900.));
+        frames(&mut h, &mut c);
+        h.replace_text("palette.query", "sketch", &mut c, &mut draw)
+            .unwrap();
+        h.key(
+            "palette.query",
+            egui::Key::Enter,
+            egui::Modifiers::NONE,
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert_eq!(c.commands, vec![CommandId::ToolFreehand]);
+        assert!(!c.palette.open);
     }
 }

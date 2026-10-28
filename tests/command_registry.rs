@@ -23,7 +23,7 @@ fn ready() -> CapabilityContext {
 fn every_command_has_a_unique_stable_key_and_a_real_descriptor() {
     let mut keys = std::collections::BTreeSet::new();
     let mut ids = std::collections::HashSet::new();
-    assert_eq!(REGISTRY.len(), 24);
+    assert_eq!(REGISTRY.len(), 25);
     for desc in REGISTRY {
         assert!(!desc.label.trim().is_empty());
         assert!(desc.key.contains('.'), "{:?}", desc.id);
@@ -73,6 +73,9 @@ fn unavailable_commands_cannot_pass_the_dispatch_gate() {
         Err(UnavailableReason::NoSelectedPanel)
     );
     assert_eq!(availability(CommandId::ToolDraw, context), Ok(()));
+    assert_eq!(availability(CommandId::ToolFreehand, context), Ok(()));
+    assert_eq!(CommandId::ToolFreehand.descriptor().key, "tool.freehand");
+    assert_eq!(CommandId::ToolFreehand.descriptor().shortcut, None);
     context = ready();
     context.worker_ready = false;
     assert_eq!(

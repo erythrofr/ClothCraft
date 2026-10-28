@@ -210,10 +210,9 @@ fn trim_topology_edits_fail_closed_and_remesh_keeps_attachment() {
     assert!(
         authoring::apply(
             &source,
-            Command::Mirror {
+            Command::LinkedMirror {
                 panel: panel.clone(),
                 axis: MirrorAxis::X,
-                copy_side: Some(1)
             }
         )
         .is_err()
@@ -242,6 +241,215 @@ fn trim_topology_edits_fail_closed_and_remesh_keeps_attachment() {
     .unwrap();
     assert_eq!(remeshed.template.trims, vec![item]);
     assert!(remeshed.reset_simulation);
+}
+
+#[test]
+fn standalone_mirror_reflects_all_trims_and_preserves_history() {
+    use marvelous_cloth::{
+        authoring::{self, Command, History},
+        fitting::FittingProject,
+        garment::{
+            GarmentTemplate,
+            presets::GarmentKind,
+            shapes::{MirrorAxis, Primitive, primitive},
+        },
+    };
+    let mut source = GarmentTemplate::two_panel_demo();
+    source.version = 2;
+    source.panels[0].pattern.height = 0.4;
+    source.panels[0].pins.clear();
+    source.panels[0].polygon = Some(
+        primitive(
+            Primitive::Rectangle,
+            DVec2::splat(0.4),
+            90.,
+            Default::default(),
+        )
+        .unwrap(),
+    );
+    source.seams.clear();
+    let panel = source.panels[0].id.clone();
+    let kinds = [
+        TrimKind::Button {
+            center_m: DVec2::new(0.1, 0.15),
+            diameter_m: 0.01,
+        },
+        TrimKind::Buttonhole {
+            start_m: DVec2::new(0.08, 0.1),
+            end_m: DVec2::new(0.12, 0.15),
+            width_m: 0.01,
+        },
+        TrimKind::Zipper {
+            path_m: vec![DVec2::new(0.1, 0.1), DVec2::new(0.2, 0.2)],
+            width_m: 0.01,
+        },
+        TrimKind::Topstitch {
+            path_m: vec![DVec2::new(0.12, 0.08), DVec2::new(0.22, 0.18)],
+            rows: 2,
+            spacing_m: 0.004,
+        },
+    ];
+    for (i, kind) in kinds.into_iter().enumerate() {
+        source.trims.push(Trim {
+            id: if i == 1 {
+                "trim_8".into()
+            } else {
+                format!("trim_{i}")
+            },
+            panel_id: panel.clone(),
+            kind,
+        });
+    }
+    let other = Trim {
+        id: "other".into(),
+        panel_id: source.panels[1].id.clone(),
+        kind: TrimKind::Button {
+            center_m: DVec2::new(0.2, 0.2),
+            diameter_m: 0.01,
+        },
+    };
+    source.trims.push(other.clone());
+    source.compile().unwrap();
+    let directory = tempfile::tempdir().unwrap();
+    let avatar = directory.path().join("avatar.obj");
+    std::fs::write(&avatar, "v 10 0 -10\nv 11 0 -10\nv 10 1 -10\nf 1 2 3\n").unwrap();
+    for axis in [MirrorAxis::X, MirrorAxis::Y] {
+        for copy_side in [None, Some(1), Some(-1)] {
+            let edit = authoring::apply(
+                &source,
+                Command::Mirror {
+                    panel: panel.clone(),
+                    axis,
+                    copy_side,
+                },
+            )
+            .unwrap();
+            assert!(edit.reset_simulation);
+            let target = edit.selected.as_ref().unwrap();
+            let mirrored: Vec<_> = edit
+                .template
+                .trims
+                .iter()
+                .filter(|t| &t.panel_id == target)
+                .collect();
+            assert_eq!(mirrored.len(), 4);
+            let reflect = |p: DVec2| match axis {
+                MirrorAxis::X => DVec2::new(0.4 - p.x, p.y),
+                MirrorAxis::Y => DVec2::new(p.x, 0.4 - p.y),
+            };
+            let point = match mirrored[0].kind {
+                TrimKind::Button {
+                    center_m,
+                    diameter_m,
+                } => {
+                    assert_eq!(diameter_m, 0.01);
+                    center_m
+                }
+                _ => panic!("wrong kind"),
+            };
+            assert_eq!(point, reflect(DVec2::new(0.1, 0.15)));
+            match &mirrored[1].kind {
+                TrimKind::Buttonhole {
+                    start_m,
+                    end_m,
+                    width_m,
+                } => {
+                    assert_eq!(*start_m, reflect(DVec2::new(0.08, 0.1)));
+                    assert_eq!(*end_m, reflect(DVec2::new(0.12, 0.15)));
+                    assert_eq!(*width_m, 0.01);
+                }
+                _ => panic!("wrong kind"),
+            }
+            match &mirrored[2].kind {
+                TrimKind::Zipper { path_m, width_m } => {
+                    assert_eq!(path_m[0], reflect(DVec2::new(0.1, 0.1)));
+                    assert_eq!(path_m[1], reflect(DVec2::new(0.2, 0.2)));
+                    assert_eq!(*width_m, 0.01);
+                }
+                _ => panic!("wrong kind"),
+            }
+            match &mirrored[3].kind {
+                TrimKind::Topstitch {
+                    path_m,
+                    rows,
+                    spacing_m,
+                } => {
+                    assert_eq!(path_m[0], reflect(DVec2::new(0.12, 0.08)));
+                    assert_eq!(path_m[1], reflect(DVec2::new(0.22, 0.18)));
+                    assert_eq!((*rows, *spacing_m), (2, 0.004));
+                }
+                _ => panic!("wrong kind"),
+            }
+            assert!(edit.template.trims.contains(&other));
+            if copy_side.is_some() {
+                assert_ne!(target, &panel);
+                assert!(
+                    source
+                        .trims
+                        .iter()
+                        .all(|item| edit.template.trims.contains(item))
+                );
+                assert!(
+                    mirrored
+                        .iter()
+                        .all(|item| !source.trims.iter().any(|old| old.id == item.id))
+                );
+                assert_eq!(
+                    mirrored
+                        .iter()
+                        .map(|item| item.id.as_str())
+                        .collect::<Vec<_>>(),
+                    ["trim_1", "trim_4", "trim_5", "trim_6"]
+                );
+                let second = authoring::apply(
+                    &edit.template,
+                    Command::Mirror {
+                        panel: panel.clone(),
+                        axis,
+                        copy_side,
+                    },
+                )
+                .unwrap();
+                let second_panel = second.selected.as_ref().unwrap();
+                assert_eq!(
+                    second
+                        .template
+                        .trims
+                        .iter()
+                        .filter(|item| &item.panel_id == second_panel)
+                        .map(|item| item.id.as_str())
+                        .collect::<Vec<_>>(),
+                    ["trim_7", "trim_9", "trim_10", "trim_11"]
+                );
+            } else {
+                assert_eq!(target, &panel);
+                assert_eq!(
+                    mirrored.iter().map(|item| &item.id).collect::<Vec<_>>(),
+                    source.trims[..4]
+                        .iter()
+                        .map(|item| &item.id)
+                        .collect::<Vec<_>>()
+                );
+            }
+            let encoded = serde_json::to_string(&edit.template).unwrap();
+            let loaded: GarmentTemplate = serde_json::from_str(&encoded).unwrap();
+            assert_eq!(loaded.trims, edit.template.trims);
+            let mut project = FittingProject::basic(GarmentKind::Tshirt, 0, avatar.clone());
+            project.template = edit.template.clone();
+            project.state = None;
+            let file = directory.path().join("mirrored.clothcraft");
+            project.save(&file).unwrap();
+            let reopened = FittingProject::load(&file).unwrap();
+            assert_eq!(reopened.template.trims, edit.template.trims);
+            reopened.compile().unwrap();
+            let mut history = History::default();
+            history.record(source.clone());
+            let undone = history.restore(&edit.template, false).unwrap();
+            assert_eq!(undone.template.trims, source.trims);
+            let redone = history.restore(&undone.template, true).unwrap();
+            assert_eq!(redone.template.trims, edit.template.trims);
+        }
+    }
 }
 
 #[test]

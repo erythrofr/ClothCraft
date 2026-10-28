@@ -92,6 +92,24 @@ pub(super) fn mirror(
         MirrorAxis::Y => -p.grain_degrees,
     }
     .rem_euclid(180.);
+    let size = DVec2::new(p.pattern.width, p.pattern.height);
+    let reflect = |point: &mut DVec2| match axis {
+        MirrorAxis::X => point.x = size.x - point.x,
+        MirrorAxis::Y => point.y = size.y - point.y,
+    };
+    let reflect_trim = |trim: &mut crate::garment::trims::Trim| {
+        use crate::garment::trims::TrimKind;
+        match &mut trim.kind {
+            TrimKind::Button { center_m, .. } => reflect(center_m),
+            TrimKind::Buttonhole { start_m, end_m, .. } => {
+                reflect(start_m);
+                reflect(end_m);
+            }
+            TrimKind::Zipper { path_m, .. } | TrimKind::Topstitch { path_m, .. } => {
+                path_m.iter_mut().for_each(reflect);
+            }
+        }
+    };
     if let Some(side) = copy_side {
         p.id = unused_id("panel", t.panels.iter().map(|p| p.id.clone()));
         p.name = format!("{} mirror", p.name);
@@ -101,9 +119,31 @@ pub(super) fn mirror(
         } * side as f64;
         p.layout_2d = Some(layout(t, index) + rotate_2d(delta, p.layout_rotation_degrees));
         p.placement.translation = p.placement.transform(DVec3::new(delta.x, -delta.y, 0.));
-        let id = p.id.clone();
+        let new_id = p.id.clone();
         t.panels.push(p);
-        Ok(id)
+        let trims: Vec<_> = t
+            .trims
+            .iter()
+            .filter(|trim| trim.panel_id == id)
+            .cloned()
+            .collect();
+        let mut used_ids: std::collections::BTreeSet<_> =
+            t.trims.iter().map(|trim| trim.id.clone()).collect();
+        let mut next_id = 1usize;
+        for mut trim in trims {
+            loop {
+                let candidate = format!("trim_{next_id}");
+                next_id += 1;
+                if used_ids.insert(candidate.clone()) {
+                    trim.id = candidate;
+                    break;
+                }
+            }
+            trim.panel_id = new_id.clone();
+            reflect_trim(&mut trim);
+            t.trims.push(trim);
+        }
+        Ok(new_id)
     } else {
         for s in &mut t.seams {
             for r in s.references_mut() {
@@ -112,6 +152,9 @@ pub(super) fn mirror(
                     r.reversed = !r.reversed;
                 }
             }
+        }
+        for trim in t.trims.iter_mut().filter(|trim| trim.panel_id == id) {
+            reflect_trim(trim);
         }
         t.panels[index] = p;
         Ok(id.into())

@@ -13,6 +13,10 @@ holds its current shape; **Unfreeze panel** releases the freeze while retaining
 individual pins. On polygon panels, selected contour points across panels
 can be pinned/unpinned in one atomic history action. **Release panel pins**
 removes all authored individual pins on that panel. These controls leave legacy template pins unchanged.
+Expand **Individual authored pins** to see their material coordinates and
+release one pin without removing the others. The list is virtualized for large
+selections; its Release buttons require a paused, unfrozen panel and use the
+same validated, undoable hold transaction as the other pin controls.
 **Freeze selected panels** and **Unfreeze selected panels** appear when more
 than one panel is selected. They freeze only panels not already frozen, leaving
 existing frozen targets unchanged; unfreeze removes freezes for selected panels
