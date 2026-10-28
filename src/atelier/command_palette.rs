@@ -83,7 +83,9 @@ fn matches(query: &str) -> Vec<CommandId> {
         .iter()
         .enumerate()
         .filter_map(|(index, d)| {
-            let text = format!("{} {} {}", d.label, d.key, aliases(d.id)).to_lowercase();
+            let label = d.label.to_lowercase();
+            let key = d.key.to_lowercase();
+            let text = format!("{} {} {}", label, key, aliases(d.id));
             let mut fuzzy_words = 0usize;
             for word in query.split_whitespace() {
                 if text.contains(word) {
@@ -98,14 +100,35 @@ fn matches(query: &str) -> Vec<CommandId> {
                 }
                 fuzzy_words += 1;
             }
-            Some((fuzzy_words, index, d.id))
+            let term = query.trim();
+            // Favor an actual command name over a match in a broad alias,
+            // while leaving an empty search in the original registry order.
+            let relevance = if term.is_empty() || label == term || key == term {
+                0
+            } else if label.starts_with(term) || key.starts_with(term) {
+                1
+            } else if label
+                .split(|c: char| !c.is_alphanumeric())
+                .any(|w| w == term)
+                || key.split(|c: char| !c.is_alphanumeric()).any(|w| w == term)
+            {
+                2
+            } else if label.contains(term) || key.contains(term) {
+                3
+            } else {
+                4
+            };
+            Some((fuzzy_words, relevance, index, d.id))
         })
         .collect();
-    if results.iter().any(|(fuzzy_words, _, _)| *fuzzy_words == 0) {
-        results.retain(|(fuzzy_words, _, _)| *fuzzy_words == 0);
+    if results
+        .iter()
+        .any(|(fuzzy_words, _, _, _)| *fuzzy_words == 0)
+    {
+        results.retain(|(fuzzy_words, _, _, _)| *fuzzy_words == 0);
     }
-    results.sort_by_key(|(fuzzy_words, index, _)| (*fuzzy_words, *index));
-    results.into_iter().map(|(_, _, id)| id).collect()
+    results.sort_by_key(|(fuzzy_words, relevance, index, _)| (*fuzzy_words, *relevance, *index));
+    results.into_iter().map(|(_, _, _, id)| id).collect()
 }
 
 fn named(_ui: &egui::Ui, _r: &egui::Response, _name: &str) {
@@ -433,6 +456,35 @@ mod tests {
         assert!(matches(&"a".repeat(MAX_QUERY_CHARS + 1)).is_empty());
         assert!(is_subsequence("fhn", "freehand"));
         assert!(!is_subsequence("hfn", "freehand"));
+    }
+
+    #[test]
+    fn command_names_rank_before_broad_aliases_without_reordering_empty_search() {
+        assert_eq!(matches("cloth").first(), Some(&CommandId::ToolGrab));
+        assert_eq!(matches("TOOL.GRAB").first(), Some(&CommandId::ToolGrab));
+        assert_eq!(
+            matches("   "),
+            commands::REGISTRY.iter().map(|d| d.id).collect::<Vec<_>>()
+        );
+        assert!(matches("cloth").contains(&CommandId::GarmentView));
+    }
+
+    #[test]
+    fn named_ambiguous_search_selects_the_relevant_tool() {
+        let mut c = case();
+        let mut h = Harness::new(egui::vec2(900., 900.));
+        frames(&mut h, &mut c);
+        h.replace_text("palette.query", "cloth", &mut c, &mut draw)
+            .unwrap();
+        h.key(
+            "palette.query",
+            egui::Key::Enter,
+            egui::Modifiers::NONE,
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert_eq!(c.commands, vec![CommandId::ToolGrab]);
     }
 
     #[test]
