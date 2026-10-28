@@ -44,6 +44,30 @@ struct TrimDraft {
     base: Option<Trim>,
 }
 
+/// Stage a board click in material coordinates without editing the project.
+fn stage_board_click(draft: &mut TrimDraft, point: DVec2) -> Result<(), String> {
+    if draft.draw_backup.is_some() {
+        return draft.append_path_point(point);
+    }
+    let trim = draft
+        .parse()
+        .and_then(|trim| translate_first_point(trim, point))?;
+    let base = draft.base.clone();
+    *draft = TrimDraft::from_trim(&trim);
+    draft.base = base;
+    Ok(())
+}
+
+fn board_local_point(
+    board: &super::board::Board,
+    rect: egui::Rect,
+    screen: egui::Pos2,
+    origin: DVec2,
+    angle: f64,
+) -> DVec2 {
+    authoring::rotate_2d(board.world(rect, screen) - origin, -angle)
+}
+
 fn label(kind: &TrimKind) -> &'static str {
     match kind {
         TrimKind::Button { .. } => "Button",
@@ -838,37 +862,17 @@ impl Atelier {
             self.authoring.trims.draft = None;
             return true;
         };
-        let local = authoring::rotate_2d(
-            self.authoring.board.world(rect, screen) - self.board_origin(index),
-            -self.board_angle(index),
+        let local = board_local_point(
+            &self.authoring.board,
+            rect,
+            screen,
+            self.board_origin(index),
+            self.board_angle(index),
         );
-        if draft.draw_backup.is_some() {
-            let draft = self.authoring.trims.draft.as_mut().unwrap();
-            if let Err(error) = draft.append_path_point(local) {
-                self.authoring.error = Some(error.clone());
-                self.status = error;
-            }
-            return true;
-        }
-        let result = draft
-            .parse()
-            .and_then(|trim| translate_first_point(trim, local));
-        match result {
-            Ok(trim) => {
-                let base = self
-                    .authoring
-                    .trims
-                    .draft
-                    .as_ref()
-                    .and_then(|d| d.base.clone());
-                let mut next = TrimDraft::from_trim(&trim);
-                next.base = base;
-                self.authoring.trims.draft = Some(next);
-            }
-            Err(error) => {
-                self.authoring.error = Some(error.clone());
-                self.status = error;
-            }
+        let draft = self.authoring.trims.draft.as_mut().unwrap();
+        if let Err(error) = stage_board_click(draft, local) {
+            self.authoring.error = Some(error.clone());
+            self.status = error;
         }
         true
     }
@@ -885,6 +889,63 @@ impl Atelier {
 mod tests {
     use super::*;
     use marvelous_cloth::garment::GarmentTemplate;
+
+    #[test]
+    fn named_board_clicks_stage_a_rotated_path_without_editing_the_template() {
+        use super::super::authoring_smoke::widget_harness::{Harness, named};
+        struct Case {
+            board: super::super::board::Board,
+            template: GarmentTemplate,
+            draft: TrimDraft,
+            origin: DVec2,
+            angle: f64,
+        }
+        let template = GarmentTemplate::two_panel_demo();
+        let trim = Trim {
+            id: "draft".into(),
+            panel_id: template.panels[0].id.clone(),
+            kind: TrimKind::Zipper {
+                path_m: vec![DVec2::new(0.05, 0.05), DVec2::new(0.1, 0.1)],
+                width_m: 0.01,
+            },
+        };
+        let mut draft = TrimDraft::from_trim(&trim);
+        draft.begin_path();
+        let mut board = super::super::board::Board::default();
+        board.set_view_rotation_degrees(33.);
+        let mut case = Case {
+            board,
+            template,
+            draft,
+            origin: DVec2::new(0.4, -0.2),
+            angle: 47.,
+        };
+        let mut draw = |ui: &mut egui::Ui, case: &mut Case| {
+            let (rect, response) =
+                ui.allocate_exact_size(egui::vec2(400., 400.), egui::Sense::click_and_drag());
+            named(ui, &response, "trim.board");
+            if response.clicked()
+                && let Some(pos) = response.interact_pointer_pos()
+            {
+                let local = board_local_point(&case.board, rect, pos, case.origin, case.angle);
+                stage_board_click(&mut case.draft, local).unwrap();
+            }
+        };
+        let mut harness = Harness::new(egui::vec2(500., 500.));
+        harness.frame(&mut case, &mut draw);
+        harness.click("trim.board", &mut case, &mut draw).unwrap();
+        assert_eq!(case.draft.draw_points.len(), 1);
+        assert!(case.template.trims.is_empty());
+        let first = case.draft.draw_points[0];
+        case.origin += authoring::rotate_2d(DVec2::new(-0.1, -0.2), case.angle);
+        harness.frame(&mut case, &mut draw);
+        harness.click("trim.board", &mut case, &mut draw).unwrap();
+        assert_eq!(case.draft.draw_points.len(), 2);
+        assert!((case.draft.draw_points[1] - first).distance(DVec2::new(0.1, 0.2)) < 1e-6);
+        assert!(case.template.trims.is_empty());
+        case.draft.cancel_path();
+        assert_eq!(case.draft.parse().unwrap(), trim);
+    }
 
     #[test]
     fn named_controls_create_cancel_edit_and_delete_a_trim() {
