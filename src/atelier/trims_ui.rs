@@ -886,13 +886,63 @@ fn build_preview(
     })
 }
 
+fn trim_input_points(trim: &Trim) -> usize {
+    match &trim.kind {
+        TrimKind::Button { .. } => 1,
+        TrimKind::Buttonhole { .. } => 2,
+        TrimKind::Zipper { path_m, .. } | TrimKind::Topstitch { path_m, .. } => path_m.len(),
+    }
+}
+
+/// Prioritize staged objects while bounding the combined preview input.
+fn prioritized_preview<'a>(
+    committed: &'a [Trim],
+    mut staged: Vec<Trim>,
+    exclude_id: Option<&str>,
+    prefer_id: Option<&str>,
+    mut incomplete: bool,
+) -> (std::borrow::Cow<'a, [Trim]>, Option<(usize, usize)>, bool) {
+    let staged_count = staged.len();
+    let mut points = staged
+        .iter()
+        .fold(0usize, |n, trim| n.saturating_add(trim_input_points(trim)));
+    if staged_count > 128 || points > 4096 {
+        return (std::borrow::Cow::Borrowed(committed), None, true);
+    }
+    for trim in committed
+        .iter()
+        .filter(|trim| prefer_id == Some(trim.id.as_str()))
+        .chain(
+            committed
+                .iter()
+                .filter(|trim| prefer_id != Some(trim.id.as_str())),
+        )
+    {
+        if exclude_id == Some(trim.id.as_str()) {
+            continue;
+        }
+        let count = trim_input_points(trim);
+        if staged.len() >= 128 || points.saturating_add(count) > 4096 {
+            incomplete = true;
+            continue;
+        }
+        points += count;
+        staged.push(trim.clone());
+    }
+    (
+        std::borrow::Cow::Owned(staged),
+        (staged_count > 0).then_some((0, staged_count)),
+        incomplete,
+    )
+}
+
 /// Assemble bounded display-only inputs. The staged object replaces its old
 /// preview and is never inserted in the document until the author confirms it.
 fn preview_inputs<'a>(
     committed: &'a [Trim],
     draft: Option<&TrimDraft>,
 ) -> (std::borrow::Cow<'a, [Trim]>, Option<(usize, usize)>, bool) {
-    let mut inputs = std::borrow::Cow::Borrowed(committed);
+    let inputs = std::borrow::Cow::Borrowed(committed);
     let Some(draft) = draft else {
         return (inputs, None, false);
     };
@@ -917,31 +967,21 @@ fn preview_inputs<'a>(
                 *point
             }
         };
-        let start = inputs.len();
-        let point_count = |trim: &Trim| match &trim.kind {
-            TrimKind::Button { .. } => 1usize,
-            TrimKind::Buttonhole { .. } => 2,
-            TrimKind::Zipper { path_m, .. } | TrimKind::Topstitch { path_m, .. } => path_m.len(),
-        };
-        let used_points = committed
-            .iter()
-            .fold(0usize, |sum, trim| sum.saturating_add(point_count(trim)));
-        let point_slots = 4096usize.saturating_sub(used_points) / point_count(base).max(1);
-        let count = draft
-            .repeat_copies
-            .min(16)
-            .min(128usize.saturating_sub(start))
-            .min(point_slots);
+        let base_points = trim_input_points(base).max(1);
+        let point_slots = 4096usize.saturating_sub(base_points) / base_points;
+        let count = draft.repeat_copies.min(16).min(127).min(point_slots);
+        let mut copies = Vec::with_capacity(count);
         for i in 1..=count {
             let Ok(copy) = translate_first_point(base.clone(), first + offset * i as f64) else {
-                let added = inputs.len() - start;
-                return (inputs, (added > 0).then_some((start, added)), true);
+                return prioritized_preview(committed, copies, None, Some(&base.id), true);
             };
-            inputs.to_mut().push(copy);
+            copies.push(copy);
         }
-        return (
-            inputs,
-            (count > 0).then_some((start, count)),
+        return prioritized_preview(
+            committed,
+            copies,
+            None,
+            Some(&base.id),
             count < draft.repeat_copies,
         );
     }
@@ -962,20 +1002,13 @@ fn preview_inputs<'a>(
     let Some(staged) = staged else {
         return (inputs, None, false);
     };
-    if let Some(index) = draft
-        .base
-        .as_ref()
-        .and_then(|base| inputs.iter().position(|item| item.id == base.id))
-    {
-        inputs.to_mut()[index] = staged;
-        return (inputs, Some((index, 1)), false);
-    }
-    if inputs.len() >= 128 {
-        return (inputs, None, true);
-    }
-    let index = inputs.len();
-    inputs.to_mut().push(staged);
-    (inputs, Some((index, 1)), false)
+    prioritized_preview(
+        committed,
+        vec![staged],
+        draft.base.as_ref().map(|base| base.id.as_str()),
+        None,
+        false,
+    )
 }
 
 impl TrimUi {
@@ -1273,7 +1306,7 @@ impl Atelier {
         let Some(preview) = self.authoring.trims.preview.as_ref() else {
             if draft_limit && self.authoring.trims.preview_warning.is_none() {
                 self.authoring.trims.preview_warning =
-                    Some("3D draft preview incomplete: invalid input or preview limit".into());
+                    Some("3D trim preview incomplete: invalid input or preview limit".into());
             }
             return;
         };
@@ -1319,7 +1352,7 @@ impl Atelier {
         };
         if draft_limit {
             self.authoring.trims.preview_warning =
-                Some("3D draft preview incomplete: invalid input or preview limit".into());
+                Some("3D trim preview incomplete: invalid input or preview limit".into());
         }
         for (index, button, embedded) in &preview.paths {
             let color = if draft_index
@@ -2247,9 +2280,9 @@ mod tests {
         draft.repeat = true;
         draft.repeat_copies = 3;
         let (inputs, range, truncated) = preview_inputs(&template.trims, Some(&draft));
-        assert_eq!(range, Some((1, 3)));
+        assert_eq!(range, Some((0, 3)));
         assert!(!truncated);
-        assert_eq!(inputs[0], original);
+        assert_eq!(inputs[3], original);
         let preview = build_preview(garment.clone(), &inputs).unwrap();
         assert_eq!(preview.skipped, 0);
         assert_eq!(preview.paths.len(), 4);
@@ -2269,7 +2302,7 @@ mod tests {
         assert_eq!(serde_json::to_vec(&template).unwrap(), before);
         draft.repeat_copies = 128;
         let (inputs, range, truncated) = preview_inputs(&template.trims, Some(&draft));
-        assert_eq!(range, Some((1, 16)));
+        assert_eq!(range, Some((0, 16)));
         assert!(truncated);
         assert_eq!(inputs.len(), 17);
         draft.repeat_offset_mm = [f64::NAN, 0.];
@@ -2296,7 +2329,7 @@ mod tests {
         long_draft.repeat_copies = 16;
         let (inputs, range, truncated) =
             preview_inputs(std::slice::from_ref(&long), Some(&long_draft));
-        assert_eq!(range, Some((1, 3)));
+        assert_eq!(range, Some((0, 3)));
         assert!(truncated);
         assert_eq!(inputs.len(), 4);
         draft.repeat = false;
@@ -2377,8 +2410,77 @@ mod tests {
         new_draft.base = None;
         let many = vec![trim; 128];
         let (inputs, index, limited) = preview_inputs(&many, Some(&new_draft));
-        assert!(limited && index.is_none());
+        assert!(limited && index == Some((0, 1)));
         assert_eq!(inputs.len(), 128);
+
+        let mut unique = many;
+        for (i, item) in unique.iter_mut().enumerate() {
+            item.id = format!("item_{i}");
+        }
+        let base = unique.last().unwrap().clone();
+        let mut repeat = TrimDraft::from_trim(&base);
+        repeat.repeat = true;
+        repeat.repeat_copies = 1;
+        let (inputs, range, limited) = preview_inputs(&unique, Some(&repeat));
+        assert!(limited);
+        assert_eq!(range, Some((0, 1)));
+        assert_eq!(
+            inputs[1], base,
+            "the repeated source remains visible when other items are dropped"
+        );
+        assert_eq!(inputs.len(), 128);
+    }
+
+    #[test]
+    fn active_draft_precedes_dense_committed_paths_in_preview_budget() {
+        let mut template = GarmentTemplate::two_panel_demo();
+        template.panels[0].pattern.nx = 100;
+        template.panels[0].pattern.ny = 100;
+        let panel = template.panels[0].id.clone();
+        let path: Vec<_> = (0..128)
+            .map(|i| {
+                let t = i as f64 / 127.;
+                DVec2::new(0.02 + 0.36 * t, 0.3 + 0.04 * (t * 20.).sin())
+            })
+            .collect();
+        for id in ["dense_a", "dense_b"] {
+            template.trims.push(Trim {
+                id: id.into(),
+                panel_id: panel.clone(),
+                kind: TrimKind::Topstitch {
+                    path_m: path.clone(),
+                    rows: 1,
+                    spacing_m: 0.001,
+                },
+            });
+        }
+        let before = serde_json::to_vec(&template).unwrap();
+        let garment = std::sync::Arc::new(template.compile().unwrap());
+        let new = Trim {
+            id: "draft".into(),
+            panel_id: panel,
+            kind: TrimKind::Button {
+                center_m: DVec2::new(0.2, 0.3),
+                diameter_m: 0.01,
+            },
+        };
+        let mut draft = TrimDraft::from_trim(&new);
+        draft.base = None;
+        let (inputs, index, limited) = preview_inputs(&template.trims, Some(&draft));
+        assert_eq!(index, Some((0, 1)));
+        assert!(!limited);
+        let preview = build_preview(garment, &inputs).unwrap();
+        assert!(
+            preview
+                .paths
+                .iter()
+                .any(|(index, button, _)| *index == 0 && *button)
+        );
+        assert!(
+            preview.skipped > 0,
+            "fixture must exhaust shared attachment budget"
+        );
+        assert_eq!(serde_json::to_vec(&template).unwrap(), before);
     }
 
     #[test]

@@ -128,6 +128,9 @@ not per pixel. Preview work is bounded: at most 128 objects, 4096 input points,
 cached, position-refitted editor BVH for larger batches, with a 100,000-triangle
 limit and safe refusal if its bounds cannot be built. Unsupported or out-of-panel
 objects are skipped with a warning; oversized scenes can hide the 3D preview.
+An active draft or repeat preview is considered first within those same limits;
+other items may be hidden with an incomplete-preview warning. No committed
+objects are removed from the garment.
 Clean view hides the 3D overlay. The 2D preview has a separate 4096-unit work
 budget that also accounts for the extra width-outline segments.
 These overlays are not manufacturing-accurate previews.
