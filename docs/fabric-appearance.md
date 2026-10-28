@@ -108,6 +108,23 @@ and Save/Open retains both optics and the drape. Check perspective and
 orthographic views, diagnostic overlays, and restoration of the legacy default.
 Record the tested revision and GPU; this manual acceptance is still pending.
 
+The explicit `cloth-fit --gpu-benchmark` path also produces matched offscreen
+`albedo-plain.png` and `albedo-checker.png` images of the supplied scene with
+synthetic high-contrast texture data. `gpu-render.json` reports six timed frames
+per variant after two warmups, plus the number of pixels whose RGB differs by
+more than two. The first texture upload occurs during warmup and is excluded
+from these steady-state samples. Zero differences may mean the garment is hidden or offscreen; a
+positive count is not proof of correct filtering, color or native UI behavior.
+The report separates GPU timestamps from CPU preparation/submit/wait and does
+not measure simulation or presented FPS. This check uses a GPU only when the
+user explicitly runs the benchmark; no local result is claimed for this branch.
+
+Example, with a local fitting project and a fresh output directory:
+
+```powershell
+cargo run --locked --release -j 2 --bin cloth-fit -- --project "path/to/fitting-project.json" --steps 0 --gpu-benchmark --output "output/texture-check"
+```
+
 ## Provenance
 
 Independent Rust/WGSL implementation. EXO surface-optics and PBR-appearance
