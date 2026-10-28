@@ -33,7 +33,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-CAD-008](#exo-cad-008) — Implement offset paths and cutline corner policy | cad | blocked | EXO-REV-001, EXO-REV-002 | Not registered |
 | [EXO-SEW-001](#exo-sew-001) — Add a read-only sewing construction audit | sewing | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/19) |
 | [EXO-SEW-002](#exo-sew-002) — Define authored trims and construction annotations | sewing | ready | EXO-CORE-001 | Not registered |
-| [EXO-SEW-003](#exo-sew-003) — Add trim editing, picking and previews | sewing | blocked | EXO-SEW-002 | Not registered |
+| [EXO-SEW-003](#exo-sew-003) — Add trim editing, picking and previews | sewing | ready | EXO-CORE-001 | Not registered |
 | [EXO-SEW-004](#exo-sew-004) — Specify and validate physical zipper or button closure | physics | blocked | EXO-SEW-002, EXO-PHY-001 | Not registered |
 | [EXO-SEW-005](#exo-sew-005) — Define elastic seam and gathering mechanics | physics | ready | EXO-SEW-001, EXO-PHY-001 | Not registered |
 | [EXO-MFG-001](#exo-mfg-001) — Report net material area and mass from rest geometry | manufacturing | done | — | Not registered |
@@ -733,7 +733,7 @@ A standalone type cannot satisfy saved authoring, lifecycle and drape-preservati
 
 **Add trim editing, picking and previews**
 
-Status: blocked. Dependencies: EXO-SEW-002.
+Status: ready. Dependencies: EXO-CORE-001.
 
 **Files / directories**
 
@@ -759,7 +759,7 @@ Status: blocked. Dependencies: EXO-SEW-002.
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/proceduralHardwarePreview.js
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/clo7NativeHardwareActions.js
 
-Inspector and viewport integration require shared files also touched by open #6; inspect current claims and reconcile before editing. Existing embed_point/embed_path can derive transient 3D attachments from material coordinates, but their cost and out-of-panel behavior require explicit handling. This task remains blocked on accepted EXO-SEW-002.
+The concrete persistent trim foundation merged in #195 (0df7bb5); it is sufficient to start the native workflow without waiting for the broader SEW-002 review of independent open contributions. SEW-002 remains open, and this change does not claim its acceptance or reduce this task's UI/preview requirements. Inspector and viewport paths overlap #6 and SEW-002; check the live board and open PRs before claiming. Existing embed_point/embed_path can derive transient 3D attachments, but cost, remesh invalidation and out-of-panel behavior require explicit handling.
 
 ## EXO-SEW-004
 

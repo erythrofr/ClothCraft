@@ -632,9 +632,9 @@
       "id": "EXO-SEW-003",
       "title": "Add trim editing, picking and previews",
       "area": "sewing",
-      "status": "blocked",
+      "status": "ready",
       "depends_on": [
-        "EXO-SEW-002"
+        "EXO-CORE-001"
       ],
       "scope": [
         "src/atelier/trims_ui.rs",
@@ -658,7 +658,7 @@
         "https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/clo7NativeHardwareActions.js"
       ],
       "related_prs": [],
-      "notes": "Inspector and viewport integration require shared files also touched by open #6; inspect current claims and reconcile before editing. Existing embed_point/embed_path can derive transient 3D attachments from material coordinates, but their cost and out-of-panel behavior require explicit handling. This task remains blocked on accepted EXO-SEW-002."
+      "notes": "The concrete persistent trim foundation merged in #195 (0df7bb5); it is sufficient to start the native workflow without waiting for the broader SEW-002 review of independent open contributions. SEW-002 remains open, and this change does not claim its acceptance or reduce this task's UI/preview requirements. Inspector and viewport paths overlap #6 and SEW-002; check the live board and open PRs before claiming. Existing embed_point/embed_path can derive transient 3D attachments, but cost, remesh invalidation and out-of-panel behavior require explicit handling."
     },
     {
       "id": "EXO-SEW-004",
