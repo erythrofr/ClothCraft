@@ -3056,6 +3056,140 @@ mod tests {
     }
 
     #[test]
+    fn repeat_install_preserves_held_drape_worker_flags_and_saved_project() {
+        use super::super::authoring_ui::{AuthoringUi, EditorTransition};
+        use marvelous_cloth::{
+            authoring::prepare_pin_edit, fitting::FittingProject, garment::presets::GarmentKind,
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let avatar = dir.path().join("avatar.obj");
+        std::fs::write(&avatar, "v 10 0 -10\nv 11 0 -10\nv 10 1 -10\nf 1 2 3\n").unwrap();
+        let file = dir.path().join("repeat.clothcraft");
+        let mut project = FittingProject::basic(GarmentKind::Tshirt, 0, avatar);
+        project.template = GarmentTemplate::two_panel_demo();
+        project.template.seams.clear();
+        for (i, panel) in project.template.panels.iter_mut().enumerate() {
+            panel.pins.clear();
+            panel.pattern.nx = 2;
+            panel.pattern.ny = 2;
+            panel.placement.translation.x += i as f64 * 4.;
+        }
+        let garment = project.template.compile().unwrap();
+        let mut initial = garment.initial_state.clone();
+        let free = garment.panels[1].vertices.start;
+        initial.time = 5.;
+        initial.v[free] = glam::DVec3::new(0.1, 0.2, 0.3);
+        let panel = garment.panels[0].id.clone();
+        let center = garment.mesh.uv[garment.panels[0].vertices.start + 4];
+        let (held_edit, held) = prepare_pin_edit(
+            &project.template,
+            &garment,
+            &initial,
+            &panel,
+            &[center],
+            true,
+        )
+        .unwrap();
+        let original = Trim {
+            id: "source".into(),
+            panel_id: panel,
+            kind: TrimKind::Button {
+                center_m: DVec2::new(0.1, 0.1),
+                diameter_m: 0.01,
+            },
+        };
+        project.template = authoring::apply(
+            &held_edit.template,
+            Command::SetTrim {
+                trim: original.clone(),
+            },
+        )
+        .unwrap()
+        .template;
+        project.state = Some(held.clone());
+        project.save(&file).unwrap();
+        let mut project = FittingProject::load(&file).unwrap();
+        let mut scene = project.compile().unwrap();
+        let retained_mesh = scene.garment.clone();
+        let signature = project.mesh_signature.clone();
+        let mut authoring = AuthoringUi::default();
+        let mut issue = super::super::issue_ui::IssueUi::default();
+        let mut dirty = false;
+        let mut generation = 12;
+        let mut playing = true;
+        let mut pending = true;
+        let mut metrics = None;
+        let mut grab = None;
+        let mut plane = None;
+        let mut error = None;
+        let mut status = String::new();
+        let mut editor = EditorTransition {
+            authoring: &mut authoring,
+            project: &mut project,
+            scene: &mut scene,
+            issue: &mut issue,
+            dirty: &mut dirty,
+            generation: &mut generation,
+            playing: &mut playing,
+            pending: &mut pending,
+            metrics: &mut metrics,
+            grab: &mut grab,
+            drag_plane: &mut plane,
+            simulation_error: &mut error,
+            status: &mut status,
+            dt: 1. / 60.,
+        };
+        let mut draft = TrimDraft::from_trim(&original);
+        draft.repeat = true;
+        let edit = prepare_repeat(&editor.project.template, &editor.scene.garment, &draft).unwrap();
+        editor
+            .authoring
+            .history
+            .record(editor.project.template.clone());
+        editor.install(edit);
+        assert_eq!(editor.project.template.trims.len(), 4);
+        assert!(*editor.playing && *editor.pending && *editor.generation == 12);
+        assert!(std::sync::Arc::ptr_eq(
+            &retained_mesh,
+            &editor.scene.garment
+        ));
+        assert_eq!(editor.project.mesh_signature, signature);
+        assert_eq!(editor.scene.state.x, held.x);
+        assert_eq!(editor.scene.state.v, held.v);
+        assert_eq!(editor.scene.state.time, held.time);
+        for (redo, count) in [(false, 1), (true, 4)] {
+            let edit = editor
+                .authoring
+                .history
+                .restore(&editor.project.template, redo)
+                .unwrap();
+            editor.install(edit);
+            assert_eq!(editor.project.template.trims.len(), count);
+            assert!(*editor.playing && *editor.pending && *editor.generation == 12);
+            assert!(std::sync::Arc::ptr_eq(
+                &retained_mesh,
+                &editor.scene.garment
+            ));
+            assert_eq!(editor.scene.state.x, held.x);
+            assert_eq!(editor.scene.state.v, held.v);
+            assert_eq!(editor.scene.state.time, held.time);
+        }
+        editor.project.state = Some(editor.scene.state.clone());
+        editor.project.save(&file).unwrap();
+        let reopened = FittingProject::load(&file).unwrap();
+        let scene = reopened.compile().unwrap();
+        assert_eq!(scene.state.x, held.x);
+        assert_eq!(scene.state.v, held.v);
+        assert_eq!(scene.state.time, held.time);
+        assert_eq!(reopened.template.trims, editor.project.template.trims);
+        assert_eq!(
+            reopened.template.pin_targets,
+            editor.project.template.pin_targets
+        );
+        assert_eq!(reopened.template.pin_targets.len(), 1);
+    }
+
+    #[test]
     fn named_repeat_validates_all_copies_and_commits_once() {
         use super::super::authoring_smoke::widget_harness::Harness;
         struct Case {

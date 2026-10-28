@@ -21,7 +21,9 @@ Select an existing trim and choose **Repeat…** to create 1–128 copies at a
 fixed panel-local X/Y offset in millimetres. Apply checks each generated center
 or path against the panel surface and uses one undo transaction; widths and
 row offsets can extend beyond the panel. Cancel returns to the original. Large requests can be refused by the shared work limit, and linked
-mirror panels are refused until paired trim synchronization is supported.
+mirror panels are refused until paired trim synchronization is supported. A CPU integration fixture checks the actual editor installation, undo/redo and
+save/reopen with a held interior vertex. Its pending-worker flags are simulated;
+it does not exercise a concurrent worker or a native window.
 
 Trim-only edits are classified as nonphysical and excluded from fitting mesh
 signatures.
