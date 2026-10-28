@@ -45,6 +45,8 @@ again before deletion. Text fields keep their normal Delete behavior.
 Once a trim or panel handles or refuses Delete, the same key press is not
 also sent to the seam deletion shortcut.
 
+Escape cancels a placement or path only when a text field does not own the
+keyboard. If a field is focused, leave it first, then press Escape again.
 Undo first cancels an unfinished repeat, placement or path gesture, then discards a
 new or modified trim draft before it reaches document history. Redo is
 unavailable while such a step is pending. Selecting an unchanged saved trim

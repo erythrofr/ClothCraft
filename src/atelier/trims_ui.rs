@@ -19,6 +19,7 @@ pub(super) struct TrimUi {
     )>,
     preview_warning: Option<String>,
     visibility: super::selection::ClothVisibilityCache,
+    text_focus: bool,
 }
 
 struct TrimPreview {
@@ -1365,6 +1366,7 @@ fn trim_controls(
         state.draft = None;
     }
     if state.draft.as_ref().is_some_and(|d| d.repeat)
+        && !state.text_focus
         && !ui.ctx().egui_wants_keyboard_input()
         && ui.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Escape))
         && let Some(draft) = state.draft.as_mut()
@@ -1375,6 +1377,8 @@ fn trim_controls(
         .draft
         .as_ref()
         .is_some_and(|d| d.place_on_board || d.place_on_3d || d.draw_backup.is_some())
+        && !state.text_focus
+        && !ui.ctx().egui_wants_keyboard_input()
         && ui.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Escape))
         && let Some(draft) = state.draft.as_mut()
     {
@@ -1620,6 +1624,7 @@ fn trim_controls(
     super::authoring_smoke::widget_harness::named(ui, &section.header_response, "trim.section");
     #[cfg(not(test))]
     let _ = section;
+    state.text_focus = ui.ctx().egui_wants_keyboard_input();
     command
 }
 
@@ -2506,6 +2511,10 @@ mod tests {
             &mut draw,
         )
         .unwrap();
+        assert!(case.ui.draft.as_ref().unwrap().place_on_3d);
+        assert!(case.ui.draft.as_ref().unwrap().draw_backup.is_some());
+        h.frame(&mut case, &mut draw);
+        h.click("trim.cancel_path", &mut case, &mut draw).unwrap();
         assert_eq!(case.ui.draft.as_ref().unwrap().points, previous);
         assert!(!case.ui.draft.as_ref().unwrap().place_on_3d);
         h.frame(&mut case, &mut draw);
@@ -3815,6 +3824,18 @@ mod tests {
         frame(false, false, &mut state);
         frame(false, true, &mut state);
         assert!(!state.draft.as_ref().unwrap().repeat);
+        state.draft.as_mut().unwrap().place_on_board = true;
+        frame(true, false, &mut state);
+        frame(true, true, &mut state);
+        assert!(state.draft.as_ref().unwrap().place_on_board);
+        ctx.memory_mut(|m| {
+            if let Some(focused) = m.focused() {
+                m.surrender_focus(focused);
+            }
+        });
+        frame(false, false, &mut state);
+        frame(false, true, &mut state);
+        assert!(!state.draft.as_ref().unwrap().place_on_board);
         assert_eq!(state.draft.as_ref().unwrap().parse().unwrap(), original);
         assert_eq!(serde_json::to_vec(&template).unwrap(), before);
     }
@@ -4204,7 +4225,7 @@ mod tests {
                 &mut draw,
             )
             .unwrap();
-        assert!(!case.ui.draft.as_ref().unwrap().place_on_3d);
+        assert!(case.ui.draft.as_ref().unwrap().place_on_3d);
         assert!(case.template.trims.is_empty() && !case.history.can_undo());
         harness.click("trim.cancel", &mut case, &mut draw).unwrap();
         assert!(case.template.trims.is_empty() && !case.history.can_undo());
@@ -4302,6 +4323,11 @@ mod tests {
                         &mut case,
                         &mut draw,
                     )
+                    .unwrap();
+                assert!(case.ui.draft.as_ref().unwrap().draw_backup.is_some());
+                harness.frame(&mut case, &mut draw);
+                harness
+                    .click("trim.cancel_path", &mut case, &mut draw)
                     .unwrap();
                 assert_eq!(case.ui.draft.as_ref().unwrap().points, previous);
                 harness.frame(&mut case, &mut draw);
