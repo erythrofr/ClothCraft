@@ -37,6 +37,14 @@ Board ownership includes legacy rectangular panels and chooses the topmost
 panel body when pieces overlap; polygon holes expose the panel underneath.
 In the 3D view, an Edit-mode click can also select a visible trim preview;
 selection samples cloth and avatar visibility and is disabled in Clean view.
+For a trim draft in Edit mode, **Position first point on 3D cloth** lets a click on the
+visible owning panel stage a translation of the entire trim. The hit is mapped
+back to panel-local material coordinates from the deformed triangle; another
+panel or an avatar-occluded hit is not accepted. Escape cancels the placement
+gesture and **Apply** commits the draft as one undoable edit. The click query
+is limited to 100,000 cloth triangles and reports invalid geometry; it does not
+affect physics or collision detection. This workflow needs native-window and
+real-scene performance validation.
 These samples do not prove visibility for every pixel. Skipped trims cannot be
 picked. On the 2D board buttonholes and zipper segments show width outlines in
 material coordinates. Each zipper segment is outlined separately, so bends are

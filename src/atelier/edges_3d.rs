@@ -9,6 +9,14 @@ use marvelous_cloth::garment::seam::{BoundaryRef, Side};
 
 impl Atelier {
     pub(super) fn edge_interaction(&mut self, response: &egui::Response, rect: egui::Rect) {
+        if self.trim_3d_placement_active() {
+            if response.clicked()
+                && let Some(pointer) = response.interact_pointer_pos()
+            {
+                self.place_trim_on_3d(rect, pointer);
+            }
+            return;
+        }
         if self.sewing_canvas_confirm(response) {
             return;
         }

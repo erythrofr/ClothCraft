@@ -43,6 +43,7 @@ struct TrimDraft {
     width: String,
     rows: String,
     place_on_board: bool,
+    place_on_3d: bool,
     draw_backup: Option<String>,
     draw_points: Vec<DVec2>,
     original: Option<Trim>,
@@ -61,6 +62,82 @@ fn stage_board_click(draft: &mut TrimDraft, point: DVec2) -> Result<(), String> 
     *draft = TrimDraft::from_trim(&trim);
     draft.base = base;
     Ok(())
+}
+
+fn stage_surface_hit(draft: &mut TrimDraft, hit: Option<(String, DVec2)>) -> Result<bool, String> {
+    let Some((panel, uv)) = hit else {
+        return Ok(false);
+    };
+    if panel != draft.panel {
+        return Ok(false);
+    }
+    stage_board_click(draft, uv)?;
+    Ok(true)
+}
+
+/// Resolve the nearest visible cloth hit into its panel-local material UV.
+/// This is an editor click query, not a physical collision test.
+fn visible_material_hit(
+    garment: &marvelous_cloth::garment::CompiledGarment,
+    state: &marvelous_cloth::model::State,
+    origin: glam::DVec3,
+    direction: glam::DVec3,
+    avatar_occludes: impl Fn(glam::DVec3, glam::DVec3, f64) -> bool,
+) -> Result<Option<(String, DVec2)>, String> {
+    if !origin.is_finite()
+        || !direction.is_finite()
+        || direction.length_squared() < 1e-24
+        || state.x.len() != garment.mesh.uv.len()
+        || garment.mesh.triangles.len() > 100_000
+    {
+        return Err("Cannot pick this cloth surface".into());
+    }
+    let direction = direction.normalize();
+    if !direction.is_finite() || direction.length_squared() < 0.5 {
+        return Err("Cannot pick this cloth surface".into());
+    }
+    let mut closest: Option<(usize, f64, [f64; 3])> = None;
+    for (face, tri) in garment.mesh.triangles.iter().enumerate() {
+        if tri.vertices.iter().any(|i| {
+            *i >= state.x.len() || !state.x[*i].is_finite() || !garment.mesh.uv[*i].is_finite()
+        }) {
+            return Err("Invalid cloth geometry for 3D placement".into());
+        }
+        if let Some((distance, weights)) = marvelous_cloth::picking::ray_triangle(
+            origin,
+            direction,
+            tri.vertices.map(|i| state.x[i]),
+        ) && distance.is_finite()
+            && weights.iter().all(|w| w.is_finite())
+            && closest
+                .as_ref()
+                .is_none_or(|(_, previous, _)| distance < *previous)
+        {
+            closest = Some((face, distance, weights));
+        }
+    }
+    let Some((face, distance, weights)) = closest else {
+        return Ok(None);
+    };
+    if avatar_occludes(origin, direction, (distance - 1e-5).max(0.)) {
+        return Ok(None);
+    }
+    let panel = garment
+        .panels
+        .iter()
+        .find(|p| p.triangles.contains(&face))
+        .ok_or("Cloth hit has no owning panel")?;
+    let tri = &garment.mesh.triangles[face];
+    let uv = tri
+        .vertices
+        .into_iter()
+        .zip(weights)
+        .map(|(i, w)| garment.mesh.uv[i] * w)
+        .sum::<DVec2>();
+    if !uv.is_finite() {
+        return Err("Non-finite material coordinate".into());
+    }
+    Ok(Some((panel.id.clone(), uv)))
 }
 
 fn board_local_point(
@@ -405,6 +482,7 @@ impl TrimDraft {
             width: (width * 1000.).to_string(),
             rows: rows.to_string(),
             place_on_board: false,
+            place_on_3d: false,
             draw_backup: None,
             draw_points: Vec::new(),
             original: Some(trim.clone()),
@@ -488,6 +566,7 @@ impl TrimDraft {
         self.draw_points.clear();
         self.points.clear();
         self.place_on_board = false;
+        self.place_on_3d = false;
     }
 
     fn append_path_point(&mut self, point: DVec2) -> Result<(), String> {
@@ -748,14 +827,15 @@ fn build_preview(
 
 impl TrimUi {
     pub(super) fn board_placement_active(&self) -> bool {
-        self.draft
-            .as_ref()
-            .is_some_and(|draft| draft.place_on_board || draft.draw_backup.is_some())
+        self.draft.as_ref().is_some_and(|draft| {
+            draft.place_on_board || draft.place_on_3d || draft.draw_backup.is_some()
+        })
     }
 
     pub(super) fn cancel_board_placement(&mut self) {
         if let Some(draft) = self.draft.as_mut() {
             draft.place_on_board = false;
+            draft.place_on_3d = false;
             draft.cancel_path();
         }
     }
@@ -1027,6 +1107,7 @@ fn trim_controls(
     state: &mut TrimUi,
     template: &marvelous_cloth::garment::GarmentTemplate,
     panel: &Panel,
+    can_place_3d: bool,
 ) -> Option<Command> {
     if state.draft.as_ref().is_some_and(|d| d.panel != panel.id) {
         state.draft = None;
@@ -1034,11 +1115,12 @@ fn trim_controls(
     if state
         .draft
         .as_ref()
-        .is_some_and(|d| d.place_on_board || d.draw_backup.is_some())
+        .is_some_and(|d| d.place_on_board || d.place_on_3d || d.draw_backup.is_some())
         && ui.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Escape))
         && let Some(draft) = state.draft.as_mut()
     {
         draft.place_on_board = false;
+        draft.place_on_3d = false;
         draft.cancel_path();
     }
     let mut command = None;
@@ -1109,6 +1191,7 @@ fn trim_controls(
                         width: if kind == 0 { "18" } else { "4" }.into(),
                         rows: "1".into(),
                         place_on_board: false,
+                        place_on_3d: false,
                         draw_backup: None,
                         draw_points: Vec::new(),
                         original: None,
@@ -1154,8 +1237,18 @@ fn trim_controls(
                 super::authoring_smoke::widget_harness::named(ui, &place, "trim.place");
                 if place.clicked() {
                     draft.place_on_board = true;
+                    draft.place_on_3d = false;
                 }
                 if draft.place_on_board { ui.small("Click the panel to position the first point · Escape cancels"); }
+                let place_3d = ui.add_enabled(can_place_3d && draft.draw_backup.is_none(), egui::Button::new("Position first point on 3D cloth"))
+                    .on_disabled_hover_text("Choose Edit mode and finish drawing first");
+                #[cfg(test)]
+                super::authoring_smoke::widget_harness::named(ui, &place_3d, "trim.place_3d");
+                if place_3d.clicked() {
+                    draft.place_on_board = false;
+                    draft.place_on_3d = true;
+                }
+                if draft.place_on_3d { ui.small("Click the visible owning panel in 3D · Escape cancels"); }
                 if matches!(draft.kind, 1..=3) {
                     if draft.draw_backup.is_none() {
                         let draw = ui.button("Draw path on 2D board");
@@ -1210,7 +1303,13 @@ fn trim_controls(
 
 impl Atelier {
     pub(super) fn trim_properties(&mut self, ui: &mut egui::Ui, panel: &Panel) {
-        let command = trim_controls(ui, &mut self.authoring.trims, &self.project.template, panel);
+        let command = trim_controls(
+            ui,
+            &mut self.authoring.trims,
+            &self.project.template,
+            panel,
+            self.authoring.tool == super::authoring_ui::Tool::Edit,
+        );
         if let Some(command) = command {
             if matches!(&command, Command::SetTrim { .. })
                 && let Some(draft) = self.authoring.trims.draft.as_ref()
@@ -1279,8 +1378,53 @@ impl Atelier {
         true
     }
 
+    pub(super) fn trim_3d_placement_active(&self) -> bool {
+        self.authoring
+            .trims
+            .draft
+            .as_ref()
+            .is_some_and(|draft| draft.place_on_3d)
+    }
+
+    /// Stage a 3D surface hit in the existing material-space draft.
+    pub(super) fn place_trim_on_3d(&mut self, rect: egui::Rect, screen: egui::Pos2) {
+        if !self.trim_3d_placement_active() {
+            return;
+        }
+        let (origin, direction) = self.camera.ray(screen, rect);
+        let hit = visible_material_hit(
+            &self.scene.garment,
+            &self.scene.state,
+            origin,
+            direction,
+            |origin, direction, distance| {
+                self.scene
+                    .collider
+                    .occludes_ray(origin, direction, distance)
+            },
+        );
+        let draft = self
+            .authoring
+            .trims
+            .draft
+            .as_mut()
+            .expect("active trim draft");
+        match hit.and_then(|hit| stage_surface_hit(draft, hit)) {
+            Ok(true) => self.status = "Trim position staged · Apply to commit".into(),
+            Ok(false) => self.status = "Click the visible owning panel to position the trim".into(),
+            Err(error) => {
+                self.authoring.error = Some(error.clone());
+                self.status = error;
+            }
+        }
+    }
+
     pub(super) fn trim_board_placement_active(&self) -> bool {
-        self.authoring.trims.board_placement_active()
+        self.authoring
+            .trims
+            .draft
+            .as_ref()
+            .is_some_and(|draft| draft.place_on_board || draft.draw_backup.is_some())
     }
 
     /// A board click moves the entire draft without committing an edit.
@@ -1329,6 +1473,107 @@ impl Atelier {
 mod tests {
     use super::*;
     use marvelous_cloth::garment::GarmentTemplate;
+
+    #[test]
+    fn surface_hit_maps_deformed_cloth_to_material_and_respects_occlusion_and_owner() {
+        use glam::DVec3;
+        let mut template = GarmentTemplate::two_panel_demo();
+        template.panels[1].pattern.nx = template.panels[0].pattern.nx;
+        template.panels[1].pattern.ny = template.panels[0].pattern.ny;
+        let garment = template.compile().unwrap();
+        let mut state = garment.initial_state.clone();
+        for point in &mut state.x {
+            point.z += point.x * point.y * 0.05;
+        }
+        let panel = &garment.panels[0];
+        let triangle = &garment.mesh.triangles[panel.triangles.start];
+        let positions = triangle.vertices.map(|i| state.x[i]);
+        let center = (positions[0] + positions[1] + positions[2]) / 3.;
+        let normal = (positions[1] - positions[0])
+            .cross(positions[2] - positions[0])
+            .normalize();
+        let expected = triangle
+            .vertices
+            .into_iter()
+            .map(|i| garment.mesh.uv[i] / 3.)
+            .sum::<DVec2>();
+        let origin = center + normal * 0.001;
+        let hit = visible_material_hit(&garment, &state, origin, -normal, |_, _, _| false)
+            .unwrap()
+            .unwrap();
+        assert_eq!(hit.0, panel.id);
+        assert!(hit.1.distance(expected) < 1e-10);
+        assert!(
+            visible_material_hit(&garment, &state, origin, -normal, |_, _, _| true)
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            visible_material_hit(&garment, &state, origin, DVec3::ZERO, |_, _, _| false).is_err()
+        );
+
+        let trim = Trim {
+            id: "zip".into(),
+            panel_id: panel.id.clone(),
+            kind: TrimKind::Zipper {
+                path_m: vec![DVec2::new(0.05, 0.05), DVec2::new(0.1, 0.1)],
+                width_m: 0.01,
+            },
+        };
+        let mut draft = TrimDraft::from_trim(&trim);
+        draft.place_on_3d = true;
+        assert!(!stage_surface_hit(&mut draft, Some(("other".into(), expected))).unwrap());
+        assert_eq!(draft.parse().unwrap(), trim);
+        assert!(draft.place_on_3d);
+        assert!(stage_surface_hit(&mut draft, Some(hit)).unwrap());
+        assert!(!draft.place_on_3d);
+        let TrimKind::Zipper { path_m, .. } = draft.parse().unwrap().kind else {
+            panic!("zipper expected")
+        };
+        assert!(path_m[0].distance(expected) < 1e-10);
+        assert!((path_m[1] - path_m[0]).distance(DVec2::new(0.05, 0.05)) < 1e-10);
+        let other_panel = &garment.panels[1];
+        assert_eq!(panel.vertices.len(), other_panel.vertices.len());
+        let mut layered = state.clone();
+        for (a, b) in panel.vertices.clone().zip(other_panel.vertices.clone()) {
+            layered.x[b] = state.x[a] + normal * 0.0005;
+        }
+        let front = visible_material_hit(&garment, &layered, origin, -normal, |_, _, _| false)
+            .unwrap()
+            .unwrap();
+        assert_eq!(front.0, other_panel.id, "nearest layer must win");
+        let mut invalid = state;
+        invalid.x.pop();
+        assert!(
+            visible_material_hit(&garment, &invalid, origin, -normal, |_, _, _| false).is_err()
+        );
+    }
+
+    #[test]
+    fn three_dimensional_placement_control_requires_edit_mode() {
+        use super::super::authoring_smoke::widget_harness::Harness;
+        let template = GarmentTemplate::two_panel_demo();
+        let trim = Trim {
+            id: "button".into(),
+            panel_id: template.panels[0].id.clone(),
+            kind: TrimKind::Button {
+                center_m: DVec2::new(0.1, 0.1),
+                diameter_m: 0.01,
+            },
+        };
+        let mut state = TrimUi {
+            draft: Some(TrimDraft::from_trim(&trim)),
+            ..Default::default()
+        };
+        let panel = template.panels[0].clone();
+        let mut draw = |ui: &mut egui::Ui, state: &mut TrimUi| {
+            trim_controls(ui, state, &template, &panel, false);
+        };
+        let mut h = Harness::new(egui::vec2(1000., 700.));
+        h.frame(&mut state, &mut draw);
+        assert!(h.click("trim.place_3d", &mut state, &mut draw).is_err());
+        assert!(!state.draft.as_ref().unwrap().place_on_3d);
+    }
 
     #[test]
     fn zipper_width_tracks_folded_surface_and_preserves_centerline_on_failure() {
@@ -2163,6 +2408,14 @@ mod tests {
             trim
         );
         assert!(!authoring.history.can_undo());
+        authoring.tool = Tool::Edit;
+        authoring.trims.draft.as_mut().unwrap().place_on_3d = true;
+        assert!(prepare_tool_transition(&mut authoring, Tool::Edit, false));
+        assert!(!authoring.trims.draft.as_ref().unwrap().place_on_3d);
+        assert_eq!(
+            authoring.trims.draft.as_ref().unwrap().parse().unwrap(),
+            trim
+        );
     }
 
     #[test]
@@ -2297,7 +2550,7 @@ mod tests {
                 .find(|p| p.id == case.panel)
                 .unwrap()
                 .clone();
-            if let Some(command) = trim_controls(ui, &mut case.ui, &case.template, &panel) {
+            if let Some(command) = trim_controls(ui, &mut case.ui, &case.template, &panel, true) {
                 if let Command::SetTrim { trim } = &command {
                     validate_surface(trim, &case.template.compile().unwrap()).unwrap();
                 }
@@ -2365,7 +2618,7 @@ mod tests {
         };
         let mut draw = |ui: &mut egui::Ui, case: &mut Case| {
             let panel = case.template.panels[0].clone();
-            if let Some(command) = trim_controls(ui, &mut case.ui, &case.template, &panel) {
+            if let Some(command) = trim_controls(ui, &mut case.ui, &case.template, &panel, true) {
                 if let Command::SetTrim { trim } = &command {
                     let garment = case.template.compile().unwrap();
                     validate_surface(trim, &garment).unwrap();
@@ -2382,6 +2635,22 @@ mod tests {
         harness.click("trim.section", &mut case, &mut draw).unwrap();
         harness.click("trim.new", &mut case, &mut draw).unwrap();
         assert!(case.template.trims.is_empty());
+        harness
+            .click("trim.place_3d", &mut case, &mut draw)
+            .unwrap();
+        assert!(case.ui.draft.as_ref().unwrap().place_on_3d);
+        harness.click("trim.points", &mut case, &mut draw).unwrap();
+        harness
+            .key(
+                "trim.points",
+                egui::Key::Escape,
+                egui::Modifiers::NONE,
+                &mut case,
+                &mut draw,
+            )
+            .unwrap();
+        assert!(!case.ui.draft.as_ref().unwrap().place_on_3d);
+        assert!(case.template.trims.is_empty() && !case.history.can_undo());
         harness.click("trim.cancel", &mut case, &mut draw).unwrap();
         assert!(case.template.trims.is_empty() && !case.history.can_undo());
         harness.frame(&mut case, &mut draw);
