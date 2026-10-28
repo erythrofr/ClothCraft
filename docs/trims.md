@@ -52,6 +52,10 @@ mapping. A buttonhole needs exactly two points; other paths accept up to 128.
 Escape or changing tools restores the previous draft path. During a 3D gesture,
 clicks on the 2D board do not add points or change the selection. This creates
 material-space polylines, not geodesics or physical fasteners.
+The staged draft appears amber in 3D, including a first-point marker while
+drawing. It uses the same bounded, sampled visibility as committed overlays;
+out-of-panel geometry or preview limits can hide it with a warning. Incomplete
+input is not shown until it forms a valid preview.
 
 One local opt-in CPU measurement of the 3D click query on three synthetic
 panels (98,304 triangles) reported a 2.25 ms median / 2.35 ms p95 for a hit,

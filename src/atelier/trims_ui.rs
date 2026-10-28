@@ -826,6 +826,49 @@ fn build_preview(
     })
 }
 
+/// Assemble bounded display-only inputs. The staged object replaces its old
+/// preview and is never inserted in the document until the author confirms it.
+fn preview_inputs<'a>(
+    committed: &'a [Trim],
+    draft: Option<&TrimDraft>,
+) -> (std::borrow::Cow<'a, [Trim]>, Option<usize>, bool) {
+    let mut inputs = std::borrow::Cow::Borrowed(committed);
+    let Some(draft) = draft else {
+        return (inputs, None, false);
+    };
+    let staged = if draft.draw_backup.is_some() && draft.draw_points.len() == 1 {
+        Some(Trim {
+            id: draft.id.clone(),
+            panel_id: draft.panel.clone(),
+            kind: TrimKind::Button {
+                center_m: draft.draw_points[0],
+                diameter_m: 0.01,
+            },
+        })
+    } else if draft.draw_backup.is_some() && draft.draw_points.is_empty() {
+        None
+    } else {
+        draft.parse().ok()
+    };
+    let Some(staged) = staged else {
+        return (inputs, None, false);
+    };
+    if let Some(index) = draft
+        .base
+        .as_ref()
+        .and_then(|base| inputs.iter().position(|item| item.id == base.id))
+    {
+        inputs.to_mut()[index] = staged;
+        return (inputs, Some(index), false);
+    }
+    if inputs.len() >= 128 {
+        return (inputs, None, true);
+    }
+    let index = inputs.len();
+    inputs.to_mut().push(staged);
+    (inputs, Some(index), false)
+}
+
 impl TrimUi {
     pub(super) fn board_placement_active(&self) -> bool {
         self.draft.as_ref().is_some_and(|draft| {
@@ -1029,9 +1072,13 @@ impl Atelier {
             .map(|d| d.draw_points.as_slice())
     }
     pub(super) fn paint_trims_3d(&mut self, ui: &egui::Ui, rect: egui::Rect) {
+        let (inputs, draft_index, draft_limit) = preview_inputs(
+            &self.project.template.trims,
+            self.authoring.trims.draft.as_ref(),
+        );
         self.authoring
             .trims
-            .refresh_preview(&self.scene.garment, &self.project.template.trims);
+            .refresh_preview(&self.scene.garment, &inputs);
         let Some(preview) = self.authoring.trims.preview.as_ref() else {
             return;
         };
@@ -1075,8 +1122,16 @@ impl Atelier {
             }
             Some(screen)
         };
-        let color = Color32::from_rgb(0xEA, 0x78, 0xD4);
-        for (_, button, embedded) in &preview.paths {
+        if draft_limit {
+            self.authoring.trims.preview_warning =
+                Some("3D draft hidden: trim preview object limit reached".into());
+        }
+        for (index, button, embedded) in &preview.paths {
+            let color = if Some(*index) == draft_index {
+                Color32::from_rgb(0xFF, 0xC0, 0x58)
+            } else {
+                Color32::from_rgb(0xEA, 0x78, 0xD4)
+            };
             let world: Vec<_> = embedded
                 .iter()
                 .map(|p| p.evaluate(&self.scene.state.x).ok())
@@ -1538,6 +1593,82 @@ mod tests {
                 values[((values.len() - 1) as f64 * 0.95).ceil() as usize]
             );
         }
+    }
+
+    #[test]
+    fn staged_3d_preview_tracks_drawing_and_cancel_without_document_edits() {
+        let template = GarmentTemplate::two_panel_demo();
+        let garment = std::sync::Arc::new(template.compile().unwrap());
+        let trim = Trim {
+            id: "draft".into(),
+            panel_id: template.panels[0].id.clone(),
+            kind: TrimKind::Zipper {
+                path_m: vec![DVec2::new(0.1, 0.1), DVec2::new(0.2, 0.2)],
+                width_m: 0.01,
+            },
+        };
+        let mut draft = TrimDraft::from_trim(&trim);
+        draft.begin_path();
+        assert!(preview_inputs(&template.trims, Some(&draft)).0.is_empty());
+        draft.append_path_point(DVec2::new(0.1, 0.1)).unwrap();
+        let (inputs, index, limited) = preview_inputs(&template.trims, Some(&draft));
+        assert_eq!(index, Some(0));
+        assert!(!limited);
+        let marker = build_preview(garment.clone(), &inputs).unwrap();
+        assert!(marker.paths[0].1);
+        let original = marker.paths[0].2[0]
+            .evaluate(&garment.initial_state.x)
+            .unwrap();
+        let moved: Vec<_> = garment
+            .initial_state
+            .x
+            .iter()
+            .map(|p| *p + glam::DVec3::Y)
+            .collect();
+        assert!(
+            (marker.paths[0].2[0].evaluate(&moved).unwrap() - original - glam::DVec3::Y).length()
+                < 1e-10
+        );
+        draft.append_path_point(DVec2::new(0.2, 0.2)).unwrap();
+        let (inputs, index, _) = preview_inputs(&template.trims, Some(&draft));
+        assert_eq!(index, Some(0));
+        let path = build_preview(garment, &inputs).unwrap();
+        assert!(!path.paths.is_empty() && !path.paths[0].1);
+        assert!(template.trims.is_empty());
+        draft.cancel_path();
+        assert_eq!(draft.parse().unwrap(), trim);
+        let (inputs, index, _) = preview_inputs(std::slice::from_ref(&trim), Some(&draft));
+        assert_eq!(inputs.len(), 1);
+        assert_eq!(index, Some(0));
+    }
+
+    #[test]
+    fn draft_preview_respects_object_limit_and_does_not_replace_other_ids() {
+        let trim = Trim {
+            id: "first".into(),
+            panel_id: "panel".into(),
+            kind: TrimKind::Button {
+                center_m: DVec2::ZERO,
+                diameter_m: 0.01,
+            },
+        };
+        let other = Trim {
+            id: "other".into(),
+            ..trim.clone()
+        };
+        let mut edit = TrimDraft::from_trim(&trim);
+        edit.id = "other".into();
+        let existing = [trim.clone(), other.clone()];
+        let (inputs, index, limited) = preview_inputs(&existing, Some(&edit));
+        assert_eq!(index, Some(0));
+        assert!(!limited);
+        assert_eq!(inputs[1], other);
+        let mut new_draft = TrimDraft::from_trim(&trim);
+        new_draft.base = None;
+        let many = vec![trim; 128];
+        let (inputs, index, limited) = preview_inputs(&many, Some(&new_draft));
+        assert!(limited && index.is_none());
+        assert_eq!(inputs.len(), 128);
     }
 
     #[test]
