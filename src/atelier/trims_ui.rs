@@ -426,6 +426,19 @@ fn build_preview(
 }
 
 impl TrimUi {
+    pub(super) fn board_placement_active(&self) -> bool {
+        self.draft
+            .as_ref()
+            .is_some_and(|draft| draft.place_on_board || draft.draw_backup.is_some())
+    }
+
+    pub(super) fn cancel_board_placement(&mut self) {
+        if let Some(draft) = self.draft.as_mut() {
+            draft.place_on_board = false;
+            draft.cancel_path();
+        }
+    }
+
     fn refresh_preview(
         &mut self,
         garment: &std::sync::Arc<marvelous_cloth::garment::CompiledGarment>,
@@ -976,11 +989,7 @@ impl Atelier {
     }
 
     pub(super) fn trim_board_placement_active(&self) -> bool {
-        self.authoring
-            .trims
-            .draft
-            .as_ref()
-            .is_some_and(|d| d.place_on_board || d.draw_backup.is_some())
+        self.authoring.trims.board_placement_active()
     }
 
     /// A board click moves the entire draft without committing an edit.
@@ -1021,10 +1030,7 @@ impl Atelier {
     }
 
     pub(super) fn cancel_trim_board_placement(&mut self) {
-        if let Some(draft) = self.authoring.trims.draft.as_mut() {
-            draft.place_on_board = false;
-            draft.cancel_path();
-        }
+        self.authoring.trims.cancel_board_placement();
     }
 }
 
@@ -1032,6 +1038,44 @@ impl Atelier {
 mod tests {
     use super::*;
     use marvelous_cloth::garment::GarmentTemplate;
+
+    #[test]
+    fn changing_or_reselecting_a_tool_cancels_unfinished_trim_gestures() {
+        use super::super::authoring_ui::{AuthoringUi, Tool, prepare_tool_transition};
+        let template = GarmentTemplate::two_panel_demo();
+        let trim = Trim {
+            id: "zip".into(),
+            panel_id: template.panels[0].id.clone(),
+            kind: TrimKind::Zipper {
+                path_m: vec![DVec2::new(0.05, 0.05), DVec2::new(0.1, 0.1)],
+                width_m: 0.01,
+            },
+        };
+        let mut authoring = AuthoringUi {
+            tool: Tool::Draw,
+            ..Default::default()
+        };
+        let mut draft = TrimDraft::from_trim(&trim);
+        draft.begin_path();
+        draft.append_path_point(DVec2::new(0.08, 0.08)).unwrap();
+        authoring.trims.draft = Some(draft);
+        assert!(prepare_tool_transition(&mut authoring, Tool::Draw, false));
+        assert!(!authoring.trims.board_placement_active());
+        assert_eq!(
+            authoring.trims.draft.as_ref().unwrap().parse().unwrap(),
+            trim
+        );
+        assert!(!authoring.history.can_undo());
+        assert!(!prepare_tool_transition(&mut authoring, Tool::Draw, false));
+        authoring.trims.draft.as_mut().unwrap().place_on_board = true;
+        assert!(prepare_tool_transition(&mut authoring, Tool::Sew, false));
+        assert!(!authoring.trims.board_placement_active());
+        assert_eq!(
+            authoring.trims.draft.as_ref().unwrap().parse().unwrap(),
+            trim
+        );
+        assert!(!authoring.history.can_undo());
+    }
 
     #[test]
     fn three_dimensional_trim_pick_respects_visibility_and_original_ids() {

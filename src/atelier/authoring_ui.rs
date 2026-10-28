@@ -598,6 +598,24 @@ fn construction_controls(
     }
 }
 
+/// Cancel an unfinished trim gesture even when the requested tool is already
+/// selected. This changes the draft only and never commits an authoring edit.
+pub(super) fn prepare_tool_transition(
+    authoring: &mut AuthoringUi,
+    tool: Tool,
+    rotate: bool,
+) -> bool {
+    if authoring.tool == tool
+        && (tool != Tool::Place || authoring.rotate == rotate)
+        && !authoring.board.freehand.enabled
+        && !authoring.trims.board_placement_active()
+    {
+        return false;
+    }
+    authoring.trims.cancel_board_placement();
+    true
+}
+
 impl Atelier {
     fn dart_properties(&mut self, ui: &mut egui::Ui) {
         if self.authoring.tool != Tool::Edit {
@@ -897,10 +915,7 @@ impl Atelier {
         });
     }
     pub(super) fn set_authoring_tool(&mut self, tool: Tool, rotate: bool) {
-        if self.authoring.tool == tool
-            && (tool != Tool::Place || self.authoring.rotate == rotate)
-            && !self.authoring.board.freehand.enabled
-        {
+        if !prepare_tool_transition(&mut self.authoring, tool, rotate) {
             return;
         }
         self.authoring.dart = None;
