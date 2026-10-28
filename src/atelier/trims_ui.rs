@@ -890,11 +890,60 @@ fn build_preview(
 fn preview_inputs<'a>(
     committed: &'a [Trim],
     draft: Option<&TrimDraft>,
-) -> (std::borrow::Cow<'a, [Trim]>, Option<usize>, bool) {
+) -> (std::borrow::Cow<'a, [Trim]>, Option<(usize, usize)>, bool) {
     let mut inputs = std::borrow::Cow::Borrowed(committed);
     let Some(draft) = draft else {
         return (inputs, None, false);
     };
+    if draft.repeat {
+        let Some(base) = draft.base.as_ref() else {
+            return (inputs, None, true);
+        };
+        if !committed.iter().any(|item| item == base) || !(1..=128).contains(&draft.repeat_copies) {
+            return (inputs, None, true);
+        }
+        let offset = DVec2::new(draft.repeat_offset_mm[0], draft.repeat_offset_mm[1]) * 0.001;
+        if !offset.is_finite() || offset.length_squared() < 1e-24 {
+            return (inputs, None, true);
+        }
+        let first = match &base.kind {
+            TrimKind::Button { center_m, .. } => *center_m,
+            TrimKind::Buttonhole { start_m, .. } => *start_m,
+            TrimKind::Zipper { path_m, .. } | TrimKind::Topstitch { path_m, .. } => {
+                let Some(point) = path_m.first() else {
+                    return (inputs, None, true);
+                };
+                *point
+            }
+        };
+        let start = inputs.len();
+        let point_count = |trim: &Trim| match &trim.kind {
+            TrimKind::Button { .. } => 1usize,
+            TrimKind::Buttonhole { .. } => 2,
+            TrimKind::Zipper { path_m, .. } | TrimKind::Topstitch { path_m, .. } => path_m.len(),
+        };
+        let used_points = committed
+            .iter()
+            .fold(0usize, |sum, trim| sum.saturating_add(point_count(trim)));
+        let point_slots = 4096usize.saturating_sub(used_points) / point_count(base).max(1);
+        let count = draft
+            .repeat_copies
+            .min(16)
+            .min(128usize.saturating_sub(start))
+            .min(point_slots);
+        for i in 1..=count {
+            let Ok(copy) = translate_first_point(base.clone(), first + offset * i as f64) else {
+                let added = inputs.len() - start;
+                return (inputs, (added > 0).then_some((start, added)), true);
+            };
+            inputs.to_mut().push(copy);
+        }
+        return (
+            inputs,
+            (count > 0).then_some((start, count)),
+            count < draft.repeat_copies,
+        );
+    }
     let staged = if draft.draw_backup.is_some() && draft.draw_points.len() == 1 {
         Some(Trim {
             id: draft.id.clone(),
@@ -918,14 +967,14 @@ fn preview_inputs<'a>(
         .and_then(|base| inputs.iter().position(|item| item.id == base.id))
     {
         inputs.to_mut()[index] = staged;
-        return (inputs, Some(index), false);
+        return (inputs, Some((index, 1)), false);
     }
     if inputs.len() >= 128 {
         return (inputs, None, true);
     }
     let index = inputs.len();
     inputs.to_mut().push(staged);
-    (inputs, Some(index), false)
+    (inputs, Some((index, 1)), false)
 }
 
 impl TrimUi {
@@ -1139,6 +1188,10 @@ impl Atelier {
             .trims
             .refresh_preview(&self.scene.garment, &inputs);
         let Some(preview) = self.authoring.trims.preview.as_ref() else {
+            if draft_limit && self.authoring.trims.preview_warning.is_none() {
+                self.authoring.trims.preview_warning =
+                    Some("3D draft preview incomplete: invalid input or preview limit".into());
+            }
             return;
         };
         let points: usize = preview.paths.iter().map(|(_, _, p)| p.len()).sum();
@@ -1183,10 +1236,12 @@ impl Atelier {
         };
         if draft_limit {
             self.authoring.trims.preview_warning =
-                Some("3D draft hidden: trim preview object limit reached".into());
+                Some("3D draft preview incomplete: invalid input or preview limit".into());
         }
         for (index, button, embedded) in &preview.paths {
-            let color = if Some(*index) == draft_index {
+            let color = if draft_index
+                .is_some_and(|(start, count)| *index >= start && *index < start + count)
+            {
                 Color32::from_rgb(0xFF, 0xC0, 0x58)
             } else {
                 Color32::from_rgb(0xEA, 0x78, 0xD4)
@@ -1730,6 +1785,82 @@ mod tests {
     }
 
     #[test]
+    fn repeat_preview_is_bounded_tracks_motion_and_never_commits() {
+        let mut template = GarmentTemplate::two_panel_demo();
+        let original = Trim {
+            id: "source".into(),
+            panel_id: template.panels[0].id.clone(),
+            kind: TrimKind::Button {
+                center_m: DVec2::new(0.1, 0.1),
+                diameter_m: 0.01,
+            },
+        };
+        template.trims.push(original.clone());
+        let garment = std::sync::Arc::new(template.compile().unwrap());
+        let before = serde_json::to_vec(&template).unwrap();
+        let mut draft = TrimDraft::from_trim(&original);
+        draft.repeat = true;
+        draft.repeat_copies = 3;
+        let (inputs, range, truncated) = preview_inputs(&template.trims, Some(&draft));
+        assert_eq!(range, Some((1, 3)));
+        assert!(!truncated);
+        assert_eq!(inputs[0], original);
+        let preview = build_preview(garment.clone(), &inputs).unwrap();
+        assert_eq!(preview.skipped, 0);
+        assert_eq!(preview.paths.len(), 4);
+        let world = preview.paths[1].2[0]
+            .evaluate(&garment.initial_state.x)
+            .unwrap();
+        let moved: Vec<_> = garment
+            .initial_state
+            .x
+            .iter()
+            .map(|p| *p + glam::DVec3::Y)
+            .collect();
+        assert!(
+            (preview.paths[1].2[0].evaluate(&moved).unwrap() - world - glam::DVec3::Y).length()
+                < 1e-10
+        );
+        assert_eq!(serde_json::to_vec(&template).unwrap(), before);
+        draft.repeat_copies = 128;
+        let (inputs, range, truncated) = preview_inputs(&template.trims, Some(&draft));
+        assert_eq!(range, Some((1, 16)));
+        assert!(truncated);
+        assert_eq!(inputs.len(), 17);
+        draft.repeat_offset_mm = [f64::NAN, 0.];
+        let (inputs, range, truncated) = preview_inputs(&template.trims, Some(&draft));
+        assert_eq!(inputs.len(), 1);
+        assert!(range.is_none() && truncated);
+        draft.repeat_offset_mm = [20., 0.];
+        let mut changed = template.trims.clone();
+        changed[0].id = "changed".into();
+        let (inputs, range, truncated) = preview_inputs(&changed, Some(&draft));
+        assert_eq!(inputs.len(), 1);
+        assert!(range.is_none() && truncated);
+        let long = Trim {
+            kind: TrimKind::Zipper {
+                path_m: (0..1000)
+                    .map(|i| DVec2::new(i as f64 * 0.00001, 0.1))
+                    .collect(),
+                width_m: 0.01,
+            },
+            ..original.clone()
+        };
+        let mut long_draft = TrimDraft::from_trim(&long);
+        long_draft.repeat = true;
+        long_draft.repeat_copies = 16;
+        let (inputs, range, truncated) =
+            preview_inputs(std::slice::from_ref(&long), Some(&long_draft));
+        assert_eq!(range, Some((1, 3)));
+        assert!(truncated);
+        assert_eq!(inputs.len(), 4);
+        draft.repeat = false;
+        let (_, range, truncated) = preview_inputs(&template.trims, Some(&draft));
+        assert_eq!(range, Some((0, 1)));
+        assert!(!truncated);
+    }
+
+    #[test]
     fn staged_3d_preview_tracks_drawing_and_cancel_without_document_edits() {
         let template = GarmentTemplate::two_panel_demo();
         let garment = std::sync::Arc::new(template.compile().unwrap());
@@ -1746,7 +1877,7 @@ mod tests {
         assert!(preview_inputs(&template.trims, Some(&draft)).0.is_empty());
         draft.append_path_point(DVec2::new(0.1, 0.1)).unwrap();
         let (inputs, index, limited) = preview_inputs(&template.trims, Some(&draft));
-        assert_eq!(index, Some(0));
+        assert_eq!(index, Some((0, 1)));
         assert!(!limited);
         let marker = build_preview(garment.clone(), &inputs).unwrap();
         assert!(marker.paths[0].1);
@@ -1765,7 +1896,7 @@ mod tests {
         );
         draft.append_path_point(DVec2::new(0.2, 0.2)).unwrap();
         let (inputs, index, _) = preview_inputs(&template.trims, Some(&draft));
-        assert_eq!(index, Some(0));
+        assert_eq!(index, Some((0, 1)));
         let path = build_preview(garment, &inputs).unwrap();
         assert!(!path.paths.is_empty() && !path.paths[0].1);
         assert!(template.trims.is_empty());
@@ -1773,7 +1904,7 @@ mod tests {
         assert_eq!(draft.parse().unwrap(), trim);
         let (inputs, index, _) = preview_inputs(std::slice::from_ref(&trim), Some(&draft));
         assert_eq!(inputs.len(), 1);
-        assert_eq!(index, Some(0));
+        assert_eq!(index, Some((0, 1)));
     }
 
     #[test]
@@ -1794,7 +1925,7 @@ mod tests {
         edit.id = "other".into();
         let existing = [trim.clone(), other.clone()];
         let (inputs, index, limited) = preview_inputs(&existing, Some(&edit));
-        assert_eq!(index, Some(0));
+        assert_eq!(index, Some((0, 1)));
         assert!(!limited);
         assert_eq!(inputs[1], other);
         let mut new_draft = TrimDraft::from_trim(&trim);

@@ -21,7 +21,10 @@ Select an existing trim and choose **Repeat…** to create 1–128 copies at a
 fixed panel-local X/Y offset in millimetres. Apply checks each generated center
 or path against the panel surface and uses one undo transaction; widths and
 row offsets can extend beyond the panel. Cancel returns to the original. Large requests can be refused by the shared work limit, and linked
-mirror panels are refused until paired trim synchronization is supported. A CPU integration fixture checks the actual editor installation, undo/redo and
+mirror panels are refused until paired trim synchronization is supported.
+While editing, up to 16 copies appear in amber on the 3D cloth, using the
+existing bounded surface/visibility preview. A warning marks incomplete or
+invalid previews; Apply always checks the complete set, not just the preview. A CPU integration fixture checks the actual editor installation, undo/redo and
 save/reopen with a held interior vertex. Its pending-worker flags are simulated;
 it does not exercise a concurrent worker or a native window.
 
