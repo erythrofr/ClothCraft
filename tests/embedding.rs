@@ -2,6 +2,132 @@ use glam::{DVec2, DVec3};
 use marvelous_cloth::garment::{GarmentTemplate, embedding::MaterialPath, export};
 
 #[test]
+fn bounded_path_matches_exhaustive_on_edges_interior_and_dense_mesh() {
+    let mut t = GarmentTemplate::two_panel_demo();
+    t.panels[0].pattern.nx = 100;
+    t.panels[0].pattern.ny = 100;
+    let g = t.compile().unwrap();
+    let paths = [
+        vec![DVec2::new(0., 0.), DVec2::new(0.4, 0.6)],
+        vec![DVec2::new(0., 0.3), DVec2::new(0.4, 0.3)],
+        vec![
+            DVec2::new(0.04, 0.12),
+            DVec2::new(0.31, 0.47),
+            DVec2::new(0.02, 0.55),
+        ],
+        vec![DVec2::new(-1e-13, 0.3), DVec2::new(0.4, 0.3)],
+    ];
+    for points in paths {
+        let path = MaterialPath {
+            panel: "left".into(),
+            points,
+        };
+        let start = std::time::Instant::now();
+        let reference = g.embed_path(&path).unwrap();
+        let direct = start.elapsed();
+        let start = std::time::Instant::now();
+        let bounded = g.embed_path_bounded(&path).unwrap();
+        eprintln!(
+            "embedding: {} triangles, {} points; exhaustive={direct:?}, indexed including build={:?}",
+            g.panels[0].triangles.len(),
+            bounded.len(),
+            start.elapsed()
+        );
+        assert_eq!(reference.len(), bounded.len());
+        for (a, b) in reference.iter().zip(&bounded) {
+            assert_eq!(a.vertices, b.vertices);
+            assert_eq!(a.weights, b.weights);
+            assert_eq!(a.uv, b.uv);
+        }
+    }
+    for points in [
+        vec![DVec2::new(-0.1, 0.2), DVec2::new(0.2, 0.2)],
+        vec![DVec2::NAN, DVec2::new(0.2, 0.2)],
+    ] {
+        let path = MaterialPath {
+            panel: "left".into(),
+            points,
+        };
+        assert!(g.embed_path(&path).is_err());
+        assert!(g.embed_path_bounded(&path).is_err());
+    }
+    let mut corrupted = t.compile().unwrap();
+    let first_triangle = corrupted.panels[0].triangles.start;
+    corrupted.mesh.triangles[first_triangle].inv_dm = glam::DMat2::ZERO;
+    let path = MaterialPath {
+        panel: "left".into(),
+        points: vec![DVec2::new(0.05, 0.05), DVec2::new(0.1, 0.1)],
+    };
+    assert!(corrupted.embed_path_bounded(&path).is_err());
+}
+
+#[test]
+fn bounded_path_rejects_crossing_panel_holes() {
+    use marvelous_cloth::garment::{
+        domain::Hole,
+        shapes::{Primitive, primitive},
+    };
+    let mut t = GarmentTemplate::two_panel_demo();
+    t.version = 2;
+    t.seams.clear();
+    t.panels[0].pins.clear();
+    let mut polygon = primitive(
+        Primitive::Rectangle,
+        DVec2::new(0.4, 0.6),
+        90.,
+        Default::default(),
+    )
+    .unwrap();
+    polygon.holes.push(Hole {
+        points: vec![
+            DVec2::new(0.15, 0.2),
+            DVec2::new(0.15, 0.4),
+            DVec2::new(0.25, 0.4),
+            DVec2::new(0.25, 0.2),
+        ],
+        edges: (0..4).map(|i| format!("hole_{i}")).collect(),
+    });
+    t.panels[0].polygon = Some(polygon);
+    let g = t.compile().unwrap();
+    let path = MaterialPath {
+        panel: "left".into(),
+        points: vec![DVec2::new(0.05, 0.3), DVec2::new(0.35, 0.3)],
+    };
+    assert!(g.embed_path(&path).is_err());
+    assert!(g.embed_path_bounded(&path).is_err());
+}
+
+#[test]
+fn bounded_paths_match_exhaustive_for_deterministic_varied_segments() {
+    let mut template = GarmentTemplate::two_panel_demo();
+    template.panels[0].pattern.nx = 12;
+    template.panels[0].pattern.ny = 13;
+    let g = template.compile().unwrap();
+    let mut seed = 0x123456789abcdef_u64;
+    let mut sample = || {
+        seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+        (seed >> 11) as f64 / ((1_u64 << 53) as f64)
+    };
+    for _ in 0..100 {
+        let path = MaterialPath {
+            panel: "left".into(),
+            points: vec![
+                DVec2::new(sample() * 0.4, sample() * 0.6),
+                DVec2::new(sample() * 0.4, sample() * 0.6),
+            ],
+        };
+        let a = g.embed_path(&path).unwrap();
+        let b = g.embed_path_bounded(&path).unwrap();
+        assert_eq!(a.len(), b.len());
+        for (a, b) in a.iter().zip(&b) {
+            assert_eq!(a.vertices, b.vertices);
+            assert_eq!(a.weights, b.weights);
+            assert_eq!(a.uv, b.uv);
+        }
+    }
+}
+
+#[test]
 fn attachments_reproduce_material_coordinates_and_affine_deformations() {
     let g = GarmentTemplate::two_panel_demo().compile().unwrap();
     let mut x = g.initial_state.x.clone();

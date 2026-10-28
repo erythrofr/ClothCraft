@@ -21,6 +21,10 @@ In the Piece inspector, expand **Construction trims**, choose a type and click
 **New**. Edit local X, Y coordinates in millimetres; paths use one comma-separated
 pair per line. **Position first point on 2D board** moves the whole draft by a
 click; **Apply** validates and commits once, while **Cancel** discards the draft.
+For paths that exceed the direct validation estimate, panels up to 20,000
+triangles use a bounded material-space index. Ill-conditioned meshes, excessive
+work or too many attachments are rejected. A preview rebuild allows at most
+four such indexed paths; remaining objects are skipped with a warning.
 For buttonholes, **Draw path on 2D board** stages exactly two endpoints; for
 zippers and topstitch paths it stages up to 128 clicked points. **Finish path**
 returns to the draft and **Cancel drawing** or
@@ -52,6 +56,13 @@ the triangles away from the rays, it measured 56.30 ms exhaustive versus
 0.44 ms including refit. All sampled answers matched. These single-run numbers
 are workload-specific and do not measure the full editor, simulation, GPU or
 real garment; large animated meshes can still make per-frame refits costly.
+
+One CPU embedding comparison on a 20,000-triangle synthetic rectangular panel
+matched the exhaustive attachments for the tested paths. Including index build,
+simple paths took roughly 9.7–10.4 ms indexed versus 3.7–4.7 ms exhaustive;
+a longer path took 10.3 ms versus 16.7 ms. These are single-run, synthetic
+measurements; the index is used only when the conservative direct-work guard
+would otherwise reject the path, not as a general speedup claim.
 
 Curved paths, attachment to named edges, manufacturing output and physically
 simulated closures remain future work. Native-window appearance and performance

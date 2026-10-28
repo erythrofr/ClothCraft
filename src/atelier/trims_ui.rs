@@ -306,8 +306,7 @@ fn translate_first_point(mut trim: Trim, local: DVec2) -> Result<Trim, String> {
     Ok(trim)
 }
 
-/// Refuse invalid surface paths and bound the quadratic worst case of the
-/// current embedding implementation. This runs on Apply, never per frame.
+/// Refuse invalid surface paths and bound embedding work on Apply, never per frame.
 fn validate_surface(
     trim: &Trim,
     garment: &marvelous_cloth::garment::CompiledGarment,
@@ -330,15 +329,19 @@ fn validate_surface(
     let budget = n
         .saturating_mul(n)
         .saturating_mul(points.len().saturating_sub(1));
-    if budget > 8_000_000 {
+    let path = MaterialPath {
+        panel: trim.panel_id.clone(),
+        points,
+    };
+    if budget <= 8_000_000 {
+        garment.embed_path(&path)?;
+    } else if n <= 20_000 {
+        garment.embed_path_bounded(&path)?;
+    } else {
         return Err(
             "Path is too complex for surface preview; simplify it or use a coarser mesh".into(),
         );
     }
-    garment.embed_path(&MaterialPath {
-        panel: trim.panel_id.clone(),
-        points,
-    })?;
     Ok(())
 }
 
@@ -371,12 +374,16 @@ fn build_preview(
                 (false, path_m.clone())
             }
         };
-        let cost = if button {
+        let direct_cost = if button {
             n
         } else {
             n.saturating_mul(n)
                 .saturating_mul(points.len().saturating_sub(1))
         };
+        let indexed = !button && direct_cost > 8_000_000 && n <= 20_000;
+        // At most four expensive indexed paths per preview rebuild. Each
+        // bounded path enforces its own operation and attachment limits.
+        let cost = if indexed { 2_000_000 } else { direct_cost };
         if work.saturating_add(cost) > 8_000_000 {
             skipped += 1;
             continue;
@@ -387,10 +394,15 @@ fn build_preview(
                 .embed_point(&trim.panel_id, points[0])
                 .map(|p| vec![p])
         } else {
-            garment.embed_path(&MaterialPath {
+            let path = MaterialPath {
                 panel: trim.panel_id.clone(),
                 points,
-            })
+            };
+            if indexed {
+                garment.embed_path_bounded(&path)
+            } else {
+                garment.embed_path(&path)
+            }
         };
         let Ok(embedded) = embedded else {
             skipped += 1;
@@ -1345,6 +1357,28 @@ mod tests {
             ..button
         };
         validate_surface(&zipper, &garment).unwrap();
+    }
+
+    #[test]
+    fn dense_panel_paths_use_bounded_embedding_for_validation_and_preview() {
+        use std::sync::Arc;
+        let mut template = GarmentTemplate::two_panel_demo();
+        template.panels[0].pattern.nx = 50;
+        template.panels[0].pattern.ny = 50;
+        let garment = Arc::new(template.compile().unwrap());
+        assert!(garment.panels[0].triangles.len().pow(2) > 8_000_000);
+        let trim = Trim {
+            id: "dense_zipper".into(),
+            panel_id: template.panels[0].id.clone(),
+            kind: TrimKind::Zipper {
+                path_m: vec![DVec2::new(0.05, 0.05), DVec2::new(0.1, 0.1)],
+                width_m: 0.01,
+            },
+        };
+        validate_surface(&trim, &garment).unwrap();
+        let preview = build_preview(garment, &[trim]).unwrap();
+        assert_eq!(preview.skipped, 0);
+        assert_eq!(preview.paths.len(), 1);
     }
 
     #[test]
