@@ -194,8 +194,8 @@ cargo run --locked --no-default-features -j 2 --example elastic_seam_probe -- --
 ```
 
 On the tested Windows machine with two Rayon workers, tail high-pass motion
-was 26.80 µm for the baseline and 119.77 µm for the control; mean frozen-contact
-residual was 62.05 µN and 247.46 µN respectively. Mean step times were 6.21
+was 26.80 Âµm for the baseline and 119.77 Âµm for the control; mean frozen-contact
+residual was 62.05 ÂµN and 247.46 ÂµN respectively. Mean step times were 6.21
 and 6.15 ms (single runs, without diagnostic time). Both passed the final
 intersection check; this is not continuous collision certification. Contact
 refresh energy was zero in both runs. More motion in the equal-length control
