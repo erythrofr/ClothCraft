@@ -2360,6 +2360,64 @@ mod transition_tests {
             );
         }
         assert!(state.project.template.graphics.is_empty());
+        let mut trim = marvelous_cloth::garment::trims::Trim {
+            id: "trim_1".into(),
+            panel_id: state.project.template.panels[0].id.clone(),
+            kind: marvelous_cloth::garment::trims::TrimKind::Button {
+                center_m: glam::DVec2::new(0.1, 0.1),
+                diameter_m: 0.018,
+            },
+        };
+        let first_trim = trim.clone();
+        let mut apply_trim = |command| {
+            let edit = authoring::apply(&state.project.template, command).unwrap();
+            assert!(!edit.reset_simulation);
+            state
+                .authoring
+                .history
+                .record(state.project.template.clone());
+            state.install(edit);
+        };
+        apply_trim(Command::SetTrim { trim: trim.clone() });
+        trim.kind = marvelous_cloth::garment::trims::TrimKind::Button {
+            center_m: glam::DVec2::new(0.15, 0.1),
+            diameter_m: 0.018,
+        };
+        apply_trim(Command::SetTrim { trim: trim.clone() });
+        apply_trim(Command::RemoveTrim {
+            id: trim.id.clone(),
+        });
+        for (redo, expected) in [
+            (false, vec![trim.clone()]),
+            (false, vec![first_trim.clone()]),
+            (false, vec![]),
+            (true, vec![first_trim]),
+            (true, vec![trim]),
+            (true, vec![]),
+        ] {
+            let edit = state
+                .authoring
+                .history
+                .restore(&state.project.template, redo)
+                .unwrap();
+            state.install(edit);
+            assert_eq!(state.project.template.trims, expected);
+            assert!(*state.playing && *state.pending);
+            assert_eq!(*state.generation, 12);
+            assert!(std::sync::Arc::ptr_eq(&retained_mesh, &state.scene.garment));
+            assert_eq!(state.scene.state.x, saved.x);
+            assert_eq!(state.scene.state.v, saved.v);
+            assert_eq!(state.scene.state.time, saved.time);
+        }
+        for _ in 0..3 {
+            let edit = state
+                .authoring
+                .history
+                .restore(&state.project.template, false)
+                .unwrap();
+            state.install(edit);
+        }
+        assert!(state.project.template.trims.is_empty());
         assert!(
             super::super::current_worker_result(
                 Some(super::super::worker::Done {
