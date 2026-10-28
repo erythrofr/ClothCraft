@@ -65,16 +65,47 @@ pub(super) fn tool_for_command(id: CommandId) -> Option<(Tool, bool)> {
     })
 }
 
+const MAX_QUERY_CHARS: usize = 128;
+
+fn is_subsequence(needle: &str, word: &str) -> bool {
+    let mut chars = word.chars();
+    needle
+        .chars()
+        .all(|c| chars.any(|candidate| candidate == c))
+}
+
 fn matches(query: &str) -> Vec<CommandId> {
+    if query.chars().count() > MAX_QUERY_CHARS {
+        return Vec::new();
+    }
     let query = query.to_lowercase();
-    commands::REGISTRY
+    let mut results: Vec<_> = commands::REGISTRY
         .iter()
-        .filter(|d| {
+        .enumerate()
+        .filter_map(|(index, d)| {
             let text = format!("{} {} {}", d.label, d.key, aliases(d.id)).to_lowercase();
-            query.split_whitespace().all(|word| text.contains(word))
+            let mut fuzzy_words = 0usize;
+            for word in query.split_whitespace() {
+                if text.contains(word) {
+                    continue;
+                }
+                if word.chars().count() < 3
+                    || !text
+                        .split(|c: char| !c.is_alphanumeric())
+                        .any(|candidate| is_subsequence(word, candidate))
+                {
+                    return None;
+                }
+                fuzzy_words += 1;
+            }
+            Some((fuzzy_words, index, d.id))
         })
-        .map(|d| d.id)
-        .collect()
+        .collect();
+    if results.iter().any(|(fuzzy_words, _, _)| *fuzzy_words == 0) {
+        results.retain(|(fuzzy_words, _, _)| *fuzzy_words == 0);
+    }
+    results.sort_by_key(|(fuzzy_words, index, _)| (*fuzzy_words, *index));
+    results.into_iter().map(|(_, _, id)| id).collect()
 }
 
 fn named(_ui: &egui::Ui, _r: &egui::Response, _name: &str) {
@@ -135,10 +166,13 @@ impl Palette {
         let modal = egui::Modal::new(egui::Id::new("command-palette")).show(ctx, |ui| {
             ui.set_width((ctx.content_rect().width() - 64.).clamp(200., 520.));
             ui.heading("Commands");
-            ui.small("Search actions · ↑ ↓ navigate · Enter run · Esc close");
+            ui.small(
+                "Search actions (abbreviations supported) · ↑ ↓ navigate · Enter run · Esc close",
+            );
             let response = ui.add(
                 egui::TextEdit::singleline(&mut self.query)
                     .id(egui::Id::new("palette.query"))
+                    .char_limit(MAX_QUERY_CHARS)
                     .hint_text("Search commands…")
                     .desired_width(f32::INFINITY),
             );
@@ -388,6 +422,46 @@ mod tests {
         assert_eq!(matches("frill"), vec![CommandId::ToolInternalLine]);
         assert!(matches("not-a-command").is_empty());
         assert_eq!(matches(" ").len(), commands::REGISTRY.len());
+    }
+
+    #[test]
+    fn abbreviations_preserve_exact_priority_and_bound_input() {
+        assert_eq!(matches("rctngl").first(), Some(&CommandId::ToolRectangle));
+        assert_eq!(matches("FRHND").first(), Some(&CommandId::ToolFreehand));
+        assert_eq!(matches("ruler").first(), Some(&CommandId::ToolMeasure));
+        assert!(matches("qz").is_empty());
+        assert!(matches(&"a".repeat(MAX_QUERY_CHARS + 1)).is_empty());
+        assert!(is_subsequence("fhn", "freehand"));
+        assert!(!is_subsequence("hfn", "freehand"));
+    }
+
+    #[test]
+    fn named_abbreviated_search_dispatches_the_real_tool_and_bounds_paste() {
+        let mut c = case();
+        let mut h = Harness::new(egui::vec2(900., 900.));
+        frames(&mut h, &mut c);
+        h.replace_text("palette.query", "rctngl", &mut c, &mut draw)
+            .unwrap();
+        h.key(
+            "palette.query",
+            egui::Key::Enter,
+            egui::Modifiers::NONE,
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert_eq!(c.commands, vec![CommandId::ToolRectangle]);
+        c.palette.begin();
+        frames(&mut h, &mut c);
+        h.replace_text(
+            "palette.query",
+            &"x".repeat(MAX_QUERY_CHARS * 4),
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert!(c.palette.query.chars().count() <= MAX_QUERY_CHARS);
+        assert!(c.commands.len() == 1 && c.palette.open);
     }
     #[test]
     fn launcher_accepts_a_complete_pointer_gesture() {
