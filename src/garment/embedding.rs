@@ -73,6 +73,8 @@ impl MaterialIndex {
             let scale = a.abs().max(b.abs()).max(c.abs()).max_element().max(1.);
             let size = (b - a).length().max((c - a).length()).max((c - b).length());
             let determinant = (b - a).perp_dot(c - a).abs();
+            let mapped_u = triangle.inv_dm * (b - a);
+            let mapped_v = triangle.inv_dm * (c - a);
             if !a.is_finite()
                 || !b.is_finite()
                 || !c.is_finite()
@@ -80,8 +82,10 @@ impl MaterialIndex {
                 || !size.is_finite()
                 || determinant <= size * size * 1e-6
                 || !triangle.inv_dm.is_finite()
-                || (triangle.inv_dm * (b - a) - DVec2::X).length() > 1e-8
-                || (triangle.inv_dm * (c - a) - DVec2::Y).length() > 1e-8
+                || !mapped_u.is_finite()
+                || !mapped_v.is_finite()
+                || (mapped_u - DVec2::X).length() > 1e-8
+                || (mapped_v - DVec2::Y).length() > 1e-8
             {
                 return Err(
                     "Material path index requires finite, well-conditioned triangles".into(),

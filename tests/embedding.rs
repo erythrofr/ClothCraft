@@ -231,6 +231,22 @@ fn indexed_path_refuses_near_degenerate_material_triangles() {
 }
 
 #[test]
+fn indexed_path_rejects_finite_inverse_with_nonfinite_products() {
+    let mut garment = GarmentTemplate::two_panel_demo().compile().unwrap();
+    let index = garment.panels[0].triangles.start;
+    let triangle = &mut garment.mesh.triangles[index];
+    triangle.rest = [DVec2::ZERO, DVec2::splat(2.), DVec2::new(2., 3.)];
+    triangle.inv_dm = glam::DMat2::from_cols(DVec2::splat(f64::MAX), DVec2::splat(-f64::MAX));
+    assert!(triangle.inv_dm.is_finite());
+    assert!(!(triangle.inv_dm * (triangle.rest[1] - triangle.rest[0])).is_finite());
+    let path = MaterialPath {
+        panel: "left".into(),
+        points: vec![DVec2::new(0.2, 0.2), DVec2::new(0.3, 0.3)],
+    };
+    assert!(garment.embed_path_bounded(&path).is_err());
+}
+
+#[test]
 fn attachments_reproduce_material_coordinates_and_affine_deformations() {
     let g = GarmentTemplate::two_panel_demo().compile().unwrap();
     let mut x = g.initial_state.x.clone();
