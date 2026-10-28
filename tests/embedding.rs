@@ -98,6 +98,61 @@ fn bounded_path_rejects_crossing_panel_holes() {
 }
 
 #[test]
+fn paths_reject_crossing_narrow_rotated_holes_but_allow_nearby_material() {
+    use marvelous_cloth::garment::{
+        domain::Hole,
+        shapes::{Primitive, primitive},
+    };
+    for (center, angle, width) in [
+        (DVec2::new(0.14, 0.24), 0.42, 0.005),
+        (DVec2::new(0.27, 0.4), -0.71, 0.02),
+    ] {
+        let mut template = GarmentTemplate::two_panel_demo();
+        template.version = 2;
+        template.seams.clear();
+        template.panels[0].pins.clear();
+        let mut polygon = primitive(
+            Primitive::Rectangle,
+            DVec2::new(0.4, 0.6),
+            90.,
+            Default::default(),
+        )
+        .unwrap();
+        let transform = glam::DMat2::from_angle(angle);
+        let point = |x, y| center + transform * DVec2::new(x, y);
+        polygon.holes.push(Hole {
+            points: vec![
+                point(-width / 2., -0.06),
+                point(-width / 2., 0.06),
+                point(width / 2., 0.06),
+                point(width / 2., -0.06),
+            ],
+            edges: (0..4).map(|i| format!("hole_{i}")).collect(),
+        });
+        template.panels[0].polygon = Some(polygon);
+        let garment = template.compile().unwrap();
+        for (offset, reverse) in [(-0.04, false), (0., false), (0., true), (0.04, false)] {
+            let mut points = vec![point(-0.04, offset), point(0.04, offset)];
+            if reverse {
+                points.reverse();
+            }
+            let path = MaterialPath {
+                panel: "left".into(),
+                points,
+            };
+            assert!(garment.embed_path(&path).is_err(), "{path:?}");
+            assert!(garment.embed_path_bounded(&path).is_err(), "{path:?}");
+        }
+        let control = MaterialPath {
+            panel: "left".into(),
+            points: vec![point(-0.04, 0.09), point(0.04, 0.09)],
+        };
+        assert!(garment.embed_path(&control).is_ok(), "{control:?}");
+        assert!(garment.embed_path_bounded(&control).is_ok(), "{control:?}");
+    }
+}
+
+#[test]
 fn bounded_paths_match_exhaustive_for_deterministic_varied_segments() {
     let mut template = GarmentTemplate::two_panel_demo();
     template.panels[0].pattern.nx = 12;
