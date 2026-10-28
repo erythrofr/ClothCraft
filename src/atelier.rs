@@ -702,7 +702,6 @@ impl eframe::App for Atelier {
             && !self.settings_open
             && !self.authoring.radial.blocked
             && !self.quick.blocked
-            && !self.authoring.trims.has_pending_history_step()
             && self.authoring.preview.is_none()
             && !self.authoring.board.gesture_active()
             && self.grab.is_none()
@@ -712,7 +711,9 @@ impl eframe::App for Atelier {
             && self.authoring.ends.is_empty()
             && self.authoring.sewing.start.is_none()
             && self.authoring.sewing.sides.iter().all(Vec::is_empty);
-        let can_open_palette = command_palette::can_launch(&ctx, palette_idle);
+        let can_open_workspace = command_palette::can_launch(&ctx, palette_idle);
+        let can_open_palette =
+            can_open_workspace && !self.authoring.trims.has_pending_history_step();
         if command_palette::launch_shortcut(&ctx, can_open_palette) {
             self.palette.begin();
         }
@@ -815,14 +816,14 @@ impl eframe::App for Atelier {
                     ui.checkbox(&mut self.tools_visible, "Tool rail");
                     stage_settings::menu_button()
                         .ui(ui, |ui| {
-                        if let Some(action) = stage_settings::controls(ui, can_open_palette, &mut self.prefs.viewport) {
+                        if let Some(action) = stage_settings::controls(ui, can_open_workspace, &mut self.prefs.viewport) {
                             let path = self.output.join(stage_settings::FILE_NAME);
                             self.status = stage_settings::execute(action, &path, &mut self.camera, &mut self.prefs.viewport)
                                 .unwrap_or_else(|e| format!("Presentation: {e}"));
                             ui.close();
                         }
                     });
-                    if ui.add_enabled(can_open_palette, egui::Button::new("Workspace profiles…")).clicked() {
+                    if ui.add_enabled(can_open_workspace, egui::Button::new("Workspace profiles…")).clicked() {
                         self.profiles.begin(&self.output.join(workspace_profiles::FILE_NAME));
                         ui.close();
                     }
