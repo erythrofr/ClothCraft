@@ -706,19 +706,28 @@ Status: ready. Dependencies: EXO-CORE-001.
 - `src/garment/trims.rs`
 - `tests/trim_model.rs`
 - `src/garment/mod.rs`
+- `src/garment/template.rs`
+- `src/garment/presets.rs`
+- `src/authoring.rs`
+- `src/authoring/geometry.rs`
+- `src/authoring/clipboard.rs`
+- `src/atelier/authoring_ui.rs`
+- `src/fitting.rs`
+- `docs/trims.md`
 
 **Acceptance**
 
-- Represent buttons, buttonholes, zipper paths and topstitch rows by material-space attachments.
-- Validate units, IDs and supported geometry; preserve old document loads.
-- Mark each object as visual/manufacturing metadata unless a real physical adapter exists.
+- Persist bounded, uniquely identified buttons, buttonholes, zipper paths and topstitch rows as panel-local material-space construction metadata. Validate units, geometry and panel references atomically; preserve legacy document loads.
+- Implement authoring transactions with undo/redo and save/reopen. Specify and test panel duplication, deletion, clipboard, mirror, remesh and topology edits: preserve attachment identity or explicitly reject unsupported operations instead of silently dropping or misplacing trims.
+- Metadata-only edits and undo/redo preserve physical mesh signature, drape and worker/solver state. Exercise actual authoring and editor-install paths and project save/reopen on CPU; distinguish these checks from a concurrent worker or native-window run.
+- Treat every trim as visual/manufacturing metadata, not a physical fastener; document unsupported physical behavior. Reconcile shared files and schema semantics with the open marking and CAD contributions before implementation.
 
 **Evidence and related contributions**
 
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/trims.js
 - https://github.com/mikristian/exo-sample-3d/blob/352c6086b622caeda95f16d9bd923624b95e05d9/src/core/hardwareStyleProperties.js
 
-
+A standalone type cannot satisfy saved authoring, lifecycle and drape-preservation requirements. This scope covers the persistent foundation; native editing and rendering remain in EXO-SEW-003. Registration or a scope change is not an assignment.
 
 ## EXO-SEW-003
 
