@@ -15,6 +15,7 @@ fn optics_are_validated_and_do_not_change_mechanics_or_legacy_bytes() {
     let optics = FabricAppearance {
         color_srgb: [255, 0, 128],
         roughness: 0.3,
+        albedo: None,
     };
     let edit = authoring::apply(
         &source,
@@ -69,6 +70,75 @@ fn optics_are_validated_and_do_not_change_mechanics_or_legacy_bytes() {
 }
 
 #[test]
+fn embedded_albedo_roundtrips_and_preserves_physics() {
+    use marvelous_cloth::garment::appearance::AlbedoTexture;
+    let source = GarmentTemplate::two_panel_demo();
+    let texture = AlbedoTexture {
+        width: 2,
+        height: 1,
+        rgba_srgb: vec![255, 0, 0, 255, 0, 128, 255, 255],
+        tile_m: [0.1, 0.2],
+        rotation_degrees: 45.,
+    };
+    let optics = FabricAppearance {
+        albedo: Some(texture.clone()),
+        ..Default::default()
+    };
+    let edit = authoring::apply(
+        &source,
+        Command::FabricAppearance {
+            fabric: source.fabrics[0].id.clone(),
+            appearance: Some(optics.clone()),
+        },
+    )
+    .unwrap();
+    assert!(!edit.reset_simulation);
+    assert!(authoring::only_appearance_changed(&source, &edit.template));
+    let json = serde_json::to_string(&edit.template).unwrap();
+    let loaded: GarmentTemplate = serde_json::from_str(&json).unwrap();
+    assert_eq!(loaded.fabric_appearance[&source.fabrics[0].id], optics);
+    assert!(loaded.compile().is_ok());
+    for invalid in [
+        AlbedoTexture {
+            width: 0,
+            ..texture.clone()
+        },
+        AlbedoTexture {
+            width: 257,
+            ..texture.clone()
+        },
+        AlbedoTexture {
+            rgba_srgb: vec![0; 7],
+            ..texture.clone()
+        },
+        AlbedoTexture {
+            rgba_srgb: vec![0; 8],
+            ..texture.clone()
+        },
+        AlbedoTexture {
+            tile_m: [0., 1.],
+            ..texture.clone()
+        },
+        AlbedoTexture {
+            rotation_degrees: f64::NAN,
+            ..texture.clone()
+        },
+    ] {
+        assert!(invalid.validate().is_err());
+    }
+    let mut over_limit = source.clone();
+    for i in 0..17 {
+        let mut fabric = source.fabrics[0].clone();
+        fabric.id = format!("textured_{i}");
+        over_limit
+            .fabric_appearance
+            .insert(fabric.id.clone(), optics.clone());
+        over_limit.fabrics.push(fabric);
+    }
+    assert!(over_limit.compile().is_err());
+}
+
+#[test]
 fn cached_drape_reopens_after_appearance_change_with_identical_signature() {
     use marvelous_cloth::{fitting::FittingProject, garment::presets::GarmentKind};
     let dir = tempfile::tempdir().unwrap();
@@ -113,6 +183,7 @@ fn clipboard_keeps_optical_identity_and_material_split_inherits_it() {
             appearance: Some(FabricAppearance {
                 color_srgb: [220, 30, 60],
                 roughness: 0.4,
+                albedo: None,
             }),
         },
     )

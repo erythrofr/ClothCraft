@@ -299,6 +299,15 @@ impl GarmentTemplate {
                 }
             }
         }
+        if self
+            .fabric_appearance
+            .values()
+            .filter(|a| a.albedo.is_some())
+            .count()
+            > 16
+        {
+            return Err("At most 16 fabric albedo textures are supported".into());
+        }
         for (id, appearance) in &self.fabric_appearance {
             if !self.fabrics.iter().any(|f| &f.id == id) {
                 return Err(format!("Appearance references missing fabric {id}"));

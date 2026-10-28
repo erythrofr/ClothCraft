@@ -4,6 +4,14 @@ Work in progress for EXO-LOOK-001 (#126). CPU validation is separate from
 native-window/GPU acceptance. Texture loading, normal maps and measured textile
 BRDFs are not implemented by this slice.
 
+An experimental embedded albedo field is being developed on a draft branch. It
+is not yet exposed by the inspector or rendered; do not treat the field as a
+supported user workflow or merge it before the image loader, renderer,
+resource limits and end-to-end validation are complete. The initial prototype
+stores bounded opaque sRGB pixels and material-space tile dimensions/rotation.
+Its storage and resolution limits require review against actual project size,
+runtime cost and portable clipboard/save workflows before they are final.
+
 ## Authored data and controls
 
 The optional `fabric_appearance` map in a native garment template is keyed by

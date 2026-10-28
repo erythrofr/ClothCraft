@@ -1375,6 +1375,7 @@ mod tests {
         let optics = crate::garment::appearance::FabricAppearance {
             color_srgb: [255, 0, 0],
             roughness: 0.3,
+            albedo: None,
         };
         assert_eq!(
             cloth_surface(None, false, false, None),
