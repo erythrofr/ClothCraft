@@ -30,6 +30,8 @@ zippers and topstitch paths it stages up to 128 clicked points. **Finish path**
 returns to the draft and **Cancel drawing** or
 Escape restores the previous path. A finished draft still needs **Apply**.
 In Edit mode, clicking an existing trim on the board opens its inspector draft.
+Board ownership includes legacy rectangular panels and chooses the topmost
+panel body when pieces overlap; polygon holes expose the panel underneath.
 In the 3D view, an Edit-mode click can also select a visible trim preview;
 selection samples cloth and avatar visibility and is disabled in Clean view.
 These samples do not prove visibility for every pixel. Skipped trims cannot be

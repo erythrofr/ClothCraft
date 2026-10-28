@@ -621,6 +621,43 @@ fn inside(p: DVec2, poly: &[DVec2]) -> bool {
     }
     yes
 }
+
+fn on_outline(p: DVec2, poly: &[DVec2]) -> bool {
+    (0..poly.len()).any(|i| {
+        let a = poly[i];
+        let edge = poly[(i + 1) % poly.len()] - a;
+        let t = ((p - a).dot(edge) / edge.length_squared().max(1e-30)).clamp(0., 1.);
+        p.distance_squared(a + edge * t) <= 1e-18
+    })
+}
+
+/// Resolve the topmost panel body in board order. This is separate from tool
+/// handles and edge hits: a trim belongs to the panel under its material point.
+fn panel_body_owner<'a>(
+    panels: impl Iterator<Item = (&'a Panel, Option<&'a PolygonPattern>, DVec2, f64)>,
+    world: DVec2,
+) -> Option<&'a str> {
+    panels
+        .filter_map(|(panel, polygon, origin, angle)| {
+            let p = authoring::rotate_2d(world - origin, -angle);
+            let contains = if let Some(polygon) = polygon {
+                let mut contour = Vec::new();
+                for edge in 0..polygon.points.len() {
+                    let points = polygon.edge_points(edge).ok()?;
+                    contour.extend_from_slice(points.get(..points.len().saturating_sub(1))?);
+                }
+                (inside(p, &contour) || on_outline(p, &contour))
+                    && !polygon
+                        .holes
+                        .iter()
+                        .any(|hole| inside(p, &hole.points) && !on_outline(p, &hole.points))
+            } else {
+                p.x >= 0. && p.x <= panel.pattern.width && p.y >= 0. && p.y <= panel.pattern.height
+            };
+            contains.then_some(panel.id.as_str())
+        })
+        .next()
+}
 pub(super) fn same_edge(a: &BoundaryRef, b: &BoundaryRef) -> bool {
     a.panel == b.panel && a.edge == b.edge && (a.edge.is_some() || a.side == b.side)
 }
@@ -936,6 +973,25 @@ impl Atelier {
         self.authoring.board.fit_corners(rect, &corners);
     }
     pub(super) fn board_panel_at(&self, rect: egui::Rect, pos: egui::Pos2) -> Option<&str> {
+        let world = self.authoring.board.world(rect, pos);
+        let panels = self
+            .project
+            .template
+            .panels
+            .iter()
+            .enumerate()
+            .rev()
+            .map(|(i, panel)| {
+                (
+                    panel,
+                    self.board_polygon(i),
+                    self.board_origin(i),
+                    self.board_angle(i),
+                )
+            });
+        if let Some(owner) = panel_body_owner(panels, world) {
+            return Some(owner);
+        }
         let hit = self.board_hit(rect, pos)?;
         self.project
             .template
@@ -3245,6 +3301,74 @@ impl Atelier {
 /// material coordinate.
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn trim_owner_handles_rectangles_rotation_overlap_and_holes() {
+        use marvelous_cloth::garment::{
+            GarmentTemplate,
+            domain::Hole,
+            shapes::{Primitive, primitive},
+        };
+        let mut template = GarmentTemplate::two_panel_demo();
+        let panels = &template.panels;
+        let owner = panel_body_owner(
+            panels
+                .iter()
+                .rev()
+                .map(|p| (p, p.polygon.as_ref(), DVec2::ZERO, 0.)),
+            DVec2::new(0.1, 0.1),
+        );
+        assert_eq!(owner, Some("right"));
+
+        let origin = DVec2::new(0.7, -0.2);
+        let angle = 53.;
+        let local = DVec2::new(0.2, 0.3);
+        let world = origin + authoring::rotate_2d(local, angle);
+        let owner = panel_body_owner(
+            std::iter::once((&template.panels[0], None, origin, angle)),
+            world,
+        );
+        assert_eq!(owner, Some("left"));
+        let outside = origin + authoring::rotate_2d(DVec2::new(0.41, 0.3), angle);
+        assert!(
+            panel_body_owner(
+                std::iter::once((&template.panels[0], None, origin, angle)),
+                outside
+            )
+            .is_none()
+        );
+
+        let mut polygon = primitive(
+            Primitive::Rectangle,
+            DVec2::new(0.4, 0.6),
+            90.,
+            Default::default(),
+        )
+        .unwrap();
+        polygon.holes.push(Hole {
+            points: vec![
+                DVec2::new(0.15, 0.2),
+                DVec2::new(0.15, 0.4),
+                DVec2::new(0.25, 0.4),
+                DVec2::new(0.25, 0.2),
+            ],
+            edges: (0..4).map(|i| format!("hole_{i}")).collect(),
+        });
+        template.panels[1].polygon = Some(polygon);
+        let panels = &template.panels;
+        let owner = |point| {
+            panel_body_owner(
+                panels
+                    .iter()
+                    .rev()
+                    .map(|p| (p, p.polygon.as_ref(), DVec2::ZERO, 0.)),
+                point,
+            )
+        };
+        assert_eq!(owner(DVec2::new(0.05, 0.05)), Some("right"));
+        assert_eq!(owner(DVec2::new(0.2, 0.3)), Some("left"));
+        assert_eq!(owner(DVec2::new(0.4, 0.3)), Some("right"));
+        assert_eq!(owner(DVec2::new(0.15, 0.3)), Some("right"));
+    }
     #[test]
     fn freehand_gesture_uses_all_samples_and_release_outside_canvas() {
         let mut board = Board::default();
