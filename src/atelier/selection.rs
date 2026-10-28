@@ -1225,7 +1225,7 @@ mod tests {
                 });
             }
         }
-        let rays: Vec<_> = (0..256)
+        let rays: Vec<_> = (0..1536)
             .map(|i| DVec3::new((i * 37 % 100) as f64 + 0.2, (i * 61 % 100) as f64 + 0.2, 1.))
             .collect();
         let mut cache = ClothVisibilityCache::default();

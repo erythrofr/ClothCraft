@@ -32,6 +32,8 @@ struct TrimPreview {
     skipped: usize,
 }
 
+const MAX_PREVIEW_POINTS: usize = 512;
+
 struct TrimDraft {
     panel: String,
     id: String,
@@ -408,7 +410,7 @@ fn build_preview(
             skipped += 1;
             continue;
         };
-        if count.saturating_add(embedded.len()) > 128 {
+        if count.saturating_add(embedded.len()) > MAX_PREVIEW_POINTS {
             skipped += 1;
             continue;
         }
@@ -1379,6 +1381,36 @@ mod tests {
         let preview = build_preview(garment, &[trim]).unwrap();
         assert_eq!(preview.skipped, 0);
         assert_eq!(preview.paths.len(), 1);
+    }
+
+    #[test]
+    fn long_dense_path_is_retained_for_bounded_preview() {
+        use std::sync::Arc;
+        let mut template = GarmentTemplate::two_panel_demo();
+        template.panels[0].pattern.nx = 100;
+        template.panels[0].pattern.ny = 100;
+        let garment = Arc::new(template.compile().unwrap());
+        let trim = Trim {
+            id: "long_zipper".into(),
+            panel_id: template.panels[0].id.clone(),
+            kind: TrimKind::Zipper {
+                path_m: vec![
+                    DVec2::new(0.04, 0.12),
+                    DVec2::new(0.31, 0.47),
+                    DVec2::new(0.02, 0.55),
+                ],
+                width_m: 0.01,
+            },
+        };
+        validate_surface(&trim, &garment).unwrap();
+        let mut second = trim.clone();
+        second.id = "long_zipper_2".into();
+        let preview = build_preview(garment, &[trim, second]).unwrap();
+        assert_eq!(preview.skipped, 1);
+        assert_eq!(preview.paths.len(), 1);
+        assert!(preview.paths[0].2.len() > 128);
+        assert!(preview.paths[0].2.len() <= MAX_PREVIEW_POINTS);
+        assert!(preview.paths[0].2.len() * 2 > MAX_PREVIEW_POINTS);
     }
 
     #[test]

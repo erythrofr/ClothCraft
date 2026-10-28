@@ -42,7 +42,7 @@ The 3D overlay follows the deformed surface using transient material attachments
 rebuilt after remeshing. It displays center lines or button markers, not actual
 hardware shapes or widths. Occlusion is sampled at line endpoints and midpoints,
 not per pixel. Preview work is bounded: at most 128 objects, 4096 input points,
-128 embedded points. Visibility uses direct ray tests for small batches and a
+512 embedded points. Visibility uses direct ray tests for small batches and a
 cached, position-refitted editor BVH for larger batches, with a 100,000-triangle
 limit and safe refusal if its bounds cannot be built. Unsupported or out-of-panel
 objects are skipped with a warning; oversized scenes can hide the 3D preview.
@@ -50,10 +50,10 @@ Clean view hides the 3D overlay. The 2D preview has a separate 4096-point budget
 Multiple topstitch rows and zipper widths are stored, but both views currently
 show only their center line; they are not manufacturing-accurate previews.
 
-One local CPU test with 10,000 synthetic triangles and 256 rays measured
-28.18 ms exhaustive versus 4.88 ms including BVH construction; after moving
-the triangles away from the rays, it measured 56.30 ms exhaustive versus
-0.44 ms including refit. All sampled answers matched. These single-run numbers
+One local CPU test with 10,000 synthetic triangles and 1,536 rays measured
+170.29 ms exhaustive versus 5.94 ms including BVH construction; after moving
+the triangles away from the rays, it measured 348.22 ms exhaustive versus
+0.56 ms including refit. All sampled answers matched. These single-run numbers
 are workload-specific and do not measure the full editor, simulation, GPU or
 real garment; large animated meshes can still make per-frame refits costly.
 
