@@ -78,6 +78,69 @@ fn persistent_placements_validate_and_keep_legacy_and_physics() {
 }
 
 #[test]
+fn placement_limit_and_invalid_edits_are_rejected_atomically() {
+    use marvelous_cloth::{
+        authoring::{self, Command},
+        garment::GarmentTemplate,
+    };
+    let mut source = GarmentTemplate::two_panel_demo();
+    let panel = source.panels[0].id.clone();
+    source.graphics = (0..4096)
+        .map(|i| GraphicPlacement {
+            id: format!("graphic_{i}"),
+            panel_id: panel.clone(),
+            ..placement()
+        })
+        .collect();
+    source.compile().unwrap();
+    let before = serde_json::to_vec(&source).unwrap();
+
+    let overflow = GraphicPlacement {
+        id: "overflow".into(),
+        panel_id: panel.clone(),
+        ..placement()
+    };
+    let error = authoring::apply(
+        &source,
+        Command::SetGraphic {
+            placement: overflow,
+        },
+    )
+    .err()
+    .unwrap();
+    assert!(error.contains("At most 4096 graphic placements"), "{error}");
+    assert_eq!(serde_json::to_vec(&source).unwrap(), before);
+
+    let invalid = GraphicPlacement {
+        id: "graphic_0".into(),
+        panel_id: "missing".into(),
+        ..placement()
+    };
+    let error = authoring::apply(&source, Command::SetGraphic { placement: invalid })
+        .err()
+        .unwrap();
+    assert!(error.contains("missing panel"), "{error}");
+    assert_eq!(serde_json::to_vec(&source).unwrap(), before);
+
+    let replacement = GraphicPlacement {
+        id: "graphic_0".into(),
+        panel_id: panel,
+        rotation_degrees: 25.,
+        ..placement()
+    };
+    let edited = authoring::apply(
+        &source,
+        Command::SetGraphic {
+            placement: replacement.clone(),
+        },
+    )
+    .unwrap();
+    assert_eq!(edited.template.graphics.len(), 4096);
+    assert_eq!(edited.template.graphics[0], replacement);
+    assert!(!edited.reset_simulation);
+}
+
+#[test]
 fn saved_drape_reopens_after_graphic_metadata_change() {
     use marvelous_cloth::{
         fitting::FittingProject,
