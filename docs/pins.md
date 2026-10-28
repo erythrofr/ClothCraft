@@ -17,7 +17,9 @@ Expand **Pin a material position** to enter local 2D X/Y in millimetres. The
 inspector displays the nearest compiled mesh vertex and distance before you pin
 or release it; this works for interior vertices as well as contours. Selection
 is snapped to that exact material coordinate, not stored as a mesh index. The
-lookup is limited to 100,000 vertices per panel and rejects ambiguous winners.
+lookup is limited to 100,000 vertices per panel and rejects ambiguous winners. The
+last lookup is cached for the same immutable mesh, panel and coordinates; a
+remesh or query change recomputes it. No lookup runs while the editor is busy.
 
 Expand **Individual authored pins** to see their material coordinates and
 release one pin without removing the others. The list is virtualized for large

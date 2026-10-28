@@ -119,9 +119,48 @@ fn nearest_material_vertex(
     Ok((uv, d2.sqrt()))
 }
 
+#[derive(Clone)]
+struct PinSearchCache {
+    garment: Arc<CompiledGarment>,
+    panel: String,
+    requested: DVec2,
+    result: Result<(DVec2, f64), String>,
+}
+
+/// Retaining an immutable Arc makes identity safe across remeshing and avoids
+/// stale address reuse. One context entry bounds retained meshes and memory.
+fn nearest_material_cached(
+    ctx: &egui::Context,
+    garment: &Arc<CompiledGarment>,
+    panel: &str,
+    requested: DVec2,
+) -> Result<(DVec2, f64), String> {
+    let id = egui::Id::new("pin-material-last-search");
+    if let Some(cache) = ctx.data(|data| data.get_temp::<PinSearchCache>(id))
+        && Arc::ptr_eq(&cache.garment, garment)
+        && cache.panel == panel
+        && cache.requested == requested
+    {
+        return cache.result;
+    }
+    let result = nearest_material_vertex(garment, panel, requested);
+    ctx.data_mut(|data| {
+        data.insert_temp(
+            id,
+            PinSearchCache {
+                garment: garment.clone(),
+                panel: panel.to_owned(),
+                requested,
+                result: result.clone(),
+            },
+        )
+    });
+    result
+}
+
 fn material_pin_controls(
     ui: &mut egui::Ui,
-    garment: &CompiledGarment,
+    garment: &Arc<CompiledGarment>,
     template: &GarmentTemplate,
     panel: &marvelous_cloth::garment::template::Panel,
     available: bool,
@@ -147,7 +186,12 @@ fn material_pin_controls(
                 ui.small("Pause simulation and finish placement to select a mesh vertex.");
                 return;
             }
-            match nearest_material_vertex(garment, &panel.id, DVec2::new(mm[0], mm[1]) * 0.001) {
+            match nearest_material_cached(
+                ui.ctx(),
+                garment,
+                &panel.id,
+                DVec2::new(mm[0], mm[1]) * 0.001,
+            ) {
                 Ok((uv, distance)) => {
                     ui.small(format!(
                         "Nearest: X {:.2} mm · Y {:.2} mm · offset {:.2} mm",
@@ -581,9 +625,10 @@ mod tests {
         );
         let individual = individual_pin_controls(ui, &panel, c.available, frozen, &pin_points);
         let panel_data = c.template.panels[0].clone();
+        let test_garment = Arc::new(c.garment.clone());
         let material = material_pin_controls(
             ui,
-            &c.garment,
+            &test_garment,
             &c.template,
             &panel_data,
             c.available,
@@ -613,6 +658,49 @@ mod tests {
             }
         }
     }
+    #[test]
+    fn cached_material_search_revalidates_mesh_panel_and_query() {
+        let c = case();
+        let ctx = egui::Context::default();
+        let original = Arc::new(c.garment.clone());
+        let first = &c.template.panels[0].id;
+        let second = &c.template.panels[1].id;
+        let p = original.mesh.uv[original.panels[0].vertices.start];
+        let first_result = nearest_material_cached(&ctx, &original, first, p).unwrap();
+        assert_eq!(
+            first_result,
+            nearest_material_vertex(&original, first, p).unwrap()
+        );
+        assert_eq!(
+            nearest_material_cached(&ctx, &original, first, p).unwrap(),
+            first_result
+        );
+        let changed_query = p + DVec2::splat(0.2);
+        assert_eq!(
+            nearest_material_cached(&ctx, &original, first, changed_query),
+            nearest_material_vertex(&original, first, changed_query)
+        );
+        assert_eq!(
+            nearest_material_cached(&ctx, &original, second, p),
+            nearest_material_vertex(&original, second, p)
+        );
+        let mut remeshed = original.as_ref().clone();
+        let start = remeshed.panels[0].vertices.start;
+        remeshed.mesh.uv[start] = DVec2::new(-1., -1.);
+        let remeshed = Arc::new(remeshed);
+        let result = nearest_material_cached(&ctx, &remeshed, first, p).unwrap();
+        assert_eq!(
+            result,
+            nearest_material_vertex(&remeshed, first, p).unwrap()
+        );
+        assert_ne!(result, first_result);
+        let saved = ctx
+            .data(|d| d.get_temp::<PinSearchCache>(egui::Id::new("pin-material-last-search")))
+            .unwrap();
+        assert!(Arc::ptr_eq(&saved.garment, &remeshed));
+        assert!(nearest_material_cached(&ctx, &remeshed, first, DVec2::splat(f64::NAN)).is_err());
+    }
+
     #[test]
     fn material_position_controls_pin_and_release_interior_with_undo() {
         let mut c = case();
