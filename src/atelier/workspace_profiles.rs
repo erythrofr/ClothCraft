@@ -124,6 +124,35 @@ fn read_source(path: &Path) -> Result<Option<String>, String> {
     }
     Ok(Some(text))
 }
+/// Serialize cooperating processes using a stable sidecar, never unlinked:
+/// replacing or deleting the lock file while another process holds it could
+/// create two independently locked files for the same profiles.
+fn lock_profile(path: &Path) -> Result<std::fs::File, String> {
+    if path.is_dir() {
+        return Err("Workspace profiles path is a directory".into());
+    }
+    let mut name = path
+        .file_name()
+        .ok_or("Workspace profiles path has no file name")?
+        .to_os_string();
+    name.push(".lock");
+    let lock_path = path.with_file_name(name);
+    let file = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(lock_path)
+        .map_err(|e| format!("Cannot open the workspace profile lock: {e}"))?;
+    match file.try_lock() {
+        Ok(()) => Ok(file),
+        Err(std::fs::TryLockError::WouldBlock) => {
+            Err("Another ClothCraft window is saving workspace profiles. Try again.".into())
+        }
+        Err(std::fs::TryLockError::Error(e)) => Err(format!("Cannot lock workspace profiles: {e}")),
+    }
+}
+
 impl Store {
     pub fn load(path: &Path) -> Result<Self, String> {
         let Some(text) = read_source(path)? else {
@@ -234,8 +263,9 @@ impl Store {
         Ok(())
     }
     fn persist(&mut self, path: &Path) -> Result<(), String> {
-        // This detects already-completed external edits. It is not a lock:
-        // another process could still write between this check and the rename.
+        // All cooperating writers hold this guard through the comparison and
+        // atomic replacement. Noncooperating processes can still bypass it.
+        let _lock = lock_profile(path)?;
         if read_source(path)? != self.source_text {
             return Err("Workspace profiles changed on disk. Close and reopen the profiles dialog before saving.".into());
         }
@@ -1000,5 +1030,115 @@ mod tests {
         std::fs::remove_file(&path).unwrap();
         assert!(stale.clone().remove(&path, "Original").is_err());
         assert!(!path.exists());
+    }
+    #[test]
+    fn profile_lock_child() {
+        use std::io::{BufRead, Write};
+        let Some(path) = std::env::var_os("CLOTHCRAFT_TEST_PROFILE_LOCK") else {
+            return;
+        };
+        let _guard = lock_profile(Path::new(&path)).unwrap();
+        println!("CLOTHCRAFT_LOCK_HELD");
+        std::io::stdout().flush().unwrap();
+        let mut line = String::new();
+        std::io::stdin().lock().read_line(&mut line).unwrap();
+        assert_eq!(line.trim(), "release");
+    }
+
+    #[test]
+    fn independent_process_lock_preserves_profile_until_release() {
+        use std::io::{BufRead, BufReader, Write};
+        use std::process::{Command, Stdio};
+        use std::time::Duration;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(FILE_NAME);
+        let mut store = Store::default();
+        store
+            .save_profile(&path, "Original", Snapshot::default(), false)
+            .unwrap();
+        let bytes = std::fs::read(&path).unwrap();
+        let before = store.clone();
+        let mut child = Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "fitting_editor::workspace_profiles::tests::profile_lock_child",
+                "--nocapture",
+            ])
+            .env("CLOTHCRAFT_TEST_PROFILE_LOCK", &path)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        let output = child.stdout.take().unwrap();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let reader = std::thread::spawn(move || {
+            let mut announced = false;
+            for line in BufReader::new(output).lines().map_while(Result::ok) {
+                if !announced && line.contains("CLOTHCRAFT_LOCK_HELD") {
+                    let _ = tx.send(());
+                    announced = true;
+                }
+            }
+        });
+        if rx.recv_timeout(Duration::from_secs(15)).is_err() {
+            let _ = child.kill();
+            let _ = child.wait();
+            reader.join().unwrap();
+            panic!("profile lock child did not report readiness");
+        }
+        let result = store.save_profile(&path, "New", Snapshot::default(), false);
+        let unchanged = std::fs::read(&path).unwrap() == bytes && store == before;
+        child.stdin.take().unwrap().write_all(b"release\n").unwrap();
+        let status = child.wait().unwrap();
+        reader.join().unwrap();
+        assert!(status.success());
+        assert!(result.unwrap_err().contains("Another ClothCraft window"));
+        assert!(unchanged);
+        store
+            .save_profile(&path, "New", Snapshot::default(), false)
+            .unwrap();
+        assert_eq!(Store::load(&path).unwrap().profiles.len(), 2);
+    }
+
+    #[test]
+    fn busy_profile_lock_shows_error_without_blocking_dialog() {
+        struct LockCase {
+            ui: ProfileUi,
+            path: std::path::PathBuf,
+        }
+        let mut draw = |ui: &mut egui::Ui, c: &mut LockCase| {
+            c.ui.show(ui.ctx(), &c.path, &Snapshot::default());
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(FILE_NAME);
+        let mut c = LockCase {
+            ui: ProfileUi::default(),
+            path: path.clone(),
+        };
+        c.ui.begin(&path);
+        let mut h = Harness::new(egui::vec2(1100., 700.));
+        for _ in 0..5 {
+            h.frame(&mut c, &mut draw);
+        }
+        h.replace_text("profiles.name", "Draft", &mut c, &mut draw)
+            .unwrap();
+        let guard = lock_profile(&path).unwrap();
+        h.click("profiles.save", &mut c, &mut draw).unwrap();
+        assert!(
+            c.ui.error
+                .as_deref()
+                .unwrap()
+                .contains("Another ClothCraft window")
+        );
+        assert!(!path.exists());
+        drop(guard);
+        // Let the dialog finish relayout after displaying the busy message.
+        for _ in 0..5 {
+            h.frame(&mut c, &mut draw);
+        }
+        h.click("profiles.save", &mut c, &mut draw).unwrap();
+        assert!(c.ui.error.is_none());
+        assert_eq!(Store::load(&path).unwrap().profiles.len(), 1);
     }
 }
