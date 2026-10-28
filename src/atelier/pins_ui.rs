@@ -440,7 +440,7 @@ fn material_pin_controls(
     panel: &marvelous_cloth::garment::template::Panel,
     available: bool,
     frozen: bool,
-    can_pick_3d: bool,
+    pick_views: (bool, bool),
 ) -> Option<Action> {
     let mut action = None;
     let section = egui::CollapsingHeader::new("Pin a material position")
@@ -450,8 +450,8 @@ fn material_pin_controls(
             let active_pick = ui
                 .ctx()
                 .data(|data| data.get_temp::<PinPick3d>(pin_pick_id()))
-                .is_some_and(|pick| pin_pick_matches(&pick, garment, &panel.id));
-            if active_pick && can_pick_3d && available && !frozen && ui.is_enabled() {
+                .filter(|pick| pin_pick_matches(pick, garment, &panel.id));
+            if active_pick.as_ref().is_some_and(|pick| if pick.on_board { pick_views.1 } else { pick_views.0 }) && available && !frozen && ui.is_enabled() {
                 let pass = ui.ctx().cumulative_pass_nr();
                 ui.ctx().data_mut(|data| {
                     if let Some(mut pick) = data.get_temp::<PinPick3d>(pin_pick_id()) {
@@ -473,7 +473,7 @@ fn material_pin_controls(
                 }
             } else {
                 let pick = ui.add_enabled(
-                    can_pick_3d && available && !frozen,
+                    pick_views.0 && available && !frozen,
                     egui::Button::new("Choose on 3D cloth"),
                 ).on_disabled_hover_text("Use Edit mode with the 3D view open; pause simulation, unfreeze the panel and finish other edits.");
                 #[cfg(test)]
@@ -489,8 +489,8 @@ fn material_pin_controls(
                     ui.ctx()
                         .data_mut(|data| data.insert_temp(pin_pick_id(), mode));
                 }
-                let pick_2d = ui.add_enabled(can_pick_3d && available && !frozen, egui::Button::new("Choose on 2D pattern"))
-                    .on_disabled_hover_text("Use Edit mode, pause simulation, unfreeze the panel and finish other edits.");
+                let pick_2d = ui.add_enabled(pick_views.1 && available && !frozen, egui::Button::new("Choose on 2D pattern"))
+                    .on_disabled_hover_text("Use Edit mode with the 2D view open; pause simulation, unfreeze the panel and finish other edits.");
                 #[cfg(test)]
                 super::authoring_smoke::widget_harness::named(ui, &pick_2d, "pins.material.pick_2d");
                 if pick_2d.clicked() {
@@ -529,7 +529,7 @@ fn material_pin_controls(
                         };
                         ui.ctx()
                             .data_mut(|data| data.insert_temp(pin_preview_id(), preview));
-                        ui.small("3D marker is X-ray and can show through surfaces.");
+                        ui.small("Markers show the nearest vertex; the 3D marker is X-ray.");
                     }
                     ui.small(format!(
                         "Nearest: X {:.2} mm · Y {:.2} mm · offset {:.2} mm",
@@ -971,9 +971,8 @@ impl Atelier {
         {
             return;
         }
-        let (Some(panel), Some(rect), Some(preview)) = (
+        let (Some(panel), Some(preview)) = (
             self.authoring.selected.as_deref(),
-            self.authoring.selection.garment_rect,
             ui.ctx()
                 .data(|data| data.get_temp::<PinPreview>(pin_preview_id())),
         ) else {
@@ -1001,6 +1000,9 @@ impl Atelier {
                 egui::Stroke::new(2., egui::Color32::from_rgb(255, 199, 65)),
             );
         }
+        let Some(rect) = self.authoring.selection.garment_rect else {
+            return;
+        };
         let Some(world) = preview_world(
             &preview,
             &self.scene.garment,
@@ -1099,6 +1101,12 @@ impl Atelier {
             (selected_panels.len(), frozen_selected, pins_selected),
         );
         let individual = individual_pin_controls(ui, &panel.id, available, frozen, &pin_points);
+        let can_pick = self.authoring.tool == super::authoring_ui::Tool::Edit
+            && !self.clean_view
+            && !self.authoring.board.gesture_active()
+            && !self.authoring.trims.has_pending_history_step()
+            && self.authoring.drag.is_none()
+            && self.grab.is_none();
         let material = material_pin_controls(
             ui,
             &self.scene.garment,
@@ -1106,13 +1114,10 @@ impl Atelier {
             panel,
             available,
             frozen,
-            self.authoring.tool == super::authoring_ui::Tool::Edit
-                && !self.clean_view
-                && self.authoring.selection.garment_rect.is_some()
-                && !self.authoring.board.gesture_active()
-                && !self.authoring.trims.has_pending_history_step()
-                && self.authoring.drag.is_none()
-                && self.grab.is_none(),
+            (
+                can_pick && self.authoring.selection.garment_rect.is_some(),
+                can_pick && self.authoring.selection.board_rect.is_some(),
+            ),
         );
         if let Some(action) = action.or(individual).or(material) {
             let result = (|| {
@@ -1329,7 +1334,7 @@ mod tests {
                     panel,
                     c.available,
                     false,
-                    c.can_pick
+                    (c.can_pick, c.can_pick)
                 )
                 .is_none()
             );
@@ -1394,6 +1399,56 @@ mod tests {
     }
 
     #[test]
+    fn named_pin_picker_availability_follows_each_visible_view() {
+        struct Views {
+            template: GarmentTemplate,
+            garment: Arc<CompiledGarment>,
+            views: (bool, bool),
+        }
+        let source = case();
+        let mut c = Views {
+            template: source.template,
+            garment: Arc::new(source.garment),
+            views: (false, true),
+        };
+        let mut draw = |ui: &mut egui::Ui, c: &mut Views| {
+            material_pin_controls(
+                ui,
+                &c.garment,
+                &c.template,
+                &c.template.panels[0],
+                true,
+                false,
+                c.views,
+            );
+        };
+        let mut h = Harness::new(egui::vec2(600., 500.));
+        h.frame(&mut c, &mut draw);
+        h.click("pins.material", &mut c, &mut draw).unwrap();
+        h.frame(&mut c, &mut draw);
+        assert!(h.click("pins.material.pick_3d", &mut c, &mut draw).is_err());
+        h.click("pins.material.pick_2d", &mut c, &mut draw).unwrap();
+        let pick = h
+            .ctx
+            .data(|d| d.get_temp::<PinPick3d>(pin_pick_id()))
+            .unwrap();
+        assert!(pick.on_board);
+        h.frame(&mut c, &mut draw);
+        h.click("pins.material.pick_cancel", &mut c, &mut draw)
+            .unwrap();
+        c.views = (true, false);
+        h.frame(&mut c, &mut draw);
+        assert!(h.click("pins.material.pick_2d", &mut c, &mut draw).is_err());
+        h.click("pins.material.pick_3d", &mut c, &mut draw).unwrap();
+        let pick = h
+            .ctx
+            .data(|d| d.get_temp::<PinPick3d>(pin_pick_id()))
+            .unwrap();
+        assert!(!pick.on_board);
+        assert!(!pin_pick_seen(&pick, pick.seen_pass, false));
+    }
+
+    #[test]
     fn real_trim_and_pin_controls_exclude_pending_gestures_in_both_orders() {
         struct Flow {
             template: GarmentTemplate,
@@ -1423,8 +1478,16 @@ mod tests {
             let panel = c.template.panels[0].clone();
             let can_pick = !c.trims.has_pending_history_step();
             assert!(
-                material_pin_controls(ui, &c.garment, &c.template, &panel, true, false, can_pick)
-                    .is_none()
+                material_pin_controls(
+                    ui,
+                    &c.garment,
+                    &c.template,
+                    &panel,
+                    true,
+                    false,
+                    (can_pick, can_pick)
+                )
+                .is_none()
             );
             assert!(
                 super::super::trims_ui::trim_controls(ui, &mut c.trims, &c.template, &panel, true)
@@ -1515,9 +1578,15 @@ mod tests {
                 .unwrap();
             }
             let panel = c.template.panels[0].clone();
-            if let Some(action) =
-                material_pin_controls(ui, &c.garment, &c.template, &panel, true, false, true)
-            {
+            if let Some(action) = material_pin_controls(
+                ui,
+                &c.garment,
+                &c.template,
+                &panel,
+                true,
+                false,
+                (true, true),
+            ) {
                 let edit = prepare(
                     &c.template,
                     &c.garment,
@@ -1625,9 +1694,15 @@ mod tests {
                 .unwrap();
             }
             let panel = c.template.panels[0].clone();
-            if let Some(action) =
-                material_pin_controls(ui, &c.garment, &c.template, &panel, true, false, true)
-            {
+            if let Some(action) = material_pin_controls(
+                ui,
+                &c.garment,
+                &c.template,
+                &panel,
+                true,
+                false,
+                (true, true),
+            ) {
                 let edit = prepare(
                     &c.template,
                     &c.garment,
@@ -1889,7 +1964,7 @@ mod tests {
                 panel,
                 c.available,
                 c.frozen,
-                true,
+                (true, true),
             );
             c.present = ui
                 .ctx()
@@ -1949,7 +2024,7 @@ mod tests {
             &panel_data,
             c.available,
             frozen,
-            true,
+            (true, true),
         );
         if let Some(action) = action.or(individual).or(material) {
             match prepare(

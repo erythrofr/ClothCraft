@@ -30,8 +30,8 @@ or a new mesh cannot silently pin a different point. Picking scans at most
 panel, accounting for its board placement and rotation. Overlapping panels are
 resolved in board draw order; holes do not count as panel bodies. The readout
 shows the nearest vertex and the offset before the
-separate confirmation. The gesture requires both the 2D and 3D views open in
-this initial integration; its full native-window input path is not yet tested.
+separate confirmation. Each picker requires its own view; the 2D picker also
+works with the 3D view hidden. The full native-window input path is not yet tested.
 The CPU named-input fixture covers rotated board and panel transforms, rejection
 of an overlapping panel, staging without a document change, confirmation and
 undo. It drives the production staging helper, not the whole native viewport.
