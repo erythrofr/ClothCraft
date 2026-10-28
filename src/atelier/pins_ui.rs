@@ -165,6 +165,17 @@ fn cancel_pin_pick(ctx: &egui::Context) {
     clear_pin_pick(ctx);
 }
 
+/// A pending trim owns the editing gesture; do not leave a pin pick armed.
+fn cancel_pin_pick_for_trim(ctx: &egui::Context, trims: &super::trims_ui::TrimUi) -> bool {
+    if !trims.has_pending_history_step() {
+        return false;
+    }
+    if ctx.data(|data| data.get_temp::<PinPick3d>(pin_pick_id()).is_some()) {
+        cancel_pin_pick(ctx);
+    }
+    true
+}
+
 pub(super) fn pin_pick_shield(ctx: &egui::Context) -> bool {
     if !ctx.data(|data| data.get_temp::<bool>(pin_pick_shield_id()).unwrap_or(false)) {
         return false;
@@ -417,7 +428,7 @@ fn material_pin_controls(
                 let pick = ui.add_enabled(
                     can_pick_3d && available && !frozen,
                     egui::Button::new("Choose on 3D cloth"),
-                );
+                ).on_disabled_hover_text("Use Edit mode with the 3D view open; pause simulation, unfreeze the panel and finish other edits.");
                 #[cfg(test)]
                 super::authoring_smoke::widget_harness::named(ui, &pick, "pins.material.pick_3d");
                 if pick.clicked() {
@@ -741,6 +752,9 @@ impl Atelier {
         let Some(pick) = ctx.data(|data| data.get_temp::<PinPick3d>(pin_pick_id())) else {
             return false;
         };
+        if cancel_pin_pick_for_trim(ctx, &self.authoring.trims) {
+            return false;
+        }
         let valid = ctx.input(|input| input.focused)
             && self.authoring.tool == super::authoring_ui::Tool::Edit
             && self
@@ -757,7 +771,6 @@ impl Atelier {
             && self.authoring.board.shape.is_none()
             && self.authoring.board.group_shapes.is_empty()
             && !self.authoring.board.gesture_active()
-            && !self.authoring.trims.has_pending_history_step()
             && self.authoring.drag.is_none()
             && self.grab.is_none()
             && !self.authoring.radial.blocked
@@ -1158,6 +1171,84 @@ mod tests {
                 .is_none()
         );
         assert_eq!(serde_json::to_vec(&c.template).unwrap(), before);
+    }
+
+    #[test]
+    fn real_trim_and_pin_controls_exclude_pending_gestures_in_both_orders() {
+        struct Flow {
+            template: GarmentTemplate,
+            garment: Arc<CompiledGarment>,
+            trims: super::super::trims_ui::TrimUi,
+        }
+        let c = case();
+        let mut c = Flow {
+            template: c.template,
+            garment: Arc::new(c.garment),
+            trims: Default::default(),
+        };
+        c.template
+            .trims
+            .push(marvelous_cloth::garment::trims::Trim {
+                id: "trim_1".into(),
+                panel_id: c.template.panels[0].id.clone(),
+                kind: marvelous_cloth::garment::trims::TrimKind::Button {
+                    center_m: DVec2::new(0.1, 0.1),
+                    diameter_m: 0.01,
+                },
+            });
+        let original = serde_json::to_vec(&c.template).unwrap();
+        let mut draw = |ui: &mut egui::Ui, c: &mut Flow| {
+            // The viewport guard runs before the inspectors in production.
+            cancel_pin_pick_for_trim(ui.ctx(), &c.trims);
+            let panel = c.template.panels[0].clone();
+            let can_pick = !c.trims.has_pending_history_step();
+            assert!(
+                material_pin_controls(ui, &c.garment, &c.template, &panel, true, false, can_pick)
+                    .is_none()
+            );
+            assert!(
+                super::super::trims_ui::trim_controls(ui, &mut c.trims, &c.template, &panel, true)
+                    .is_none()
+            );
+        };
+        let mut h = Harness::new(egui::vec2(1200., 1100.));
+        h.frame(&mut c, &mut draw);
+        h.click("pins.material", &mut c, &mut draw).unwrap();
+        h.click("trim.section", &mut c, &mut draw).unwrap();
+        h.frame(&mut c, &mut draw);
+        h.click("pins.material.pick_3d", &mut c, &mut draw).unwrap();
+        assert!(
+            h.ctx
+                .data(|d| d.get_temp::<PinPick3d>(pin_pick_id()))
+                .is_some()
+        );
+        h.frame(&mut c, &mut draw);
+        h.click("trim.new", &mut c, &mut draw).unwrap();
+        h.frame(&mut c, &mut draw);
+        assert!(
+            h.ctx
+                .data(|d| d.get_temp::<PinPick3d>(pin_pick_id()))
+                .is_none()
+        );
+        assert!(c.trims.has_pending_history_step());
+        assert!(h.click("pins.material.pick_3d", &mut c, &mut draw).is_err());
+        h.click("trim.cancel", &mut c, &mut draw).unwrap();
+        h.frame(&mut c, &mut draw);
+        h.click("trim.edit.trim_1", &mut c, &mut draw).unwrap();
+        h.frame(&mut c, &mut draw);
+        h.click("trim.place_3d", &mut c, &mut draw).unwrap();
+        h.frame(&mut c, &mut draw);
+        assert!(c.trims.has_pending_history_step());
+        assert!(h.click("pins.material.pick_3d", &mut c, &mut draw).is_err());
+        c.trims.cancel_board_placement();
+        h.frame(&mut c, &mut draw);
+        h.click("pins.material.pick_3d", &mut c, &mut draw).unwrap();
+        assert!(
+            h.ctx
+                .data(|d| d.get_temp::<PinPick3d>(pin_pick_id()))
+                .is_some()
+        );
+        assert_eq!(serde_json::to_vec(&c.template).unwrap(), original);
     }
 
     #[test]

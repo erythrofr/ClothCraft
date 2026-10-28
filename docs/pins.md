@@ -26,6 +26,11 @@ stage the nearest material vertex. The X/Y readout and marker update; choose
 gesture. Other panels, the avatar in front, a closed inspector, changing tools,
 or a new mesh cannot silently pin a different point. Picking scans at most
 100,000 cloth triangles on a click and is unavailable in clean view.
+In the combined trim/pin integration, a pending construction-trim edit or
+placement disables pin picking; starting a trim draft cancels an armed pick.
+Finish or cancel the trim edit before picking a pin. Named-widget CPU coverage
+exercises both orders without committing the garment; native-window routing
+and an actual concurrent worker remain unverified.
 While the section is open, the panel is unfrozen and the editor is paused, a small X-ray marker in the
 3D view shows that exact vertex. It can appear through cloth or the avatar; it
 is a selection aid, not a visibility or collision test. It is hidden in clean
