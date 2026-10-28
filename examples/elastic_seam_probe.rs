@@ -24,6 +24,9 @@ struct Args {
     /// Replay the full-edge fixture with an equal-length partial-edge seam.
     #[arg(long, requires = "replay")]
     equal_seam_control: bool,
+    /// Run without grab input, to inspect settling under the seam and gravity.
+    #[arg(long)]
+    idle_only: bool,
 }
 
 #[derive(serde::Deserialize)]
@@ -33,7 +36,10 @@ struct Control {
     grab_target_m: Option<DVec3>,
 }
 
-fn phase(step: usize) -> &'static str {
+fn phase(step: usize, idle_only: bool) -> &'static str {
+    if idle_only {
+        return "idle";
+    }
     match step {
         0..120 => "settle",
         120..180 => "pull",
@@ -42,14 +48,14 @@ fn phase(step: usize) -> &'static str {
     }
 }
 
-fn validate_controls(rows: &[Control], steps: usize) -> Result<(), &'static str> {
+fn validate_controls(rows: &[Control], steps: usize, idle_only: bool) -> Result<(), &'static str> {
     if rows.len() != steps {
         return Err("Replay step count differs");
     }
     for (i, row) in rows.iter().enumerate() {
         if row.step != i
-            || row.phase != phase(i)
-            || row.grab_target_m.is_some() != (120..210).contains(&i)
+            || row.phase != phase(i, idle_only)
+            || row.grab_target_m.is_some() != (!idle_only && (120..210).contains(&i))
             || row.grab_target_m.is_some_and(|p| !p.is_finite())
         {
             return Err("Replay control sequence is invalid");
@@ -94,9 +100,15 @@ fn validate_matched_settings(
     summary: &serde_json::Value,
     settings: &VbdSettings,
     steps: usize,
+    idle_only: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let recorded_idle = match summary.get("idle_only") {
+        None => false, // Historical pull/hold/release reports predate this field.
+        Some(value) => value.as_bool().ok_or("Replay idle_only must be boolean")?,
+    };
     if summary.get("settings") != Some(&serde_json::to_value(settings)?)
         || summary.get("steps").and_then(serde_json::Value::as_u64) != Some(steps as u64)
+        || recorded_idle != idle_only
     {
         return Err("Matched replay requires identical settings and step count".into());
     }
@@ -143,8 +155,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     rayon::ThreadPoolBuilder::new()
         .num_threads(2)
         .build_global()?;
-    // Refuse accidental replacement of an earlier experiment.
-    fs::create_dir(&args.output)?;
     if args.equal_seam_control && args.ease_ratio <= 1. {
         return Err("Equal seam control requires an ease ratio greater than 1".into());
     }
@@ -174,16 +184,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             if args.equal_seam_control {
                 let summary = serde_json::from_slice(&fs::read(dir.join("summary.json"))?)?;
-                validate_matched_settings(&summary, &settings, args.steps)?;
+                validate_matched_settings(&summary, &settings, args.steps, args.idle_only)?;
             }
             let rows = fs::read_to_string(dir.join("trace.jsonl"))?
                 .lines()
                 .map(serde_json::from_str)
                 .collect::<Result<Vec<Control>, _>>()?;
-            validate_controls(&rows, args.steps)?;
+            validate_controls(&rows, args.steps, args.idle_only)?;
             Ok(rows)
         })
         .transpose()?;
+    // Validate controls and settings before creating any experiment output.
+    fs::create_dir(&args.output)?;
     let seam = &garment.seams[0];
     let mut gradient = vec![DVec3::ZERO; initial.x.len()];
     for e in seam.elements(&initial.x) {
@@ -247,6 +259,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut total_diagnostic_ms = 0_f64;
     let mut release_rises = 0;
     let mut maximum_release_rise = 0_f64;
+    let mut tail_rises = 0;
+    let mut maximum_tail_rise = 0_f64;
     let mut release_start = 0.;
     let mut final_energy = 0.;
     let mut costs = Vec::new();
@@ -255,12 +269,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if step == 120 {
             anchor = point(&state.x);
         }
-        let phase = phase(step);
+        let phase = phase(step, args.idle_only);
         let u = ((step as f64 - 119.) / 60.).clamp(0., 1.);
         let target = replay.as_ref().map_or_else(
             || {
-                (120..210)
-                    .contains(&step)
+                (!args.idle_only && (120..210).contains(&step))
                     .then_some(anchor + DVec3::Z * (0.04 * u * u * (3. - 2. * u)))
             },
             |rows| rows[step].grab_target_m,
@@ -320,16 +333,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if !final_energy.is_finite() {
             return Err("Nonfinite energy".into());
         }
-        if step == 210 {
+        if step == if args.idle_only { 0 } else { 210 } {
             release_start = final_energy;
         }
         if let Some((old_phase, old_energy)) = &previous
-            && phase == "release"
+            && phase == if args.idle_only { "idle" } else { "release" }
             && old_phase == phase
         {
             let rise = final_energy - old_energy;
             release_rises += usize::from(rise > 1e-12);
             maximum_release_rise = maximum_release_rise.max(rise);
+            if step >= args.steps - 60 {
+                tail_rises += usize::from(rise > 1e-12);
+                maximum_tail_rise = maximum_tail_rise.max(rise);
+            }
         }
         previous = Some((phase.into(), final_energy));
         let motion = metrics.motion.as_ref().map(|m| m.highpass_rms_m);
@@ -360,9 +377,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     costs.sort_by(f64::total_cmp);
     let report = json!({"kind":if args.equal_seam_control { "matched equal-length partial seam control" } else { "production geometric easing baseline" },
         "gpu_used":false,"replay":args.replay,"settings":settings,"vertices":initial.x.len(),"iterations":args.iterations,"steps":args.steps,
-        "ease_ratio":args.ease_ratio,"equal_seam_control":args.equal_seam_control,"gradient_max_error_n":max_error,
-        "release_energy_start_j":release_start,"release_energy_end_j":final_energy,
-        "release_positive_deltas":release_rises,"release_max_rise_j":maximum_release_rise,
+        "ease_ratio":args.ease_ratio,"equal_seam_control":args.equal_seam_control,"idle_only":args.idle_only,"gradient_max_error_n":max_error,
+        "observation_phase":if args.idle_only { "idle" } else { "release" },
+        "observation_energy_start_j":release_start,"observation_energy_end_j":final_energy,
+        "observation_positive_deltas":release_rises,"observation_max_rise_j":maximum_release_rise,
+        "tail_positive_deltas":tail_rises,"tail_max_rise_j":maximum_tail_rise,
+        "release_energy_start_j":(!args.idle_only).then_some(release_start),"release_energy_end_j":(!args.idle_only).then_some(final_energy),
+        "release_positive_deltas":(!args.idle_only).then_some(release_rises),"release_max_rise_j":(!args.idle_only).then_some(maximum_release_rise),
         "step_wall_mean_ms":costs.iter().sum::<f64>()/costs.len() as f64,
         "step_wall_p95_ms":costs[(costs.len()-1)*95/100],
         "tail_highpass_mean_m":tail_motion.iter().sum::<f64>()/tail_motion.len() as f64,
@@ -411,10 +432,17 @@ mod tests {
             ..Default::default()
         };
         let mut report = json!({"settings": settings, "steps": 300});
-        assert!(validate_matched_settings(&report, &settings, 300).is_ok());
-        assert!(validate_matched_settings(&report, &settings, 301).is_err());
+        assert!(validate_matched_settings(&report, &settings, 300, false).is_ok());
+        assert!(validate_matched_settings(&report, &settings, 300, true).is_err());
+        assert!(validate_matched_settings(&report, &settings, 301, false).is_err());
+        report["idle_only"] = json!(true);
+        assert!(validate_matched_settings(&report, &settings, 300, true).is_ok());
+        assert!(validate_matched_settings(&report, &settings, 300, false).is_err());
+        report["idle_only"] = json!("invalid");
+        assert!(validate_matched_settings(&report, &settings, 300, false).is_err());
+        report["idle_only"] = json!(true);
         report["settings"]["iterations"] = json!(32);
-        assert!(validate_matched_settings(&report, &settings, 300).is_err());
+        assert!(validate_matched_settings(&report, &settings, 300, true).is_err());
     }
     #[test]
     fn moving_patch_observes_natural_contact_refresh() {
@@ -620,22 +648,32 @@ mod tests {
             (0..300)
                 .map(|i| Control {
                     step: i,
-                    phase: phase(i).into(),
+                    phase: phase(i, false).into(),
                     grab_target_m: (120..210).contains(&i).then_some(DVec3::ZERO),
                 })
                 .collect::<Vec<_>>()
         };
         let mut rows = make();
-        assert!(validate_controls(&rows, 300).is_ok());
-        assert!(validate_controls(&rows, 301).is_err());
+        assert!(validate_controls(&rows, 300, false).is_ok());
+        assert!(validate_controls(&rows, 300, true).is_err());
+        assert!(validate_controls(&rows, 301, false).is_err());
         rows.swap(120, 121);
-        assert!(validate_controls(&rows, 300).is_err());
+        assert!(validate_controls(&rows, 300, false).is_err());
         let mut rows = make();
         rows[210].grab_target_m = Some(DVec3::ZERO);
-        assert!(validate_controls(&rows, 300).is_err());
+        assert!(validate_controls(&rows, 300, false).is_err());
         let mut rows = make();
         rows[120].grab_target_m = Some(DVec3::splat(f64::NAN));
-        assert!(validate_controls(&rows, 300).is_err());
+        assert!(validate_controls(&rows, 300, false).is_err());
+        let idle: Vec<_> = (0..300)
+            .map(|i| Control {
+                step: i,
+                phase: phase(i, true).into(),
+                grab_target_m: None,
+            })
+            .collect();
+        assert!(validate_controls(&idle, 300, true).is_ok());
+        assert!(validate_controls(&idle, 300, false).is_err());
     }
     #[test]
     fn proposed_thread_law_has_correct_derivative_and_slack_limit() {

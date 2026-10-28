@@ -48,6 +48,32 @@ count and phases, and finite targets. It reuses the recorded world-space targets
 rather than anchoring a new grab on an already diverging trajectory. Traces also
 report RMS velocity in m/s, including pinned vertices in the denominator.
 
+For an autonomous settling experiment, `--idle-only` disables the grab for
+all steps, while retaining gravity and pinned vertices. A replay must use the
+same mode; a rejected cross-mode replay does not create an output directory.
+For example, use two new directories:
+
+```powershell
+cargo run --locked --no-default-features -j 2 --example elastic_seam_probe -- --steps 300 --iterations 16 --idle-only --output output/seam-idle
+cargo run --locked --no-default-features -j 2 --example elastic_seam_probe -- --steps 300 --iterations 16 --idle-only --replay output/seam-idle --equal-seam-control --output output/seam-idle-equal
+```
+
+The summary records `idle_only`, `observation_phase`, start and end energy,
+positive energy deltas, and corresponding counts and maximum rise over the
+last 60 steps. The legacy release fields remain available for pull runs and are
+null for idle runs. Older replay metadata without `idle_only` denotes pull mode.
+The equal-length control uses a partial boundary: its seam coverage and pairing
+also differ, so it does not isolate length mismatch as the sole cause.
+
+One 300-step CPU run at 16 iterations had mean last-60-step high-pass
+displacements of 14.17 micrometres for the unequal seam and 23.22 micrometres
+for the equal partial seam. Energy decreased overall in both; respectively 28
+and 20 of the last 60 samples rose, with maximum increases of 4.08e-10 J and
+4.76e-10 J. These are observations of this small synthetic fixture, not evidence
+about a user garment, long-term stability, or an intersection-free trajectory.
+The independent contact audit and end-state-only intersection check have the
+limits explained below.
+
 The production seam gradient is checked against central differences before
 simulation. Existing `tests/garment.rs` separately covers Hessians, force/torque
 balance, rigid motion and quadrature on nonmatching meshes. Solver-call wall
