@@ -128,6 +128,109 @@ fn bounded_paths_match_exhaustive_for_deterministic_varied_segments() {
 }
 
 #[test]
+fn indexed_paths_match_exhaustive_on_transformed_and_anisotropic_rest_meshes() {
+    use glam::DMat2;
+    let mut template = GarmentTemplate::two_panel_demo();
+    template.panels[0].pattern.nx = 12;
+    template.panels[0].pattern.ny = 13;
+    let cases = [
+        (
+            DVec2::new(200_000., -300_000.),
+            DMat2::from_angle(0.61) * DMat2::from_diagonal(DVec2::new(0.1, 0.2)),
+        ),
+        (
+            DVec2::new(-100., 200.),
+            DMat2::from_angle(-0.43) * DMat2::from_diagonal(DVec2::new(1., 0.001)),
+        ),
+        (
+            DVec2::ZERO,
+            DMat2::from_angle(1.1) * DMat2::from_diagonal(DVec2::new(0.02, 2.)),
+        ),
+    ];
+    for (offset, transform) in cases {
+        let mut garment = template.compile().unwrap();
+        for triangle in &mut garment.mesh.triangles[garment.panels[0].triangles.clone()] {
+            triangle.rest = triangle.rest.map(|point| offset + transform * point);
+            triangle.inv_dm = DMat2::from_cols(
+                triangle.rest[1] - triangle.rest[0],
+                triangle.rest[2] - triangle.rest[0],
+            )
+            .inverse();
+        }
+        let mut seed = 0x142857_u64;
+        let mut sample = || {
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+            (seed >> 11) as f64 / ((1_u64 << 53) as f64)
+        };
+        let mut segments = vec![
+            [DVec2::new(0., 0.), DVec2::new(0.4, 0.6)],
+            [DVec2::new(0., 0.3), DVec2::new(0.4, 0.3)],
+            [DVec2::new(-0.01, 0.3), DVec2::new(0.3, 0.3)],
+        ];
+        segments.extend((0..50).map(|_| {
+            [
+                DVec2::new(sample() * 0.4, sample() * 0.6),
+                DVec2::new(sample() * 0.4, sample() * 0.6),
+            ]
+        }));
+        let mut successful = 0;
+        for segment in segments {
+            let path = MaterialPath {
+                panel: "left".into(),
+                points: segment
+                    .into_iter()
+                    .map(|p| offset + transform * p)
+                    .collect(),
+            };
+            let a = garment.embed_path(&path);
+            let b = garment.embed_path_bounded(&path);
+            match (a, b) {
+                (Ok(a), Ok(b)) => {
+                    successful += 1;
+                    assert_eq!(a.len(), b.len());
+                    for (a, b) in a.iter().zip(&b) {
+                        assert_eq!(a.vertices, b.vertices);
+                        assert_eq!(a.weights, b.weights);
+                        assert_eq!(a.uv, b.uv);
+                    }
+                }
+                (Err(_), Err(_)) => {}
+                (a, b) => panic!("different result for {path:?}: exhaustive={a:?}, indexed={b:?}"),
+            }
+        }
+        assert!(
+            successful >= 40,
+            "only {successful} paths succeeded for {offset:?}"
+        );
+    }
+}
+
+#[test]
+fn indexed_path_refuses_near_degenerate_material_triangles() {
+    let mut garment = GarmentTemplate::two_panel_demo().compile().unwrap();
+    for triangle in &mut garment.mesh.triangles[garment.panels[0].triangles.clone()] {
+        triangle.rest = triangle.rest.map(|p| DVec2::new(p.x, p.y * 1e-9));
+        triangle.inv_dm = glam::DMat2::from_cols(
+            triangle.rest[1] - triangle.rest[0],
+            triangle.rest[2] - triangle.rest[0],
+        )
+        .inverse();
+    }
+    let path = MaterialPath {
+        panel: "left".into(),
+        points: vec![DVec2::new(0.05, 0.05e-9), DVec2::new(0.1, 0.1e-9)],
+    };
+    assert!(garment.embed_path(&path).is_ok());
+    assert!(
+        garment
+            .embed_path_bounded(&path)
+            .err()
+            .unwrap()
+            .contains("well-conditioned")
+    );
+}
+
+#[test]
 fn attachments_reproduce_material_coordinates_and_affine_deformations() {
     let g = GarmentTemplate::two_panel_demo().compile().unwrap();
     let mut x = g.initial_state.x.clone();
