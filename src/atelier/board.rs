@@ -3755,8 +3755,10 @@ mod tests {
 
     #[test]
     fn freehand_activation_resets_the_old_draft_and_replace_mode() {
-        let mut authoring = super::super::authoring_ui::AuthoringUi::default();
-        authoring.replace = true;
+        let mut authoring = super::super::authoring_ui::AuthoringUi {
+            replace: true,
+            ..Default::default()
+        };
         authoring.draft.push(DVec2::new(0.1, 0.2));
         authoring.tangents.push(DVec2::X);
         authoring.board.freehand.enabled = true;
