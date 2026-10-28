@@ -721,9 +721,11 @@ mod tests {
     #[test]
     fn legacy_profiles_preserve_current_overlays_and_startup_preferences() {
         let snapshot: Snapshot = serde_json::from_str("{}").unwrap();
-        let mut prefs = Preferences::default();
-        prefs.wireframe = false;
-        prefs.seam_links = true;
+        let mut prefs = Preferences {
+            wireframe: false,
+            seam_links: true,
+            ..Preferences::default()
+        };
         let mut tools = false;
         let mut wire = true;
         let mut seams = false;
