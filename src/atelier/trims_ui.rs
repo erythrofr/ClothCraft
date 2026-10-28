@@ -48,6 +48,9 @@ struct TrimDraft {
     draw_points: Vec<DVec2>,
     original: Option<Trim>,
     base: Option<Trim>,
+    repeat: bool,
+    repeat_copies: usize,
+    repeat_offset_mm: [f64; 2],
 }
 
 /// Stage a board click in material coordinates without editing the project.
@@ -487,6 +490,9 @@ impl TrimDraft {
             draw_points: Vec::new(),
             original: Some(trim.clone()),
             base: Some(trim.clone()),
+            repeat: false,
+            repeat_copies: 3,
+            repeat_offset_mm: [20., 0.],
         }
     }
 
@@ -677,6 +683,58 @@ fn validate_surface(
         );
     }
     Ok(())
+}
+
+/// Validate the complete repeated set with a shared work budget before the
+/// caller records history or installs any of it.
+fn prepare_repeat(
+    template: &marvelous_cloth::garment::GarmentTemplate,
+    garment: &marvelous_cloth::garment::CompiledGarment,
+    draft: &TrimDraft,
+) -> Result<authoring::Edit, String> {
+    check_draft_revision(draft, template)?;
+    let original = draft.base.as_ref().ok_or("Select a saved trim first")?;
+    let panel = garment
+        .panels
+        .iter()
+        .find(|p| p.id == original.panel_id)
+        .ok_or("Panel no longer exists")?;
+    let n = panel.triangles.len();
+    let segments = match &original.kind {
+        TrimKind::Button { .. } => None,
+        TrimKind::Buttonhole { .. } => Some(1),
+        TrimKind::Zipper { path_m, .. } | TrimKind::Topstitch { path_m, .. } => {
+            Some(path_m.len().saturating_sub(1))
+        }
+    };
+    let direct = segments.map_or(n, |s| n.saturating_mul(n).saturating_mul(s));
+    let per_copy = if direct <= 8_000_000 {
+        direct
+    } else if n <= 20_000 && segments.is_some() {
+        2_000_000
+    } else {
+        return Err("Repeat surface check exceeds the work limit".into());
+    };
+    if per_copy.saturating_mul(draft.repeat_copies) > 8_000_000 {
+        return Err(
+            "Repeat surface check exceeds the work limit; reduce the count or mesh density".into(),
+        );
+    }
+    let edit = authoring::apply(
+        template,
+        Command::RepeatTrim {
+            id: original.id.clone(),
+            copies: draft.repeat_copies,
+            offset_m: DVec2::new(draft.repeat_offset_mm[0], draft.repeat_offset_mm[1]) * 0.001,
+        },
+    )?;
+    if edit.reset_simulation {
+        return Err("Repeat unexpectedly changed physical state".into());
+    }
+    for trim in &edit.template.trims[template.trims.len()..] {
+        validate_surface(trim, garment)?;
+    }
+    Ok(edit)
 }
 
 fn build_preview(
@@ -1270,10 +1328,39 @@ fn trim_controls(
                         draw_points: Vec::new(),
                         original: None,
                         base: None,
+                        repeat: false,
+                        repeat_copies: 3,
+                        repeat_offset_mm: [20., 0.],
                     });
                 }
             });
             if let Some(draft) = state.draft.as_mut() {
+                if draft.repeat {
+                    ui.strong("Repeat construction trim");
+                    ui.small("Copies are offset in panel-local millimetres; Apply checks every copy.");
+                    ui.horizontal(|ui| {
+                        ui.label("Copies");
+                        let count = ui.add(egui::DragValue::new(&mut draft.repeat_copies).range(1..=128));
+                        #[cfg(test)] super::authoring_smoke::widget_harness::named(ui, &count, "trim.repeat.count");
+                        #[cfg(not(test))] let _ = count;
+                    });
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label("Offset X / Y (mm)");
+                        ui.add(egui::DragValue::new(&mut draft.repeat_offset_mm[0]).speed(1.));
+                        ui.add(egui::DragValue::new(&mut draft.repeat_offset_mm[1]).speed(1.));
+                    });
+                    ui.horizontal(|ui| {
+                        let apply = ui.button("Apply repeat");
+                        #[cfg(test)] super::authoring_smoke::widget_harness::named(ui, &apply, "trim.repeat.apply");
+                        if apply.clicked() {
+                            command = Some(Command::RepeatTrim { id: draft.id.clone(), copies: draft.repeat_copies,
+                                offset_m: DVec2::new(draft.repeat_offset_mm[0], draft.repeat_offset_mm[1]) * 0.001 });
+                        }
+                        let cancel = ui.button("Cancel repeat");
+                        #[cfg(test)] super::authoring_smoke::widget_harness::named(ui, &cancel, "trim.repeat.cancel");
+                        if cancel.clicked() { draft.repeat = false; }
+                    });
+                } else {
                 ui.label("Material X, Y (mm) · one point per line");
                 let points = ui.add_enabled(draft.draw_backup.is_none(),
                     egui::TextEdit::multiline(&mut draft.points).desired_rows(if draft.kind == 0 {
@@ -1361,6 +1448,11 @@ fn trim_controls(
                     ui.colored_label(Color32::GOLD, error);
                 }
                 let can_apply = parsed.is_ok() && draft.draw_backup.is_none();
+                let can_repeat = draft.draw_backup.is_none() && !draft.place_on_board && !draft.place_on_3d
+                    && draft.base.as_ref().is_some_and(|base| parsed.as_ref().is_ok_and(|trim| trim == base));
+                let repeat = ui.add_enabled(can_repeat, egui::Button::new("Repeat…"));
+                #[cfg(test)] super::authoring_smoke::widget_harness::named(ui, &repeat, "trim.repeat");
+                if repeat.clicked() { draft.repeat = true; }
                 ui.horizontal(|ui| {
                     let apply = ui.add_enabled(can_apply, egui::Button::new("Apply"));
                     #[cfg(test)]
@@ -1375,6 +1467,7 @@ fn trim_controls(
                         state.draft = None;
                     }
                 });
+                }
             }
         });
     #[cfg(test)]
@@ -1394,6 +1487,29 @@ impl Atelier {
             self.authoring.tool == super::authoring_ui::Tool::Edit,
         );
         if let Some(command) = command {
+            if matches!(&command, Command::RepeatTrim { .. }) {
+                let result = self
+                    .authoring
+                    .trims
+                    .draft
+                    .as_ref()
+                    .ok_or("Repeat draft missing".to_owned())
+                    .and_then(|draft| {
+                        prepare_repeat(&self.project.template, &self.scene.garment, draft)
+                    });
+                match result {
+                    Ok(edit) => {
+                        self.authoring.history.record(self.project.template.clone());
+                        self.install_edit(edit);
+                        self.authoring.trims.draft = None;
+                    }
+                    Err(error) => {
+                        self.authoring.error = Some(error.clone());
+                        self.status = error;
+                    }
+                }
+                return;
+            }
             if matches!(&command, Command::SetTrim { .. })
                 && let Some(draft) = self.authoring.trims.draft.as_ref()
                 && let Err(error) = check_draft_revision(draft, &self.project.template)
@@ -2937,6 +3053,156 @@ mod tests {
             .click(&format!("trim.edit.{}", mirrored.id), &mut case, &mut draw)
             .unwrap();
         assert_eq!(case.ui.draft.as_ref().unwrap().parse().unwrap(), mirrored);
+    }
+
+    #[test]
+    fn named_repeat_validates_all_copies_and_commits_once() {
+        use super::super::authoring_smoke::widget_harness::Harness;
+        struct Case {
+            ui: TrimUi,
+            template: GarmentTemplate,
+            history: authoring::History,
+            error: Option<String>,
+        }
+        let mut template = GarmentTemplate::two_panel_demo();
+        let source = Trim {
+            id: "source".into(),
+            panel_id: template.panels[0].id.clone(),
+            kind: TrimKind::Button {
+                center_m: DVec2::new(0.1, 0.1),
+                diameter_m: 0.01,
+            },
+        };
+        template.trims.push(source.clone());
+        let mut c = Case {
+            ui: TrimUi::default(),
+            template,
+            history: Default::default(),
+            error: None,
+        };
+        let mut draw = |ui: &mut egui::Ui, c: &mut Case| {
+            let panel = c.template.panels[0].clone();
+            if let Some(command) = trim_controls(ui, &mut c.ui, &c.template, &panel, true)
+                && matches!(command, Command::RepeatTrim { .. })
+            {
+                let garment = c.template.compile().unwrap();
+                match prepare_repeat(&c.template, &garment, c.ui.draft.as_ref().unwrap()) {
+                    Ok(edit) => {
+                        c.history.record(c.template.clone());
+                        c.template = edit.template;
+                        c.ui.draft = None;
+                        c.error = None;
+                    }
+                    Err(error) => c.error = Some(error),
+                }
+            }
+        };
+        let mut h = Harness::new(egui::vec2(1100., 900.));
+        h.frame(&mut c, &mut draw);
+        h.click("trim.section", &mut c, &mut draw).unwrap();
+        h.click("trim.edit.source", &mut c, &mut draw).unwrap();
+        h.resize(egui::vec2(240., 900.));
+        h.frame(&mut c, &mut draw);
+        h.click("trim.repeat", &mut c, &mut draw).unwrap();
+        h.frame(&mut c, &mut draw);
+        h.click("trim.repeat.cancel", &mut c, &mut draw).unwrap();
+        assert_eq!(c.template.trims, vec![source.clone()]);
+        assert!(!c.history.can_undo());
+        h.frame(&mut c, &mut draw);
+        h.click("trim.repeat", &mut c, &mut draw).unwrap();
+        c.ui.draft.as_mut().unwrap().repeat_offset_mm = [10000., 0.];
+        h.frame(&mut c, &mut draw);
+        h.click("trim.repeat.apply", &mut c, &mut draw).unwrap();
+        assert!(c.error.is_some());
+        assert_eq!(c.template.trims, vec![source.clone()]);
+        assert!(!c.history.can_undo());
+        c.ui.draft.as_mut().unwrap().repeat_offset_mm = [20., 0.];
+        h.frame(&mut c, &mut draw);
+        h.click("trim.repeat.apply", &mut c, &mut draw).unwrap();
+        assert!(c.error.is_none(), "{:?}", c.error);
+        assert_eq!(c.template.trims.len(), 4);
+        let undo = c.history.restore(&c.template, false).unwrap();
+        assert_eq!(undo.template.trims, vec![source]);
+        assert!(!undo.reset_simulation);
+    }
+
+    #[test]
+    fn repeat_surface_budget_and_stale_source_fail_atomically() {
+        let mut template = GarmentTemplate::two_panel_demo();
+        let original = Trim {
+            id: "source".into(),
+            panel_id: template.panels[0].id.clone(),
+            kind: TrimKind::Button {
+                center_m: DVec2::new(0.1, 0.1),
+                diameter_m: 0.01,
+            },
+        };
+        template.trims.push(original.clone());
+        let garment = template.compile().unwrap();
+        let mut draft = TrimDraft::from_trim(&original);
+        draft.repeat = true;
+        let mut changed = template.clone();
+        changed.trims[0].kind = TrimKind::Button {
+            center_m: DVec2::new(0.2, 0.1),
+            diameter_m: 0.01,
+        };
+        assert!(prepare_repeat(&changed, &garment, &draft).is_err());
+        let mut oversized = garment.clone();
+        oversized.panels[0].triangles = 0..100_000;
+        draft.repeat_copies = 128;
+        assert!(
+            prepare_repeat(&template, &oversized, &draft)
+                .err()
+                .unwrap()
+                .contains("work limit")
+        );
+        assert_eq!(template.trims, vec![original]);
+    }
+
+    #[test]
+    fn repeat_rejects_a_copy_inside_a_hole_without_partial_edit() {
+        use marvelous_cloth::garment::{
+            domain::Hole,
+            shapes::{Primitive, primitive},
+        };
+        let mut template = GarmentTemplate::two_panel_demo();
+        template.version = 2;
+        template.seams.clear();
+        template.panels[0].pins.clear();
+        let mut polygon = primitive(
+            Primitive::Rectangle,
+            DVec2::new(0.4, 0.6),
+            90.,
+            Default::default(),
+        )
+        .unwrap();
+        polygon.holes.push(Hole {
+            points: vec![
+                DVec2::new(0.15, 0.2),
+                DVec2::new(0.15, 0.4),
+                DVec2::new(0.25, 0.4),
+                DVec2::new(0.25, 0.2),
+            ],
+            edges: (0..4).map(|i| format!("hole_{i}")).collect(),
+        });
+        template.panels[0].polygon = Some(polygon);
+        let original = Trim {
+            id: "source".into(),
+            panel_id: template.panels[0].id.clone(),
+            kind: TrimKind::Button {
+                center_m: DVec2::new(0.1, 0.3),
+                diameter_m: 0.01,
+            },
+        };
+        template.trims.push(original.clone());
+        let garment = template.compile().unwrap();
+        let mut draft = TrimDraft::from_trim(&original);
+        draft.repeat = true;
+        draft.repeat_copies = 2;
+        draft.repeat_offset_mm = [50., 0.];
+        let before = serde_json::to_vec(&template).unwrap();
+        assert!(prepare_repeat(&template, &garment, &draft).is_err());
+        assert_eq!(serde_json::to_vec(&template).unwrap(), before);
     }
 
     #[test]
