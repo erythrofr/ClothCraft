@@ -335,6 +335,27 @@ struct Atelier {
     smoke_captured: bool,
     smoke_initial: Vec<glam::DVec3>,
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PaletteShortcut {
+    None,
+    Open,
+    PendingTrim,
+}
+
+fn palette_shortcut(
+    ctx: &egui::Context,
+    workspace_ready: bool,
+    trim_pending: bool,
+) -> PaletteShortcut {
+    if !command_palette::launch_shortcut(ctx, workspace_ready) {
+        PaletteShortcut::None
+    } else if trim_pending {
+        PaletteShortcut::PendingTrim
+    } else {
+        PaletteShortcut::Open
+    }
+}
+
 /// Reject example replacement when a trim draft has not been committed.
 fn check_trim_draft_for_command(
     id: commands::CommandId,
@@ -732,8 +753,12 @@ impl eframe::App for Atelier {
         let can_open_workspace = command_palette::can_launch(&ctx, palette_idle);
         let trim_pending = self.authoring.trims.has_pending_history_step();
         let can_open_palette = can_open_workspace && !trim_pending;
-        if command_palette::launch_shortcut(&ctx, can_open_palette) {
-            self.palette.begin();
+        match palette_shortcut(&ctx, can_open_workspace, trim_pending) {
+            PaletteShortcut::Open => self.palette.begin(),
+            PaletteShortcut::PendingTrim => {
+                self.status = "Apply or cancel the trim draft before opening Commands".into();
+            }
+            PaletteShortcut::None => {}
         }
         // Retain the barrier on the closing frame so Enter/click cannot reach a tool.
         let palette_blocked = self.palette.open || profiles_blocked;
@@ -1051,6 +1076,48 @@ impl eframe::App for Atelier {
 #[cfg(test)]
 mod command_action_tests {
     use super::*;
+
+    #[test]
+    fn palette_shortcut_reports_a_pending_trim_without_stealing_blocked_input() {
+        let modifiers = egui::Modifiers {
+            command: true,
+            shift: true,
+            ..Default::default()
+        };
+        for (ready, pending, pressed, expected, retained) in [
+            (true, true, true, PaletteShortcut::PendingTrim, false),
+            (true, false, true, PaletteShortcut::Open, false),
+            (false, true, true, PaletteShortcut::None, true),
+            (true, true, false, PaletteShortcut::None, false),
+        ] {
+            let ctx = egui::Context::default();
+            let events = if pressed {
+                vec![egui::Event::Key {
+                    key: egui::Key::P,
+                    physical_key: None,
+                    pressed: true,
+                    repeat: false,
+                    modifiers,
+                }]
+            } else {
+                vec![]
+            };
+            let mut observed = None;
+            let mut output = ctx.run_ui(
+                egui::RawInput {
+                    focused: true,
+                    events,
+                    ..Default::default()
+                },
+                |_| {
+                    let result = palette_shortcut(&ctx, ready, pending);
+                    observed = Some((result, ctx.input(|i| i.key_pressed(egui::Key::P))));
+                },
+            );
+            output.textures_delta.clear();
+            assert_eq!(observed, Some((expected, retained)));
+        }
+    }
 
     #[test]
     fn pending_trim_draft_prevents_example_replacement_but_not_other_commands() {
