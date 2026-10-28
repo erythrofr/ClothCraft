@@ -57,12 +57,17 @@ struct Profile {
 pub(super) struct Store {
     version: u32,
     profiles: Vec<Profile>,
+    // Exact bytes read from disk, never serialized. This detects edits by a
+    // second instance even when unknown JSON fields or formatting changed.
+    #[serde(skip)]
+    source_text: Option<String>,
 }
 impl Default for Store {
     fn default() -> Self {
         Self {
             version: 1,
             profiles: vec![],
+            source_text: None,
         }
     }
 }
@@ -76,20 +81,26 @@ fn valid_name(name: &str) -> Result<(), String> {
     }
     Ok(())
 }
+fn read_source(path: &Path) -> Result<Option<String>, String> {
+    let file = match std::fs::File::open(path) {
+        Ok(file) => file,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(e.to_string()),
+    };
+    let mut text = String::new();
+    file.take(MAX_BYTES + 1)
+        .read_to_string(&mut text)
+        .map_err(|e| e.to_string())?;
+    if text.len() as u64 > MAX_BYTES {
+        return Err("Workspace profiles exceed 256 KiB".into());
+    }
+    Ok(Some(text))
+}
 impl Store {
     pub fn load(path: &Path) -> Result<Self, String> {
-        let file = match std::fs::File::open(path) {
-            Ok(file) => file,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Self::default()),
-            Err(e) => return Err(e.to_string()),
+        let Some(text) = read_source(path)? else {
+            return Ok(Self::default());
         };
-        let mut text = String::new();
-        file.take(MAX_BYTES + 1)
-            .read_to_string(&mut text)
-            .map_err(|e| e.to_string())?;
-        if text.len() as u64 > MAX_BYTES {
-            return Err("Workspace profiles exceed 256 KiB".into());
-        }
         let mut store: Self =
             serde_json::from_str(&text).map_err(|e| format!("Invalid workspace profiles: {e}"))?;
         if store.version != 1 || store.profiles.len() > MAX_PROFILES {
@@ -103,6 +114,7 @@ impl Store {
             }
             profile.snapshot.sanitize();
         }
+        store.source_text = Some(text);
         Ok(store)
     }
     /// Prepare a full replacement before writing; failures preserve both self and disk.
@@ -180,12 +192,19 @@ impl Store {
         *self = next;
         Ok(())
     }
-    fn persist(&self, path: &Path) -> Result<(), String> {
-        let bytes = serde_json::to_vec_pretty(self).map_err(|e| e.to_string())?;
-        if bytes.len() as u64 > MAX_BYTES {
+    fn persist(&mut self, path: &Path) -> Result<(), String> {
+        // This detects already-completed external edits. It is not a lock:
+        // another process could still write between this check and the rename.
+        if read_source(path)? != self.source_text {
+            return Err("Workspace profiles changed on disk. Close and reopen the profiles dialog before saving.".into());
+        }
+        let text = serde_json::to_string_pretty(self).map_err(|e| e.to_string())?;
+        if text.len() as u64 > MAX_BYTES {
             return Err("Workspace profiles exceed 256 KiB".into());
         }
-        marvelous_cloth::document::atomic_write(path, &bytes)
+        marvelous_cloth::document::atomic_write(path, text.as_bytes())?;
+        self.source_text = Some(text);
+        Ok(())
     }
 }
 
@@ -673,8 +692,10 @@ mod tests {
         }
         std::fs::write(&path, vec![b' '; MAX_BYTES as usize + 1]).unwrap();
         assert!(Store::load(&path).is_err());
+        let path = dir.path().join("full-profiles.json");
         let mut full = Store {
             version: 1,
+            source_text: None,
             profiles: (0..MAX_PROFILES)
                 .map(|i| Profile {
                     name: format!("Profile {i}"),
@@ -728,5 +749,99 @@ mod tests {
             );
         }
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "broken");
+    }
+    #[test]
+    fn stale_profile_writes_preserve_newer_disk_state() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(FILE_NAME);
+        let mut initial = Store::default();
+        initial
+            .save_profile(&path, "Original", Snapshot::default(), false)
+            .unwrap();
+        let stale = Store::load(&path).unwrap();
+        let mut newer = Store::load(&path).unwrap();
+        newer
+            .save_profile(&path, "Other window", Snapshot::default(), false)
+            .unwrap();
+        let bytes = std::fs::read(&path).unwrap();
+        for operation in 0..4 {
+            let mut attempt = stale.clone();
+            let result = match operation {
+                0 => attempt.save_profile(&path, "New", Snapshot::default(), false),
+                1 => attempt.save_profile(&path, "Original", Snapshot::default(), true),
+                2 => attempt.remove(&path, "Original"),
+                _ => attempt.rename(&path, "Original", "Renamed"),
+            };
+            assert!(result.unwrap_err().contains("changed on disk"));
+            assert_eq!(attempt, stale);
+            assert_eq!(std::fs::read(&path).unwrap(), bytes);
+        }
+        let mut reloaded = Store::load(&path).unwrap();
+        reloaded
+            .save_profile(&path, "New", Snapshot::default(), false)
+            .unwrap();
+        assert_eq!(Store::load(&path).unwrap().profiles.len(), 3);
+    }
+
+    #[test]
+    fn stale_dialog_shows_error_and_reload_keeps_both_instances_profiles() {
+        struct ConflictCase {
+            ui: ProfileUi,
+            path: std::path::PathBuf,
+            restored: Option<Snapshot>,
+        }
+        let mut draw = |ui: &mut egui::Ui, c: &mut ConflictCase| {
+            c.restored = c.ui.show(ui.ctx(), &c.path, &Snapshot::default());
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(FILE_NAME);
+        let mut c = ConflictCase {
+            ui: ProfileUi::default(),
+            path: path.clone(),
+            restored: None,
+        };
+        c.ui.begin(&path);
+        let mut h = Harness::new(egui::vec2(1100., 700.));
+        for _ in 0..5 {
+            h.frame(&mut c, &mut draw);
+        }
+        Store::default()
+            .save_profile(&path, "Other window", Snapshot::default(), false)
+            .unwrap();
+        let saved = std::fs::read(&path).unwrap();
+        h.replace_text("profiles.name", "Mine", &mut c, &mut draw)
+            .unwrap();
+        h.click("profiles.save", &mut c, &mut draw).unwrap();
+        assert!(c.ui.error.as_deref().unwrap().contains("changed on disk"));
+        assert_eq!(std::fs::read(&path).unwrap(), saved);
+        assert!(c.restored.is_none());
+        c.ui.begin(&path);
+        for _ in 0..5 {
+            h.frame(&mut c, &mut draw);
+        }
+        h.replace_text("profiles.name", "Mine", &mut c, &mut draw)
+            .unwrap();
+        h.click("profiles.save", &mut c, &mut draw).unwrap();
+        assert_eq!(Store::load(&path).unwrap().profiles.len(), 2);
+        assert!(c.restored.is_none());
+    }
+
+    #[test]
+    fn changed_or_deleted_source_bytes_are_not_overwritten() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(FILE_NAME);
+        let mut initial = Store::default();
+        initial
+            .save_profile(&path, "Original", Snapshot::default(), false)
+            .unwrap();
+        let stale = Store::load(&path).unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        let changed = format!("{text}\n");
+        std::fs::write(&path, &changed).unwrap();
+        assert!(stale.clone().remove(&path, "Original").is_err());
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), changed);
+        std::fs::remove_file(&path).unwrap();
+        assert!(stale.clone().remove(&path, "Original").is_err());
+        assert!(!path.exists());
     }
 }
