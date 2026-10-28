@@ -4,6 +4,24 @@ use glam::DVec2;
 use marvelous_cloth::authoring::{Command, clipboard::PatternClipboard};
 use std::collections::BTreeSet;
 
+/// Route Delete to a selected trim before considering panel deletion.
+pub(super) fn delete_target(
+    ctx: &egui::Context,
+    trims: &super::trims_ui::TrimUi,
+    template: &marvelous_cloth::garment::GarmentTemplate,
+    edit_mode: bool,
+    panel_delete_allowed: bool,
+    panels: Vec<String>,
+) -> Option<Result<Command, String>> {
+    if ctx.egui_wants_keyboard_input() || !ctx.input(|i| i.key_pressed(egui::Key::Delete)) {
+        return None;
+    }
+    if let Some(result) = trims.delete_shortcut(template, edit_mode) {
+        return Some(result);
+    }
+    (panel_delete_allowed && !panels.is_empty()).then_some(Ok(Command::RemovePanels { panels }))
+}
+
 #[derive(Default, PartialEq, Eq, Clone, Copy)]
 pub(super) enum BoxTarget {
     #[default]
@@ -1136,16 +1154,33 @@ impl Atelier {
         {
             return;
         }
-        if ctx.input(|i| i.key_pressed(egui::Key::Delete))
-            && matches!(self.authoring.tool, Tool::Edit | Tool::Place)
-            && self.authoring.anchor.is_none()
-            && self.authoring.edge.is_none()
-            && self.authoring.selection.seam.is_none()
-            && self.authoring.board.point_count() == 0
-        {
+        if ctx.input(|i| i.key_pressed(egui::Key::Delete)) {
+            let allowed = matches!(self.authoring.tool, Tool::Edit | Tool::Place)
+                && self.authoring.anchor.is_none()
+                && self.authoring.edge.is_none()
+                && self.authoring.selection.seam.is_none()
+                && self.authoring.board.point_count() == 0;
             let panels = self.selected_panels();
-            if !panels.is_empty() {
-                self.edit(Command::RemovePanels { panels });
+            if let Some(result) = delete_target(
+                ctx,
+                &self.authoring.trims,
+                &self.project.template,
+                self.authoring.tool == Tool::Edit,
+                allowed,
+                panels,
+            ) {
+                match result {
+                    Ok(command) => {
+                        let removed_trim = matches!(command, Command::RemoveTrim { .. });
+                        if self.edit(command) && removed_trim {
+                            self.authoring.trims.clear_deleted_draft();
+                        }
+                    }
+                    Err(error) => {
+                        self.authoring.error = Some(error.clone());
+                        self.status = error;
+                    }
+                }
             }
         }
         let events = ctx.input(|i| i.events.clone());

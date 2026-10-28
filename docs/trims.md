@@ -20,6 +20,12 @@ are implemented.
 Trim-only edits are classified as nonphysical and excluded from fitting mesh
 signatures.
 
+When a saved trim is selected in Edit mode, Delete removes that trim in one
+undoable edit instead of deleting its panel. Delete is refused while a new
+trim or an active placement or path operation is being edited; finish or cancel
+that operation first. A changed or removed trim must be selected again before
+deletion. Text fields keep their normal Delete behavior.
+
 In the Piece inspector, expand **Construction trims**, choose a type and click
 **New**. Edit local X, Y coordinates in millimetres; paths use one comma-separated
 pair per line. **Position first point on 2D board** moves the whole draft by a

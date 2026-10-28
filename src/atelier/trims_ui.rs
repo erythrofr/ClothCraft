@@ -870,6 +870,35 @@ fn preview_inputs<'a>(
 }
 
 impl TrimUi {
+    /// An active trim draft owns Delete, even when it cannot be deleted yet.
+    /// `None` means there is no trim draft and panel deletion may proceed.
+    pub(super) fn delete_shortcut(
+        &self,
+        template: &marvelous_cloth::garment::GarmentTemplate,
+        edit_mode: bool,
+    ) -> Option<Result<Command, String>> {
+        let draft = self.draft.as_ref()?;
+        Some((|| {
+            if !edit_mode
+                || draft.base.is_none()
+                || draft.draw_backup.is_some()
+                || draft.place_on_board
+                || draft.place_on_3d
+            {
+                return Err("Finish or cancel the trim operation before deleting".into());
+            }
+            check_draft_revision(draft, template)?;
+            Ok(Command::RemoveTrim {
+                id: draft.id.clone(),
+            })
+        })())
+    }
+
+    pub(super) fn clear_deleted_draft(&mut self) {
+        self.draft = None;
+    }
+
+    /// Display-only copies; material coordinates stay in the owning panel frame.
     pub(super) fn board_placement_active(&self) -> bool {
         self.draft.as_ref().is_some_and(|draft| {
             draft.place_on_board || draft.place_on_3d || draft.draw_backup.is_some()
@@ -1544,6 +1573,137 @@ impl Atelier {
 mod tests {
     use super::*;
     use marvelous_cloth::garment::GarmentTemplate;
+
+    #[test]
+    fn delete_shortcut_targets_saved_trim_and_never_falls_through_a_draft() {
+        let mut template = GarmentTemplate::two_panel_demo();
+        let trim = Trim {
+            id: "trim_1".into(),
+            panel_id: template.panels[0].id.clone(),
+            kind: TrimKind::Button {
+                center_m: DVec2::new(0.1, 0.1),
+                diameter_m: 0.01,
+            },
+        };
+        template.trims.push(trim.clone());
+        let mut ui = TrimUi::default();
+        assert!(ui.delete_shortcut(&template, true).is_none());
+        ui.draft = Some(TrimDraft::from_trim(&trim));
+        let command = ui.delete_shortcut(&template, true).unwrap().unwrap();
+        assert!(matches!(&command, Command::RemoveTrim { id } if id == "trim_1"));
+        let mut history = authoring::History::default();
+        let edit = authoring::apply(&template, command).unwrap();
+        assert!(!edit.reset_simulation);
+        assert_eq!(edit.template.panels.len(), template.panels.len());
+        assert!(edit.template.trims.is_empty());
+        history.record(template.clone());
+        let undo = history.restore(&edit.template, false).unwrap();
+        assert_eq!(undo.template.trims, template.trims);
+
+        let draft = ui.draft.as_mut().unwrap();
+        draft.base = None;
+        assert!(ui.delete_shortcut(&template, true).unwrap().is_err());
+        ui.draft.as_mut().unwrap().base = Some(trim.clone());
+        assert!(ui.delete_shortcut(&template, false).unwrap().is_err());
+        for operation in 0..3 {
+            let draft = ui.draft.as_mut().unwrap();
+            draft.place_on_board = operation == 0;
+            draft.place_on_3d = operation == 1;
+            draft.draw_backup = (operation == 2).then(String::new);
+            assert!(ui.delete_shortcut(&template, true).unwrap().is_err());
+        }
+        ui.draft = Some(TrimDraft::from_trim(&trim));
+        template.trims.clear();
+        assert!(ui.delete_shortcut(&template, true).unwrap().is_err());
+    }
+
+    #[test]
+    fn delete_routing_respects_text_focus_and_preserves_panel_shortcut() {
+        use super::super::authoring_smoke::widget_harness::{Harness, named};
+        struct Case {
+            trims: TrimUi,
+            template: GarmentTemplate,
+            text: String,
+            commands: Vec<Command>,
+        }
+        let mut template = GarmentTemplate::two_panel_demo();
+        let trim = Trim {
+            id: "trim_1".into(),
+            panel_id: template.panels[0].id.clone(),
+            kind: TrimKind::Button {
+                center_m: DVec2::new(0.1, 0.1),
+                diameter_m: 0.01,
+            },
+        };
+        template.trims.push(trim.clone());
+        let mut case = Case {
+            trims: TrimUi::default(),
+            template,
+            text: "test".into(),
+            commands: vec![],
+        };
+        case.trims.draft = Some(TrimDraft::from_trim(&trim));
+        let mut draw = |ui: &mut egui::Ui, case: &mut Case| {
+            let text = ui.text_edit_singleline(&mut case.text);
+            named(ui, &text, "delete.text");
+            if let Some(Ok(command)) = super::super::selection::delete_target(
+                ui.ctx(),
+                &case.trims,
+                &case.template,
+                true,
+                true,
+                vec![trim.panel_id.clone()],
+            ) {
+                case.commands.push(command);
+            }
+        };
+        let mut harness = Harness::new(egui::vec2(400., 300.));
+        harness.frame(&mut case, &mut draw);
+        harness.click("delete.text", &mut case, &mut draw).unwrap();
+        harness
+            .key(
+                "delete.text",
+                egui::Key::Delete,
+                egui::Modifiers::NONE,
+                &mut case,
+                &mut draw,
+            )
+            .unwrap();
+        assert!(case.commands.is_empty());
+        harness.ctx.memory_mut(|memory| {
+            if let Some(focus) = memory.focused() {
+                memory.surrender_focus(focus);
+            }
+        });
+        let input = || egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::vec2(400., 300.),
+            )),
+            focused: true,
+            events: [true, false]
+                .map(|pressed| egui::Event::Key {
+                    key: egui::Key::Delete,
+                    physical_key: None,
+                    pressed,
+                    repeat: false,
+                    modifiers: egui::Modifiers::NONE,
+                })
+                .to_vec(),
+            ..Default::default()
+        };
+        let _ = harness.ctx.run_ui(input(), |ui| {
+            egui::CentralPanel::default().show(ui, |ui| draw(ui, &mut case));
+        });
+        assert!(matches!(case.commands.pop(), Some(Command::RemoveTrim { id }) if id == "trim_1"));
+        case.trims.draft = None;
+        let _ = harness.ctx.run_ui(input(), |ui| {
+            egui::CentralPanel::default().show(ui, |ui| draw(ui, &mut case));
+        });
+        assert!(
+            matches!(case.commands.pop(), Some(Command::RemovePanels { panels }) if panels == vec![trim.panel_id.clone()])
+        );
+    }
 
     #[test]
     #[ignore = "opt-in CPU dense trim picking benchmark"]
