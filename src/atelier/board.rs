@@ -935,6 +935,14 @@ impl Atelier {
         }
         self.authoring.board.fit_corners(rect, &corners);
     }
+    pub(super) fn board_panel_at(&self, rect: egui::Rect, pos: egui::Pos2) -> Option<&str> {
+        let hit = self.board_hit(rect, pos)?;
+        self.project
+            .template
+            .panels
+            .get(hit.index)
+            .map(|p| p.id.as_str())
+    }
     fn board_hit(&self, rect: egui::Rect, pos: egui::Pos2) -> Option<Hit> {
         let mut edge = None;
         let mut body = None;

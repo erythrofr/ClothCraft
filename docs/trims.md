@@ -33,6 +33,8 @@ not per pixel. Preview work is bounded: at most 128 objects, 4096 input points,
 128 embedded points and a capped ray-test budget. Unsupported or out-of-panel
 objects are skipped with a warning; oversized scenes can hide the 3D preview.
 Clean view hides the 3D overlay. The 2D preview has a separate 4096-point budget.
+Multiple topstitch rows and zipper widths are stored, but both views currently
+show only their center line; they are not manufacturing-accurate previews.
 
 Curved paths, attachment to named edges, manufacturing output and physically
 simulated closures remain future work. Native-window appearance and performance

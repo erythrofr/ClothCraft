@@ -672,9 +672,15 @@ impl Atelier {
         {
             return false;
         }
+        let Some(owner) = self.board_panel_at(rect, screen) else {
+            return false;
+        };
         let mut best: Option<(f32, Trim)> = None;
         let mut remaining = 4096usize;
         for trim in &self.project.template.trims {
+            if trim.panel_id != owner {
+                continue;
+            }
             let Some(index) = self
                 .project
                 .template
@@ -743,6 +749,10 @@ impl Atelier {
         let Some(draft) = self.authoring.trims.draft.as_ref() else {
             return false;
         };
+        if self.board_panel_at(rect, screen) != Some(draft.panel.as_str()) {
+            self.status = "Click the trim's panel to position it".into();
+            return true;
+        }
         let Some(index) = self
             .project
             .template
