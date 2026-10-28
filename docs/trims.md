@@ -37,9 +37,9 @@ selection samples cloth and avatar visibility and is disabled in Clean view.
 These samples do not prove visibility for every pixel. Skipped trims cannot be
 picked. On the 2D board buttonholes and zipper segments show width outlines in
 material coordinates. Each zipper segment is outlined separately, so bends are
-not joined or clipped to the panel and are not a manufacturing cutline. Click
-near the center line to select an object; the added outlines do not change the
-selection hit area.
+not joined or clipped to the panel and are not a manufacturing cutline. Inside
+the owning panel, clicking an outlined strip or its interior also selects the
+object. Topstitch selection continues to use its center line.
 The selected panel's board rotation and placement are respected. The 2D draft
 is amber; committed trims are purple. A changed or deleted object cannot be
 silently overwritten by a stale draft.

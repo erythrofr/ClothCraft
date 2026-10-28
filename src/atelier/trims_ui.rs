@@ -99,6 +99,65 @@ fn strip_corners(a: DVec2, b: DVec2, width: f64) -> Option<[DVec2; 4]> {
     corners.iter().all(|p| p.is_finite()).then_some(corners)
 }
 
+/// Distance to a projected strip, including its interior. A degenerate or
+/// non-finite projection cannot make the whole viewport selectable.
+fn projected_strip_distance(pointer: egui::Pos2, corners: [egui::Pos2; 4]) -> Option<f32> {
+    if !pointer.is_finite() || corners.iter().any(|point| !point.is_finite()) {
+        return None;
+    }
+    let cross = |a: egui::Vec2, b: egui::Vec2| a.x * b.y - a.y * b.x;
+    let area = cross(corners[1] - corners[0], corners[3] - corners[0]);
+    let mut positive = false;
+    let mut negative = false;
+    let mut distance = f32::INFINITY;
+    for i in 0..4 {
+        let a = corners[i];
+        let b = corners[(i + 1) % 4];
+        let side = cross(b - a, pointer - a);
+        if !side.is_finite() {
+            return None;
+        }
+        positive |= side > 0.;
+        negative |= side < 0.;
+        distance = distance.min(super::authoring_ui::segment_distance(pointer, a, b));
+    }
+    if !area.is_finite() || !distance.is_finite() {
+        None
+    } else if area.abs() > 1e-6 && !(positive && negative) {
+        Some(0.)
+    } else {
+        Some(distance)
+    }
+}
+
+fn board_trim_distance(
+    screen: egui::Pos2,
+    points: &[DVec2],
+    width: Option<f64>,
+    project: &impl Fn(DVec2) -> egui::Pos2,
+) -> f32 {
+    if points.len() == 1 {
+        return screen.distance(project(points[0]));
+    }
+    points
+        .windows(2)
+        .map(|pair| {
+            let mut distance =
+                super::authoring_ui::segment_distance(screen, project(pair[0]), project(pair[1]));
+            if let Some(corners) = width.and_then(|w| strip_corners(pair[0], pair[1], w))
+                && let Some(strip_distance) = projected_strip_distance(screen, corners.map(project))
+            {
+                distance = distance.min(strip_distance);
+            }
+            distance
+        })
+        .fold(f32::INFINITY, f32::min)
+}
+
+fn closer_trim(candidate: (f32, f32), previous: (f32, f32)) -> bool {
+    candidate.0 < previous.0 || (candidate.0 == previous.0 && candidate.1 < previous.1)
+}
+
 pub(super) fn paint_trim_2d(
     painter: &egui::Painter,
     point: &impl Fn(DVec2) -> egui::Pos2,
@@ -966,7 +1025,7 @@ impl Atelier {
         let Some(owner) = self.board_panel_at(rect, screen) else {
             return false;
         };
-        let mut best: Option<(f32, Trim)> = None;
+        let mut best: Option<((f32, f32), Trim)> = None;
         let mut remaining = 4096usize;
         for trim in &self.project.template.trims {
             if trim.panel_id != owner {
@@ -981,17 +1040,25 @@ impl Atelier {
             else {
                 continue;
             };
-            let points = match &trim.kind {
-                TrimKind::Button { center_m, .. } => vec![*center_m],
-                TrimKind::Buttonhole { start_m, end_m, .. } => vec![*start_m, *end_m],
-                TrimKind::Zipper { path_m, .. } | TrimKind::Topstitch { path_m, .. } => {
-                    path_m.clone()
-                }
+            let (points, width) = match &trim.kind {
+                TrimKind::Button { center_m, .. } => (vec![*center_m], None),
+                TrimKind::Buttonhole {
+                    start_m,
+                    end_m,
+                    width_m,
+                } => (vec![*start_m, *end_m], Some(*width_m)),
+                TrimKind::Zipper { path_m, width_m } => (path_m.clone(), Some(*width_m)),
+                TrimKind::Topstitch { path_m, .. } => (path_m.clone(), None),
             };
-            if points.len() > remaining {
+            let cost = points.len().saturating_add(if width.is_some() {
+                points.len().saturating_sub(1).saturating_mul(4)
+            } else {
+                0
+            });
+            if cost > remaining {
                 break;
             }
-            remaining -= points.len();
+            remaining -= cost;
             let origin = self.board_origin(index);
             let angle = self.board_angle(index);
             let screen_point = |p| {
@@ -999,22 +1066,15 @@ impl Atelier {
                     .board
                     .screen(rect, origin + authoring::rotate_2d(p, angle))
             };
-            let distance = if points.len() == 1 {
-                screen.distance(screen_point(points[0]))
-            } else {
-                points
-                    .windows(2)
-                    .map(|p| {
-                        super::authoring_ui::segment_distance(
-                            screen,
-                            screen_point(p[0]),
-                            screen_point(p[1]),
-                        )
-                    })
-                    .fold(f32::INFINITY, f32::min)
-            };
-            if distance <= 8. && best.as_ref().is_none_or(|(old, _)| distance < *old) {
-                best = Some((distance, trim.clone()));
+            let distance = board_trim_distance(screen, &points, width, &screen_point);
+            let center_distance = board_trim_distance(screen, &points, None, &screen_point);
+            let score = (distance, center_distance);
+            if distance <= 8.
+                && best
+                    .as_ref()
+                    .is_none_or(|(old, _)| closer_trim(score, *old))
+            {
+                best = Some((score, trim.clone()));
             }
         }
         let Some((_, trim)) = best else { return false };
@@ -1074,6 +1134,44 @@ impl Atelier {
 mod tests {
     use super::*;
     use marvelous_cloth::garment::GarmentTemplate;
+
+    #[test]
+    fn board_trim_hit_testing_matches_visible_strips() {
+        let angle = glam::DMat2::from_angle(0.73);
+        let project = |p: DVec2| {
+            let p = angle * p * 1000. + DVec2::new(300., 200.);
+            egui::pos2(p.x as f32, p.y as f32)
+        };
+        let points = [DVec2::ZERO, DVec2::new(0.2, 0.), DVec2::new(0.2, 0.1)];
+        let inside = project(DVec2::new(0.1, 0.009));
+        let outside = project(DVec2::new(0.1, 0.019));
+        assert_eq!(
+            board_trim_distance(inside, &points, Some(0.02), &project),
+            0.
+        );
+        assert!(board_trim_distance(outside, &points, Some(0.02), &project) > 8.);
+        assert!(board_trim_distance(inside, &points, None, &project) > 8.);
+        let second_segment = project(DVec2::new(0.209, 0.05));
+        assert_eq!(
+            board_trim_distance(second_segment, &points, Some(0.02), &project),
+            0.
+        );
+        let near_join = project(DVec2::new(0.199, 0.009));
+        assert_eq!(
+            board_trim_distance(near_join, &points, Some(0.02), &project),
+            0.
+        );
+        // Overlapping interiors choose the closer center line; exact ties stay stable.
+        assert!(closer_trim((0., 3.), (0., 5.)));
+        assert!(!closer_trim((0., 5.), (0., 5.)));
+        assert!(closer_trim((2., 20.), (3., 1.)));
+        assert!(
+            projected_strip_distance(egui::pos2(0., 0.), [egui::pos2(f32::NAN, 0.); 4]).is_none()
+        );
+        assert!(
+            projected_strip_distance(egui::pos2(100., 100.), [egui::pos2(0., 0.); 4]).unwrap() > 8.
+        );
+    }
 
     #[test]
     fn material_strip_preview_tracks_width_rotation_and_budget() {
