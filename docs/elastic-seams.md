@@ -126,16 +126,28 @@ nonzero grab spring. It deliberately removes diagnostic contact terms to create
 nonzero model changes before and after one actual VBD step, then checks those
 changes separately from the grab energy and step energy. This manufactured
 feature-set change tests the accounting, not whether OGC actually changes its
-contact set that way. A naturally changing contact feature and its physical
-effect remain unverified by this case.
+contact set that way.
+
+An additional CPU test moves a single 12 cm square patch, initially 2.8 mm
+above a narrow triangular floor, with a 5 cm horizontal grab for 20 steps and
+then releases it for 10 steps (1/60 s). Independent detection before and
+after each VBD step recorded 12 changes in the contact identity set on the
+tested machine; the maximum absolute difference between the refreshed and
+frozen diagnostic contact energies was 0.01142 J. The algebraic reconciliation
+closed within 1e-10 J, and the endpoint intersection check passed at each step.
+The refreshed and frozen sets are diagnostic models, not a record of the
+solver's internal iterations; this does not establish physical energy creation,
+continuous collision safety, a seam effect, garment behavior or a jitter fix.
+The case has one panel and no seam. Its purpose is to make a real detector-set
+transition reproducible; it is not a matched garment or performance benchmark.
 
 ## Remaining work
 
 - Separately compare equal-length and unequal-length fixtures without conflating
   their geometry. Strict replay intentionally rejects a changed template.
 - Report velocity, force residuals and windowed motion, not only endpoint motion.
-- Find and validate a naturally changing contact-feature case; the manufactured
-  accounting regression alone does not establish contact continuity.
+- Investigate contact-feature transitions in a sewn garment and compare force
+  and energy continuity; the one-panel diagnostic case does not establish it.
 - Validate any proposed elastic dynamics against its own consistent energy,
   including slack/taut transitions, objectivity and pull/hold/release.
 - No calibrated elastic seam, nonlinear thread data, native UI, GPU implementation

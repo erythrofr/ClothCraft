@@ -352,6 +352,115 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 mod tests {
     use super::*;
     #[test]
+    fn moving_patch_observes_natural_contact_refresh() {
+        use marvelous_cloth::{avatar::SurfaceMesh, model::Pattern};
+        use std::collections::BTreeSet;
+        let mut template = GarmentTemplate::two_panel_demo();
+        template.panels.truncate(1);
+        template.seams.clear();
+        let panel = &mut template.panels[0];
+        panel.pins.clear();
+        panel.pattern = Pattern {
+            width: 0.12,
+            height: 0.12,
+            nx: 3,
+            ny: 3,
+        };
+        panel.placement.rotation_degrees = DVec3::new(90., 0., 0.);
+        panel.placement.translation = DVec3::new(-0.06, 0.0028, 0.06);
+        let floor = SurfaceMesh {
+            vertices: vec![
+                DVec3::new(-0.06, 0., -1.),
+                DVec3::new(0.06, 0., -1.),
+                DVec3::new(0., 0., 1.),
+            ],
+            triangles: vec![[0, 1, 2]],
+        };
+        let garment = Arc::new(template.compile().unwrap());
+        let mut state = garment.initial_state.clone();
+        let mut solver = VbdSolver::new(garment.clone(), Some(&floor), &state).unwrap();
+        let settings = VbdSettings {
+            dt: 1. / 60.,
+            ..Default::default()
+        };
+        let vertices = garment.mesh.triangles[0].vertices;
+        let center = vertices.iter().map(|&i| state.x[i] / 3.).sum::<DVec3>();
+        let grab = Grab {
+            patch: Vec::new(),
+            vertices,
+            weights: [1. / 3.; 3],
+            target: center + DVec3::X * 0.05,
+            stiffness: 100.,
+        };
+        let mut detector = solver.world.clone();
+        let keys = |set: &marvelous_cloth::ogc::ContactSet| -> BTreeSet<_> {
+            set.contacts
+                .iter()
+                .map(|c| (c.kind, c.vertices, c.count))
+                .collect()
+        };
+        let mut changes = 0;
+        let mut max_refresh = 0_f64;
+        let mut previous = None;
+        let mut previous_grab: Option<Grab> = None;
+        for step in 0..30 {
+            let before = state.clone();
+            let prior = detector
+                .detect(
+                    &detector.positions(&before.x),
+                    settings.contact.radius * 4.,
+                    &settings.contact,
+                )
+                .unwrap();
+            let old = solver
+                .audit_energy(&before, &settings, &prior, previous_grab.as_ref())
+                .unwrap();
+            let control = if step < 20 { Some(&grab) } else { None };
+            let new_grab_j = solver
+                .audit_energy(&before, &settings, &prior, control)
+                .unwrap()
+                .grab_j;
+            solver.step(&mut state, &settings, control).unwrap();
+            let balance = solver
+                .audit_step(&before, &state, &settings, &prior, control)
+                .unwrap();
+            let after = detector
+                .detect(
+                    &detector.positions(&state.x),
+                    settings.contact.radius * 4.,
+                    &settings.contact,
+                )
+                .unwrap();
+            if keys(&prior) != keys(&after) {
+                changes += 1;
+            }
+            let energy = solver
+                .audit_energy(&state, &settings, &after, control)
+                .unwrap();
+            let refresh = energy.contact_j - balance.after.contact_j;
+            assert!(refresh.is_finite());
+            let (_, _, _, error) =
+                reconcile(previous.as_ref(), &old, new_grab_j, &balance, &energy);
+            assert!(error.abs() < 1e-10, "reconciliation error {error:e} J");
+            max_refresh = max_refresh.max(refresh.abs());
+            solver
+                .world
+                .validate_start(&solver.world.positions(&state.x))
+                .unwrap();
+            previous = Some(energy);
+            previous_grab = control.cloned();
+        }
+        eprintln!("natural contact changes={changes}, max refresh={max_refresh:e} J");
+        assert!(
+            changes > 0,
+            "fixture did not change the detected contact set"
+        );
+        assert!(
+            max_refresh > 1e-9,
+            "fixture did not change the contact energy model"
+        );
+    }
+    #[test]
     fn accounting_separates_changed_contacts_from_grab_and_step_work() {
         use marvelous_cloth::{avatar::SurfaceMesh, model::Pattern};
         let mut template = GarmentTemplate::two_panel_demo();

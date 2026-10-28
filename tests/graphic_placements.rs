@@ -130,6 +130,63 @@ fn saved_drape_reopens_after_graphic_metadata_change() {
 }
 
 #[test]
+fn graphic_edit_and_removal_survive_project_save_and_reopen() {
+    use marvelous_cloth::{
+        authoring::{self, Command},
+        fitting::FittingProject,
+        garment::{GarmentTemplate, presets::GarmentKind},
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let avatar = dir.path().join("avatar.obj");
+    std::fs::write(&avatar, "v 10 0 -10\nv 11 0 -10\nv 10 1 -10\nf 1 2 3\n").unwrap();
+    let file = dir.path().join("garment.clothcraft");
+    let mut project = FittingProject::basic(GarmentKind::Tshirt, 0, avatar);
+    project.template = GarmentTemplate::two_panel_demo();
+    let mut drape = project.template.compile().unwrap().initial_state;
+    drape.time = 2.;
+    drape.v.fill(glam::DVec3::new(0.1, 0.2, 0.3));
+    project.state = Some(drape.clone());
+    let mut graphic = GraphicPlacement {
+        panel_id: project.template.panels[0].id.clone(),
+        ..placement()
+    };
+    for phase in 0..3 {
+        let command = match phase {
+            0 => Command::SetGraphic {
+                placement: graphic.clone(),
+            },
+            1 => {
+                graphic.center_m.x += 0.05;
+                graphic.side = GraphicSide::Back;
+                Command::SetGraphic {
+                    placement: graphic.clone(),
+                }
+            }
+            _ => Command::RemoveGraphic {
+                id: graphic.id.clone(),
+            },
+        };
+        let edit = authoring::apply(&project.template, command).unwrap();
+        assert!(!edit.reset_simulation);
+        project.template = edit.template;
+        project.save(&file).unwrap();
+        project = FittingProject::load(&file).unwrap();
+        assert_eq!(
+            project.template.graphics,
+            if phase == 2 {
+                vec![]
+            } else {
+                vec![graphic.clone()]
+            }
+        );
+        let scene = project.compile().unwrap();
+        assert_eq!(scene.state.x, drape.x);
+        assert_eq!(scene.state.v, drape.v);
+        assert_eq!(scene.state.time, drape.time);
+    }
+}
+
+#[test]
 fn copy_paste_and_delete_preserve_graphic_identity_and_ownership() {
     use marvelous_cloth::{
         authoring::{self, Command, clipboard::PatternClipboard},
