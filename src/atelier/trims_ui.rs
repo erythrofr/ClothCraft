@@ -1788,6 +1788,76 @@ mod tests {
     use marvelous_cloth::garment::GarmentTemplate;
 
     #[test]
+    fn routed_delete_is_consumed_before_later_seam_shortcuts() {
+        let mut template = GarmentTemplate::two_panel_demo();
+        let trim = Trim {
+            id: "trim_1".into(),
+            panel_id: template.panels[0].id.clone(),
+            kind: TrimKind::Button {
+                center_m: DVec2::new(0.1, 0.1),
+                diameter_m: 0.01,
+            },
+        };
+        template.trims.push(trim.clone());
+        for case in 0..10 {
+            let scenario = case % 5;
+            let mut trims = TrimUi::default();
+            if scenario <= 2 {
+                let mut draft = TrimDraft::from_trim(&trim);
+                if scenario == 1 {
+                    draft.base = None; // Unsaved creation.
+                }
+                if scenario == 2 {
+                    draft.base.as_mut().unwrap().id = "stale".into();
+                }
+                trims.draft = Some(draft);
+            }
+            let ctx = egui::Context::default();
+            let mut observed = None;
+            let input = egui::RawInput {
+                focused: true,
+                events: vec![egui::Event::Key {
+                    key: egui::Key::Delete,
+                    physical_key: None,
+                    pressed: true,
+                    repeat: false,
+                    modifiers: if case >= 5 {
+                        egui::Modifiers {
+                            ctrl: true,
+                            command: true,
+                            ..Default::default()
+                        }
+                    } else {
+                        egui::Modifiers::NONE
+                    },
+                }],
+                ..Default::default()
+            };
+            let mut output = ctx.run_ui(input, |ui| {
+                let routed = super::super::selection::delete_target(
+                    ui.ctx(),
+                    &trims,
+                    &template,
+                    true,
+                    scenario == 3,
+                    vec![trim.panel_id.clone()],
+                );
+                let later_handler_sees_key = ui.ctx().input(|i| i.key_pressed(egui::Key::Delete));
+                observed = Some((routed, later_handler_sees_key));
+            });
+            output.textures_delta.clear();
+            let (routed, later) = observed.unwrap();
+            match scenario {
+                0 => assert!(matches!(routed, Some(Ok(Command::RemoveTrim { .. })))),
+                1 | 2 => assert!(matches!(routed, Some(Err(_)))),
+                3 => assert!(matches!(routed, Some(Ok(Command::RemovePanels { .. })))),
+                _ => assert!(routed.is_none()),
+            }
+            assert_eq!(later, scenario == 4, "case {case}");
+        }
+    }
+
+    #[test]
     fn delete_shortcut_targets_saved_trim_and_never_falls_through_a_draft() {
         let mut template = GarmentTemplate::two_panel_demo();
         let trim = Trim {

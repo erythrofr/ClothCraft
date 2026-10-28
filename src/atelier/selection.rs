@@ -16,10 +16,30 @@ pub(super) fn delete_target(
     if ctx.egui_wants_keyboard_input() || !ctx.input(|i| i.key_pressed(egui::Key::Delete)) {
         return None;
     }
-    if let Some(result) = trims.delete_shortcut(template, edit_mode) {
-        return Some(result);
+    let action = trims.delete_shortcut(template, edit_mode).or_else(|| {
+        (panel_delete_allowed && !panels.is_empty()).then_some(Ok(Command::RemovePanels { panels }))
+    });
+    if action.is_some() {
+        ctx.input_mut(|input| {
+            let modifiers: Vec<_> = input
+                .events
+                .iter()
+                .filter_map(|event| match event {
+                    egui::Event::Key {
+                        key: egui::Key::Delete,
+                        pressed: true,
+                        modifiers,
+                        ..
+                    } => Some(*modifiers),
+                    _ => None,
+                })
+                .collect();
+            for modifiers in modifiers {
+                input.consume_key(modifiers, egui::Key::Delete);
+            }
+        });
     }
-    (panel_delete_allowed && !panels.is_empty()).then_some(Ok(Command::RemovePanels { panels }))
+    action
 }
 
 #[derive(Default, PartialEq, Eq, Clone, Copy)]

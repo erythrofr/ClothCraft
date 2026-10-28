@@ -42,6 +42,8 @@ undoable edit instead of deleting its panel. Delete is refused while a new
 trim or an active placement, path or repeat operation is being edited; finish
 or cancel that operation first. A changed or removed trim must be selected
 again before deletion. Text fields keep their normal Delete behavior.
+Once a trim or panel handles or refuses Delete, the same key press is not
+also sent to the seam deletion shortcut.
 
 In the Piece inspector, expand **Construction trims**, choose a type and click
 **New**. Edit local X, Y coordinates in millimetres; paths use one comma-separated
