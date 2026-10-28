@@ -22,10 +22,16 @@ last lookup is cached for the same immutable mesh, panel and coordinates; a
 remesh or query change recomputes it. No lookup runs while the editor is busy.
 In Edit mode, **Choose on 3D cloth** lets you click the visible active panel to
 stage the nearest material vertex. The X/Y readout and marker update; choose
-**Pin nearest** separately to commit. Escape or **Cancel 3D pick** abandons the
+**Pin nearest** separately to commit. Escape or **Cancel pick** abandons the
 gesture. Other panels, the avatar in front, a closed inspector, changing tools,
 or a new mesh cannot silently pin a different point. Picking scans at most
 100,000 cloth triangles on a click and is unavailable in clean view.
+**Choose on 2D pattern** stages a material position from the visible active
+panel, accounting for its board placement and rotation. Overlapping panels are
+resolved in board draw order; holes do not count as panel bodies. The readout
+shows the nearest vertex and the offset before the
+separate confirmation. The gesture requires both the 2D and 3D views open in
+this initial integration; its full native-window input path is not yet tested.
 In the combined trim/pin integration, a pending construction-trim edit or
 placement disables pin picking; starting a trim draft cancels an armed pick.
 Finish or cancel the trim edit before picking a pin. Named-widget CPU coverage

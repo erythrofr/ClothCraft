@@ -906,6 +906,9 @@ impl eframe::App for Atelier {
                 let panes = layout::arrange(ui, area, &mut self.prefs.workspace);
                 self.authoring.selection.board_rect = None;
                 self.authoring.selection.garment_rect = None;
+                let pin_picking = self.material_pin_pick_active(&ctx);
+                let pin_on_board = self.material_pin_pick_on_board(&ctx);
+                let pin_shield = pins_ui::pin_pick_shield(&ctx);
                 for (id, rect) in [
                     ("garment", panes.garment),
                     ("patterns", panes.patterns),
@@ -922,19 +925,27 @@ impl eframe::App for Atelier {
                     pane.set_clip_rect(rect);
                     match id {
                         "garment" => {
-                            let picking = self.material_pin_pick_active(&ctx);
-                            let shield = pins_ui::pin_pick_shield(&ctx);
                             let was_blocked = self.quick.blocked;
-                            if picking || shield {
+                            if pin_picking || pin_shield {
                                 self.quick.blocked = true;
                             }
                             self.garment_view(&mut pane);
                             self.quick.blocked = was_blocked;
-                            if picking && !shield {
+                            if pin_picking && !pin_on_board && !pin_shield {
                                 self.material_pin_pick_click(&pane);
                             }
                         }
-                        "patterns" => self.patterns(&mut pane),
+                        "patterns" => {
+                            let was_blocked = self.quick.blocked;
+                            if pin_picking || pin_shield {
+                                self.quick.blocked = true;
+                            }
+                            self.patterns(&mut pane);
+                            self.quick.blocked = was_blocked;
+                            if pin_picking && pin_on_board && !pin_shield {
+                                self.material_pin_pick_board_click(&pane);
+                            }
+                        }
                         _ => self.inspector(&mut pane),
                     }
                 }

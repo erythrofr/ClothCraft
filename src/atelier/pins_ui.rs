@@ -141,6 +141,7 @@ struct PinPick3d {
     panel: String,
     seen_pass: u64,
     text_focus: bool,
+    on_board: bool,
 }
 
 fn pin_pick_id() -> egui::Id {
@@ -210,6 +211,22 @@ fn pin_pick_pointer(ui: &egui::Ui, rect: egui::Rect) -> Option<egui::Pos2> {
             .flatten()
     })?;
     (rect.contains(pos) && ctx.layer_id_at(pos) == Some(ui.layer_id())).then_some(pos)
+}
+
+fn board_material_point(
+    garment: &CompiledGarment,
+    panel: &str,
+    owner: Option<&str>,
+    world: DVec2,
+    origin: DVec2,
+    angle: f64,
+) -> Result<Option<DVec2>, String> {
+    if owner != Some(panel) {
+        return Ok(None);
+    }
+    let uv = authoring::rotate_2d(world - origin, -angle);
+    nearest_material_vertex(garment, panel, uv)?;
+    Ok(Some(uv))
 }
 
 /// Resolve the nearest cloth face, then use its material coordinates to pick
@@ -413,8 +430,9 @@ fn material_pin_controls(
                         data.insert_temp(pin_pick_id(), pick);
                     }
                 });
-                ui.small("Click visible cloth in 3D to choose a vertex · Escape cancels.");
-                let cancel = ui.button("Cancel 3D pick");
+                let on_board = ui.ctx().data(|data| data.get_temp::<PinPick3d>(pin_pick_id())).is_some_and(|pick| pick.on_board);
+                ui.small(if on_board { "Click the active pattern in 2D to choose a vertex · Escape cancels." } else { "Click visible cloth in 3D to choose a vertex · Escape cancels." });
+                let cancel = ui.button("Cancel pick");
                 #[cfg(test)]
                 super::authoring_smoke::widget_harness::named(
                     ui,
@@ -437,9 +455,18 @@ fn material_pin_controls(
                         panel: panel.id.clone(),
                         seen_pass: ui.ctx().cumulative_pass_nr(),
                         text_focus: false,
+                        on_board: false,
                     };
                     ui.ctx()
                         .data_mut(|data| data.insert_temp(pin_pick_id(), mode));
+                }
+                let pick_2d = ui.add_enabled(can_pick_3d && available && !frozen, egui::Button::new("Choose on 2D pattern"))
+                    .on_disabled_hover_text("Use Edit mode, pause simulation, unfreeze the panel and finish other edits.");
+                #[cfg(test)]
+                super::authoring_smoke::widget_harness::named(ui, &pick_2d, "pins.material.pick_2d");
+                if pick_2d.clicked() {
+                    let mode = PinPick3d { garment: garment.clone(), panel: panel.id.clone(), seen_pass: ui.ctx().cumulative_pass_nr(), text_focus: false, on_board: true };
+                    ui.ctx().data_mut(|data| data.insert_temp(pin_pick_id(), mode));
                 }
             }
             let id = egui::Id::new(("pin-material-position", &panel.id));
@@ -824,12 +851,88 @@ impl Atelier {
         }
     }
 
+    pub(super) fn material_pin_pick_on_board(&self, ctx: &egui::Context) -> bool {
+        ctx.data(|data| {
+            data.get_temp::<PinPick3d>(pin_pick_id())
+                .is_some_and(|pick| pick.on_board)
+        })
+    }
+
+    pub(super) fn material_pin_pick_board_click(&mut self, ui: &egui::Ui) {
+        let ctx = ui.ctx();
+        let Some(rect) = self.authoring.selection.board_rect else {
+            return;
+        };
+        let Some(pos) = pin_pick_pointer(ui, rect) else {
+            return;
+        };
+        let Some(pick) = ctx.data(|data| data.get_temp::<PinPick3d>(pin_pick_id())) else {
+            return;
+        };
+        let world = self.authoring.board.world(rect, pos);
+        let owner = super::board::panel_body_owner(
+            self.project
+                .template
+                .panels
+                .iter()
+                .enumerate()
+                .rev()
+                .map(|(i, p)| {
+                    (
+                        p,
+                        p.polygon.as_ref(),
+                        self.board_origin(i),
+                        self.board_angle(i),
+                    )
+                }),
+            world,
+        );
+        let Some(index) = self
+            .project
+            .template
+            .panels
+            .iter()
+            .position(|p| p.id == pick.panel)
+        else {
+            return;
+        };
+        match board_material_point(
+            &self.scene.garment,
+            &pick.panel,
+            owner,
+            world,
+            self.board_origin(index),
+            self.board_angle(index),
+        ) {
+            Ok(Some(uv)) => {
+                let mm = uv * 1000.;
+                ctx.data_mut(|data| {
+                    data.insert_temp(
+                        egui::Id::new(("pin-material-position", &pick.panel)),
+                        [mm.x, mm.y],
+                    )
+                });
+                clear_pin_pick(ctx);
+                self.status = "Vertex selected · choose Pin nearest to confirm".into();
+            }
+            Ok(None) => self.status = "Choose the visible active pattern".into(),
+            Err(error) => {
+                self.status = error.clone();
+                self.authoring.error = Some(error);
+            }
+        }
+    }
+
     pub(super) fn finish_material_pin_pick(&mut self, ctx: &egui::Context) {
         if let Some(pick) = ctx.data(|data| data.get_temp::<PinPick3d>(pin_pick_id()))
             && !pin_pick_seen(
                 &pick,
                 ctx.cumulative_pass_nr(),
-                self.authoring.selection.garment_rect.is_some(),
+                if pick.on_board {
+                    self.authoring.selection.board_rect.is_some()
+                } else {
+                    self.authoring.selection.garment_rect.is_some()
+                },
             )
         {
             cancel_pin_pick(ctx);
@@ -854,6 +957,28 @@ impl Atelier {
         ) else {
             return;
         };
+        if preview.pass == ui.ctx().cumulative_pass_nr()
+            && preview.panel == panel
+            && Arc::ptr_eq(&preview.garment, &self.scene.garment)
+            && let (Some(board_rect), Some(uv), Some(index)) = (
+                self.authoring.selection.board_rect,
+                self.scene.garment.mesh.uv.get(preview.vertex),
+                self.project
+                    .template
+                    .panels
+                    .iter()
+                    .position(|p| p.id == panel),
+            )
+        {
+            let world =
+                self.board_origin(index) + authoring::rotate_2d(*uv, self.board_angle(index));
+            let point = self.authoring.board.screen(board_rect, world);
+            ui.painter().with_clip_rect(board_rect).circle_stroke(
+                point,
+                7.,
+                egui::Stroke::new(2., egui::Color32::from_rgb(255, 199, 65)),
+            );
+        }
         let Some(world) = preview_world(
             &preview,
             &self.scene.garment,
@@ -1039,6 +1164,35 @@ mod tests {
     }
 
     #[test]
+    fn board_pick_inverts_panel_layout_and_rejects_other_owner() {
+        let c = case();
+        let panel = &c.template.panels[0].id;
+        let uv = c.garment.mesh.uv[0] + DVec2::new(0.01, 0.02);
+        let origin = DVec2::new(4., -3.);
+        let angle = 37.;
+        let world = origin + authoring::rotate_2d(uv, angle);
+        let picked = board_material_point(&c.garment, panel, Some(panel), world, origin, angle)
+            .unwrap()
+            .unwrap();
+        assert!(picked.distance(uv) < 1e-12);
+        assert_eq!(
+            board_material_point(&c.garment, panel, Some("other"), world, origin, angle).unwrap(),
+            None
+        );
+        assert!(
+            board_material_point(
+                &c.garment,
+                panel,
+                Some(panel),
+                DVec2::splat(f64::NAN),
+                origin,
+                angle
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
     fn pick_material_surface_selects_visible_owned_vertex_and_rejects_occlusion() {
         let c = case();
         let g = &c.garment;
@@ -1162,6 +1316,22 @@ mod tests {
         assert!(pin_pick_seen(&pick, pick.seen_pass, true));
         assert!(!pin_pick_seen(&pick, pick.seen_pass + 1, true));
         assert!(!pin_pick_seen(&pick, pick.seen_pass, false));
+        h.frame(&mut c, &mut draw);
+        h.click("pins.material.pick_cancel", &mut c, &mut draw)
+            .unwrap();
+        assert!(
+            h.ctx
+                .data(|d| d.get_temp::<PinPick3d>(pin_pick_id()))
+                .is_none()
+        );
+        h.frame(&mut c, &mut draw);
+        h.click("pins.material.pick_2d", &mut c, &mut draw).unwrap();
+        assert!(
+            h.ctx
+                .data(|d| d.get_temp::<PinPick3d>(pin_pick_id()))
+                .unwrap()
+                .on_board
+        );
         h.frame(&mut c, &mut draw);
         h.click("pins.material.pick_cancel", &mut c, &mut draw)
             .unwrap();
