@@ -1,6 +1,49 @@
 use glam::{DVec2, DVec3};
 use marvelous_cloth::garment::{GarmentTemplate, embedding::MaterialPath, export};
 
+#[test]
+fn reusable_material_index_matches_uncached_and_rejects_stale_panels() {
+    use marvelous_cloth::garment::embedding::MaterialPathIndex;
+    use std::sync::Arc;
+    let mut template = GarmentTemplate::two_panel_demo();
+    template.panels[0].pattern.nx = 12;
+    template.panels[0].pattern.ny = 10;
+    let garment = Arc::new(template.compile().unwrap());
+    let index = MaterialPathIndex::new(garment.clone(), "left").unwrap();
+    assert!(index.matches(&garment, "left"));
+    assert!(!index.matches(&garment, "right"));
+    let recompiled = Arc::new(template.compile().unwrap());
+    assert!(!index.matches(&recompiled, "left"));
+    for offset in [0., 0.01, 0.04] {
+        let path = MaterialPath {
+            panel: "left".into(),
+            points: vec![
+                DVec2::new(0.05 + offset, 0.07),
+                DVec2::new(0.35 + offset, 0.5),
+            ],
+        };
+        let cached = index.embed(&path).unwrap();
+        let fresh = garment.embed_path_bounded(&path).unwrap();
+        assert_eq!(cached.len(), fresh.len());
+        for (a, b) in cached.iter().zip(fresh.iter()) {
+            assert_eq!(a.vertices, b.vertices);
+            assert_eq!(a.weights, b.weights);
+            assert_eq!(a.uv, b.uv);
+        }
+    }
+    let wrong = MaterialPath {
+        panel: "right".into(),
+        points: vec![DVec2::new(0.1, 0.1), DVec2::new(0.2, 0.2)],
+    };
+    assert!(index.embed(&wrong).is_err());
+    let malformed = MaterialPath {
+        panel: "left".into(),
+        points: vec![DVec2::NAN, DVec2::ZERO],
+    };
+    assert!(index.embed(&malformed).is_err());
+    assert!(MaterialPathIndex::new(garment, "missing").is_err());
+}
+
 /// Diagnostic only: reproduce the prior output breakpoint count without its
 /// interval probes; not a correctness oracle for coverage or deformation.
 fn legacy_output_count(

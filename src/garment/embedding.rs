@@ -4,6 +4,7 @@
 use super::CompiledGarment;
 use glam::{DVec2, DVec3};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -76,6 +77,49 @@ struct MaterialIndex {
     nodes: Vec<crate::ogc::bvh::NodeView>,
     bounds: Vec<crate::ogc::bvh::Bounds>,
     first: usize,
+}
+
+/// Reusable, immutable material-space index for one compiled panel. It holds
+/// the exact compiled garment alive and must be replaced after remeshing.
+/// This is an authoring/preview accelerator, never a collision index.
+pub struct MaterialPathIndex {
+    garment: Arc<CompiledGarment>,
+    panel: String,
+    index: MaterialIndex,
+}
+
+impl MaterialPathIndex {
+    pub fn new(garment: Arc<CompiledGarment>, panel: &str) -> Result<Self, String> {
+        let range = garment
+            .panels
+            .iter()
+            .find(|p| p.id == panel)
+            .ok_or_else(|| format!("Unknown panel {panel}"))?
+            .triangles
+            .clone();
+        let index = MaterialIndex::new(&garment, range)?;
+        Ok(Self {
+            garment,
+            panel: panel.to_owned(),
+            index,
+        })
+    }
+
+    /// Matching by Arc identity prevents stale indices after recompilation.
+    pub fn matches(&self, garment: &Arc<CompiledGarment>, panel: &str) -> bool {
+        self.panel == panel && Arc::ptr_eq(&self.garment, garment)
+    }
+
+    pub fn matches_garment(&self, garment: &Arc<CompiledGarment>) -> bool {
+        Arc::ptr_eq(&self.garment, garment)
+    }
+
+    pub fn embed(&self, path: &MaterialPath) -> Result<Vec<EmbeddedPoint>, String> {
+        if path.panel != self.panel {
+            return Err("Material index belongs to a different panel".into());
+        }
+        self.garment.embed_with_index(path, &self.index)
+    }
 }
 
 const MATERIAL_WORK_LIMIT: usize = 8_000_000;
@@ -238,6 +282,17 @@ impl CompiledGarment {
             .triangles
             .clone();
         let index = MaterialIndex::new(self, range.clone())?;
+        self.embed_with_index(path, &index)
+    }
+
+    fn embed_with_index(
+        &self,
+        path: &MaterialPath,
+        index: &MaterialIndex,
+    ) -> Result<Vec<EmbeddedPoint>, String> {
+        if path.points.len() < 2 || path.points.len() > 10_000 {
+            return Err("Material path requires 2..10000 control points".into());
+        }
         let mut work = 0;
         for &p in &path.points {
             index.point(self, &path.panel, p, &mut work)?;
