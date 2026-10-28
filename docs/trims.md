@@ -20,6 +20,11 @@ are implemented.
 Trim-only edits are classified as nonphysical and excluded from fitting mesh
 signatures.
 
+The inspector keeps long trim lists scrollable and renders only visible rows.
+For repeated details, **Duplicate** opens a fresh-ID draft of an existing trim.
+Position it on the 2D board or 3D cloth, then Apply once; Cancel leaves the
+original and the document unchanged.
+
 When a saved trim is selected in Edit mode, Delete removes that trim in one
 undoable edit instead of deleting its panel. Delete is refused while a new
 trim or an active placement or path operation is being edited; finish or cancel

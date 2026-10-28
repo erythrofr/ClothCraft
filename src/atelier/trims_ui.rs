@@ -598,9 +598,10 @@ impl TrimDraft {
 }
 
 fn next_id(items: &[Trim]) -> String {
+    let used: std::collections::HashSet<&str> = items.iter().map(|trim| trim.id.as_str()).collect();
     (1..)
         .map(|i| format!("trim_{i}"))
-        .find(|id| items.iter().all(|t| &t.id != id))
+        .find(|id| !used.contains(id.as_str()))
         .unwrap()
 }
 
@@ -1248,26 +1249,43 @@ fn trim_controls(
             ui.small("Visual construction notes · no physical closures. Widths may extend outside the panel.");
             if let Some(warning) = &state.preview_warning { ui.colored_label(Color32::GOLD, warning); }
         let editing = state.draft.is_some();
-            for trim in template.trims
-                .iter()
-                .filter(|t| t.panel_id == panel.id)
-            {
-                ui.horizontal(|ui| {
-                let edit = ui.add_enabled(!editing, egui::Button::new(format!("{} · {}", label(&trim.kind), trim.id)).small());
-                    #[cfg(test)]
-                    super::authoring_smoke::widget_harness::named(ui, &edit, format!("trim.edit.{}", trim.id));
-                    if edit.clicked() {
-                        state.draft = Some(TrimDraft::from_trim(trim));
-                    }
-                let delete = ui.add_enabled(!editing, egui::Button::new("Delete").small());
-                    #[cfg(test)]
-                    super::authoring_smoke::widget_harness::named(ui, &delete, format!("trim.delete.{}", trim.id));
-                    if delete.clicked() {
-                        command = Some(Command::RemoveTrim {
-                            id: trim.id.clone(),
-                        });
-                    }
-                });
+            let items: Vec<_> = template.trims.iter().filter(|t| t.panel_id == panel.id).collect();
+            if !items.is_empty() {
+                egui::ScrollArea::vertical()
+                    .id_salt(("trim-list", &panel.id))
+                    .max_height(192.)
+                    .show_rows(ui, 24., items.len(), |ui, rows| {
+                        for i in rows {
+                            let trim = items[i];
+                            ui.push_id(&trim.id, |ui| {
+                                ui.horizontal(|ui| {
+                                    let title = format!("{} · {}", label(&trim.kind), trim.id);
+                                    let edit_width = (ui.available_width() - 120.).max(30.);
+                                    let edit = ui.add_enabled_ui(!editing, |ui| {
+                                        ui.add_sized([edit_width, 20.], egui::Button::new(&title).small().truncate())
+                                    }).inner.on_hover_text(&title);
+                                    #[cfg(test)]
+                                    super::authoring_smoke::widget_harness::named(ui, &edit, format!("trim.edit.{}", trim.id));
+                                    if edit.clicked() { state.draft = Some(TrimDraft::from_trim(trim)); }
+                                    let duplicate = ui.add_enabled(!editing, egui::Button::new("Duplicate").small())
+                                        .on_hover_text("Create a movable draft copy; Apply commits it");
+                                    #[cfg(test)]
+                                    super::authoring_smoke::widget_harness::named(ui, &duplicate, format!("trim.duplicate.{}", trim.id));
+                                    if duplicate.clicked() {
+                                        let mut copy = trim.clone();
+                                        copy.id = next_id(&template.trims);
+                                        let mut draft = TrimDraft::from_trim(&copy);
+                                        draft.base = None;
+                                        state.draft = Some(draft);
+                                    }
+                                    let delete = ui.add_enabled(!editing, egui::Button::new("Delete").small());
+                                    #[cfg(test)]
+                                    super::authoring_smoke::widget_harness::named(ui, &delete, format!("trim.delete.{}", trim.id));
+                                    if delete.clicked() { command = Some(Command::RemoveTrim { id: trim.id.clone() }); }
+                                });
+                            });
+                        }
+                    });
             }
             ui.horizontal(|ui| {
                 let kinds = egui::ComboBox::from_id_salt("trim-kind")
@@ -3237,6 +3255,195 @@ mod tests {
             .click(&format!("trim.edit.{}", mirrored.id), &mut case, &mut draw)
             .unwrap();
         assert_eq!(case.ui.draft.as_ref().unwrap().parse().unwrap(), mirrored);
+    }
+
+    #[test]
+    fn trim_ids_choose_lowest_unused_with_gaps_and_dense_inputs() {
+        let make = |id: String| Trim {
+            id,
+            panel_id: "panel".into(),
+            kind: TrimKind::Button {
+                center_m: DVec2::ZERO,
+                diameter_m: 0.01,
+            },
+        };
+        let mut items: Vec<_> = (1..=4096).map(|i| make(format!("trim_{i}"))).collect();
+        assert_eq!(next_id(&items), "trim_4097");
+        items.remove(1);
+        items.push(make("trim_02".into()));
+        items.push(make("trim_0".into()));
+        assert_eq!(next_id(&items), "trim_2");
+        assert_eq!(next_id(&[]), "trim_1");
+    }
+
+    #[test]
+    fn trim_list_virtualizes_and_scrolls_to_last_narrow_row() {
+        use super::super::authoring_smoke::widget_harness::Harness;
+        struct Case {
+            ui: TrimUi,
+            template: GarmentTemplate,
+            top: egui::Pos2,
+        }
+        let mut template = GarmentTemplate::two_panel_demo();
+        for i in 0..1000 {
+            template.trims.push(Trim {
+                id: format!("item_{i}"),
+                panel_id: template.panels[0].id.clone(),
+                kind: TrimKind::Button {
+                    center_m: DVec2::new(0.1, 0.1),
+                    diameter_m: 0.01,
+                },
+            });
+        }
+        let mut case = Case {
+            ui: TrimUi::default(),
+            template,
+            top: egui::Pos2::ZERO,
+        };
+        let mut draw = |ui: &mut egui::Ui, c: &mut Case| {
+            c.top = ui.next_widget_position();
+            let panel = c.template.panels[0].clone();
+            assert!(trim_controls(ui, &mut c.ui, &c.template, &panel, true).is_none());
+        };
+        let mut h = Harness::new(egui::vec2(240., 500.));
+        h.frame(&mut case, &mut draw);
+        h.click("trim.section", &mut case, &mut draw).unwrap();
+        assert!(
+            h.click("trim.duplicate.item_999", &mut case, &mut draw)
+                .is_err()
+        );
+        let pointer = case.top + egui::vec2(35., 65.);
+        let mut output = h.ctx.run_ui(
+            egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(240., 500.),
+                )),
+                time: Some(0.055),
+                focused: true,
+                events: vec![
+                    egui::Event::PointerMoved(pointer),
+                    egui::Event::MouseWheel {
+                        unit: egui::MouseWheelUnit::Point,
+                        delta: egui::vec2(0., -100_000.),
+                        phase: egui::TouchPhase::Move,
+                        modifiers: egui::Modifiers::NONE,
+                    },
+                ],
+                ..Default::default()
+            },
+            |ui| {
+                egui::CentralPanel::default().show(ui, |ui| draw(ui, &mut case));
+            },
+        );
+        output.textures_delta.clear();
+        for _ in 0..20 {
+            h.frame(&mut case, &mut draw);
+        }
+        h.click("trim.duplicate.item_999", &mut case, &mut draw)
+            .unwrap();
+        assert_eq!(
+            case.ui.draft.as_ref().unwrap().parse().unwrap().id,
+            "trim_1"
+        );
+        assert_eq!(case.template.trims.len(), 1000);
+    }
+
+    #[test]
+    fn named_duplicate_stages_all_trim_types_and_commits_one_undo() {
+        use super::super::authoring_smoke::widget_harness::Harness;
+        struct Case {
+            ui: TrimUi,
+            template: GarmentTemplate,
+            history: authoring::History,
+        }
+        let kinds = [
+            TrimKind::Button {
+                center_m: DVec2::new(0.1, 0.1),
+                diameter_m: 0.01,
+            },
+            TrimKind::Buttonhole {
+                start_m: DVec2::new(0.1, 0.1),
+                end_m: DVec2::new(0.2, 0.1),
+                width_m: 0.01,
+            },
+            TrimKind::Zipper {
+                path_m: vec![DVec2::new(0.1, 0.1), DVec2::new(0.2, 0.1)],
+                width_m: 0.01,
+            },
+            TrimKind::Topstitch {
+                path_m: vec![DVec2::new(0.1, 0.1), DVec2::new(0.2, 0.1)],
+                rows: 2,
+                spacing_m: 0.005,
+            },
+        ];
+        for (i, kind) in kinds.into_iter().enumerate() {
+            let mut template = GarmentTemplate::two_panel_demo();
+            let source = Trim {
+                id: "source".into(),
+                panel_id: template.panels[0].id.clone(),
+                kind,
+            };
+            template.trims.push(source.clone());
+            let mut case = Case {
+                ui: TrimUi::default(),
+                template,
+                history: Default::default(),
+            };
+            let mut draw = |ui: &mut egui::Ui, c: &mut Case| {
+                let panel = c.template.panels[0].clone();
+                if let Some(command) = trim_controls(ui, &mut c.ui, &c.template, &panel, true) {
+                    if let Command::SetTrim { trim } = &command {
+                        check_draft_revision(c.ui.draft.as_ref().unwrap(), &c.template).unwrap();
+                        validate_surface(trim, &c.template.compile().unwrap()).unwrap();
+                    }
+                    let edit = authoring::apply(&c.template, command).unwrap();
+                    assert!(!edit.reset_simulation);
+                    c.history.record(c.template.clone());
+                    c.template = edit.template;
+                    c.ui.draft = None;
+                }
+            };
+            let mut h = Harness::new(egui::vec2(1100., 900.));
+            h.frame(&mut case, &mut draw);
+            h.click("trim.section", &mut case, &mut draw).unwrap();
+            h.click("trim.duplicate.source", &mut case, &mut draw)
+                .unwrap();
+            let draft = case.ui.draft.as_ref().unwrap();
+            let copy = draft.parse().unwrap();
+            assert_ne!(copy.id, source.id);
+            assert_eq!(copy.kind, source.kind);
+            assert!(draft.base.is_none());
+            let mut changed = case.template.clone();
+            changed.trims.push(copy.clone());
+            assert!(check_draft_revision(draft, &changed).is_err());
+            assert_eq!(case.template.trims, vec![source.clone()]);
+            h.click("trim.cancel", &mut case, &mut draw).unwrap();
+            assert!(case.ui.draft.is_none() && !case.history.can_undo());
+            h.frame(&mut case, &mut draw);
+            h.click("trim.duplicate.source", &mut case, &mut draw)
+                .unwrap();
+            let draft = case.ui.draft.as_mut().unwrap();
+            if i % 2 == 0 {
+                stage_board_click(draft, DVec2::new(0.12, 0.12)).unwrap();
+            } else {
+                assert!(
+                    stage_surface_hit(
+                        draft,
+                        Some((source.panel_id.clone(), DVec2::new(0.12, 0.12)))
+                    )
+                    .unwrap()
+                );
+            }
+            h.frame(&mut case, &mut draw);
+            h.click("trim.apply", &mut case, &mut draw).unwrap();
+            assert_eq!(case.template.trims.len(), 2);
+            assert_eq!(case.template.trims[0], source);
+            assert_ne!(case.template.trims[1].id, source.id);
+            let undo = case.history.restore(&case.template, false).unwrap();
+            assert_eq!(undo.template.trims, vec![source]);
+            assert!(!undo.reset_simulation);
+        }
     }
 
     #[test]
