@@ -2336,6 +2336,68 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "opt-in CPU drag preview timing; no GPU or native window"]
+    fn benchmark_dense_drag_preview_cpu() {
+        let mut template = GarmentTemplate::two_panel_demo();
+        template.seams.clear();
+        template.panels[0].pattern.nx = 100;
+        template.panels[0].pattern.ny = 100;
+        let path = (0..128)
+            .map(|i| {
+                let t = i as f64 / 127.;
+                DVec2::new(0.04 + 0.30 * t, 0.3 + 0.03 * (20. * t).sin())
+            })
+            .collect();
+        let trim = Trim {
+            id: "profile".into(),
+            panel_id: template.panels[0].id.clone(),
+            kind: TrimKind::Topstitch {
+                path_m: path,
+                rows: 1,
+                spacing_m: 0.001,
+            },
+        };
+        template.trims.push(trim.clone());
+        let garment = std::sync::Arc::new(template.compile().unwrap());
+        let mut draft = TrimDraft::from_trim(&trim);
+        draft.place_on_board = true;
+        let mut state = TrimUi {
+            draft: Some(draft),
+            ..Default::default()
+        };
+        assert!(state.begin_board_drag(DVec2::new(0.1, 0.1)).unwrap());
+        let mut moved = Vec::new();
+        let mut cached = Vec::new();
+        for i in 0..20 {
+            let start = std::time::Instant::now();
+            state
+                .update_board_drag(DVec2::new(0.1 + i as f64 * 0.0001, 0.1))
+                .unwrap();
+            let (inputs, _, _) = preview_inputs(&template.trims, state.draft.as_ref());
+            state.refresh_preview(&garment, &inputs);
+            let preview = state.preview.as_ref().expect("valid preview");
+            assert_eq!(preview.skipped, 0);
+            assert!(!preview.paths.is_empty());
+            if i >= 2 {
+                moved.push(start.elapsed().as_secs_f64() * 1000.);
+            }
+            let start = std::time::Instant::now();
+            state.refresh_preview(&garment, &inputs);
+            if i >= 2 {
+                cached.push(start.elapsed().as_secs_f64() * 1000.);
+            }
+        }
+        for (label, samples) in [("moving", &mut moved), ("unchanged", &mut cached)] {
+            samples.sort_by(f64::total_cmp);
+            eprintln!(
+                "20k triangles / 128-point topstitch {label}: median {:.3} ms, p95 {:.3} ms (18 CPU samples, excludes rendering/visibility)",
+                samples[samples.len() / 2],
+                samples[((samples.len() - 1) as f64 * 0.95).ceil() as usize]
+            );
+        }
+    }
+
+    #[test]
     fn repeat_board_previews_use_material_frame_and_shared_budget() {
         let mut template = GarmentTemplate::two_panel_demo();
         let original = Trim {

@@ -138,6 +138,14 @@ Clean view hides the 3D overlay. The 2D preview has a separate 4096-unit work
 budget that also accounts for the extra width-outline segments.
 These overlays are not manufacturing-accurate previews.
 
+An opt-in CPU measurement, `cargo test --locked --features desktop --bin
+cloth-fit benchmark_dense_drag_preview_cpu -j 2 -- --ignored --nocapture`,
+measured a 20,000-triangle panel and 128-point topstitch over 18 timed moves:
+median 10.09 ms, p95 11.06 ms for draft update and preview rebuilding; unchanged
+cache checks were median 0.001 ms. This excludes rendering, visibility, window
+input, GPU and simulation. It is one synthetic machine result, not a frame-rate
+claim; rebuilding the material index on every changed path warrants profiling.
+
 One local CPU test with 10,000 synthetic triangles and 1,536 rays measured
 170.29 ms exhaustive versus 5.94 ms including BVH construction; after moving
 the triangles away from the rays, it measured 348.22 ms exhaustive versus
