@@ -152,29 +152,42 @@ function Invoke-PackagedClothFit {
     }
 }
 
+function Test-PayloadManifest {
+    param([Parameter(Mandatory = $true)][string]$Root)
+    $rootPath = [IO.Path]::GetFullPath($Root).TrimEnd([char[]]'\/')
+    $manifestPath = Join-Path $rootPath 'SHA256SUMS.txt'
+    $seen = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($line in Get-Content -LiteralPath $manifestPath -Encoding UTF8) {
+        if ($line -notmatch '^([0-9a-f]{64})  (.+)$') { throw "Invalid manifest record: $line" }
+        $expectedHash = $Matches[1]
+        $relative = $Matches[2]
+        $payload = [IO.Path]::GetFullPath((Join-Path $rootPath $relative))
+        if (-not $payload.StartsWith($rootPath + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Manifest path escapes package: $relative"
+        }
+        if (-not $seen.Add($payload)) { throw "Duplicate manifest path: $relative" }
+        if ((Get-FileHash -LiteralPath $payload -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expectedHash) {
+            throw "Payload checksum mismatch: $relative"
+        }
+    }
+    $files = @(Get-ChildItem -LiteralPath $rootPath -File -Recurse |
+        Where-Object { $_.FullName -ne $manifestPath })
+    if ($files.Count -ne $seen.Count) { throw 'Manifest does not cover exactly the package payload' }
+    foreach ($file in $files) {
+        if (-not $seen.Contains([IO.Path]::GetFullPath($file.FullName))) {
+            throw "Manifest does not cover package payload: $($file.FullName)"
+        }
+    }
+    return $seen.Count
+}
+
 if ($Verify) {
     $expected = (Get-Content -LiteralPath $zipHash -Raw).Substring(0, 64)
     if ((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) {
         throw 'Archive checksum mismatch'
     }
     [System.IO.Compression.ZipFile]::ExtractToDirectory($zip, $verifyRoot)
-    $seen = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-    foreach ($line in Get-Content -LiteralPath (Join-Path $verifyRoot 'SHA256SUMS.txt') -Encoding UTF8) {
-        if ($line -notmatch '^([0-9a-f]{64})  (.+)$') { throw "Invalid manifest record: $line" }
-        $expectedHash = $Matches[1]
-        $relative = $Matches[2]
-        $payload = [IO.Path]::GetFullPath((Join-Path $verifyRoot $relative))
-        if (-not $payload.StartsWith($verifyRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
-            throw "Manifest path escapes package: $relative"
-        }
-        if (-not $seen.Add($relative)) { throw "Duplicate manifest path: $relative" }
-        if ((Get-FileHash -LiteralPath $payload -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expectedHash) {
-            throw "Payload checksum mismatch: $relative"
-        }
-    }
-    $payloadCount = @(Get-ChildItem -LiteralPath $verifyRoot -File -Recurse |
-        Where-Object { $_.FullName -ne (Join-Path $verifyRoot 'SHA256SUMS.txt') }).Count
-    if ($payloadCount -ne $seen.Count) { throw 'Manifest does not cover exactly the package payload' }
+    $payloadCount = Test-PayloadManifest -Root $verifyRoot
     Push-Location -LiteralPath $verifyRoot
     try {
         $exe = Join-Path $verifyRoot 'cloth-template.exe'
@@ -187,7 +200,7 @@ if ($Verify) {
     } finally {
         Pop-Location
     }
-    Write-Host "Verified $($seen.Count) payload hashes and extracted CPU example write/reopen."
+    Write-Host "Verified $payloadCount payload hashes and extracted CPU example write/reopen."
 
     # Exercise the shipped local automation process, without opening a window.
     $sessionInput = Join-Path $verifyRoot 'session-input.jsonl'
