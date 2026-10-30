@@ -375,6 +375,24 @@ fn check_trim_draft_for_command(
     Ok(())
 }
 
+fn reset_arrangement_button(ui: &mut egui::Ui, trim_pending: bool) -> bool {
+    let reason = check_trim_draft_for_command(commands::CommandId::ResetSimulation, trim_pending);
+    let response = ui
+        .add_enabled(
+            reason.is_ok(),
+            egui::Button::new("Reset the flat arrangement"),
+        )
+        .on_hover_text("Resets the drape of every panel");
+    let response = if let Err(message) = reason {
+        response.on_disabled_hover_text(message)
+    } else {
+        response
+    };
+    #[cfg(test)]
+    authoring_smoke::widget_harness::named(ui, &response, "simulation.reset");
+    response.clicked()
+}
+
 /// Retired worker generations cannot overwrite an edit or a restored preview.
 fn current_worker_result(done: Option<worker::Done>, generation: u64) -> Option<worker::Done> {
     done.filter(|d| d.generation == generation)
@@ -849,7 +867,7 @@ impl eframe::App for Atelier {
                         self.invoke_command(step, &ctx);
                         ui.close();
                     }
-                    if ui.button("Reset the flat arrangement").on_hover_text("Resets the drape of every panel").clicked() {
+                    if reset_arrangement_button(ui, self.authoring.trims.has_pending_history_step()) {
                         self.invoke_command(commands::CommandId::ResetSimulation, &ctx); ui.close();
                     }
                 });
@@ -1138,6 +1156,68 @@ mod command_action_tests {
         ] {
             assert!(check_trim_draft_for_command(id, true).is_ok());
         }
+    }
+
+    #[test]
+    fn reset_menu_button_respects_pending_trim_draft() {
+        use super::authoring_smoke::widget_harness::Harness;
+        let mut state = (true, 0usize);
+        let mut h = Harness::new(egui::vec2(900., 900.));
+        let mut draw = |ui: &mut egui::Ui, state: &mut (bool, usize)| {
+            if reset_arrangement_button(ui, state.0) {
+                state.1 += 1;
+            }
+        };
+        h.frame(&mut state, &mut draw);
+        assert!(h.click("simulation.reset", &mut state, &mut draw).is_err());
+        assert_eq!(state.1, 0);
+        state.0 = false;
+        h.frame(&mut state, &mut draw);
+        h.click("simulation.reset", &mut state, &mut draw).unwrap();
+        assert_eq!(state.1, 1);
+    }
+
+    #[test]
+    fn reset_menu_button_paints_pending_trim_explanation() {
+        fn contains_text(shape: &egui::Shape, text: &str) -> bool {
+            match shape {
+                egui::Shape::Text(shape) => shape.galley.job.text.contains(text),
+                egui::Shape::Vec(shapes) => shapes.iter().any(|shape| contains_text(shape, text)),
+                _ => false,
+            }
+        }
+        let ctx = egui::Context::default();
+        let mut pointer = egui::Pos2::ZERO;
+        let reason = "Apply or cancel the trim draft before resetting the simulation";
+        let mut painted = false;
+        for frame in 0..12 {
+            let input = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(900., 900.),
+                )),
+                time: Some(frame as f64 * 0.25),
+                focused: true,
+                events: if frame == 1 {
+                    vec![egui::Event::PointerMoved(pointer)]
+                } else {
+                    vec![]
+                },
+                ..Default::default()
+            };
+            let mut output = ctx.run_ui(input, |ui| {
+                egui::CentralPanel::default().show(ui, |ui| {
+                    pointer = ui.cursor().min + egui::vec2(20., 10.);
+                    assert!(!reset_arrangement_button(ui, true));
+                });
+            });
+            painted |= output
+                .shapes
+                .iter()
+                .any(|shape| contains_text(&shape.shape, reason));
+            output.textures_delta.clear();
+        }
+        assert!(painted, "disabled reset did not paint its explanation");
     }
 
     #[test]
