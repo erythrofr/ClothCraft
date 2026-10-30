@@ -36,6 +36,28 @@ cargo run --locked --no-default-features -j 2 --example elastic_seam_probe -- --
 cargo run --locked --no-default-features -j 2 --example elastic_seam_probe -- --iterations 32 --replay output/elastic-seam-run --output output/elastic-seam-replay
 ```
 
+To study timestep sensitivity, `--hz` accepts 40, 60 or 120. Supply at least
+five seconds of steps, for example `--hz 40 --steps 240`, `--hz 60 --steps
+360`, or `--hz 120 --steps 720` for six seconds. Each run settles for two
+seconds, pulls for one and holds for half a second; the last second is the
+reported tail. The default remains 360 steps at 60 Hz. Replay is step-indexed
+and rejects different timestep metadata; legacy replays without a summary are
+accepted only at 60 Hz. The grab anchor is taken from each run's own trajectory,
+so independently generated runs do not have identical world-space targets.
+High-pass motion and positive-delta counts depend on sampling rate and are not
+directly comparable across rates. Report physical time and full step cost,
+not just frames per second; these small fixtures do not establish garment
+accuracy or collision safety along every step.
+
+One Windows CPU run per rate on the public 48-vertex fixture, with 16
+iterations and six seconds of simulated time, gave mean solver-step costs of
+7.69 ms at 40 Hz, 8.07 ms at 60 Hz and 7.99 ms at 120 Hz. The independent
+end-state intersection check passed in each run. Separate diagnostic work and
+output are excluded from those step timings; the runs are not a GPU or dress
+benchmark. The 60 Hz controls also replayed with 32 iterations, while a 60 Hz
+trace was rejected for a 120 Hz replay before creating output. These samples
+do not establish convergence: pull anchors and samples differ between rates.
+
 The public two-panel fixture has 48 vertices, nonmatching boundary meshes and
 15% length mismatch by default. The probe writes the material template, initial
 state, per-step energy/control trace and summary. It performs 120 settling

@@ -16,6 +16,9 @@ struct Args {
     steps: usize,
     #[arg(long, default_value_t = 16)]
     iterations: usize,
+    /// Simulation steps per second; choose 40, 60 or 120.
+    #[arg(long, default_value_t = 60)]
+    hz: usize,
     #[arg(long, default_value_t = 1.15)]
     ease_ratio: f64,
     /// Replay a previous run directory after checking its template and initial state.
@@ -36,26 +39,34 @@ struct Control {
     grab_target_m: Option<DVec3>,
 }
 
-fn phase(step: usize, idle_only: bool) -> &'static str {
+fn phase(step: usize, hz: usize, idle_only: bool) -> &'static str {
     if idle_only {
         return "idle";
     }
-    match step {
-        0..120 => "settle",
-        120..180 => "pull",
-        180..210 => "hold",
-        _ => "release",
+    if step < 2 * hz {
+        "settle"
+    } else if step < 3 * hz {
+        "pull"
+    } else if step < 7 * hz / 2 {
+        "hold"
+    } else {
+        "release"
     }
 }
 
-fn validate_controls(rows: &[Control], steps: usize, idle_only: bool) -> Result<(), &'static str> {
+fn validate_controls(
+    rows: &[Control],
+    steps: usize,
+    hz: usize,
+    idle_only: bool,
+) -> Result<(), &'static str> {
     if rows.len() != steps {
         return Err("Replay step count differs");
     }
     for (i, row) in rows.iter().enumerate() {
         if row.step != i
-            || row.phase != phase(i, idle_only)
-            || row.grab_target_m.is_some() != (!idle_only && (120..210).contains(&i))
+            || row.phase != phase(i, hz, idle_only)
+            || row.grab_target_m.is_some() != (!idle_only && (2 * hz..7 * hz / 2).contains(&i))
             || row.grab_target_m.is_some_and(|p| !p.is_finite())
         {
             return Err("Replay control sequence is invalid");
@@ -115,6 +126,28 @@ fn validate_matched_settings(
     Ok(())
 }
 
+fn validate_replay_timestep(
+    summary: Option<&serde_json::Value>,
+    hz: usize,
+) -> Result<(), &'static str> {
+    let Some(summary) = summary else {
+        return if hz == 60 {
+            Ok(())
+        } else {
+            Err("Replay without timing metadata is only supported at 60 Hz")
+        };
+    };
+    let dt = summary
+        .get("settings")
+        .and_then(|s| s.get("dt"))
+        .and_then(serde_json::Value::as_f64)
+        .ok_or("Replay summary has no timestep")?;
+    if !dt.is_finite() || (dt - 1. / hz as f64).abs() > 1e-12 {
+        return Err("Replay timestep differs; controls are indexed by step");
+    }
+    Ok(())
+}
+
 /// Independent proposed tension-only thread law, NOT installed in VBD.
 /// EA [N], material rest length [m], current length [m]; returns (J, N).
 fn thread_law(length: f64, rest: f64, ea: f64) -> (f64, f64) {
@@ -145,12 +178,13 @@ fn reconcile(
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    if args.steps < 300
+    if ![40, 60, 120].contains(&args.hz)
+        || args.steps < 5 * args.hz
         || args.iterations == 0
         || !args.ease_ratio.is_finite()
         || !(1.0..=1.5).contains(&args.ease_ratio)
     {
-        return Err("Require steps >= 300, positive iterations and ease ratio in [1, 1.5]".into());
+        return Err("Require hz 40, 60 or 120, at least five simulated seconds, positive iterations and ease ratio in [1, 1.5]".into());
     }
     rayon::ThreadPoolBuilder::new()
         .num_threads(2)
@@ -159,7 +193,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Err("Equal seam control requires an ease ratio greater than 1".into());
     }
     let settings = VbdSettings {
-        dt: 1. / 60.,
+        dt: 1. / args.hz as f64,
         iterations: args.iterations,
         ..Default::default()
     };
@@ -182,15 +216,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     return Err(format!("Replay {file} differs from current fixture").into());
                 }
             }
+            let summary_path = dir.join("summary.json");
+            if summary_path.exists() {
+                let summary: serde_json::Value = serde_json::from_slice(&fs::read(&summary_path)?)?;
+                validate_replay_timestep(Some(&summary), args.hz)?;
+            } else {
+                validate_replay_timestep(None, args.hz)?;
+            }
             if args.equal_seam_control {
-                let summary = serde_json::from_slice(&fs::read(dir.join("summary.json"))?)?;
+                let summary = serde_json::from_slice(&fs::read(&summary_path)?)?;
                 validate_matched_settings(&summary, &settings, args.steps, args.idle_only)?;
             }
             let rows = fs::read_to_string(dir.join("trace.jsonl"))?
                 .lines()
                 .map(serde_json::from_str)
                 .collect::<Result<Vec<Control>, _>>()?;
-            validate_controls(&rows, args.steps, args.idle_only)?;
+            validate_controls(&rows, args.steps, args.hz, args.idle_only)?;
             Ok(rows)
         })
         .transpose()?;
@@ -266,14 +307,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut costs = Vec::new();
     let mut tail_motion = Vec::new();
     for step in 0..args.steps {
-        if step == 120 {
+        if step == 2 * args.hz {
             anchor = point(&state.x);
         }
-        let phase = phase(step, args.idle_only);
-        let u = ((step as f64 - 119.) / 60.).clamp(0., 1.);
+        let phase = phase(step, args.hz, args.idle_only);
+        let u = ((step as f64 - (2 * args.hz - 1) as f64) / args.hz as f64).clamp(0., 1.);
         let target = replay.as_ref().map_or_else(
             || {
-                (!args.idle_only && (120..210).contains(&step))
+                (!args.idle_only && (2 * args.hz..7 * args.hz / 2).contains(&step))
                     .then_some(anchor + DVec3::Z * (0.04 * u * u * (3. - 2. * u)))
             },
             |rows| rows[step].grab_target_m,
@@ -323,7 +364,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         maximum_contact_refresh = maximum_contact_refresh.max(contact_refresh.abs());
         maximum_start_refresh = maximum_start_refresh.max(start_refresh.abs());
         maximum_reconciliation_error = maximum_reconciliation_error.max(reconciliation_error.abs());
-        if step >= args.steps - 60 {
+        if step >= args.steps - args.hz {
             tail_residual.push(balance.residual_rms_n);
         }
         total_diagnostic_ms += diagnostic_clock.elapsed().as_secs_f64() * 1000.;
@@ -333,7 +374,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if !final_energy.is_finite() {
             return Err("Nonfinite energy".into());
         }
-        if step == if args.idle_only { 0 } else { 210 } {
+        if step == if args.idle_only { 0 } else { 7 * args.hz / 2 } {
             release_start = final_energy;
         }
         if let Some((old_phase, old_energy)) = &previous
@@ -343,17 +384,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let rise = final_energy - old_energy;
             release_rises += usize::from(rise > 1e-12);
             maximum_release_rise = maximum_release_rise.max(rise);
-            if step >= args.steps - 60 {
+            if step >= args.steps - args.hz {
                 tail_rises += usize::from(rise > 1e-12);
                 maximum_tail_rise = maximum_tail_rise.max(rise);
             }
         }
         previous = Some((phase.into(), final_energy));
         let motion = metrics.motion.as_ref().map(|m| m.highpass_rms_m);
-        if step >= 60 {
+        if step >= args.hz {
             costs.push(wall_ms);
         }
-        if step >= args.steps - 60
+        if step >= args.steps - args.hz
             && let Some(m) = motion
         {
             tail_motion.push(m);
@@ -377,6 +418,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     costs.sort_by(f64::total_cmp);
     let report = json!({"kind":if args.equal_seam_control { "matched equal-length partial seam control" } else { "production geometric easing baseline" },
         "gpu_used":false,"replay":args.replay,"settings":settings,"vertices":initial.x.len(),"iterations":args.iterations,"steps":args.steps,
+        "simulation_hz":args.hz,"simulated_seconds":args.steps as f64 / args.hz as f64,"tail_seconds":1.0,
         "ease_ratio":args.ease_ratio,"equal_seam_control":args.equal_seam_control,"idle_only":args.idle_only,"gradient_max_error_n":max_error,
         "observation_phase":if args.idle_only { "idle" } else { "release" },
         "observation_energy_start_j":release_start,"observation_energy_end_j":final_energy,
@@ -648,32 +690,51 @@ mod tests {
             (0..300)
                 .map(|i| Control {
                     step: i,
-                    phase: phase(i, false).into(),
+                    phase: phase(i, 60, false).into(),
                     grab_target_m: (120..210).contains(&i).then_some(DVec3::ZERO),
                 })
                 .collect::<Vec<_>>()
         };
         let mut rows = make();
-        assert!(validate_controls(&rows, 300, false).is_ok());
-        assert!(validate_controls(&rows, 300, true).is_err());
-        assert!(validate_controls(&rows, 301, false).is_err());
+        assert!(validate_controls(&rows, 300, 60, false).is_ok());
+        assert!(validate_controls(&rows, 300, 60, true).is_err());
+        assert!(validate_controls(&rows, 301, 60, false).is_err());
         rows.swap(120, 121);
-        assert!(validate_controls(&rows, 300, false).is_err());
+        assert!(validate_controls(&rows, 300, 60, false).is_err());
         let mut rows = make();
         rows[210].grab_target_m = Some(DVec3::ZERO);
-        assert!(validate_controls(&rows, 300, false).is_err());
+        assert!(validate_controls(&rows, 300, 60, false).is_err());
         let mut rows = make();
         rows[120].grab_target_m = Some(DVec3::splat(f64::NAN));
-        assert!(validate_controls(&rows, 300, false).is_err());
+        assert!(validate_controls(&rows, 300, 60, false).is_err());
         let idle: Vec<_> = (0..300)
             .map(|i| Control {
                 step: i,
-                phase: phase(i, true).into(),
+                phase: phase(i, 60, true).into(),
                 grab_target_m: None,
             })
             .collect();
-        assert!(validate_controls(&idle, 300, true).is_ok());
-        assert!(validate_controls(&idle, 300, false).is_err());
+        assert!(validate_controls(&idle, 300, 60, true).is_ok());
+        assert!(validate_controls(&idle, 300, 60, false).is_err());
+    }
+    #[test]
+    fn timestep_schedules_have_matching_physical_phase_boundaries() {
+        for hz in [40, 60, 120] {
+            assert_eq!(phase(2 * hz - 1, hz, false), "settle");
+            assert_eq!(phase(2 * hz, hz, false), "pull");
+            assert_eq!(phase(3 * hz, hz, false), "hold");
+            assert_eq!(phase(7 * hz / 2, hz, false), "release");
+            assert_eq!(phase(7 * hz / 2, hz, true), "idle");
+        }
+    }
+    #[test]
+    fn replay_timing_requires_a_matching_step_interval() {
+        let summary = json!({"settings": {"dt": 1. / 60.}});
+        assert!(validate_replay_timestep(Some(&summary), 60).is_ok());
+        assert!(validate_replay_timestep(Some(&summary), 120).is_err());
+        assert!(validate_replay_timestep(Some(&json!({})), 60).is_err());
+        assert!(validate_replay_timestep(None, 60).is_ok());
+        assert!(validate_replay_timestep(None, 40).is_err());
     }
     #[test]
     fn proposed_thread_law_has_correct_derivative_and_slack_limit() {
