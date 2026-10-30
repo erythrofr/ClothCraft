@@ -118,16 +118,37 @@ function Invoke-PackagedClothFit {
     $quotedArguments = ($EditorArguments | ForEach-Object {
         if ($_ -match '\s') { '"' + $_ + '"' } else { $_ }
     }) -join ' '
-    $process = Start-Process -FilePath $exe -ArgumentList $quotedArguments `
-        -WorkingDirectory $verifyRoot -PassThru -NoNewWindow `
-        -RedirectStandardOutput $stdout -RedirectStandardError $stderr
-    if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
-        $process.Kill()
-        $process.WaitForExit()
-        throw "$Label timed out after $TimeoutSeconds seconds; see $stdout and $stderr"
-    }
-    if ($process.ExitCode -ne 0) {
-        throw "$Label failed with exit code $($process.ExitCode); see $stdout and $stderr"
+    # Keep a process handle on Windows PowerShell 5.1, including for fast
+    # exits, and drain both pipes concurrently to avoid blocking the child.
+    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $startInfo.FileName = $exe
+    $startInfo.Arguments = $quotedArguments
+    $startInfo.WorkingDirectory = $verifyRoot
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $startInfo
+    try {
+        if (-not $process.Start()) { throw "Could not start $Label" }
+        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+        $stderrTask = $process.StandardError.ReadToEndAsync()
+        $timedOut = -not $process.WaitForExit($TimeoutSeconds * 1000)
+        if ($timedOut) {
+            $process.Kill()
+            $process.WaitForExit()
+        }
+        [IO.File]::WriteAllText($stdout, $stdoutTask.GetAwaiter().GetResult(), $utf8)
+        [IO.File]::WriteAllText($stderr, $stderrTask.GetAwaiter().GetResult(), $utf8)
+        if ($timedOut) {
+            throw "$Label timed out after $TimeoutSeconds seconds; see $stdout and $stderr"
+        }
+        if ($process.ExitCode -ne 0) {
+            throw "$Label failed with exit code $($process.ExitCode); see $stdout and $stderr"
+        }
+    } finally {
+        $process.Dispose()
     }
 }
 
