@@ -262,15 +262,20 @@ impl Store {
         *self = next;
         Ok(())
     }
+    fn ensure_current(&self, path: &Path) -> Result<(), String> {
+        if read_source(path)? != self.source_text {
+            return Err(
+                "Workspace profiles changed on disk. Reload saved profiles before continuing."
+                    .into(),
+            );
+        }
+        Ok(())
+    }
     fn persist(&mut self, path: &Path) -> Result<(), String> {
         // All cooperating writers hold this guard through the comparison and
         // atomic replacement. Noncooperating processes can still bypass it.
         let _lock = lock_profile(path)?;
-        if read_source(path)? != self.source_text {
-            return Err(
-                "Workspace profiles changed on disk. Reload saved profiles before saving.".into(),
-            );
-        }
+        self.ensure_current(path)?;
         let text = serde_json::to_string_pretty(self).map_err(|e| e.to_string())?;
         if text.len() as u64 > MAX_BYTES {
             return Err("Workspace profiles exceed 256 KiB".into());
@@ -394,7 +399,12 @@ impl ProfileUi {
                 }
                 ui.horizontal(|ui| {
                     let selected=self.selected.as_ref().and_then(|name|store.profiles.iter().find(|p|&p.name==name)).cloned();
-                    if button(ui,"profiles.restore","Restore",selected.is_some()) { restore=selected.as_ref().map(|p|p.snapshot.clone()); }
+                    if button(ui,"profiles.restore","Restore",selected.is_some()) {
+                        match store.ensure_current(path) {
+                            Ok(()) => restore=selected.as_ref().map(|p|p.snapshot.clone()),
+                            Err(e) => self.error=Some(e),
+                        }
+                    }
                     if button(ui,"profiles.replace","Replace…",selected.is_some()) { self.pending=selected.as_ref().map(|p|Pending::Replace(p.name.clone(),current.clone())); }
                     if button(ui,"profiles.remove","Remove…",selected.is_some()) { self.pending=selected.map(|p|Pending::Remove(p.name)); }
                 });
@@ -1104,6 +1114,49 @@ mod tests {
         assert_eq!(restored.wireframe, Some(true));
         assert_eq!(restored.seam_links, Some(false));
         assert_eq!(Store::load(&path).unwrap().version, 2);
+    }
+
+    #[test]
+    fn stale_dialog_cannot_restore_an_outdated_profile() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(FILE_NAME);
+        let old = Snapshot {
+            tools_visible: false,
+            ..Snapshot::default()
+        };
+        Store::default()
+            .save_profile(&path, "View", old, false)
+            .unwrap();
+        let mut c = Case {
+            ui: ProfileUi::default(),
+            path: path.clone(),
+            prefs: Preferences::default(),
+            tools: true,
+            wire: false,
+            seams: false,
+        };
+        c.ui.begin(&path);
+        let mut h = Harness::new(egui::vec2(1100., 700.));
+        frames(&mut h, &mut c);
+        let mut other = Store::load(&path).unwrap();
+        other
+            .save_profile(&path, "View", Snapshot::default(), true)
+            .unwrap();
+        let saved = std::fs::read(&path).unwrap();
+        h.click("profiles.row.0", &mut c, &mut draw).unwrap();
+        h.click("profiles.restore", &mut c, &mut draw).unwrap();
+        assert!(c.tools, "stale restore changed the current presentation");
+        assert!(c.ui.open);
+        assert!(c.ui.error.as_deref().unwrap().contains("changed on disk"));
+        assert_eq!(std::fs::read(&path).unwrap(), saved);
+        frames(&mut h, &mut c);
+        h.click("profiles.reload", &mut c, &mut draw).unwrap();
+        frames(&mut h, &mut c);
+        h.click("profiles.row.0", &mut c, &mut draw).unwrap();
+        c.tools = false;
+        h.click("profiles.restore", &mut c, &mut draw).unwrap();
+        assert!(c.tools);
+        assert!(!c.ui.open);
     }
 
     #[test]
