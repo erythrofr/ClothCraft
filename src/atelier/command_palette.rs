@@ -191,9 +191,7 @@ impl Palette {
         let modal = egui::Modal::new(egui::Id::new("command-palette")).show(ctx, |ui| {
             ui.set_width((ctx.content_rect().width() - 64.).clamp(200., 520.));
             ui.heading("Commands");
-            ui.small(
-                "Search actions (abbreviations supported) · ↑ ↓ navigate · Enter run · Esc close",
-            );
+            ui.small("Search actions · ↑ ↓ / Page Up Down navigate · Enter run · Esc close");
             let response = ui.add(
                 egui::TextEdit::singleline(&mut self.query)
                     .id(egui::Id::new("palette.query"))
@@ -224,10 +222,12 @@ impl Palette {
             if selection_changed {
                 self.selected = available[0];
             }
-            let (up, down, enter, escape) = ctx.input_mut(|i| {
+            let (up, down, page_up, page_down, enter, escape) = ctx.input_mut(|i| {
                 (
                     i.consume_key(egui::Modifiers::NONE, egui::Key::ArrowUp),
                     i.consume_key(egui::Modifiers::NONE, egui::Key::ArrowDown),
+                    i.consume_key(egui::Modifiers::NONE, egui::Key::PageUp),
+                    i.consume_key(egui::Modifiers::NONE, egui::Key::PageDown),
                     i.consume_key(egui::Modifiers::NONE, egui::Key::Enter),
                     i.consume_key(egui::Modifiers::NONE, egui::Key::Escape),
                 )
@@ -241,6 +241,10 @@ impl Palette {
                     self.selected = available[(position + 1) % available.len()];
                 } else if up {
                     self.selected = available[(position + available.len() - 1) % available.len()];
+                } else if page_down {
+                    self.selected = available[(position + 5).min(available.len() - 1)];
+                } else if page_up {
+                    self.selected = available[position.saturating_sub(5)];
                 }
                 if enter && !selection_changed {
                     command = Some(results[self.selected]);
@@ -274,7 +278,12 @@ impl Palette {
                                 .selected(index == self.selected && availability.is_ok()),
                         );
                         named(ui, &row, &format!("palette.command.{}", descriptor.key));
-                        if (up || down || response.changed() || selection_changed)
+                        if (up
+                            || down
+                            || page_up
+                            || page_down
+                            || response.changed()
+                            || selection_changed)
                             && index == self.selected
                             && availability.is_ok()
                         {
@@ -769,6 +778,70 @@ mod tests {
         )
         .unwrap();
         assert_eq!(c.commands, vec![CommandId::SplitView]);
+    }
+
+    #[test]
+    fn page_navigation_skips_disabled_commands_and_clamps() {
+        let mut c = case();
+        c.context.document_loaded = false;
+        let mut h = Harness::new(egui::vec2(900., 900.));
+        frames(&mut h, &mut c);
+        let available: Vec<_> = commands::REGISTRY
+            .iter()
+            .enumerate()
+            .filter_map(|(i, d)| commands::availability(d.id, c.context).is_ok().then_some(i))
+            .collect();
+        assert!(available.len() > 5);
+        h.key(
+            "palette.query",
+            egui::Key::PageDown,
+            egui::Modifiers::NONE,
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert_eq!(c.palette.selected, available[5]);
+        h.key(
+            "palette.query",
+            egui::Key::PageUp,
+            egui::Modifiers::NONE,
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert_eq!(c.palette.selected, available[0]);
+        h.key(
+            "palette.query",
+            egui::Key::PageUp,
+            egui::Modifiers::NONE,
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert_eq!(c.palette.selected, available[0]);
+        for _ in 0..available.len() {
+            h.key(
+                "palette.query",
+                egui::Key::PageDown,
+                egui::Modifiers::NONE,
+                &mut c,
+                &mut draw,
+            )
+            .unwrap();
+        }
+        assert_eq!(c.palette.selected, *available.last().unwrap());
+        h.key(
+            "palette.query",
+            egui::Key::Enter,
+            egui::Modifiers::NONE,
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert_eq!(
+            c.commands,
+            vec![commands::REGISTRY[*available.last().unwrap()].id]
+        );
     }
 
     #[test]
