@@ -335,6 +335,64 @@ struct Atelier {
     smoke_captured: bool,
     smoke_initial: Vec<glam::DVec3>,
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PaletteShortcut {
+    None,
+    Open,
+    PendingTrim,
+}
+
+fn palette_shortcut(
+    ctx: &egui::Context,
+    workspace_ready: bool,
+    trim_pending: bool,
+) -> PaletteShortcut {
+    if !command_palette::launch_shortcut(ctx, workspace_ready) {
+        PaletteShortcut::None
+    } else if trim_pending {
+        PaletteShortcut::PendingTrim
+    } else {
+        PaletteShortcut::Open
+    }
+}
+
+/// Reject commands that reload the scene and discard an uncommitted trim draft.
+fn check_trim_draft_for_command(
+    id: commands::CommandId,
+    trim_pending: bool,
+) -> Result<(), &'static str> {
+    if trim_pending {
+        return match id {
+            commands::CommandId::LoadTshirt | commands::CommandId::LoadDress => {
+                Err("Apply or cancel the trim draft before loading an example")
+            }
+            commands::CommandId::ResetSimulation => {
+                Err("Apply or cancel the trim draft before resetting the simulation")
+            }
+            _ => Ok(()),
+        };
+    }
+    Ok(())
+}
+
+fn reset_arrangement_button(ui: &mut egui::Ui, trim_pending: bool) -> bool {
+    let reason = check_trim_draft_for_command(commands::CommandId::ResetSimulation, trim_pending);
+    let response = ui
+        .add_enabled(
+            reason.is_ok(),
+            egui::Button::new("Reset the flat arrangement"),
+        )
+        .on_hover_text("Resets the drape of every panel");
+    let response = if let Err(message) = reason {
+        response.on_disabled_hover_text(message)
+    } else {
+        response
+    };
+    #[cfg(test)]
+    authoring_smoke::widget_harness::named(ui, &response, "simulation.reset");
+    response.clicked()
+}
+
 /// Retired worker generations cannot overwrite an edit or a restored preview.
 fn current_worker_result(done: Option<worker::Done>, generation: u64) -> Option<worker::Done> {
     done.filter(|d| d.generation == generation)
@@ -373,6 +431,8 @@ impl Atelier {
         use commands::CommandId as Id;
         commands::availability(id, self.command_context())
             .map_err(|reason| reason.message().to_owned())?;
+        check_trim_draft_for_command(id, self.authoring.trims.has_pending_history_step())
+            .map_err(str::to_owned)?;
         match id {
             Id::ToggleSimulation => {
                 if self.playing {
@@ -711,9 +771,15 @@ impl eframe::App for Atelier {
             && self.authoring.ends.is_empty()
             && self.authoring.sewing.start.is_none()
             && self.authoring.sewing.sides.iter().all(Vec::is_empty);
-        let can_open_palette = command_palette::can_launch(&ctx, palette_idle);
-        if command_palette::launch_shortcut(&ctx, can_open_palette) {
-            self.palette.begin();
+        let can_open_workspace = command_palette::can_launch(&ctx, palette_idle);
+        let trim_pending = self.authoring.trims.has_pending_history_step();
+        let can_open_palette = can_open_workspace && !trim_pending;
+        match palette_shortcut(&ctx, can_open_workspace, trim_pending) {
+            PaletteShortcut::Open => self.palette.begin(),
+            PaletteShortcut::PendingTrim => {
+                self.status = "Apply or cancel the trim draft before opening Commands".into();
+            }
+            PaletteShortcut::None => {}
         }
         // Retain the barrier on the closing frame so Enter/click cannot reach a tool.
         let palette_blocked = self.palette.open || profiles_blocked;
@@ -775,7 +841,9 @@ impl eframe::App for Atelier {
                 ui.label(egui::RichText::new("ALPHA").small().color(Color32::GRAY))
                     .on_hover_text("Research prototype · most production features remain to be built");
                 ui.separator();
-                if command_palette::launch_button(ui, can_open_palette) {
+                let palette_reason = trim_pending
+                    .then_some("Apply or cancel the trim draft before opening Commands");
+                if command_palette::launch_button(ui, can_open_palette, palette_reason) {
                     self.palette.begin();
                 }
                 let play = ui.button(if self.playing {
@@ -799,7 +867,7 @@ impl eframe::App for Atelier {
                         self.invoke_command(step, &ctx);
                         ui.close();
                     }
-                    if ui.button("Reset the flat arrangement").on_hover_text("Resets the drape of every panel").clicked() {
+                    if reset_arrangement_button(ui, self.authoring.trims.has_pending_history_step()) {
                         self.invoke_command(commands::CommandId::ResetSimulation, &ctx); ui.close();
                     }
                 });
@@ -814,14 +882,14 @@ impl eframe::App for Atelier {
                     ui.checkbox(&mut self.tools_visible, "Tool rail");
                     stage_settings::menu_button()
                         .ui(ui, |ui| {
-                        if let Some(action) = stage_settings::controls(ui, can_open_palette, &mut self.prefs.viewport) {
+                        if let Some(action) = stage_settings::controls(ui, can_open_workspace, &mut self.prefs.viewport) {
                             let path = self.output.join(stage_settings::FILE_NAME);
                             self.status = stage_settings::execute(action, &path, &mut self.camera, &mut self.prefs.viewport)
                                 .unwrap_or_else(|e| format!("Presentation: {e}"));
                             ui.close();
                         }
                     });
-                    if ui.add_enabled(can_open_palette, egui::Button::new("Workspace profiles…")).clicked() {
+                    if ui.add_enabled(can_open_workspace, egui::Button::new("Workspace profiles…")).clicked() {
                         self.profiles.begin(&self.output.join(workspace_profiles::FILE_NAME));
                         ui.close();
                     }
@@ -1029,6 +1097,128 @@ impl eframe::App for Atelier {
 #[cfg(test)]
 mod command_action_tests {
     use super::*;
+
+    #[test]
+    fn palette_shortcut_reports_a_pending_trim_without_stealing_blocked_input() {
+        let modifiers = egui::Modifiers {
+            command: true,
+            shift: true,
+            ..Default::default()
+        };
+        for (ready, pending, pressed, expected, retained) in [
+            (true, true, true, PaletteShortcut::PendingTrim, false),
+            (true, false, true, PaletteShortcut::Open, false),
+            (false, true, true, PaletteShortcut::None, true),
+            (true, true, false, PaletteShortcut::None, false),
+        ] {
+            let ctx = egui::Context::default();
+            let events = if pressed {
+                vec![egui::Event::Key {
+                    key: egui::Key::P,
+                    physical_key: None,
+                    pressed: true,
+                    repeat: false,
+                    modifiers,
+                }]
+            } else {
+                vec![]
+            };
+            let mut observed = None;
+            let mut output = ctx.run_ui(
+                egui::RawInput {
+                    focused: true,
+                    events,
+                    ..Default::default()
+                },
+                |_| {
+                    let result = palette_shortcut(&ctx, ready, pending);
+                    observed = Some((result, ctx.input(|i| i.key_pressed(egui::Key::P))));
+                },
+            );
+            output.textures_delta.clear();
+            assert_eq!(observed, Some((expected, retained)));
+        }
+    }
+
+    #[test]
+    fn pending_trim_draft_prevents_scene_reload_but_not_other_commands() {
+        use commands::CommandId;
+        for id in [CommandId::LoadTshirt, CommandId::LoadDress] {
+            assert!(check_trim_draft_for_command(id, true).is_err());
+            assert!(check_trim_draft_for_command(id, false).is_ok());
+        }
+        assert!(check_trim_draft_for_command(CommandId::ResetSimulation, true).is_err());
+        assert!(check_trim_draft_for_command(CommandId::ResetSimulation, false).is_ok());
+        for id in [
+            CommandId::ToolEdit,
+            CommandId::SplitView,
+            CommandId::ToggleSimulation,
+        ] {
+            assert!(check_trim_draft_for_command(id, true).is_ok());
+        }
+    }
+
+    #[test]
+    fn reset_menu_button_respects_pending_trim_draft() {
+        use super::authoring_smoke::widget_harness::Harness;
+        let mut state = (true, 0usize);
+        let mut h = Harness::new(egui::vec2(900., 900.));
+        let mut draw = |ui: &mut egui::Ui, state: &mut (bool, usize)| {
+            if reset_arrangement_button(ui, state.0) {
+                state.1 += 1;
+            }
+        };
+        h.frame(&mut state, &mut draw);
+        assert!(h.click("simulation.reset", &mut state, &mut draw).is_err());
+        assert_eq!(state.1, 0);
+        state.0 = false;
+        h.frame(&mut state, &mut draw);
+        h.click("simulation.reset", &mut state, &mut draw).unwrap();
+        assert_eq!(state.1, 1);
+    }
+
+    #[test]
+    fn reset_menu_button_paints_pending_trim_explanation() {
+        fn contains_text(shape: &egui::Shape, text: &str) -> bool {
+            match shape {
+                egui::Shape::Text(shape) => shape.galley.job.text.contains(text),
+                egui::Shape::Vec(shapes) => shapes.iter().any(|shape| contains_text(shape, text)),
+                _ => false,
+            }
+        }
+        let ctx = egui::Context::default();
+        let mut pointer = egui::Pos2::ZERO;
+        let reason = "Apply or cancel the trim draft before resetting the simulation";
+        let mut painted = false;
+        for frame in 0..12 {
+            let input = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(900., 900.),
+                )),
+                time: Some(frame as f64 * 0.25),
+                focused: true,
+                events: if frame == 1 {
+                    vec![egui::Event::PointerMoved(pointer)]
+                } else {
+                    vec![]
+                },
+                ..Default::default()
+            };
+            let mut output = ctx.run_ui(input, |ui| {
+                egui::CentralPanel::default().show(ui, |ui| {
+                    pointer = ui.cursor().min + egui::vec2(20., 10.);
+                    assert!(!reset_arrangement_button(ui, true));
+                });
+            });
+            painted |= output
+                .shapes
+                .iter()
+                .any(|shape| contains_text(&shape.shape, reason));
+            output.textures_delta.clear();
+        }
+        assert!(painted, "disabled reset did not paint its explanation");
+    }
 
     #[test]
     fn simulation_submission_reports_disconnection_without_running_a_solver() {
