@@ -93,7 +93,7 @@ $info = @(
 [System.IO.File]::WriteAllText((Join-Path $stage 'BUILD-INFO.txt'), $info + "`n", $utf8)
 
 # Manifest covers every bundled payload, including provenance, license and build metadata.
-$records = foreach ($file in (Get-ChildItem -LiteralPath $stage -Recurse -File | Sort-Object FullName)) {
+$records = foreach ($file in (Get-ChildItem -LiteralPath $stage -Recurse -File -Force | Sort-Object FullName)) {
     $relative = $file.FullName.Substring($stage.Length + 1).Replace('\', '/')
     $digest = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
     "$digest  $relative"
@@ -118,17 +118,67 @@ function Invoke-PackagedClothFit {
     $quotedArguments = ($EditorArguments | ForEach-Object {
         if ($_ -match '\s') { '"' + $_ + '"' } else { $_ }
     }) -join ' '
-    $process = Start-Process -FilePath $exe -ArgumentList $quotedArguments `
-        -WorkingDirectory $verifyRoot -PassThru -NoNewWindow `
-        -RedirectStandardOutput $stdout -RedirectStandardError $stderr
-    if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
-        $process.Kill()
-        $process.WaitForExit()
-        throw "$Label timed out after $TimeoutSeconds seconds; see $stdout and $stderr"
+    # Keep a process handle on Windows PowerShell 5.1, including for fast
+    # exits, and drain both pipes concurrently to avoid blocking the child.
+    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $startInfo.FileName = $exe
+    $startInfo.Arguments = $quotedArguments
+    $startInfo.WorkingDirectory = $verifyRoot
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $startInfo
+    try {
+        if (-not $process.Start()) { throw "Could not start $Label" }
+        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+        $stderrTask = $process.StandardError.ReadToEndAsync()
+        $timedOut = -not $process.WaitForExit($TimeoutSeconds * 1000)
+        if ($timedOut) {
+            $process.Kill()
+            $process.WaitForExit()
+        }
+        [IO.File]::WriteAllText($stdout, $stdoutTask.GetAwaiter().GetResult(), $utf8)
+        [IO.File]::WriteAllText($stderr, $stderrTask.GetAwaiter().GetResult(), $utf8)
+        if ($timedOut) {
+            throw "$Label timed out after $TimeoutSeconds seconds; see $stdout and $stderr"
+        }
+        if ($process.ExitCode -ne 0) {
+            throw "$Label failed with exit code $($process.ExitCode); see $stdout and $stderr"
+        }
+    } finally {
+        $process.Dispose()
     }
-    if ($process.ExitCode -ne 0) {
-        throw "$Label failed with exit code $($process.ExitCode); see $stdout and $stderr"
+}
+
+function Test-PayloadManifest {
+    param([Parameter(Mandatory = $true)][string]$Root)
+    $rootPath = [IO.Path]::GetFullPath($Root).TrimEnd([char[]]'\/')
+    $manifestPath = Join-Path $rootPath 'SHA256SUMS.txt'
+    $seen = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($line in Get-Content -LiteralPath $manifestPath -Encoding UTF8) {
+        if ($line -notmatch '^([0-9a-f]{64})  (.+)$') { throw "Invalid manifest record: $line" }
+        $expectedHash = $Matches[1]
+        $relative = $Matches[2]
+        $payload = [IO.Path]::GetFullPath((Join-Path $rootPath $relative))
+        if (-not $payload.StartsWith($rootPath + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Manifest path escapes package: $relative"
+        }
+        if (-not $seen.Add($payload)) { throw "Duplicate manifest path: $relative" }
+        if ((Get-FileHash -LiteralPath $payload -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expectedHash) {
+            throw "Payload checksum mismatch: $relative"
+        }
     }
+    $files = @(Get-ChildItem -LiteralPath $rootPath -File -Recurse -Force |
+        Where-Object { $_.FullName -ne $manifestPath })
+    if ($files.Count -ne $seen.Count) { throw 'Manifest does not cover exactly the package payload' }
+    foreach ($file in $files) {
+        if (-not $seen.Contains([IO.Path]::GetFullPath($file.FullName))) {
+            throw "Manifest does not cover package payload: $($file.FullName)"
+        }
+    }
+    return $seen.Count
 }
 
 if ($Verify) {
@@ -137,23 +187,7 @@ if ($Verify) {
         throw 'Archive checksum mismatch'
     }
     [System.IO.Compression.ZipFile]::ExtractToDirectory($zip, $verifyRoot)
-    $seen = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-    foreach ($line in Get-Content -LiteralPath (Join-Path $verifyRoot 'SHA256SUMS.txt')) {
-        if ($line -notmatch '^([0-9a-f]{64})  (.+)$') { throw "Invalid manifest record: $line" }
-        $expectedHash = $Matches[1]
-        $relative = $Matches[2]
-        $payload = [IO.Path]::GetFullPath((Join-Path $verifyRoot $relative))
-        if (-not $payload.StartsWith($verifyRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
-            throw "Manifest path escapes package: $relative"
-        }
-        if (-not $seen.Add($relative)) { throw "Duplicate manifest path: $relative" }
-        if ((Get-FileHash -LiteralPath $payload -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expectedHash) {
-            throw "Payload checksum mismatch: $relative"
-        }
-    }
-    $payloadCount = @(Get-ChildItem -LiteralPath $verifyRoot -File -Recurse |
-        Where-Object { $_.FullName -ne (Join-Path $verifyRoot 'SHA256SUMS.txt') }).Count
-    if ($payloadCount -ne $seen.Count) { throw 'Manifest does not cover exactly the package payload' }
+    $payloadCount = Test-PayloadManifest -Root $verifyRoot
     Push-Location -LiteralPath $verifyRoot
     try {
         $exe = Join-Path $verifyRoot 'cloth-template.exe'
@@ -166,7 +200,7 @@ if ($Verify) {
     } finally {
         Pop-Location
     }
-    Write-Host "Verified $($seen.Count) payload hashes and extracted CPU example write/reopen."
+    Write-Host "Verified $payloadCount payload hashes and extracted CPU example write/reopen."
 
     # Exercise the shipped local automation process, without opening a window.
     $sessionInput = Join-Path $verifyRoot 'session-input.jsonl'
@@ -177,16 +211,46 @@ if ($Verify) {
         '{"protocol":"clothcraft.authoring","protocolVersion":1,"requestId":"package-snapshot","payload":{"op":"snapshot"}}'
     )
     [IO.File]::WriteAllText($sessionInput, ($requests -join "`n") + "`n", $utf8)
-    $sessionProcess = Start-Process -FilePath (Join-Path $verifyRoot 'cloth-session.exe') `
-        -WorkingDirectory $verifyRoot -WindowStyle Hidden -PassThru `
-        -RedirectStandardInput $sessionInput -RedirectStandardOutput $sessionOutput -RedirectStandardError $sessionError
-    if (-not $sessionProcess.WaitForExit(30000)) {
-        $sessionProcess.Kill()
-        $sessionProcess.WaitForExit()
-        throw 'Packaged authoring session timed out; inspect session-error.log'
+    # Start-Process -PassThru can lose a very fast child's exit code on
+    # Windows PowerShell 5.1. Process.Start retains the handle; drain both
+    # redirected streams concurrently so a full pipe cannot block shutdown.
+    $sessionStart = New-Object System.Diagnostics.ProcessStartInfo
+    $sessionStart.FileName = Join-Path $verifyRoot 'cloth-session.exe'
+    $sessionStart.WorkingDirectory = $verifyRoot
+    $sessionStart.UseShellExecute = $false
+    $sessionStart.CreateNoWindow = $true
+    $sessionStart.RedirectStandardInput = $true
+    $sessionStart.RedirectStandardOutput = $true
+    $sessionStart.RedirectStandardError = $true
+    $sessionStart.StandardOutputEncoding = $utf8
+    $sessionStart.StandardErrorEncoding = $utf8
+    $sessionProcess = New-Object System.Diagnostics.Process
+    $sessionProcess.StartInfo = $sessionStart
+    $sessionStarted = $false
+    try {
+        if (-not $sessionProcess.Start()) { throw 'Could not start packaged authoring session' }
+        $sessionStarted = $true
+        $stdoutTask = $sessionProcess.StandardOutput.ReadToEndAsync()
+        $stderrTask = $sessionProcess.StandardError.ReadToEndAsync()
+        $sessionProcess.StandardInput.Write([IO.File]::ReadAllText($sessionInput, $utf8))
+        $sessionProcess.StandardInput.Close()
+        $timedOut = -not $sessionProcess.WaitForExit(30000)
+        if ($timedOut) {
+            $sessionProcess.Kill()
+            $sessionProcess.WaitForExit()
+        }
+        [IO.File]::WriteAllText($sessionOutput, $stdoutTask.GetAwaiter().GetResult(), $utf8)
+        [IO.File]::WriteAllText($sessionError, $stderrTask.GetAwaiter().GetResult(), $utf8)
+        if ($timedOut) { throw 'Packaged authoring session timed out; inspect session-error.log' }
+        if ($sessionProcess.ExitCode -ne 0) { throw 'Packaged authoring session failed; inspect session-error.log' }
+    } finally {
+        if ($sessionStarted -and -not $sessionProcess.HasExited) {
+            $sessionProcess.Kill()
+            $sessionProcess.WaitForExit()
+        }
+        $sessionProcess.Dispose()
     }
-    if ($sessionProcess.ExitCode -ne 0) { throw 'Packaged authoring session failed; inspect session-error.log' }
-    $responses = @(Get-Content -LiteralPath $sessionOutput | ForEach-Object { $_ | ConvertFrom-Json })
+    $responses = @(Get-Content -LiteralPath $sessionOutput -Encoding UTF8 | ForEach-Object { $_ | ConvertFrom-Json })
     if ($responses.Count -ne 2) { throw 'Packaged session did not return exactly two JSON responses' }
     for ($i = 0; $i -lt 2; $i++) {
         $expectedId = @('package-hello', 'package-snapshot')[$i]
