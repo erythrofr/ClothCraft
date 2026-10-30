@@ -417,6 +417,50 @@ mod tests {
     }
 
     #[test]
+    fn disabled_launcher_paints_trim_explanation_on_hover() {
+        fn contains_text(shape: &egui::Shape, text: &str) -> bool {
+            match shape {
+                egui::Shape::Text(shape) => shape.galley.job.text.contains(text),
+                egui::Shape::Vec(shapes) => shapes.iter().any(|shape| contains_text(shape, text)),
+                _ => false,
+            }
+        }
+
+        let ctx = egui::Context::default();
+        let mut pointer = egui::Pos2::ZERO;
+        let reason = "Apply or cancel the trim draft before opening Commands";
+        let mut painted = false;
+        for frame in 0..12 {
+            let input = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(900., 900.),
+                )),
+                time: Some(frame as f64 * 0.25),
+                focused: true,
+                events: if frame == 1 {
+                    vec![egui::Event::PointerMoved(pointer)]
+                } else {
+                    vec![]
+                },
+                ..Default::default()
+            };
+            let mut output = ctx.run_ui(input, |ui| {
+                egui::CentralPanel::default().show(ui, |ui| {
+                    pointer = ui.cursor().min + egui::vec2(20., 10.);
+                    assert!(!launch_button(ui, false, Some(reason)));
+                });
+            });
+            painted |= output
+                .shapes
+                .iter()
+                .any(|shape| contains_text(&shape.shape, reason));
+            output.textures_delta.clear();
+        }
+        assert!(painted, "disabled launcher did not paint its explanation");
+    }
+
+    #[test]
     fn launcher_accepts_a_complete_pointer_gesture() {
         let mut count = 0;
         let mut h = Harness::new(egui::vec2(900., 900.));
