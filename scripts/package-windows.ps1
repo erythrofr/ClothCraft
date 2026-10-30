@@ -93,7 +93,7 @@ $info = @(
 [System.IO.File]::WriteAllText((Join-Path $stage 'BUILD-INFO.txt'), $info + "`n", $utf8)
 
 # Manifest covers every bundled payload, including provenance, license and build metadata.
-$records = foreach ($file in (Get-ChildItem -LiteralPath $stage -Recurse -File | Sort-Object FullName)) {
+$records = foreach ($file in (Get-ChildItem -LiteralPath $stage -Recurse -File -Force | Sort-Object FullName)) {
     $relative = $file.FullName.Substring($stage.Length + 1).Replace('\', '/')
     $digest = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
     "$digest  $relative"
@@ -170,7 +170,7 @@ function Test-PayloadManifest {
             throw "Payload checksum mismatch: $relative"
         }
     }
-    $files = @(Get-ChildItem -LiteralPath $rootPath -File -Recurse |
+    $files = @(Get-ChildItem -LiteralPath $rootPath -File -Recurse -Force |
         Where-Object { $_.FullName -ne $manifestPath })
     if ($files.Count -ne $seen.Count) { throw 'Manifest does not cover exactly the package payload' }
     foreach ($file in $files) {
