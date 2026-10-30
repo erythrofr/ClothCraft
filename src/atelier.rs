@@ -356,18 +356,21 @@ fn palette_shortcut(
     }
 }
 
-/// Reject example replacement when a trim draft has not been committed.
+/// Reject commands that reload the scene and discard an uncommitted trim draft.
 fn check_trim_draft_for_command(
     id: commands::CommandId,
     trim_pending: bool,
 ) -> Result<(), &'static str> {
-    if trim_pending
-        && matches!(
-            id,
-            commands::CommandId::LoadTshirt | commands::CommandId::LoadDress
-        )
-    {
-        return Err("Apply or cancel the trim draft before loading an example");
+    if trim_pending {
+        return match id {
+            commands::CommandId::LoadTshirt | commands::CommandId::LoadDress => {
+                Err("Apply or cancel the trim draft before loading an example")
+            }
+            commands::CommandId::ResetSimulation => {
+                Err("Apply or cancel the trim draft before resetting the simulation")
+            }
+            _ => Ok(()),
+        };
     }
     Ok(())
 }
@@ -1120,12 +1123,14 @@ mod command_action_tests {
     }
 
     #[test]
-    fn pending_trim_draft_prevents_example_replacement_but_not_other_commands() {
+    fn pending_trim_draft_prevents_scene_reload_but_not_other_commands() {
         use commands::CommandId;
         for id in [CommandId::LoadTshirt, CommandId::LoadDress] {
             assert!(check_trim_draft_for_command(id, true).is_err());
             assert!(check_trim_draft_for_command(id, false).is_ok());
         }
+        assert!(check_trim_draft_for_command(CommandId::ResetSimulation, true).is_err());
+        assert!(check_trim_draft_for_command(CommandId::ResetSimulation, false).is_ok());
         for id in [
             CommandId::ToolEdit,
             CommandId::SplitView,
