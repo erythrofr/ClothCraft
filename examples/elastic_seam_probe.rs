@@ -107,7 +107,29 @@ struct StateComparison {
     max_rms_m: f64,
     max_vertex_m: f64,
     final_rms_m: f64,
+    max_velocity_rms_m_s: f64,
+    max_velocity_vertex_m_s: f64,
+    final_velocity_rms_m_s: f64,
     elapsed_ms: f64,
+}
+
+fn vector_difference(a: &[DVec3], b: &[DVec3]) -> Result<(f64, f64), &'static str> {
+    if a.is_empty() || a.len() != b.len() {
+        return Err("Comparison vector counts differ");
+    }
+    let mut sum = 0.;
+    let mut max = 0_f64;
+    for (a, b) in a.iter().zip(b) {
+        let d2 = a.distance_squared(*b);
+        sum += d2;
+        max = max.max(d2);
+    }
+    let rms = (sum / a.len() as f64).sqrt();
+    let max = max.sqrt();
+    if !rms.is_finite() || !max.is_finite() {
+        return Err("Comparison distance overflow");
+    }
+    Ok((rms, max))
 }
 impl StateComparison {
     fn sample(
@@ -140,24 +162,18 @@ impl StateComparison {
         {
             return Err("Comparison state vertex count or time differs".into());
         }
-        let mut sum = 0.;
-        let mut max = 0_f64;
-        for (a, b) in state.x.iter().zip(&source.x) {
-            let d2 = a.distance_squared(*b);
-            sum += d2;
-            max = max.max(d2);
-        }
-        let rms = (sum / state.x.len() as f64).sqrt();
-        let max = max.sqrt();
-        if !rms.is_finite() || !max.is_finite() {
-            return Err("Comparison distance overflow".into());
-        }
+        let (rms, max) = vector_difference(&state.x, &source.x)?;
+        let (velocity_rms, velocity_max) = vector_difference(&state.v, &source.v)?;
         self.count += 1;
         self.max_rms_m = self.max_rms_m.max(rms);
         self.max_vertex_m = self.max_vertex_m.max(max);
         self.final_rms_m = rms;
+        self.max_velocity_rms_m_s = self.max_velocity_rms_m_s.max(velocity_rms);
+        self.max_velocity_vertex_m_s = self.max_velocity_vertex_m_s.max(velocity_max);
+        self.final_velocity_rms_m_s = velocity_rms;
         self.elapsed_ms += clock.elapsed().as_secs_f64() * 1000.;
-        Ok(json!({"position_rms_m":rms,"position_max_m":max}))
+        Ok(json!({"position_rms_m":rms,"position_max_m":max,
+            "velocity_rms_m_s":velocity_rms,"velocity_max_m_s":velocity_max}))
     }
     fn finish(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let mut extra = String::new();
@@ -497,6 +513,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             max_rms_m: 0.,
             max_vertex_m: 0.,
             final_rms_m: 0.,
+            max_velocity_rms_m_s: 0.,
+            max_velocity_vertex_m_s: 0.,
+            final_velocity_rms_m_s: 0.,
             elapsed_ms: 0.,
         })
     } else {
@@ -750,7 +769,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         serde_json::Value::Null
     };
-    report["state_comparison"] = comparison.as_ref().map(|c| json!({"samples":c.count,"final_position_rms_m":c.final_rms_m,"max_step_rms_m":c.max_rms_m,"max_vertex_m":c.max_vertex_m,"elapsed_ms":c.elapsed_ms})).unwrap_or(serde_json::Value::Null);
+    report["state_comparison"] = comparison.as_ref().map(|c| json!({"samples":c.count,"final_position_rms_m":c.final_rms_m,"max_step_rms_m":c.max_rms_m,"max_vertex_m":c.max_vertex_m,"final_velocity_rms_m_s":c.final_velocity_rms_m_s,"max_step_velocity_rms_m_s":c.max_velocity_rms_m_s,"max_vertex_velocity_m_s":c.max_velocity_vertex_m_s,"elapsed_ms":c.elapsed_ms})).unwrap_or(serde_json::Value::Null);
     fs::write(
         args.output.join("summary.json"),
         serde_json::to_vec_pretty(&report)?,
@@ -762,6 +781,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn vector_difference_checks_counts_and_overflow() {
+        let (rms, max) = vector_difference(
+            &[DVec3::new(3., 0., 0.), DVec3::new(0., 4., 0.)],
+            &[DVec3::ZERO, DVec3::ZERO],
+        )
+        .unwrap();
+        assert!((rms - (12.5_f64).sqrt()).abs() < 1e-12);
+        assert_eq!(max, 4.);
+        assert!(vector_difference(&[], &[]).is_err());
+        assert!(vector_difference(&[DVec3::ZERO], &[]).is_err());
+        assert!(vector_difference(&[DVec3::splat(f64::NAN)], &[DVec3::ZERO]).is_err());
+        assert!(vector_difference(&[DVec3::splat(f64::MAX)], &[DVec3::ZERO]).is_err());
+    }
     #[test]
     fn comparison_stream_checks_order_time_and_distance() {
         let dir = tempfile::tempdir().unwrap();
@@ -785,15 +818,21 @@ mod tests {
             max_rms_m: 0.,
             max_vertex_m: 0.,
             final_rms_m: 0.,
+            max_velocity_rms_m_s: 0.,
+            max_velocity_vertex_m_s: 0.,
+            final_velocity_rms_m_s: 0.,
             elapsed_ms: 0.,
         };
         let target = marvelous_cloth::model::State {
             x: vec![DVec3::new(0.003, 0., 0.)],
-            v: vec![DVec3::ZERO],
+            v: vec![DVec3::new(0., 0.2, 0.)],
             time: 1. / 60.,
         };
         let result = compare.sample(&target).unwrap();
         assert!((result["position_rms_m"].as_f64().unwrap() - 0.003).abs() < 1e-12);
+        assert!((result["velocity_rms_m_s"].as_f64().unwrap() - 0.2).abs() < 1e-12);
+        assert!((result["velocity_max_m_s"].as_f64().unwrap() - 0.2).abs() < 1e-12);
+        assert!((compare.final_velocity_rms_m_s - 0.2).abs() < 1e-12);
         assert_eq!(compare.count, 1);
         compare.finish().unwrap();
         assert!(compare.sample(&target).is_err());
@@ -809,6 +848,9 @@ mod tests {
             max_rms_m: 0.,
             max_vertex_m: 0.,
             final_rms_m: 0.,
+            max_velocity_rms_m_s: 0.,
+            max_velocity_vertex_m_s: 0.,
+            final_velocity_rms_m_s: 0.,
             elapsed_ms: 0.,
         };
         assert!(compare.sample(&target).is_err());
@@ -824,6 +866,9 @@ mod tests {
             max_rms_m: 0.,
             max_vertex_m: 0.,
             final_rms_m: 0.,
+            max_velocity_rms_m_s: 0.,
+            max_velocity_vertex_m_s: 0.,
+            final_velocity_rms_m_s: 0.,
             elapsed_ms: 0.,
         };
         assert!(

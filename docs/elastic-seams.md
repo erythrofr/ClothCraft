@@ -84,11 +84,23 @@ trajectory to a captured higher-rate replay as it runs. The source must have
 the template, initial state, panel ranges, material coordinates, triangle
 indices, timing and replayed world-space targets must match the comparison
 contract. Incomplete, out-of-order, nonfinite or incompatible inputs are
-refused. Each trace row gains position RMS and maximum vertex distance; the
-summary records final RMS, largest sampled RMS and largest sampled vertex
-distance, with comparison cost separate from solver-step timing. These are
+refused. Each trace row gains position RMS and maximum vertex distance in
+metres, plus RMS and maximum vertex velocity difference in metres per second.
+The summary records the final RMS, largest sampled RMS and largest sampled
+vertex difference for both position and velocity, with comparison cost separate
+from solver-step timing. Velocities are the stored discrete solver velocities
+at aligned timestamps; their differences depend on the integration scheme. These are
 discrete differences between runs, not errors against ground truth or a
 continuous-time guarantee.
+
+One CPU-only six-second run on the 48-vertex fixture compared matched controls
+at 120 Hz and 40 Hz with 16 iterations. The 240 aligned samples had a final
+velocity RMS difference of 0.00814 m/s. Peak velocity RMS differences were
+0.449 m/s during settling (first sample), 0.0424 m/s during pull, 0.0216 m/s
+during hold and 0.0597 m/s during release. The largest single vertex difference
+was 1.044 m/s. Both endpoint intersection checks passed, but intermediate and
+continuous collision safety were not established. These figures describe one
+synthetic comparison and do not establish accuracy or behavior of a real garment.
 
 One six-second CPU capture on the public 48-vertex fixture compared 40 Hz
 against a 120 Hz run, using the same initial template/state and aligned pull
