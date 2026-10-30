@@ -68,6 +68,25 @@ does not test continuous motion between them, and the existing local sewing
 exclusions still apply. It does not modify the solver's contact caches. Without
 the option, the original end-state-only check and its cost are unchanged.
 
+`--capture-states` additionally streams `states.jsonl`, one accepted state per
+step, with the step index, positions in metres, velocities in metres per
+second and simulation time in seconds. `initial.json` remains the pre-step
+state. The summary records sample count and capture time separately from the
+solver-step timer. Vertex indices are transient and meaningful only with this
+run's saved template and compiled topology; this is diagnostic output, not an
+editable garment or a complete solver checkpoint. It does not save contact
+caches, predictor history or a restart guarantee. Captures can be large and
+remain local unless deliberately shared; they are disabled by default.
+
+One six-second CPU capture on the public 48-vertex fixture compared 40 Hz
+against a 120 Hz run, using the same initial template/state and aligned pull
+targets. At the final timestamp, vertex displacement differences were 7.73 mm
+RMS and 22.82 mm maximum; velocity differences were 0.00814 m/s RMS. These are
+differences between two discretizations on one fixture, not error against a
+ground truth or proof of convergence. A 40 Hz capture contained 240 finite
+states; its recorded times and velocity RMS matched the diagnostic trace, whose
+selected energy/motion/contact fields matched the corresponding uncaptured run.
+
 On one six-second public two-panel pull/hold/release run at each rate, the
 40/60 Hz runs used aligned targets from the 120 Hz trace. The sampled checks
 passed for 241, 361 and 721 states respectively and took 44.61, 68.36 and

@@ -36,6 +36,9 @@ struct Args {
     /// Audit the initial and every accepted state, separately from the solver.
     #[arg(long)]
     audit_every_step: bool,
+    /// Stream accepted positions, velocities and time for offline comparison.
+    #[arg(long)]
+    capture_states: bool,
 }
 
 #[derive(serde::Deserialize)]
@@ -43,6 +46,26 @@ struct Control {
     step: usize,
     phase: String,
     grab_target_m: Option<DVec3>,
+}
+
+fn write_captured_state(
+    writer: &mut impl Write,
+    step: usize,
+    state: &marvelous_cloth::model::State,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if !state.time.is_finite()
+        || state.x.len() != state.v.len()
+        || state
+            .x
+            .iter()
+            .chain(&state.v)
+            .any(|value| !value.is_finite())
+    {
+        return Err(format!("Invalid captured state at step {step}").into());
+    }
+    serde_json::to_writer(&mut *writer, &json!({"step":step,"state":state}))?;
+    writer.write_all(b"\n")?;
+    Ok(())
 }
 
 struct IntersectionAudit {
@@ -372,6 +395,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let point = |x: &[DVec3]| vertices.iter().map(|&v| x[v] / 3.).sum::<DVec3>();
     let mut anchor = DVec3::ZERO;
     let mut trace = fs::File::create(args.output.join("trace.jsonl"))?;
+    let mut captured = if args.capture_states {
+        Some(std::io::BufWriter::new(fs::File::create(
+            args.output.join("states.jsonl"),
+        )?))
+    } else {
+        None
+    };
+    let mut capture_ms = 0_f64;
     fs::write(
         args.output.join("template.json"),
         serde_json::to_vec_pretty(&comparison_fixture(
@@ -443,6 +474,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Some(audit) = &mut intersection_audit {
             audit.sample(&state, &format!("accepted step {step}"))?;
         }
+        if let Some(writer) = &mut captured {
+            let capture_clock = Instant::now();
+            write_captured_state(writer, step, &state)?;
+            capture_ms += capture_clock.elapsed().as_secs_f64() * 1000.;
+        }
         let diagnostic_clock = Instant::now();
         let balance =
             solver.audit_step(&before, &state, &settings, &contacts_before, grab.as_ref())?;
@@ -513,6 +549,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         previous_grab = grab;
         previous_energy = Some(energy);
     }
+    if let Some(writer) = &mut captured {
+        let capture_clock = Instant::now();
+        writer.flush()?;
+        capture_ms += capture_clock.elapsed().as_secs_f64() * 1000.;
+    }
     solver
         .world
         .validate_start(&solver.world.positions(&state.x))?;
@@ -542,6 +583,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .as_ref()
         .map(|audit| json!({"samples":audit.samples,"elapsed_ms":audit.elapsed_ms,"status":"passed"}))
         .unwrap_or(serde_json::Value::Null);
+    report["state_capture"] = if args.capture_states {
+        json!({"schema": 1, "file":"states.jsonl", "samples":args.steps, "elapsed_ms":capture_ms})
+    } else {
+        serde_json::Value::Null
+    };
     fs::write(
         args.output.join("summary.json"),
         serde_json::to_vec_pretty(&report)?,
@@ -553,6 +599,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn captured_state_roundtrips_and_rejects_nonfinite_input() {
+        let state = marvelous_cloth::model::State {
+            x: vec![DVec3::new(0.1, 0.2, 0.3)],
+            v: vec![DVec3::new(-1., 0., 2.)],
+            time: 0.5,
+        };
+        let mut bytes = Vec::new();
+        write_captured_state(&mut bytes, 29, &state).unwrap();
+        let record: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(record["step"], 29);
+        let restored: marvelous_cloth::model::State =
+            serde_json::from_value(record["state"].clone()).unwrap();
+        assert_eq!(restored.x, state.x);
+        assert_eq!(restored.v, state.v);
+        assert_eq!(restored.time, state.time);
+        let mut invalid = state.clone();
+        invalid.x[0].x = f64::NAN;
+        let original = bytes.clone();
+        assert!(write_captured_state(&mut bytes, 30, &invalid).is_err());
+        assert_eq!(bytes, original);
+        invalid = state;
+        invalid.v.clear();
+        assert!(write_captured_state(&mut bytes, 30, &invalid).is_err());
+        assert_eq!(bytes, original);
+    }
     #[test]
     fn independent_intersection_audit_detects_collapsed_state() {
         let garment = Arc::new(fixture(1.15).compile().unwrap());
