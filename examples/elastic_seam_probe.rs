@@ -24,6 +24,9 @@ struct Args {
     /// Replay a previous run directory after checking its template and initial state.
     #[arg(long)]
     replay: Option<PathBuf>,
+    /// Downsample a higher-frequency replay at matching physical step times.
+    #[arg(long, requires = "replay", conflicts_with = "equal_seam_control")]
+    resample_replay: bool,
     /// Replay the full-edge fixture with an equal-length partial-edge seam.
     #[arg(long, requires = "replay")]
     equal_seam_control: bool,
@@ -73,6 +76,43 @@ fn validate_controls(
         }
     }
     Ok(())
+}
+
+fn downsample_controls(
+    rows: &[Control],
+    source_hz: usize,
+    target_hz: usize,
+    steps: usize,
+    idle_only: bool,
+) -> Result<Vec<Control>, &'static str> {
+    if ![40, 60, 120].contains(&source_hz)
+        || ![40, 60, 120].contains(&target_hz)
+        || source_hz < target_hz
+        || !source_hz.is_multiple_of(target_hz)
+    {
+        return Err("Replay rates require an integer downsampling ratio");
+    }
+    let ratio = source_hz / target_hz;
+    let source_steps = steps
+        .checked_mul(ratio)
+        .ok_or("Replay step count overflow")?;
+    validate_controls(rows, source_steps, source_hz, idle_only)?;
+    let mut result = Vec::with_capacity(steps);
+    for step in 0..steps {
+        // Both indices represent the end of the same physical interval.
+        let source = &rows[(step + 1) * ratio - 1];
+        let phase = phase(step, target_hz, idle_only);
+        if source.phase != phase {
+            return Err("Replay phases do not align");
+        }
+        result.push(Control {
+            step,
+            phase: phase.into(),
+            grab_target_m: source.grab_target_m,
+        });
+    }
+    validate_controls(&result, steps, target_hz, idle_only)?;
+    Ok(result)
 }
 
 fn fixture(ratio: f64) -> GarmentTemplate {
@@ -217,22 +257,54 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
             let summary_path = dir.join("summary.json");
-            if summary_path.exists() {
-                let summary: serde_json::Value = serde_json::from_slice(&fs::read(&summary_path)?)?;
-                validate_replay_timestep(Some(&summary), args.hz)?;
+            let summary: Option<serde_json::Value> = if summary_path.exists() {
+                Some(serde_json::from_slice(&fs::read(&summary_path)?)?)
             } else {
-                validate_replay_timestep(None, args.hz)?;
-            }
+                None
+            };
+            let source_hz = if args.resample_replay {
+                let summary = summary
+                    .as_ref()
+                    .ok_or("Resampled replay requires timing metadata")?;
+                let dt = summary
+                    .get("settings")
+                    .and_then(|s| s.get("dt"))
+                    .and_then(serde_json::Value::as_f64)
+                    .ok_or("Replay summary has no timestep")?;
+                [40, 60, 120]
+                    .into_iter()
+                    .find(|hz| (dt - 1. / *hz as f64).abs() <= 1e-12)
+                    .ok_or("Replay timestep is not supported for resampling")?
+            } else {
+                validate_replay_timestep(summary.as_ref(), args.hz)?;
+                args.hz
+            };
             if args.equal_seam_control {
-                let summary = serde_json::from_slice(&fs::read(&summary_path)?)?;
-                validate_matched_settings(&summary, &settings, args.steps, args.idle_only)?;
+                validate_matched_settings(
+                    summary
+                        .as_ref()
+                        .ok_or("Matched replay requires a summary")?,
+                    &settings,
+                    args.steps,
+                    args.idle_only,
+                )?;
             }
             let rows = fs::read_to_string(dir.join("trace.jsonl"))?
                 .lines()
                 .map(serde_json::from_str)
                 .collect::<Result<Vec<Control>, _>>()?;
-            validate_controls(&rows, args.steps, args.hz, args.idle_only)?;
-            Ok(rows)
+            if args.resample_replay {
+                Ok(downsample_controls(
+                    &rows,
+                    source_hz,
+                    args.hz,
+                    args.steps,
+                    args.idle_only,
+                )?)
+            } else {
+                validate_controls(&rows, args.steps, args.hz, args.idle_only)?;
+                Ok(rows)
+            }
         })
         .transpose()?;
     // Validate controls and settings before creating any experiment output.
@@ -417,7 +489,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .validate_start(&solver.world.positions(&state.x))?;
     costs.sort_by(f64::total_cmp);
     let report = json!({"kind":if args.equal_seam_control { "matched equal-length partial seam control" } else { "production geometric easing baseline" },
-        "gpu_used":false,"replay":args.replay,"settings":settings,"vertices":initial.x.len(),"iterations":args.iterations,"steps":args.steps,
+        "gpu_used":false,"replay":args.replay,"resample_replay":args.resample_replay,"settings":settings,"vertices":initial.x.len(),"iterations":args.iterations,"steps":args.steps,
         "simulation_hz":args.hz,"simulated_seconds":args.steps as f64 / args.hz as f64,"tail_seconds":1.0,
         "ease_ratio":args.ease_ratio,"equal_seam_control":args.equal_seam_control,"idle_only":args.idle_only,"gradient_max_error_n":max_error,
         "observation_phase":if args.idle_only { "idle" } else { "release" },
@@ -735,6 +807,34 @@ mod tests {
         assert!(validate_replay_timestep(Some(&json!({})), 60).is_err());
         assert!(validate_replay_timestep(None, 60).is_ok());
         assert!(validate_replay_timestep(None, 40).is_err());
+    }
+    #[test]
+    fn downsample_replay_uses_exact_aligned_world_targets() {
+        let source_hz = 120;
+        let rows: Vec<_> = (0..6 * source_hz)
+            .map(|step| Control {
+                step,
+                phase: phase(step, source_hz, false).into(),
+                grab_target_m: (2 * source_hz..7 * source_hz / 2)
+                    .contains(&step)
+                    .then_some(DVec3::splat((step + 1) as f64 / source_hz as f64)),
+            })
+            .collect();
+        for target_hz in [40, 60] {
+            let result =
+                downsample_controls(&rows, source_hz, target_hz, 6 * target_hz, false).unwrap();
+            for row in &result {
+                if let Some(target) = row.grab_target_m {
+                    assert_eq!(
+                        target,
+                        DVec3::splat((row.step + 1) as f64 / target_hz as f64)
+                    );
+                }
+            }
+        }
+        assert!(downsample_controls(&rows, 60, 40, 240, false).is_err());
+        assert!(downsample_controls(&rows, 120, 40, 239, false).is_err());
+        assert!(downsample_controls(&rows, 120, 40, 240, true).is_err());
     }
     #[test]
     fn proposed_thread_law_has_correct_derivative_and_slack_limit() {

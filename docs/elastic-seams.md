@@ -49,6 +49,17 @@ directly comparable across rates. Report physical time and full step cost,
 not just frames per second; these small fixtures do not establish garment
 accuracy or collision safety along every step.
 
+For matched pull targets across rates, record a six-second 120 Hz run, then
+replay it at 60 or 40 Hz using `--resample-replay`, `--replay <run>` and
+respectively `--steps 360` or `--steps 240`. Each lower-frequency step uses the
+recorded target at the same end-of-step physical time; no interpolation or
+extrapolation is used. The source must have exactly the matching duration,
+valid timing metadata and an integer rate ratio; 60→40 and upsampling are
+refused. This option cannot be combined with the equal-seam control, whose
+comparison contract requires identical settings. The same controls do not
+make the trajectories or contact sets identical, and this is not a solver
+accuracy guarantee.
+
 One Windows CPU run per rate on the public 48-vertex fixture, with 16
 iterations and six seconds of simulated time, gave mean solver-step costs of
 7.69 ms at 40 Hz, 8.07 ms at 60 Hz and 7.99 ms at 120 Hz. The independent
