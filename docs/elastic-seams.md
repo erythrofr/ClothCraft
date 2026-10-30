@@ -78,6 +78,18 @@ editable garment or a complete solver checkpoint. It does not save contact
 caches, predictor history or a restart guarantee. Captures can be large and
 remain local unless deliberately shared; they are disabled by default.
 
+Add `--compare-states` to a `--resample-replay` run to compare the current
+trajectory to a captured higher-rate replay as it runs. The source must have
+`states.jsonl`, capture metadata and `topology.json` produced by this version;
+the template, initial state, panel ranges, material coordinates, triangle
+indices, timing and replayed world-space targets must match the comparison
+contract. Incomplete, out-of-order, nonfinite or incompatible inputs are
+refused. Each trace row gains position RMS and maximum vertex distance; the
+summary records final RMS, largest sampled RMS and largest sampled vertex
+distance, with comparison cost separate from solver-step timing. These are
+discrete differences between runs, not errors against ground truth or a
+continuous-time guarantee.
+
 One six-second CPU capture on the public 48-vertex fixture compared 40 Hz
 against a 120 Hz run, using the same initial template/state and aligned pull
 targets. At the final timestamp, vertex displacement differences were 7.73 mm

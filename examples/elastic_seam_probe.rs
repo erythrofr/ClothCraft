@@ -6,7 +6,13 @@ use marvelous_cloth::{
     vbd::{Grab, VbdSettings, VbdSolver},
 };
 use serde_json::json;
-use std::{fs, io::Write, path::PathBuf, sync::Arc, time::Instant};
+use std::{
+    fs,
+    io::{BufRead, BufReader, Write},
+    path::PathBuf,
+    sync::Arc,
+    time::Instant,
+};
 
 #[derive(Parser)]
 struct Args {
@@ -39,6 +45,9 @@ struct Args {
     /// Stream accepted positions, velocities and time for offline comparison.
     #[arg(long)]
     capture_states: bool,
+    /// Compare with states from the high-rate replay at aligned times.
+    #[arg(long, requires = "resample_replay")]
+    compare_states: bool,
 }
 
 #[derive(serde::Deserialize)]
@@ -48,12 +57,9 @@ struct Control {
     grab_target_m: Option<DVec3>,
 }
 
-fn write_captured_state(
-    writer: &mut impl Write,
-    step: usize,
-    state: &marvelous_cloth::model::State,
-) -> Result<(), Box<dyn std::error::Error>> {
+fn validate_state(state: &marvelous_cloth::model::State) -> Result<(), &'static str> {
     if !state.time.is_finite()
+        || state.x.is_empty()
         || state.x.len() != state.v.len()
         || state
             .x
@@ -61,11 +67,105 @@ fn write_captured_state(
             .chain(&state.v)
             .any(|value| !value.is_finite())
     {
-        return Err(format!("Invalid captured state at step {step}").into());
+        return Err("Nonfinite or malformed state");
     }
+    Ok(())
+}
+
+fn write_captured_state(
+    writer: &mut impl Write,
+    step: usize,
+    state: &marvelous_cloth::model::State,
+) -> Result<(), Box<dyn std::error::Error>> {
+    validate_state(state)
+        .map_err(|error| format!("Invalid captured state at step {step}: {error}"))?;
     serde_json::to_writer(&mut *writer, &json!({"step":step,"state":state}))?;
     writer.write_all(b"\n")?;
     Ok(())
+}
+
+#[derive(serde::Deserialize)]
+struct CapturedState {
+    step: usize,
+    state: marvelous_cloth::model::State,
+}
+
+fn capture_topology(garment: &marvelous_cloth::garment::CompiledGarment) -> serde_json::Value {
+    json!({
+        "uv": garment.mesh.uv,
+        "triangles": garment.mesh.triangles.iter().map(|t| t.vertices).collect::<Vec<_>>(),
+        "panels": garment.panels.iter().map(|p| json!({"id":p.id,"vertices":p.vertices})).collect::<Vec<_>>(),
+    })
+}
+
+struct StateComparison {
+    input: BufReader<fs::File>,
+    ratio: usize,
+    source_hz: usize,
+    next_source: usize,
+    count: usize,
+    max_rms_m: f64,
+    max_vertex_m: f64,
+    final_rms_m: f64,
+    elapsed_ms: f64,
+}
+impl StateComparison {
+    fn sample(
+        &mut self,
+        state: &marvelous_cloth::model::State,
+    ) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+        let clock = Instant::now();
+        let mut source = None;
+        for _ in 0..self.ratio {
+            let mut line = String::new();
+            if self.input.read_line(&mut line)? == 0 {
+                return Err("Comparison capture ended early".into());
+            }
+            let record: CapturedState = serde_json::from_str(&line)?;
+            if record.step != self.next_source {
+                return Err("Comparison capture steps are out of order".into());
+            }
+            let expected_time = (record.step + 1) as f64 / self.source_hz as f64;
+            if (record.state.time - expected_time).abs() > 1e-9 * expected_time.abs().max(1.) {
+                return Err("Comparison capture time is out of order".into());
+            }
+            self.next_source += 1;
+            validate_state(&record.state)?;
+            source = Some(record.state);
+        }
+        let source = source.ok_or("Missing comparison state")?;
+        validate_state(state)?;
+        if source.x.len() != state.x.len()
+            || (source.time - state.time).abs() > 1e-9 * state.time.abs().max(1.)
+        {
+            return Err("Comparison state vertex count or time differs".into());
+        }
+        let mut sum = 0.;
+        let mut max = 0_f64;
+        for (a, b) in state.x.iter().zip(&source.x) {
+            let d2 = a.distance_squared(*b);
+            sum += d2;
+            max = max.max(d2);
+        }
+        let rms = (sum / state.x.len() as f64).sqrt();
+        let max = max.sqrt();
+        if !rms.is_finite() || !max.is_finite() {
+            return Err("Comparison distance overflow".into());
+        }
+        self.count += 1;
+        self.max_rms_m = self.max_rms_m.max(rms);
+        self.max_vertex_m = self.max_vertex_m.max(max);
+        self.final_rms_m = rms;
+        self.elapsed_ms += clock.elapsed().as_secs_f64() * 1000.;
+        Ok(json!({"position_rms_m":rms,"position_max_m":max}))
+    }
+    fn finish(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let mut extra = String::new();
+        if self.input.read_line(&mut extra)? != 0 {
+            return Err("Comparison capture has extra states".into());
+        }
+        Ok(())
+    }
 }
 
 struct IntersectionAudit {
@@ -348,6 +448,60 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         })
         .transpose()?;
+    let topology = capture_topology(&garment);
+    let mut comparison = if args.compare_states {
+        let dir = args.replay.as_ref().ok_or("Comparison requires a replay")?;
+        let saved_topology: serde_json::Value = serde_json::from_slice(
+            &fs::read(dir.join("topology.json"))
+                .map_err(|error| format!("Cannot read replay topology.json: {error}"))?,
+        )?;
+        if saved_topology != topology {
+            return Err("Comparison topology differs".into());
+        }
+        let summary: serde_json::Value =
+            serde_json::from_slice(&fs::read(dir.join("summary.json"))?)?;
+        let dt = summary
+            .get("settings")
+            .and_then(|s| s.get("dt"))
+            .and_then(serde_json::Value::as_f64)
+            .ok_or("Comparison has no timestep")?;
+        let source_hz = [40, 60, 120]
+            .into_iter()
+            .find(|hz| (dt - 1. / *hz as f64).abs() <= 1e-12)
+            .ok_or("Unsupported comparison timestep")?;
+        if source_hz < args.hz || !source_hz.is_multiple_of(args.hz) {
+            return Err("Comparison rates do not align".into());
+        }
+        let ratio = source_hz / args.hz;
+        let expected = args
+            .steps
+            .checked_mul(ratio)
+            .ok_or("Comparison length overflow")?;
+        let capture = summary
+            .get("state_capture")
+            .ok_or("Replay has no state capture")?;
+        if capture.get("schema").and_then(serde_json::Value::as_u64) != Some(1)
+            || capture.get("samples").and_then(serde_json::Value::as_u64) != Some(expected as u64)
+        {
+            return Err("Replay capture metadata does not match duration".into());
+        }
+        Some(StateComparison {
+            input: BufReader::new(
+                fs::File::open(dir.join("states.jsonl"))
+                    .map_err(|error| format!("Cannot read replay states.jsonl: {error}"))?,
+            ),
+            ratio,
+            source_hz,
+            next_source: 0,
+            count: 0,
+            max_rms_m: 0.,
+            max_vertex_m: 0.,
+            final_rms_m: 0.,
+            elapsed_ms: 0.,
+        })
+    } else {
+        None
+    };
     // Validate controls and settings before creating any experiment output.
     fs::create_dir(&args.output)?;
     let seam = &garment.seams[0];
@@ -396,6 +550,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut anchor = DVec3::ZERO;
     let mut trace = fs::File::create(args.output.join("trace.jsonl"))?;
     let mut captured = if args.capture_states {
+        fs::write(
+            args.output.join("topology.json"),
+            serde_json::to_vec_pretty(&topology)?,
+        )?;
         Some(std::io::BufWriter::new(fs::File::create(
             args.output.join("states.jsonl"),
         )?))
@@ -479,6 +637,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             write_captured_state(writer, step, &state)?;
             capture_ms += capture_clock.elapsed().as_secs_f64() * 1000.;
         }
+        let comparison_row = comparison.as_mut().map(|c| c.sample(&state)).transpose()?;
         let diagnostic_clock = Instant::now();
         let balance =
             solver.audit_step(&before, &state, &settings, &contacts_before, grab.as_ref())?;
@@ -536,18 +695,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         {
             tail_motion.push(m);
         }
-        writeln!(
-            trace,
-            "{}",
-            json!({"step":step,"phase":phase,"energy":energy,
+        let mut row = json!({"step":step,"phase":phase,"energy":energy,
             "total_j":final_energy,"step_wall_ms":wall_ms,"highpass_rms_m":motion,"velocity_rms_m_s":velocity_rms,
             "grab_target_m":grab.as_ref().map(|g|g.target),"seam_gap_m":seam.max_gap(&state.x),
             "frozen_contact_balance":balance,"contact_refresh_j":contact_refresh,
             "contact_refresh_at_start_j":start_refresh,"control_change_j":control_change,
-            "reconciliation_error_j":reconciliation_error})
-        )?;
+            "reconciliation_error_j":reconciliation_error});
+        if let Some(comparison_row) = comparison_row {
+            row["state_comparison"] = comparison_row;
+        }
+        writeln!(trace, "{row}")?;
         previous_grab = grab;
         previous_energy = Some(energy);
+    }
+    if let Some(comparison) = &mut comparison {
+        comparison.finish()?;
     }
     if let Some(writer) = &mut captured {
         let capture_clock = Instant::now();
@@ -588,6 +750,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         serde_json::Value::Null
     };
+    report["state_comparison"] = comparison.as_ref().map(|c| json!({"samples":c.count,"final_position_rms_m":c.final_rms_m,"max_step_rms_m":c.max_rms_m,"max_vertex_m":c.max_vertex_m,"elapsed_ms":c.elapsed_ms})).unwrap_or(serde_json::Value::Null);
     fs::write(
         args.output.join("summary.json"),
         serde_json::to_vec_pretty(&report)?,
@@ -599,6 +762,78 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn comparison_stream_checks_order_time_and_distance() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("states.jsonl");
+        let mut output = fs::File::create(&path).unwrap();
+        let mut source = marvelous_cloth::model::State {
+            x: vec![DVec3::ZERO],
+            v: vec![DVec3::ZERO],
+            time: 1. / 120.,
+        };
+        write_captured_state(&mut output, 0, &source).unwrap();
+        source.time = 2. / 120.;
+        write_captured_state(&mut output, 1, &source).unwrap();
+        drop(output);
+        let mut compare = StateComparison {
+            input: BufReader::new(fs::File::open(&path).unwrap()),
+            ratio: 2,
+            source_hz: 120,
+            next_source: 0,
+            count: 0,
+            max_rms_m: 0.,
+            max_vertex_m: 0.,
+            final_rms_m: 0.,
+            elapsed_ms: 0.,
+        };
+        let target = marvelous_cloth::model::State {
+            x: vec![DVec3::new(0.003, 0., 0.)],
+            v: vec![DVec3::ZERO],
+            time: 1. / 60.,
+        };
+        let result = compare.sample(&target).unwrap();
+        assert!((result["position_rms_m"].as_f64().unwrap() - 0.003).abs() < 1e-12);
+        assert_eq!(compare.count, 1);
+        compare.finish().unwrap();
+        assert!(compare.sample(&target).is_err());
+        let mut malformed = fs::File::create(&path).unwrap();
+        write_captured_state(&mut malformed, 1, &source).unwrap();
+        drop(malformed);
+        let mut compare = StateComparison {
+            input: BufReader::new(fs::File::open(&path).unwrap()),
+            ratio: 1,
+            source_hz: 120,
+            next_source: 0,
+            count: 0,
+            max_rms_m: 0.,
+            max_vertex_m: 0.,
+            final_rms_m: 0.,
+            elapsed_ms: 0.,
+        };
+        assert!(compare.sample(&target).is_err());
+        let mut wrong_time = fs::File::create(&path).unwrap();
+        write_captured_state(&mut wrong_time, 0, &source).unwrap();
+        drop(wrong_time);
+        let mut compare = StateComparison {
+            input: BufReader::new(fs::File::open(&path).unwrap()),
+            ratio: 1,
+            source_hz: 120,
+            next_source: 0,
+            count: 0,
+            max_rms_m: 0.,
+            max_vertex_m: 0.,
+            final_rms_m: 0.,
+            elapsed_ms: 0.,
+        };
+        assert!(
+            compare
+                .sample(&target)
+                .unwrap_err()
+                .to_string()
+                .contains("time")
+        );
+    }
     #[test]
     fn captured_state_roundtrips_and_rejects_nonfinite_input() {
         let state = marvelous_cloth::model::State {
