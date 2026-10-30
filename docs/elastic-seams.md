@@ -60,6 +60,23 @@ comparison contract requires identical settings. The same controls do not
 make the trajectories or contact sets identical, and this is not a solver
 accuracy guarantee.
 
+Add `--audit-every-step` to check the initial and each accepted state for
+intersections with an independent OGC world. The summary records the number of
+samples and total audit time separately from solver step timings; the run stops
+with a labeled error on the first rejected state. This samples states only: it
+does not test continuous motion between them, and the existing local sewing
+exclusions still apply. It does not modify the solver's contact caches. Without
+the option, the original end-state-only check and its cost are unchanged.
+
+On one six-second public two-panel pull/hold/release run at each rate, the
+40/60 Hz runs used aligned targets from the 120 Hz trace. The sampled checks
+passed for 241, 361 and 721 states respectively and took 44.61, 68.36 and
+134.61 ms in total on this CPU, outside the solver-step timer. For each run,
+the energy, motion, target, seam gap and contact/control diagnostic fields in
+every trace row matched its unaudited counterpart exactly; timings were not
+compared. These observations are not proof of continuous separation, do not
+cover excluded sewing pairs, and are not a dress or GPU benchmark.
+
 One Windows CPU run per rate on the public 48-vertex fixture, with 16
 iterations and six seconds of simulated time, gave mean solver-step costs of
 7.69 ms at 40 Hz, 8.07 ms at 60 Hz and 7.99 ms at 120 Hz. The independent

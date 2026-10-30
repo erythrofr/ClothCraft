@@ -33,6 +33,9 @@ struct Args {
     /// Run without grab input, to inspect settling under the seam and gravity.
     #[arg(long)]
     idle_only: bool,
+    /// Audit the initial and every accepted state, separately from the solver.
+    #[arg(long)]
+    audit_every_step: bool,
 }
 
 #[derive(serde::Deserialize)]
@@ -40,6 +43,21 @@ struct Control {
     step: usize,
     phase: String,
     grab_target_m: Option<DVec3>,
+}
+
+struct IntersectionAudit {
+    world: marvelous_cloth::ogc::OgcWorld,
+    samples: usize,
+    elapsed_ms: f64,
+}
+impl IntersectionAudit {
+    fn sample(&mut self, state: &marvelous_cloth::model::State, label: &str) -> Result<(), String> {
+        let clock = Instant::now();
+        let result = self.world.validate_start(&self.world.positions(&state.x));
+        self.elapsed_ms += clock.elapsed().as_secs_f64() * 1000.;
+        self.samples += 1;
+        result.map_err(|error| format!("Intersection audit at {label}: {error}"))
+    }
 }
 
 fn phase(step: usize, hz: usize, idle_only: bool) -> &'static str {
@@ -330,6 +348,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let mut solver = VbdSolver::new(garment.clone(), None, &initial)?;
     let mut state = initial.clone();
+    let mut intersection_audit = args.audit_every_step.then(|| IntersectionAudit {
+        world: solver.world.clone(),
+        samples: 0,
+        elapsed_ms: 0.,
+    });
+    if let Some(audit) = &mut intersection_audit {
+        audit.sample(&state, "initial state")?;
+    }
     // Select a free triangle by rest coordinates, not a serialized mesh index.
     let panel = &garment.panels[1];
     let vertices = garment
@@ -414,6 +440,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let clock = Instant::now();
         let metrics = solver.step(&mut state, &settings, grab.as_ref())?;
         let wall_ms = clock.elapsed().as_secs_f64() * 1000.;
+        if let Some(audit) = &mut intersection_audit {
+            audit.sample(&state, &format!("accepted step {step}"))?;
+        }
         let diagnostic_clock = Instant::now();
         let balance =
             solver.audit_step(&before, &state, &settings, &contacts_before, grab.as_ref())?;
@@ -488,7 +517,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .world
         .validate_start(&solver.world.positions(&state.x))?;
     costs.sort_by(f64::total_cmp);
-    let report = json!({"kind":if args.equal_seam_control { "matched equal-length partial seam control" } else { "production geometric easing baseline" },
+    let mut report = json!({"kind":if args.equal_seam_control { "matched equal-length partial seam control" } else { "production geometric easing baseline" },
         "gpu_used":false,"replay":args.replay,"resample_replay":args.resample_replay,"settings":settings,"vertices":initial.x.len(),"iterations":args.iterations,"steps":args.steps,
         "simulation_hz":args.hz,"simulated_seconds":args.steps as f64 / args.hz as f64,"tail_seconds":1.0,
         "ease_ratio":args.ease_ratio,"equal_seam_control":args.equal_seam_control,"idle_only":args.idle_only,"gradient_max_error_n":max_error,
@@ -509,6 +538,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "final_intersection_check":"passed",
         "thread_law_example":{"rest_m":0.3,"current_m":0.33,"ea_n":10.,"energy_and_tension":thread_law(0.33,0.3,10.)},
         "limits":"Frozen pre-step diagnostic contacts may differ from the solver's internal contacts; residual includes movement-bound reactions and is not a convergence certificate. Control and contact refresh changes are separate. Uncalibrated thread law is analytical only."});
+    report["sampled_intersection_audit"] = intersection_audit
+        .as_ref()
+        .map(|audit| json!({"samples":audit.samples,"elapsed_ms":audit.elapsed_ms,"status":"passed"}))
+        .unwrap_or(serde_json::Value::Null);
     fs::write(
         args.output.join("summary.json"),
         serde_json::to_vec_pretty(&report)?,
@@ -520,6 +553,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn independent_intersection_audit_detects_collapsed_state() {
+        let garment = Arc::new(fixture(1.15).compile().unwrap());
+        let initial = garment.initial_state.clone();
+        let mut solver = VbdSolver::new(garment, None, &initial).unwrap();
+        let mut audit = IntersectionAudit {
+            world: solver.world.clone(),
+            samples: 0,
+            elapsed_ms: 0.,
+        };
+        audit.sample(&initial, "initial").unwrap();
+        let mut collapsed = initial.clone();
+        collapsed.x.fill(DVec3::ZERO);
+        assert!(audit.sample(&collapsed, "collapsed").is_err());
+        assert_eq!(audit.samples, 2);
+        let solver_positions = solver.world.positions(&initial.x);
+        solver.world.validate_start(&solver_positions).unwrap();
+    }
     #[test]
     fn matched_control_changes_only_seam_coverage() {
         let base = fixture(1.15);
