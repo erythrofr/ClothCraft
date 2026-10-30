@@ -843,6 +843,32 @@ mod tests {
     }
 
     #[test]
+    fn concurrent_preview_migration_preserves_overlays_and_rejects_stale_writes() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(FILE_NAME);
+        std::fs::write(
+            &path,
+            r#"{"version":1,"profiles":[{"name":"Preview","snapshot":{"wireframe":true,"seam_links":false}}]}"#,
+        )
+        .unwrap();
+        let mut stale = Store::load(&path).unwrap();
+        let mut current = Store::load(&path).unwrap();
+        assert_eq!(stale.version, 2);
+        current.rename(&path, "Preview", "Renamed").unwrap();
+        let migrated = std::fs::read(&path).unwrap();
+        let result = stale.remove(&path, "Preview");
+        assert!(result.unwrap_err().contains("changed on disk"));
+        assert_eq!(std::fs::read(&path).unwrap(), migrated);
+        let mut reloaded = Store::load(&path).unwrap();
+        assert_eq!(reloaded.version, 2);
+        assert_eq!(reloaded.profiles[0].name, "Renamed");
+        assert_eq!(reloaded.profiles[0].snapshot.wireframe, Some(true));
+        assert_eq!(reloaded.profiles[0].snapshot.seam_links, Some(false));
+        reloaded.remove(&path, "Renamed").unwrap();
+        assert_eq!(Store::load(&path).unwrap().version, 2);
+    }
+
+    #[test]
     fn legacy_profiles_preserve_current_overlays_and_startup_preferences() {
         let snapshot: Snapshot = serde_json::from_str("{}").unwrap();
         let mut prefs = Preferences {
