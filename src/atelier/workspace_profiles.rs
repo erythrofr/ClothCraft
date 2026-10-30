@@ -1052,6 +1052,61 @@ mod tests {
     }
 
     #[test]
+    fn stale_dialog_reload_restores_migrated_overlay_profile() {
+        struct ConflictCase {
+            ui: ProfileUi,
+            path: std::path::PathBuf,
+            restored: Option<Snapshot>,
+        }
+        let mut draw = |ui: &mut egui::Ui, c: &mut ConflictCase| {
+            if let Some(snapshot) = c.ui.show(ui.ctx(), &c.path, &Snapshot::default()) {
+                c.restored = Some(snapshot);
+            }
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(FILE_NAME);
+        std::fs::write(
+            &path,
+            r#"{"version":1,"profiles":[{"name":"Preview","snapshot":{"wireframe":true,"seam_links":false}}]}"#,
+        )
+        .unwrap();
+        let mut c = ConflictCase {
+            ui: ProfileUi::default(),
+            path: path.clone(),
+            restored: None,
+        };
+        c.ui.begin(&path);
+        let mut h = Harness::new(egui::vec2(1100., 700.));
+        for _ in 0..5 {
+            h.frame(&mut c, &mut draw);
+        }
+        let mut other = Store::load(&path).unwrap();
+        other.rename(&path, "Preview", "Renamed").unwrap();
+        let migrated = std::fs::read(&path).unwrap();
+        h.click("profiles.row.0", &mut c, &mut draw).unwrap();
+        h.click("profiles.remove", &mut c, &mut draw).unwrap();
+        for _ in 0..5 {
+            h.frame(&mut c, &mut draw);
+        }
+        h.click("profiles.confirm", &mut c, &mut draw).unwrap();
+        assert!(c.ui.error.as_deref().unwrap().contains("changed on disk"));
+        assert_eq!(std::fs::read(&path).unwrap(), migrated);
+        for _ in 0..5 {
+            h.frame(&mut c, &mut draw);
+        }
+        h.click("profiles.reload", &mut c, &mut draw).unwrap();
+        for _ in 0..5 {
+            h.frame(&mut c, &mut draw);
+        }
+        h.click("profiles.row.0", &mut c, &mut draw).unwrap();
+        h.click("profiles.restore", &mut c, &mut draw).unwrap();
+        let restored = c.restored.unwrap();
+        assert_eq!(restored.wireframe, Some(true));
+        assert_eq!(restored.seam_links, Some(false));
+        assert_eq!(Store::load(&path).unwrap().version, 2);
+    }
+
+    #[test]
     fn failed_reload_preserves_loaded_store_name_and_file() {
         struct ConflictCase {
             ui: ProfileUi,
