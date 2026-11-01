@@ -57,12 +57,17 @@ struct Profile {
 pub(super) struct Store {
     version: u32,
     profiles: Vec<Profile>,
+    // Exact bytes read from disk, never serialized. This detects edits by a
+    // second instance even when unknown JSON fields or formatting changed.
+    #[serde(skip)]
+    source_text: Option<String>,
 }
 impl Default for Store {
     fn default() -> Self {
         Self {
             version: 1,
             profiles: vec![],
+            source_text: None,
         }
     }
 }
@@ -76,20 +81,55 @@ fn valid_name(name: &str) -> Result<(), String> {
     }
     Ok(())
 }
+fn read_source(path: &Path) -> Result<Option<String>, String> {
+    let file = match std::fs::File::open(path) {
+        Ok(file) => file,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(e.to_string()),
+    };
+    let mut text = String::new();
+    file.take(MAX_BYTES + 1)
+        .read_to_string(&mut text)
+        .map_err(|e| e.to_string())?;
+    if text.len() as u64 > MAX_BYTES {
+        return Err("Workspace profiles exceed 256 KiB".into());
+    }
+    Ok(Some(text))
+}
+/// Serialize cooperating processes using a stable sidecar, never unlinked:
+/// replacing or deleting the lock file while another process holds it could
+/// create two independently locked files for the same profiles.
+fn lock_profile(path: &Path) -> Result<std::fs::File, String> {
+    if path.is_dir() {
+        return Err("Workspace profiles path is a directory".into());
+    }
+    let mut name = path
+        .file_name()
+        .ok_or("Workspace profiles path has no file name")?
+        .to_os_string();
+    name.push(".lock");
+    let lock_path = path.with_file_name(name);
+    let file = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(lock_path)
+        .map_err(|e| format!("Cannot open the workspace profile lock: {e}"))?;
+    match file.try_lock() {
+        Ok(()) => Ok(file),
+        Err(std::fs::TryLockError::WouldBlock) => {
+            Err("Another ClothCraft window is saving workspace profiles. Try again.".into())
+        }
+        Err(std::fs::TryLockError::Error(e)) => Err(format!("Cannot lock workspace profiles: {e}")),
+    }
+}
+
 impl Store {
     pub fn load(path: &Path) -> Result<Self, String> {
-        let file = match std::fs::File::open(path) {
-            Ok(file) => file,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Self::default()),
-            Err(e) => return Err(e.to_string()),
+        let Some(text) = read_source(path)? else {
+            return Ok(Self::default());
         };
-        let mut text = String::new();
-        file.take(MAX_BYTES + 1)
-            .read_to_string(&mut text)
-            .map_err(|e| e.to_string())?;
-        if text.len() as u64 > MAX_BYTES {
-            return Err("Workspace profiles exceed 256 KiB".into());
-        }
         let mut store: Self =
             serde_json::from_str(&text).map_err(|e| format!("Invalid workspace profiles: {e}"))?;
         if store.version != 1 || store.profiles.len() > MAX_PROFILES {
@@ -103,6 +143,7 @@ impl Store {
             }
             profile.snapshot.sanitize();
         }
+        store.source_text = Some(text);
         Ok(store)
     }
     /// Prepare a full replacement before writing; failures preserve both self and disk.
@@ -180,12 +221,27 @@ impl Store {
         *self = next;
         Ok(())
     }
-    fn persist(&self, path: &Path) -> Result<(), String> {
-        let bytes = serde_json::to_vec_pretty(self).map_err(|e| e.to_string())?;
-        if bytes.len() as u64 > MAX_BYTES {
+    fn ensure_current(&self, path: &Path) -> Result<(), String> {
+        if read_source(path)? != self.source_text {
+            return Err(
+                "Workspace profiles changed on disk. Reload saved profiles before continuing."
+                    .into(),
+            );
+        }
+        Ok(())
+    }
+    fn persist(&mut self, path: &Path) -> Result<(), String> {
+        // All cooperating writers hold this guard through the comparison and
+        // atomic replacement. Noncooperating processes can still bypass it.
+        let _lock = lock_profile(path)?;
+        self.ensure_current(path)?;
+        let text = serde_json::to_string_pretty(self).map_err(|e| e.to_string())?;
+        if text.len() as u64 > MAX_BYTES {
             return Err("Workspace profiles exceed 256 KiB".into());
         }
-        marvelous_cloth::document::atomic_write(path, &bytes)
+        marvelous_cloth::document::atomic_write(path, text.as_bytes())?;
+        self.source_text = Some(text);
+        Ok(())
     }
 }
 
@@ -242,6 +298,13 @@ impl ProfileUi {
             ui.heading("Workspace profiles");
             ui.small("Layout, viewport appearance and tool rail only. Garment and simulation settings stay unchanged.");
             if let Some(error)=&self.error { ui.colored_label(egui::Color32::LIGHT_RED,error); }
+            if self.error.is_some() && self.store.is_some() && self.pending.is_none()
+                && button(ui,"profiles.reload","Reload saved profiles",true) {
+                match Store::load(path) {
+                    Ok(store)=>{self.store=Some(store);self.selected=None;self.error=None;},
+                    Err(e)=>self.error=Some(e),
+                }
+            }
             if self.store.is_none() {
                 ui.label("The existing file is preserved. Fix it or move it aside, then retry.");
                 if button(ui,"profiles.retry","Retry loading",true) { self.begin(path); }
@@ -295,7 +358,12 @@ impl ProfileUi {
                 }
                 ui.horizontal(|ui| {
                     let selected=self.selected.as_ref().and_then(|name|store.profiles.iter().find(|p|&p.name==name)).cloned();
-                    if button(ui,"profiles.restore","Restore",selected.is_some()) { restore=selected.as_ref().map(|p|p.snapshot.clone()); }
+                    if button(ui,"profiles.restore","Restore",selected.is_some()) {
+                        match store.ensure_current(path) {
+                            Ok(()) => restore=selected.as_ref().map(|p|p.snapshot.clone()),
+                            Err(e) => self.error=Some(e),
+                        }
+                    }
                     if button(ui,"profiles.replace","Replace…",selected.is_some()) { self.pending=selected.as_ref().map(|p|Pending::Replace(p.name.clone(),current.clone())); }
                     if button(ui,"profiles.remove","Remove…",selected.is_some()) { self.pending=selected.map(|p|Pending::Remove(p.name)); }
                 });
@@ -673,8 +741,10 @@ mod tests {
         }
         std::fs::write(&path, vec![b' '; MAX_BYTES as usize + 1]).unwrap();
         assert!(Store::load(&path).is_err());
+        let path = dir.path().join("full-profiles.json");
         let mut full = Store {
             version: 1,
+            source_text: None,
             profiles: (0..MAX_PROFILES)
                 .map(|i| Profile {
                     name: format!("Profile {i}"),
@@ -728,5 +798,296 @@ mod tests {
             );
         }
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "broken");
+    }
+    #[test]
+    fn stale_profile_writes_preserve_newer_disk_state() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(FILE_NAME);
+        let mut initial = Store::default();
+        initial
+            .save_profile(&path, "Original", Snapshot::default(), false)
+            .unwrap();
+        let stale = Store::load(&path).unwrap();
+        let mut newer = Store::load(&path).unwrap();
+        newer
+            .save_profile(&path, "Other window", Snapshot::default(), false)
+            .unwrap();
+        let bytes = std::fs::read(&path).unwrap();
+        for operation in 0..4 {
+            let mut attempt = stale.clone();
+            let result = match operation {
+                0 => attempt.save_profile(&path, "New", Snapshot::default(), false),
+                1 => attempt.save_profile(&path, "Original", Snapshot::default(), true),
+                2 => attempt.remove(&path, "Original"),
+                _ => attempt.rename(&path, "Original", "Renamed"),
+            };
+            assert!(result.unwrap_err().contains("changed on disk"));
+            assert_eq!(attempt, stale);
+            assert_eq!(std::fs::read(&path).unwrap(), bytes);
+        }
+        let mut reloaded = Store::load(&path).unwrap();
+        reloaded
+            .save_profile(&path, "New", Snapshot::default(), false)
+            .unwrap();
+        assert_eq!(Store::load(&path).unwrap().profiles.len(), 3);
+    }
+
+    #[test]
+    fn stale_dialog_shows_error_and_reload_keeps_both_instances_profiles() {
+        struct ConflictCase {
+            ui: ProfileUi,
+            path: std::path::PathBuf,
+            restored: Option<Snapshot>,
+        }
+        let mut draw = |ui: &mut egui::Ui, c: &mut ConflictCase| {
+            c.restored = c.ui.show(ui.ctx(), &c.path, &Snapshot::default());
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(FILE_NAME);
+        let mut c = ConflictCase {
+            ui: ProfileUi::default(),
+            path: path.clone(),
+            restored: None,
+        };
+        c.ui.begin(&path);
+        let mut h = Harness::new(egui::vec2(1100., 700.));
+        for _ in 0..5 {
+            h.frame(&mut c, &mut draw);
+        }
+        Store::default()
+            .save_profile(&path, "Other window", Snapshot::default(), false)
+            .unwrap();
+        let saved = std::fs::read(&path).unwrap();
+        h.replace_text("profiles.name", "Mine", &mut c, &mut draw)
+            .unwrap();
+        h.click("profiles.save", &mut c, &mut draw).unwrap();
+        assert!(c.ui.error.as_deref().unwrap().contains("changed on disk"));
+        assert_eq!(std::fs::read(&path).unwrap(), saved);
+        assert!(c.restored.is_none());
+        for _ in 0..5 {
+            h.frame(&mut c, &mut draw);
+        }
+        h.click("profiles.reload", &mut c, &mut draw).unwrap();
+        assert_eq!(c.ui.name, "Mine");
+        assert!(c.ui.error.is_none());
+        for _ in 0..5 {
+            h.frame(&mut c, &mut draw);
+        }
+        h.click("profiles.save", &mut c, &mut draw).unwrap();
+        assert_eq!(Store::load(&path).unwrap().profiles.len(), 2);
+        assert!(c.restored.is_none());
+    }
+
+    #[test]
+    fn stale_dialog_cannot_restore_an_outdated_profile() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(FILE_NAME);
+        let old = Snapshot {
+            tools_visible: false,
+            ..Snapshot::default()
+        };
+        Store::default()
+            .save_profile(&path, "View", old, false)
+            .unwrap();
+        let mut c = Case {
+            ui: ProfileUi::default(),
+            path: path.clone(),
+            prefs: Preferences::default(),
+            tools: true,
+        };
+        c.ui.begin(&path);
+        let mut h = Harness::new(egui::vec2(1100., 700.));
+        frames(&mut h, &mut c);
+        let mut other = Store::load(&path).unwrap();
+        other
+            .save_profile(&path, "View", Snapshot::default(), true)
+            .unwrap();
+        let saved = std::fs::read(&path).unwrap();
+        h.click("profiles.row.0", &mut c, &mut draw).unwrap();
+        h.click("profiles.restore", &mut c, &mut draw).unwrap();
+        assert!(c.tools, "stale restore changed the current presentation");
+        assert!(c.ui.open);
+        assert!(c.ui.error.as_deref().unwrap().contains("changed on disk"));
+        assert_eq!(std::fs::read(&path).unwrap(), saved);
+        frames(&mut h, &mut c);
+        h.click("profiles.reload", &mut c, &mut draw).unwrap();
+        frames(&mut h, &mut c);
+        h.click("profiles.row.0", &mut c, &mut draw).unwrap();
+        c.tools = false;
+        h.click("profiles.restore", &mut c, &mut draw).unwrap();
+        assert!(c.tools);
+        assert!(!c.ui.open);
+    }
+
+    #[test]
+    fn failed_reload_preserves_loaded_store_name_and_file() {
+        struct ConflictCase {
+            ui: ProfileUi,
+            path: std::path::PathBuf,
+        }
+        let mut draw = |ui: &mut egui::Ui, c: &mut ConflictCase| {
+            c.ui.show(ui.ctx(), &c.path, &Snapshot::default());
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(FILE_NAME);
+        Store::default()
+            .save_profile(&path, "Original", Snapshot::default(), false)
+            .unwrap();
+        let mut c = ConflictCase {
+            ui: ProfileUi::default(),
+            path: path.clone(),
+        };
+        c.ui.begin(&path);
+        let original = c.ui.store.clone().unwrap();
+        let mut h = Harness::new(egui::vec2(1100., 700.));
+        for _ in 0..5 {
+            h.frame(&mut c, &mut draw);
+        }
+        std::fs::write(&path, "broken externally").unwrap();
+        h.replace_text("profiles.name", "Mine", &mut c, &mut draw)
+            .unwrap();
+        h.click("profiles.save", &mut c, &mut draw).unwrap();
+        for _ in 0..5 {
+            h.frame(&mut c, &mut draw);
+        }
+        h.click("profiles.reload", &mut c, &mut draw).unwrap();
+        assert!(
+            c.ui.error
+                .as_deref()
+                .unwrap()
+                .contains("Invalid workspace profiles")
+        );
+        assert_eq!(c.ui.store.as_ref().unwrap(), &original);
+        assert_eq!(c.ui.name, "Mine");
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "broken externally");
+    }
+
+    #[test]
+    fn changed_or_deleted_source_bytes_are_not_overwritten() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(FILE_NAME);
+        let mut initial = Store::default();
+        initial
+            .save_profile(&path, "Original", Snapshot::default(), false)
+            .unwrap();
+        let stale = Store::load(&path).unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        let changed = format!("{text}\n");
+        std::fs::write(&path, &changed).unwrap();
+        assert!(stale.clone().remove(&path, "Original").is_err());
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), changed);
+        std::fs::remove_file(&path).unwrap();
+        assert!(stale.clone().remove(&path, "Original").is_err());
+        assert!(!path.exists());
+    }
+    #[test]
+    fn profile_lock_child() {
+        use std::io::{BufRead, Write};
+        let Some(path) = std::env::var_os("CLOTHCRAFT_TEST_PROFILE_LOCK") else {
+            return;
+        };
+        let _guard = lock_profile(Path::new(&path)).unwrap();
+        println!("CLOTHCRAFT_LOCK_HELD");
+        std::io::stdout().flush().unwrap();
+        let mut line = String::new();
+        std::io::stdin().lock().read_line(&mut line).unwrap();
+        assert_eq!(line.trim(), "release");
+    }
+
+    #[test]
+    fn independent_process_lock_preserves_profile_until_release() {
+        use std::io::{BufRead, BufReader, Write};
+        use std::process::{Command, Stdio};
+        use std::time::Duration;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(FILE_NAME);
+        let mut store = Store::default();
+        store
+            .save_profile(&path, "Original", Snapshot::default(), false)
+            .unwrap();
+        let bytes = std::fs::read(&path).unwrap();
+        let before = store.clone();
+        let mut child = Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "fitting_editor::workspace_profiles::tests::profile_lock_child",
+                "--nocapture",
+            ])
+            .env("CLOTHCRAFT_TEST_PROFILE_LOCK", &path)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        let output = child.stdout.take().unwrap();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let reader = std::thread::spawn(move || {
+            let mut announced = false;
+            for line in BufReader::new(output).lines().map_while(Result::ok) {
+                if !announced && line.contains("CLOTHCRAFT_LOCK_HELD") {
+                    let _ = tx.send(());
+                    announced = true;
+                }
+            }
+        });
+        if rx.recv_timeout(Duration::from_secs(15)).is_err() {
+            let _ = child.kill();
+            let _ = child.wait();
+            reader.join().unwrap();
+            panic!("profile lock child did not report readiness");
+        }
+        let result = store.save_profile(&path, "New", Snapshot::default(), false);
+        let unchanged = std::fs::read(&path).unwrap() == bytes && store == before;
+        child.stdin.take().unwrap().write_all(b"release\n").unwrap();
+        let status = child.wait().unwrap();
+        reader.join().unwrap();
+        assert!(status.success());
+        assert!(result.unwrap_err().contains("Another ClothCraft window"));
+        assert!(unchanged);
+        store
+            .save_profile(&path, "New", Snapshot::default(), false)
+            .unwrap();
+        assert_eq!(Store::load(&path).unwrap().profiles.len(), 2);
+    }
+
+    #[test]
+    fn busy_profile_lock_shows_error_without_blocking_dialog() {
+        struct LockCase {
+            ui: ProfileUi,
+            path: std::path::PathBuf,
+        }
+        let mut draw = |ui: &mut egui::Ui, c: &mut LockCase| {
+            c.ui.show(ui.ctx(), &c.path, &Snapshot::default());
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(FILE_NAME);
+        let mut c = LockCase {
+            ui: ProfileUi::default(),
+            path: path.clone(),
+        };
+        c.ui.begin(&path);
+        let mut h = Harness::new(egui::vec2(1100., 700.));
+        for _ in 0..5 {
+            h.frame(&mut c, &mut draw);
+        }
+        h.replace_text("profiles.name", "Draft", &mut c, &mut draw)
+            .unwrap();
+        let guard = lock_profile(&path).unwrap();
+        h.click("profiles.save", &mut c, &mut draw).unwrap();
+        assert!(
+            c.ui.error
+                .as_deref()
+                .unwrap()
+                .contains("Another ClothCraft window")
+        );
+        assert!(!path.exists());
+        drop(guard);
+        // Let the dialog finish relayout after displaying the busy message.
+        for _ in 0..5 {
+            h.frame(&mut c, &mut draw);
+        }
+        h.click("profiles.save", &mut c, &mut draw).unwrap();
+        assert!(c.ui.error.is_none());
+        assert_eq!(Store::load(&path).unwrap().profiles.len(), 1);
     }
 }
