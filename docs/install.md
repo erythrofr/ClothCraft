@@ -43,8 +43,16 @@ are separate development artifacts.
 
 1. Download the workflow artifact and extract its outer GitHub ZIP to obtain
    `ClothCraft Portable Preview.zip` and the adjacent `.zip.sha256` file.
-2. Verify the ZIP SHA256 against the hash in the checksum file (PowerShell:
-   `Get-FileHash -Algorithm SHA256 -LiteralPath '.\ClothCraft Package With Spaces.zip'`).
+2. Open PowerShell in the folder containing both files and verify the archive:
+
+   ```powershell
+   $expectedHash = ((Get-Content -Raw -LiteralPath '.\ClothCraft Portable Preview.zip.sha256').Trim() -split '\s+')[0]
+   $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath '.\ClothCraft Portable Preview.zip').Hash
+   if ($expectedHash -notmatch '^[0-9a-fA-F]{64}$' -or $actualHash -ne $expectedHash) {
+       throw 'Archive checksum mismatch or invalid checksum file'
+   }
+   'Archive checksum matches'
+   ```
 3. Extract the entire ZIP into a writable folder, for example
    `C:\Users\YourName\Documents\ClothCraft Preview`. **Do not run the files
    directly from inside the ZIP.** Keep `assets`, `examples`, `LICENSE`,
