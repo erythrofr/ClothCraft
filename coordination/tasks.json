@@ -2142,6 +2142,7 @@
       "acceptance": [
         "Expose Add/Edit/Remove curve point and Split at point on a selected named outer boundary in the native Piece inspector and 2D board, with millimetre input and visible handles/preview; do not substitute a freehand-new-panel tool.",
         "Keep stable authored point/boundary identities and cubic geometry through split, including knot-to-vertex promotion and verified linked mirrored splits as one atomic edit.",
+        "Splitting any straight or cubic Bezier boundary, including Bezier-rounded corners, must preserve the original authored contour within floating-point tolerance using exact subdivision (de Casteljau for cubics). Preserve tangent continuity, propagate atomically to linked mirrored panels, and correctly migrate stable boundary identifiers, sewing references and persistent measurements, or reject unsupported reference migrations without mutation. A split must not flatten or resample the authored curve.",
         "Use the reviewed topology-reference mapping for partial/chain seams, measurements, target lengths and markings; reject ambiguous or unsupported edits with an actionable message and no mutation.",
         "Prove cancel, invalid input, text focus, one-step undo/redo, JSON reopen and rotated-layout editing using real named egui controls plus independent curve geometry checks.",
         "Preserve current linked-panel semantics, material rest metres and state invalidation; no EXO interface or session dependency."
@@ -2477,6 +2478,53 @@
         "https://github.com/erythrofr/ClothCraft/pull/173"
       ],
       "notes": "PR #173 merged the existing authoring tool descriptors and dispatch. Freehand remains a separate existing mode whose activation is inline in board.rs. The scope expansion allows one shared transition for palette and toolbar, not a claim or proof of native-window acceptance. Board changes overlap draft #200 and open contribution #6; coordinate their live scopes and review existing diffs before editing."
+    },
+    {
+      "id": "EXO-CAD-014",
+      "title": "Round pattern corners by radius and maintain Bezier continuity",
+      "area": "cad",
+      "status": "blocked",
+      "depends_on": [
+        "EXO-CAD-003",
+        "EXO-CAD-011",
+        "EXO-MFG-015"
+      ],
+      "scope": [
+        "src/garment/curves.rs",
+        "src/garment/polygon.rs",
+        "src/garment/domain.rs",
+        "src/garment/presets.rs",
+        "src/garment/shapes.rs",
+        "src/authoring.rs",
+        "src/authoring/geometry.rs",
+        "src/authoring/linked.rs",
+        "src/atelier/authoring_ui.rs",
+        "src/atelier/board.rs",
+        "tests/corner_rounding.rs",
+        "tests/linked_mirror.rs",
+        "tests/persistent_pattern_measurements.rs",
+        "docs/authoring.md",
+        "docs/panel-tools.md",
+        "docs/handoff.md"
+      ],
+      "acceptance": [
+        "Fillet selected outer-contour corners in the native Piece inspector and 2D board using a positive numeric radius in millimetres, converted once to material metres. Preview the tangent points and resulting contour before Apply. Include a 90-degree straight-edge fixture with a 10 mm radius; handle supported curved-edge configurations explicitly and reject unsupported, ambiguous, degenerate, oversized or self-intersecting constructions without mutation.",
+        "Construct the intended tangent circular fillet from the requested radius. If stored as ordinary cubic Beziers, document and independently verify a bounded geometric error in millimetres against that circle; never describe the cubic approximation as an exact circular arc. Separate authored fillet error from display/meshing flattening tolerance. No polygonal replacement of the authored fillet.",
+        "Convert selected corners between sharp, smooth and symmetric Bezier modes. Sharp permits independent incident handles; smooth keeps opposite collinear tangents with independent handle lengths; symmetric keeps opposite collinear tangents with equal lengths. Define behavior for absent or zero-length handles and persist the chosen mode compatibly with existing documents.",
+        "Automatically maintain the selected smooth/symmetric tangent rule when either handle moves, through the normal CPU authoring transaction and all existing handle-edit callers. Smooth means geometric tangent continuity (G1), not an unproved C1/C2 parameterization claim. Respect local material coordinates under rotated board layouts.",
+        "Propagate fillets, mode conversions and handle coupling atomically to linked mirrored panels in either editing direction, using the existing reflection/link semantics exactly once. Preserve independent panel identities, layout, placement, fabric and grain policy; reject a failed partner operation without changing either piece.",
+        "Preserve named boundary references and their defined material stations through supported edits, including whole/partial/chain seams, persistent measurements, target lengths and allowance/notch metadata. Define migrations for trimmed/removed intervals and new fillet boundary IDs; unchanged references must not drift silently. Reject unsupported or ambiguous references before mutation, with an actionable message. Reuse the reviewed topology-reference model and review pending measurement PRs #227/#228 rather than introducing a parallel representation.",
+        "Keep geometry-preserving splitting in EXO-CAD-011 (#68). Splitting any resulting cubic fillet at a valid parameter uses exact de Casteljau subdivision within floating-point tolerance, preserves the original contour and tangent continuity, and never flattens or resamples the authored curve. Propagate linked mirrors and migrate references or reject atomically. This task creates/edits corners; it does not absorb #68's splitting implementation.",
+        "Prepare and compile the complete edit before installation as one history entry. Preview/cancel, Escape, stale selection, invalid input, failed reference mapping or failed compilation leave the document, history and live state unchanged. Successful fillets/mode/handle edits support one-step undo/redo and ordinary JSON Save/Open, including persisted corner mode and subsequent coupled handle edits. Rebuild dependent caches after actual rest-geometry changes and preserve compatible unaffected-panel state.",
+        "Use real named egui controls and independent CPU geometry/reference checks for radius and circle-error bounds, tangent directions, unequal smooth/equal symmetric handles, sharp independence, both mirror directions, seam/measurement preservation or refusal, rounded-curve subdivision, rotated layouts, text focus, cancel, undo/redo and reopen. Keep local checks at two CPU jobs/test threads; native-window/GPU acceptance remains separate and opt-in."
+      ],
+      "evidence": [
+        "https://github.com/erythrofr/ClothCraft/issues/233",
+        "https://github.com/erythrofr/ClothCraft/issues/68",
+        "https://github.com/erythrofr/ClothCraft/issues/69"
+      ],
+      "related_prs": [],
+      "notes": "Owner-requested focused corner-tools task, separate from EXO-CAD-011 curve splitting and EXO-MFG-015 saved measurements. Work on feature/corner-rounding-bezier-continuity in NicTanghe/Hamerons_ClothCraft from current upstream main. This proposal authorizes administrative preparation only; implementation requires a reviewed catalog entry, maintainer registration and an accepted coordinator claim. Review open #227/#228 measurement work, #231/#232 synchronized-cutout planning and #200/#215 inspector overlaps before coding. Do not expand #68/#69, implement interior panel cuts (DRAW-04), change solver/contact behavior, or import incompatible EXO code/assets. Additional shared paths require reviewed scope amendment. No task is made ready or complete by this proposal."
     }
   ]
 }
