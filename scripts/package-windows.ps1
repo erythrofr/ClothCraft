@@ -69,9 +69,11 @@ if errorlevel 1 pause
 '@
 [System.IO.File]::WriteAllText((Join-Path $stage 'Start ClothCraft.cmd'), $start.Replace("`n", "`r`n"), $utf8)
 
+$revisionOrigin = 'supplied by caller'
 if (-not $Revision) {
     $Revision = (& git -C $repo rev-parse HEAD).Trim()
     if ($LASTEXITCODE -ne 0) { throw 'Could not identify source commit' }
+    $revisionOrigin = 'packaging checkout'
 }
 $version = '0.1.0-preview'
 $rustVersion = (& rustc --version)
@@ -81,12 +83,14 @@ if ($LASTEXITCODE -ne 0) { throw 'cargo is needed to record the build environmen
 $info = @(
     'ClothCraft Windows x64 portable preview',
     "Version: $version",
-    "Source revision: $Revision",
+    "Claimed source revision ($revisionOrigin): $Revision",
+    'The packager does not verify that the binaries were built from this revision.',
     "Packaged UTC: $([DateTimeOffset]::UtcNow.ToString('o'))",
-    "System: $([System.Environment]::OSVersion.VersionString)",
-    "Architecture: $env:PROCESSOR_ARCHITECTURE",
-    "Rust: $rustVersion",
-    "Cargo: $cargoVersion",
+    "Packaging host system: $([System.Environment]::OSVersion.VersionString)",
+    "Packaging host architecture: $env:PROCESSOR_ARCHITECTURE",
+    "Packaging host Rust: $rustVersion",
+    "Packaging host Cargo: $cargoVersion",
+    'The packaging host toolchain does not establish the binary build toolchain.',
     'License: ClothCraft MIT; bundled MakeHuman files carry their own LICENSE.ASSETS.md',
     'This development bundle is unsigned and has no native GUI/GPU certification.'
 ) -join "`n"
