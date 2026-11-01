@@ -88,6 +88,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-CAD-010](#exo-cad-010) — Place a pattern point at the intersection of two reference edges | cad | done | EXO-CAD-001, EXO-CAD-002, EXO-QA-004 | [Issue](https://github.com/erythrofr/ClothCraft/issues/50) |
 | [EXO-CAD-011](#exo-cad-011) — Edit independent curve points and mirrored splits in the native 2D workspace | cad | blocked | EXO-REV-001, EXO-REV-002, EXO-CAD-003 | [Issue](https://github.com/erythrofr/ClothCraft/issues/68) |
 | [EXO-MFG-015](#exo-mfg-015) — Create and manage saved pattern measurements in the native 2D UI | manufacturing | blocked | EXO-REV-001, EXO-REV-002 | [Issue](https://github.com/erythrofr/ClothCraft/issues/69) |
+| [EXO-CAD-013](#exo-cad-013) — Synchronize cutouts and contour edits across sewn boundaries | cad | blocked | EXO-CAD-003, EXO-CAD-011, EXO-SEW-001 | Not registered |
 | [EXO-CAD-012](#exo-cad-012) — Add editable pattern text annotations to the native Piece inspector and board | cad | blocked | EXO-REV-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/70) |
 | [EXO-SEW-007](#exo-sew-007) — Preview and create a cut-and-sewn dart from the native pattern UI | sewing | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/71) |
 | [EXO-PHY-004](#exo-phy-004) — Expose correctly timed contact and residual diagnostics in the native Simulation inspector | physics | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/72) |
@@ -2254,6 +2255,56 @@ Status: blocked. Dependencies: EXO-REV-001, EXO-REV-002.
 - https://github.com/erythrofr/ClothCraft/pull/66
 
 Owner-requested native ClothCraft UI slice after reviewing PR #66. Work on a feature branch in NicTanghe/Hamerons_ClothCraft and submit a separate PR to erythrofr/ClothCraft:main. Exclude exo-session, the EXO application, print/hardware adapter fields and unrelated solver changes. Review existing contributions and preserve attribution; no permission to copy incompatible EXO source is implied. This issue is a proposed task until the catalog change is merged, a maintainer registers it, and the coordinator accepts a claim. Use the existing CPU named-widget harness; GPU/native-window acceptance remains opt-in. This is the independently usable single-size subset of EXO-MFG-006; it does not depend on a graded-size run. The existing temporary ruler is not persistent POM editing.
+
+## EXO-CAD-013
+
+**Synchronize cutouts and contour edits across sewn boundaries**
+
+Status: blocked. Dependencies: EXO-CAD-003, EXO-CAD-011, EXO-SEW-001.
+
+**Files / directories**
+
+- `src/authoring.rs`
+- `src/authoring/geometry.rs`
+- `src/authoring/linked.rs`
+- `src/garment/seam.rs`
+- `src/garment/curves.rs`
+- `src/garment/polygon.rs`
+- `src/garment/domain.rs`
+- `src/garment/shapes.rs`
+- `src/atelier/authoring_ui.rs`
+- `src/atelier/board.rs`
+- `src/atelier/drafting_ui.rs`
+- `tests/seam_aware_cutting.rs`
+- `tests/linked_mirror.rs`
+- `tests/sewing_chains.rs`
+- `tests/persistent_pom_references.rs`
+- `docs/seam-aware-cutting.md`
+- `docs/panel-tools.md`
+- `docs/authoring.md`
+- `docs/handoff.md`
+
+**Acceptance**
+
+- Select a named sewn outer boundary in the native 2D workspace and explicitly preview a synchronized notch-shaped or rounded material cutout on both pieces before Apply. A cut spanning 35-45% of the selected sewn interval must appear at the corresponding interval on its partner. Distinguish a geometric material cut from manufacturing notch metadata and from geometry-preserving subdivision in #68.
+- Map positions through the existing directed, trimmed rest-arclength seam correspondence, including reverse_b, per-segment reversal and interior notch correspondence anchors. Use the selected seam's partial interval rather than the full boundary; support either side as the source. Respect ordered chain segments and reject cuts crossing discontinuous joints or ambiguous ownership with a specific error and no mutation.
+- Reuse the existing linked-mirror relation and reflection when the pieces are linked mirrors and it agrees with the selected seam correspondence. Apply each panel edit once; preserve the link and both pieces' independent identities, fabric, grain policy, layout and placement. For differently shaped sewn pieces, map only the selected contour neighborhood; never reflect or replace an entire assembly. Reject conflicting seam/mirror correspondences atomically.
+- Offer explicit correspondence-based and dimension-preserving policies for unequal sewn lengths. Correspondence mode maps the cut interval through the seam and keeps the specified inward depth in material metres. Dimension-preserving mode maps its center but keeps the source width and depth in metres on the target. Preview both resulting intervals, dimensions and easing; reject insufficient material, range overflow or incompatible correspondence anchors rather than silently stretching or selecting a policy.
+- Replace the affected contours and preserve or rebuild the appropriate partial/chain sewing ranges and monotone correspondence anchors through the reviewed topology-reference mapping. Preview retained sewing and expose an explicit choice for sewing the new cutout rims or leaving them open; never bridge a removed interval implicitly. Preserve unaffected seam IDs, direction, stiffness and easing permission, with stable new boundary IDs where required.
+- Preserve attached measurements, target lengths, allowances/notches, internal paths, pins and construction metadata through defined migrations, or reject unsupported references before mutation with an actionable message. Review the current serialized model and pending #227/#228 measurement work before implementation; do not introduce a parallel station or topology-migration representation.
+- Prepare, validate and compile the complete paired edit before installation as one CPU authoring/history transaction. Cancel, stale drafts, failed partner mapping, invalid/self-intersecting geometry or failed compilation leave the document, history and live state unchanged. A successful edit has one-step undo/redo and survives JSON Save/Open; affected pieces remesh/reset dependent caches while compatible unaffected pieces retain their state.
+- Use real named egui controls and independent CPU geometry/reference oracles to verify straight and cubic cuts, source-side symmetry, 35-45% mapping, reversed and partial seams, unequal lengths in both policies, interior correspondence anchors, supported chain segments, discontinuous-joint rejection, linked-mirror deduplication/conflicts and measurement stability through cut/undo/reload. Cover rotated layouts, text focus, cancel, invalid input and atomic rollback. Limit local CPU checks to two jobs/test threads; native-window/GPU acceptance stays separate and opt-in.
+
+**Evidence and related contributions**
+
+- https://github.com/erythrofr/ClothCraft/issues/231
+- https://github.com/erythrofr/ClothCraft/issues/68
+- https://github.com/erythrofr/ClothCraft/blob/3f52d66f400c5d04f6e9b58c5402694f4717b867/docs/panel-tools.md
+- https://github.com/erythrofr/ClothCraft/blob/3f52d66f400c5d04f6e9b58c5402694f4717b867/docs/documents-and-sewing.md
+- https://github.com/erythrofr/ClothCraft/pull/227
+- https://github.com/erythrofr/ClothCraft/pull/228
+
+Owner-requested planning task for synchronized material cuts across sewn pieces, with existing linked mirrors reused where applicable. #68 remains responsible for curve-point editing, geometry-preserving splits and reference preservation; it is not expanded by this task. This catalog proposal delivers no editor implementation. Blocked until its topology/curve dependencies are reviewed and done, a maintainer registers the new issue and the coordinator accepts a separate implementation claim. Review #12/#13 and open measurement work before touching shared paths; request a reviewed scope amendment for additional constructors, cache/schema or UI integration paths. No assembly mirroring, solver/contact changes, EXO application/session dependency or third-party code/assets are included. All geometry comes from material rest coordinates, never a drape. Independently implement against ClothCraft's existing native model and preserve attribution.
 
 ## EXO-CAD-012
 
