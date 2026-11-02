@@ -693,6 +693,85 @@ mod final_diagnostics_transport_tests {
     }
 
     #[test]
+    fn real_worker_diagnostics_survive_steps_and_replace_errors() {
+        use marvelous_cloth::{fitting::FittingProject, garment::presets::GarmentKind};
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        reset();
+        let dir = tempfile::tempdir().unwrap();
+        let avatar = dir.path().join("avatar.obj");
+        std::fs::write(&avatar, "v 10 0 -10\nv 11 0 -10\nv 10 1 -10\nf 1 2 3\n").unwrap();
+        let project = FittingProject::basic(GarmentKind::Tshirt, 0, avatar);
+        let settings = VbdSettings::default();
+        let (entered_tx, entered) = mpsc::channel();
+        let (release, release_rx) = mpsc::channel();
+        let (published_tx, published) = mpsc::channel();
+        let (tx, latest, thread) = start_inner(
+            None,
+            Some(TestHooks {
+                entered: entered_tx,
+                release: release_rx,
+                published: published_tx,
+            }),
+        )
+        .unwrap();
+        let worker = TestWorker {
+            tx: Some(tx),
+            release: Some(release),
+            thread: Some(thread),
+        };
+        let timeout = Duration::from_secs(30);
+        let step = |generation, gpu| {
+            worker
+                .tx
+                .as_ref()
+                .unwrap()
+                .send(Work {
+                    generation,
+                    scene: project.compile().unwrap(),
+                    settings: settings.clone(),
+                    grab: None,
+                    gpu,
+                    ctx: egui::Context::default(),
+                    playing: false,
+                    once: true,
+                })
+                .unwrap();
+            assert_eq!(entered.recv_timeout(timeout).unwrap(), generation);
+            worker.release.as_ref().unwrap().send(()).unwrap();
+            assert_eq!(published.recv_timeout(timeout).unwrap(), generation);
+            latest.lock().unwrap().take().unwrap()
+        };
+        let first = request_final_diagnostics(31);
+        let accepted = step(31, false).result.unwrap().0;
+        let sample = final_diagnostics().expect("worker must publish the requested sample");
+        assert_eq!(sample.request, first);
+        assert_eq!(sample.sample.state_time_s, accepted.time);
+        assert_eq!(sample.sample.backend, FinalDiagnosticsBackend::Cpu);
+        assert!(final_diagnostics_error().is_none());
+        let next = step(31, false).result.unwrap().0;
+        assert!(next.time > accepted.time);
+        let retained = final_diagnostics().expect("ordinary steps must not erase a sample");
+        assert_eq!(retained.request, first);
+        assert_eq!(retained.sample.state_time_s, accepted.time);
+        let failed_request = request_final_diagnostics(31);
+        assert!(step(31, true).result.is_err());
+        assert!(final_diagnostics().is_none());
+        let failure =
+            final_diagnostics_error().expect("failed requested step must report an error");
+        assert_eq!(failure.request, failed_request);
+        assert!(failure.message.contains("without a GPU backend"));
+        let recovered_request = request_final_diagnostics(32);
+        let recovered = step(32, false).result.unwrap().0;
+        let sample = final_diagnostics().expect("new generation must publish its own sample");
+        assert_eq!(sample.request, recovered_request);
+        assert_eq!(sample.sample.state_time_s, recovered.time);
+        assert_eq!(sample.sample.backend, FinalDiagnosticsBackend::Cpu);
+        assert!(final_diagnostics_error().is_none());
+        worker.shutdown();
+        reset();
+    }
+
+    #[test]
     fn newer_request_has_a_new_identity_and_supersedes_a_queued_request() {
         let _guard = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
         reset();
