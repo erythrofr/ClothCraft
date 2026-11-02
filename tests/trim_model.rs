@@ -514,3 +514,235 @@ fn trim_history_and_project_save_preserve_drape() {
     }
     assert!(project.template.trims.is_empty());
 }
+
+#[test]
+fn repeat_trims_is_atomic_and_undoable_for_all_kinds() {
+    use marvelous_cloth::{
+        authoring::{self, Command, History},
+        garment::GarmentTemplate,
+    };
+    let kinds = [
+        TrimKind::Button {
+            center_m: DVec2::new(0.1, 0.1),
+            diameter_m: 0.018,
+        },
+        TrimKind::Buttonhole {
+            start_m: DVec2::new(0.1, 0.1),
+            end_m: DVec2::new(0.2, 0.1),
+            width_m: 0.004,
+        },
+        TrimKind::Zipper {
+            path_m: vec![DVec2::new(0.1, 0.1), DVec2::new(0.2, 0.1)],
+            width_m: 0.012,
+        },
+        TrimKind::Topstitch {
+            path_m: vec![DVec2::new(0.1, 0.1), DVec2::new(0.2, 0.1)],
+            rows: 2,
+            spacing_m: 0.004,
+        },
+    ];
+    for kind in kinds {
+        let mut source = GarmentTemplate::two_panel_demo();
+        let original = Trim {
+            id: "trim_2".into(),
+            panel_id: source.panels[0].id.clone(),
+            kind,
+        };
+        source.trims.push(original.clone());
+        let compiled = source.compile().unwrap();
+        let mut state = compiled.initial_state.clone();
+        state.time = 3.0;
+        for (i, velocity) in state.v.iter_mut().enumerate() {
+            *velocity = glam::DVec3::splat(i as f64 * 0.001);
+        }
+        let snapshot = serde_json::to_vec(&source).unwrap();
+        for (id, copies, offset) in [
+            ("missing", 1, DVec2::X),
+            ("trim_2", 0, DVec2::X),
+            ("trim_2", 129, DVec2::X),
+            ("trim_2", 2, DVec2::ZERO),
+            ("trim_2", 1, DVec2::splat(f64::NAN)),
+            ("trim_2", 1, DVec2::splat(2e6)),
+        ] {
+            assert!(
+                authoring::apply(
+                    &source,
+                    Command::RepeatTrim {
+                        id: id.into(),
+                        copies,
+                        offset_m: offset
+                    }
+                )
+                .is_err()
+            );
+            assert_eq!(serde_json::to_vec(&source).unwrap(), snapshot);
+        }
+        let edit = authoring::apply(
+            &source,
+            Command::RepeatTrim {
+                id: original.id.clone(),
+                copies: 2,
+                offset_m: DVec2::new(0.03, 0.04),
+            },
+        )
+        .unwrap();
+        assert!(!edit.reset_simulation);
+        assert!(authoring::same_physics(&source, &edit.template));
+        assert_eq!(edit.template.trims[0], original);
+        assert_eq!(edit.template.trims[1].id, "trim_1");
+        assert_eq!(edit.template.trims[2].id, "trim_3");
+        let first = &edit.template.trims[1].kind;
+        let second = &edit.template.trims[2].kind;
+        let point = |kind: &TrimKind| match kind {
+            TrimKind::Button { center_m, .. } => *center_m,
+            TrimKind::Buttonhole { start_m, .. } => *start_m,
+            TrimKind::Zipper { path_m, .. } | TrimKind::Topstitch { path_m, .. } => path_m[0],
+        };
+        assert!((point(first) - point(&original.kind) - DVec2::new(0.03, 0.04)).length() < 1e-12);
+        assert!((point(second) - point(&original.kind) - DVec2::new(0.06, 0.08)).length() < 1e-12);
+        for (copy, delta) in [
+            (first, DVec2::new(0.03, 0.04)),
+            (second, DVec2::new(0.06, 0.08)),
+        ] {
+            match (&original.kind, copy) {
+                (
+                    TrimKind::Button { diameter_m: a, .. },
+                    TrimKind::Button { diameter_m: b, .. },
+                ) => assert_eq!(a, b),
+                (
+                    TrimKind::Buttonhole {
+                        end_m: a,
+                        width_m: wa,
+                        ..
+                    },
+                    TrimKind::Buttonhole {
+                        end_m: b,
+                        width_m: wb,
+                        ..
+                    },
+                ) => {
+                    assert_eq!(wa, wb);
+                    assert!((*b - *a - delta).length() < 1e-12);
+                }
+                (
+                    TrimKind::Zipper {
+                        path_m: a,
+                        width_m: wa,
+                    },
+                    TrimKind::Zipper {
+                        path_m: b,
+                        width_m: wb,
+                    },
+                ) => {
+                    assert_eq!(wa, wb);
+                    assert_eq!(a.len(), b.len());
+                    assert!(
+                        a.iter()
+                            .zip(b)
+                            .all(|(x, y)| (*y - *x - delta).length() < 1e-12)
+                    );
+                }
+                (
+                    TrimKind::Topstitch {
+                        path_m: a,
+                        rows: ra,
+                        spacing_m: sa,
+                    },
+                    TrimKind::Topstitch {
+                        path_m: b,
+                        rows: rb,
+                        spacing_m: sb,
+                    },
+                ) => {
+                    assert_eq!((ra, sa), (rb, sb));
+                    assert_eq!(a.len(), b.len());
+                    assert!(
+                        a.iter()
+                            .zip(b)
+                            .all(|(x, y)| (*y - *x - delta).length() < 1e-12)
+                    );
+                }
+                _ => panic!("trim kind changed"),
+            }
+        }
+        let after = edit.state_after(&compiled, &state);
+        assert_eq!(after.x, state.x);
+        assert_eq!(after.v, state.v);
+        assert_eq!(after.time, state.time);
+        let mut history = History::default();
+        history.record(source.clone());
+        let undo = history.restore(&edit.template, false).unwrap();
+        assert_eq!(undo.template.trims, source.trims);
+        let redo = history.restore(&undo.template, true).unwrap();
+        assert_eq!(redo.template.trims, edit.template.trims);
+    }
+}
+
+#[test]
+fn repeat_trims_refuses_document_capacity_without_partial_write() {
+    use marvelous_cloth::{
+        authoring::{self, Command},
+        garment::GarmentTemplate,
+    };
+    let mut source = GarmentTemplate::two_panel_demo();
+    let panel = source.panels[0].id.clone();
+    source.trims = (1..=4096)
+        .map(|i| Trim {
+            id: format!("trim_{i}"),
+            panel_id: panel.clone(),
+            kind: TrimKind::Button {
+                center_m: DVec2::ZERO,
+                diameter_m: 0.01,
+            },
+        })
+        .collect();
+    let before = serde_json::to_vec(&source).unwrap();
+    assert!(
+        authoring::apply(
+            &source,
+            Command::RepeatTrim {
+                id: "trim_1".into(),
+                copies: 1,
+                offset_m: DVec2::X
+            }
+        )
+        .is_err()
+    );
+    assert_eq!(serde_json::to_vec(&source).unwrap(), before);
+}
+
+#[test]
+fn repeat_refuses_linked_panel_without_mutating_template() {
+    use marvelous_cloth::{
+        authoring::{self, Command},
+        garment::{GarmentTemplate, shapes::MirrorAxis, template::MirrorLink},
+    };
+    let mut source = GarmentTemplate::two_panel_demo();
+    let item = Trim {
+        id: "trim_1".into(),
+        panel_id: source.panels[0].id.clone(),
+        kind: TrimKind::Button {
+            center_m: DVec2::ZERO,
+            diameter_m: 0.01,
+        },
+    };
+    source.trims.push(item);
+    source.mirror_links.push(MirrorLink {
+        a: source.panels[0].id.clone(),
+        b: source.panels[1].id.clone(),
+        axis: MirrorAxis::X,
+    });
+    let before = serde_json::to_vec(&source).unwrap();
+    let error = authoring::apply(
+        &source,
+        Command::RepeatTrim {
+            id: "trim_1".into(),
+            copies: 1,
+            offset_m: DVec2::X,
+        },
+    )
+    .err()
+    .unwrap();
+    assert!(error.contains("Unlink"));
+    assert_eq!(serde_json::to_vec(&source).unwrap(), before);
+}

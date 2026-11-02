@@ -18,7 +18,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-COORD-002](#exo-coord-002) — Explain malformed reservation commands without changing ownership | coordination | done | EXO-COORD-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/129) |
 | [EXO-CORE-001](#exo-core-001) — Agree editor, document and solver ownership contract | architecture | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/10) |
 | [EXO-CORE-002](#exo-core-002) — Record provenance and licensing for candidate contributions | provenance | ready | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/11) |
-| [EXO-REV-001](#exo-rev-001) — Reconcile the two notch and allowance contributions | review | review_existing | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/12) |
+| [EXO-REV-001](#exo-rev-001) — Reconcile the two notch and allowance contributions | review | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/12) |
 | [EXO-REV-002](#exo-rev-002) — Split and review darts, persistent POM and cutline proposal | review | review_existing | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/13) |
 | [EXO-REV-003](#exo-rev-003) — Review physical SVG output contribution | review | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/14) |
 | [EXO-REV-004](#exo-rev-004) — Reconcile feature map and current stable lint contributions | review | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/15) |
@@ -87,7 +87,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-QA-004](#exo-qa-004) — Exercise editor tools with a deterministic named-widget harness | validation | done | EXO-SEW-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/47) |
 | [EXO-CAD-010](#exo-cad-010) — Place a pattern point at the intersection of two reference edges | cad | done | EXO-CAD-001, EXO-CAD-002, EXO-QA-004 | [Issue](https://github.com/erythrofr/ClothCraft/issues/50) |
 | [EXO-CAD-011](#exo-cad-011) — Edit independent curve points and mirrored splits in the native 2D workspace | cad | blocked | EXO-REV-001, EXO-REV-002, EXO-CAD-003 | [Issue](https://github.com/erythrofr/ClothCraft/issues/68) |
-| [EXO-MFG-015](#exo-mfg-015) — Create and manage saved pattern measurements in the native 2D UI | manufacturing | blocked | EXO-REV-001, EXO-REV-002 | [Issue](https://github.com/erythrofr/ClothCraft/issues/69) |
+| [EXO-MFG-015](#exo-mfg-015) — Create and manage saved pattern measurements in the native 2D UI | manufacturing | ready | EXO-REV-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/69) |
 | [EXO-CAD-012](#exo-cad-012) — Add editable pattern text annotations to the native Piece inspector and board | cad | blocked | EXO-REV-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/70) |
 | [EXO-SEW-007](#exo-sew-007) — Preview and create a cut-and-sewn dart from the native pattern UI | sewing | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/71) |
 | [EXO-PHY-004](#exo-phy-004) — Expose correctly timed contact and residual diagnostics in the native Simulation inspector | physics | done | — | [Issue](https://github.com/erythrofr/ClothCraft/issues/72) |
@@ -96,6 +96,7 @@ Reference: [mikristian/exo-sample-3d@352c6086b622](https://github.com/mikristian
 | [EXO-IO-011](#exo-io-011) — Import reviewed SVG patterns in the native workspace | interchange | done | EXO-IO-001 | [Issue](https://github.com/erythrofr/ClothCraft/issues/103) |
 | [EXO-QA-005](#exo-qa-005) — Trace native appearance history through actual UI controls | validation | done | EXO-QA-004 | [Issue](https://github.com/erythrofr/ClothCraft/issues/135) |
 | [EXO-UX-009](#exo-ux-009) — Expose native authoring tools in the command palette | workspace | ready | EXO-UX-001 | Not registered |
+| [EXO-CAD-014](#exo-cad-014) — Round pattern corners by radius and maintain Bezier continuity | cad | blocked | EXO-CAD-003, EXO-CAD-011, EXO-MFG-015 | Not registered |
 
 ## EXO-UX-008
 
@@ -309,7 +310,7 @@ EXO declares GPL-3.0-only; ClothCraft is MIT. No license change is authorized by
 
 **Reconcile the two notch and allowance contributions**
 
-Status: review_existing. Dependencies: none.
+Status: done. Dependencies: none.
 
 **Files / directories**
 
@@ -346,7 +347,7 @@ Status: review_existing. Dependencies: none.
 - https://github.com/erythrofr/ClothCraft/pull/1
 - https://github.com/erythrofr/ClothCraft/pull/6
 
-The three added import/print-test paths record the mechanical empty-map constructor updates and print-description assertion reviewed at f642275. No unrelated import changes are authorized. Coordinate release/reclaim with the active owner before using the expanded scope; do not force-release their work. The malformed-hole panic review remains unresolved until independently verified on a corrected head. Review #6 as the broader candidate, not a bulk merge. Source review at 7cf7639 confirms it does not change src/atelier.rs: drafts and controls live in authoring_ui.rs. That entrypoint is excluded to preserve EXO-UX-001's reservation; no task owner is displaced. Shapes/presets and fitting.rs are included for schema construction, mirror migration and nonphysical cache exclusion. Preserve the current named-widget harness instead of importing historical smoke changes. Nine existing #6 tests pass, but a valid 50 mm left-edge notch prints at x=-35 mm outside the sheet; issue #12 and the PR review contain reproduction evidence. Resolve incompatible #1/#6 notch schemas explicitly, preserve #77's physical SVG exporter, and do not claim ready-to-cut output until geometry gates pass. Native text-label editing remains EXO-CAD-012 after reconciliation.
+Delivered by PR #6, merged as 3f52d66f400c5d04f6e9b58c5402694f4717b867 from 3809c0f72b11012296e999838e767eed92a704d3. Maintainer acceptance/provenance review and independent 24-marking + 6-print CPU retest are recorded on issue #12 (comment 6549374620); all seven hosted checks passed. Firefly's release was accepted (comment 6549401947). One optional notch schema, complete/refused cutting contours, malformed-input rejection, curve/split/mirror/round-trip tests, physical SVG containment and CPU widget/transition coverage are integrated. Notches remain sewing-line guides; seam correspondence, cut-edge marks, tiling/PDF, native pointer and physical-printer calibration are separate follow-ups. Preserve the merged implementation and attribution.
 
 ## EXO-REV-002
 
@@ -2203,6 +2204,7 @@ Status: blocked. Dependencies: EXO-REV-001, EXO-REV-002, EXO-CAD-003.
 
 - Expose Add/Edit/Remove curve point and Split at point on a selected named outer boundary in the native Piece inspector and 2D board, with millimetre input and visible handles/preview; do not substitute a freehand-new-panel tool.
 - Keep stable authored point/boundary identities and cubic geometry through split, including knot-to-vertex promotion and verified linked mirrored splits as one atomic edit.
+- Splitting any straight or cubic Bezier boundary, including Bezier-rounded corners, must preserve the original authored contour within floating-point tolerance using exact subdivision (de Casteljau for cubics). Preserve tangent continuity, propagate atomically to linked mirrored panels, and correctly migrate stable boundary identifiers, sewing references and persistent measurements, or reject unsupported reference migrations without mutation. A split must not flatten or resample the authored curve.
 - Use the reviewed topology-reference mapping for partial/chain seams, measurements, target lengths and markings; reject ambiguous or unsupported edits with an actionable message and no mutation.
 - Prove cancel, invalid input, text focus, one-step undo/redo, JSON reopen and rotated-layout editing using real named egui controls plus independent curve geometry checks.
 - Preserve current linked-panel semantics, material rest metres and state invalidation; no EXO interface or session dependency.
@@ -2219,7 +2221,7 @@ Owner-requested native ClothCraft UI slice after reviewing PR #66. Work on a fea
 
 **Create and manage saved pattern measurements in the native 2D UI**
 
-Status: blocked. Dependencies: EXO-REV-001, EXO-REV-002.
+Status: ready. Dependencies: EXO-REV-001.
 
 **Files / directories**
 
@@ -2236,15 +2238,23 @@ Status: blocked. Dependencies: EXO-REV-001, EXO-REV-002.
 - `tests/persistent_pattern_measurements.rs`
 - `docs/authoring.md`
 - `docs/handoff.md`
+- `src/garment/markings.rs`
+- `src/garment/svg_import.rs`
+- `src/pattern_import.rs`
+- `src/authoring/linked.rs`
+- `tests/pattern_markings.rs`
+- `tests/persistent_pom_references.rs`
 
 **Acceptance**
 
+- Complete the missing saved-model and transactional authoring integration together with the native UI, reviewing the schema/geometry foundation in PR #227 and the existing #66 proposal; do not require completion of unrelated cutline or solver work in broad review task #13.
 - Extend the current temporary ruler with an explicit Save measurement workflow: choose two stations on one panel's named boundaries, give a label, and save a stable material-space measurement.
 - Show selectable saved measurements and their straight-line rest-space distance in millimetres; support rename/delete and display overlays using the compiled material boundaries.
 - Reuse the reviewed POM representation, with boundary arclength fractions and stable IDs; preserve or explicitly reject references through split, mirror, duplicate, delete and boolean operations.
 - Keep metadata-only changes from remeshing or disturbing the drape; cover history, v1/v2 compatibility and save/reopen.
 - Exercise create/rename/delete/cancel, invalid or stale references and keyboard focus through real named UI controls on CPU.
 - Scope this PR to a useful single-size pattern ruler; exclude body/geodesic measurements, draped lengths, grading and tolerance tables.
+- Keep the physical mesh fingerprint, metadata-only installer, playback and worker generation coherent; test the real shared installer on CPU in addition to prepared commands and persistence. Constructor-only additions to importers, presets and marking fixtures must remain mechanical.
 
 **Evidence and related contributions**
 
@@ -2252,8 +2262,9 @@ Status: blocked. Dependencies: EXO-REV-001, EXO-REV-002.
 - https://github.com/erythrofr/ClothCraft/issues/13
 - https://github.com/erythrofr/ClothCraft/pull/7
 - https://github.com/erythrofr/ClothCraft/pull/66
+- https://github.com/erythrofr/ClothCraft/pull/227
 
-Owner-requested native ClothCraft UI slice after reviewing PR #66. Work on a feature branch in NicTanghe/Hamerons_ClothCraft and submit a separate PR to erythrofr/ClothCraft:main. Exclude exo-session, the EXO application, print/hardware adapter fields and unrelated solver changes. Review existing contributions and preserve attribution; no permission to copy incompatible EXO source is implied. This issue is a proposed task until the catalog change is merged, a maintainer registers it, and the coordinator accepts a claim. Use the existing CPU named-widget harness; GPU/native-window acceptance remains opt-in. This is the independently usable single-size subset of EXO-MFG-006; it does not depend on a graded-size run. The existing temporary ruler is not persistent POM editing.
+Owner explicitly requests a usable UI in the existing draft PR #227 on NicTanghe/Hamerons_ClothCraft:feature/persistent-pattern-measurements. Issue #69 is already registered. This amendment makes the single-size model + native UI a complete slice: it retains the accepted markings prerequisite and incorporates the missing persistent-measurement backend rather than waiting for every unrelated part of #13. Do not mark EXO-REV-002 or EXO-CAD-003 complete. Review the #66 schema and #227 geometry, preserve attribution, avoid a competing representation, and keep all existing reference-preservation gates. Additional importer/marking fixture paths are for coherent empty defaults; linked.rs is for explicitly reviewed measurement metadata/geometry behavior. No CLI expansion is necessary because the UI is the real caller. Use named CPU controls and the production installer; GPU/native-window checks stay opt-in. Eligibility is not ownership: obtain an accepted claim before source edits. Keep solver, session, manufacturing cutline and graded-size work separate.
 
 ## EXO-CAD-012
 
@@ -2522,3 +2533,48 @@ Status: ready. Dependencies: EXO-UX-001.
 - https://github.com/erythrofr/ClothCraft/pull/173
 
 PR #173 merged the existing authoring tool descriptors and dispatch. Freehand remains a separate existing mode whose activation is inline in board.rs. The scope expansion allows one shared transition for palette and toolbar, not a claim or proof of native-window acceptance. Board changes overlap draft #200 and open contribution #6; coordinate their live scopes and review existing diffs before editing.
+
+## EXO-CAD-014
+
+**Round pattern corners by radius and maintain Bezier continuity**
+
+Status: blocked. Dependencies: EXO-CAD-003, EXO-CAD-011, EXO-MFG-015.
+
+**Files / directories**
+
+- `src/garment/curves.rs`
+- `src/garment/polygon.rs`
+- `src/garment/domain.rs`
+- `src/garment/presets.rs`
+- `src/garment/shapes.rs`
+- `src/authoring.rs`
+- `src/authoring/geometry.rs`
+- `src/authoring/linked.rs`
+- `src/atelier/authoring_ui.rs`
+- `src/atelier/board.rs`
+- `tests/corner_rounding.rs`
+- `tests/linked_mirror.rs`
+- `tests/persistent_pattern_measurements.rs`
+- `docs/authoring.md`
+- `docs/panel-tools.md`
+- `docs/handoff.md`
+
+**Acceptance**
+
+- Fillet selected outer-contour corners in the native Piece inspector and 2D board using a positive numeric radius in millimetres, converted once to material metres. Preview the tangent points and resulting contour before Apply. Include a 90-degree straight-edge fixture with a 10 mm radius; handle supported curved-edge configurations explicitly and reject unsupported, ambiguous, degenerate, oversized or self-intersecting constructions without mutation.
+- Construct the intended tangent circular fillet from the requested radius. If stored as ordinary cubic Beziers, document and independently verify a bounded geometric error in millimetres against that circle; never describe the cubic approximation as an exact circular arc. Separate authored fillet error from display/meshing flattening tolerance. No polygonal replacement of the authored fillet.
+- Convert selected corners between sharp, smooth and symmetric Bezier modes. Sharp permits independent incident handles; smooth keeps opposite collinear tangents with independent handle lengths; symmetric keeps opposite collinear tangents with equal lengths. Define behavior for absent or zero-length handles and persist the chosen mode compatibly with existing documents.
+- Automatically maintain the selected smooth/symmetric tangent rule when either handle moves, through the normal CPU authoring transaction and all existing handle-edit callers. Smooth means geometric tangent continuity (G1), not an unproved C1/C2 parameterization claim. Respect local material coordinates under rotated board layouts.
+- Propagate fillets, mode conversions and handle coupling atomically to linked mirrored panels in either editing direction, using the existing reflection/link semantics exactly once. Preserve independent panel identities, layout, placement, fabric and grain policy; reject a failed partner operation without changing either piece.
+- Preserve named boundary references and their defined material stations through supported edits, including whole/partial/chain seams, persistent measurements, target lengths and allowance/notch metadata. Define migrations for trimmed/removed intervals and new fillet boundary IDs; unchanged references must not drift silently. Reject unsupported or ambiguous references before mutation, with an actionable message. Reuse the reviewed topology-reference model and review pending measurement PRs #227/#228 rather than introducing a parallel representation.
+- Keep geometry-preserving splitting in EXO-CAD-011 (#68). Splitting any resulting cubic fillet at a valid parameter uses exact de Casteljau subdivision within floating-point tolerance, preserves the original contour and tangent continuity, and never flattens or resamples the authored curve. Propagate linked mirrors and migrate references or reject atomically. This task creates/edits corners; it does not absorb #68's splitting implementation.
+- Prepare and compile the complete edit before installation as one history entry. Preview/cancel, Escape, stale selection, invalid input, failed reference mapping or failed compilation leave the document, history and live state unchanged. Successful fillets/mode/handle edits support one-step undo/redo and ordinary JSON Save/Open, including persisted corner mode and subsequent coupled handle edits. Rebuild dependent caches after actual rest-geometry changes and preserve compatible unaffected-panel state.
+- Use real named egui controls and independent CPU geometry/reference checks for radius and circle-error bounds, tangent directions, unequal smooth/equal symmetric handles, sharp independence, both mirror directions, seam/measurement preservation or refusal, rounded-curve subdivision, rotated layouts, text focus, cancel, undo/redo and reopen. Keep local checks at two CPU jobs/test threads; native-window/GPU acceptance remains separate and opt-in.
+
+**Evidence and related contributions**
+
+- https://github.com/erythrofr/ClothCraft/issues/233
+- https://github.com/erythrofr/ClothCraft/issues/68
+- https://github.com/erythrofr/ClothCraft/issues/69
+
+Owner-requested focused corner-tools task, separate from EXO-CAD-011 curve splitting and EXO-MFG-015 saved measurements. Work on feature/corner-rounding-bezier-continuity in NicTanghe/Hamerons_ClothCraft from current upstream main. This proposal authorizes administrative preparation only; implementation requires a reviewed catalog entry, maintainer registration and an accepted coordinator claim. Review open #227/#228 measurement work, #231/#232 synchronized-cutout planning and #200/#215 inspector overlaps before coding. Do not expand #68/#69, implement interior panel cuts (DRAW-04), change solver/contact behavior, or import incompatible EXO code/assets. Additional shared paths require reviewed scope amendment. No task is made ready or complete by this proposal.

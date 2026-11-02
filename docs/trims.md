@@ -17,6 +17,12 @@ Linked mirroring with trims, replacing the whole garment and other material
 contour changes on a panel with trims are rejected until their mapping policies
 are implemented.
 
+The CPU authoring API can repeat a trim by a fixed local offset, creating up
+to 128 fresh-ID copies in one transaction. It validates representation and
+capacity and rejects linked panels, but does not check containment; a future UI must check each copy
+against the material surface before committing. No repeat control is exposed
+in the native inspector yet.
+
 Trim-only edits are classified as nonphysical and excluded from fitting mesh
 signatures. Native creation tools, visual previews, curved paths, attachment
 to named edges, manufacturing output and physically simulated closures are

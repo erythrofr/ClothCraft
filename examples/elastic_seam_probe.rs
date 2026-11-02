@@ -6,7 +6,13 @@ use marvelous_cloth::{
     vbd::{Grab, VbdSettings, VbdSolver},
 };
 use serde_json::json;
-use std::{fs, io::Write, path::PathBuf, sync::Arc, time::Instant};
+use std::{
+    fs,
+    io::{BufRead, BufReader, Write},
+    path::PathBuf,
+    sync::Arc,
+    time::Instant,
+};
 
 #[derive(Parser)]
 struct Args {
@@ -16,11 +22,32 @@ struct Args {
     steps: usize,
     #[arg(long, default_value_t = 16)]
     iterations: usize,
+    /// Simulation steps per second; choose 40, 60 or 120.
+    #[arg(long, default_value_t = 60)]
+    hz: usize,
     #[arg(long, default_value_t = 1.15)]
     ease_ratio: f64,
     /// Replay a previous run directory after checking its template and initial state.
     #[arg(long)]
     replay: Option<PathBuf>,
+    /// Downsample a higher-frequency replay at matching physical step times.
+    #[arg(long, requires = "replay", conflicts_with = "equal_seam_control")]
+    resample_replay: bool,
+    /// Replay the full-edge fixture with an equal-length partial-edge seam.
+    #[arg(long, requires = "replay")]
+    equal_seam_control: bool,
+    /// Run without grab input, to inspect settling under the seam and gravity.
+    #[arg(long)]
+    idle_only: bool,
+    /// Audit the initial and every accepted state, separately from the solver.
+    #[arg(long)]
+    audit_every_step: bool,
+    /// Stream accepted positions, velocities and time for offline comparison.
+    #[arg(long)]
+    capture_states: bool,
+    /// Compare with states from the high-rate replay at aligned times.
+    #[arg(long, requires = "resample_replay")]
+    compare_states: bool,
 }
 
 #[derive(serde::Deserialize)]
@@ -30,29 +57,219 @@ struct Control {
     grab_target_m: Option<DVec3>,
 }
 
-fn phase(step: usize) -> &'static str {
-    match step {
-        0..120 => "settle",
-        120..180 => "pull",
-        180..210 => "hold",
-        _ => "release",
+fn validate_state(state: &marvelous_cloth::model::State) -> Result<(), &'static str> {
+    if !state.time.is_finite()
+        || state.x.is_empty()
+        || state.x.len() != state.v.len()
+        || state
+            .x
+            .iter()
+            .chain(&state.v)
+            .any(|value| !value.is_finite())
+    {
+        return Err("Nonfinite or malformed state");
+    }
+    Ok(())
+}
+
+fn write_captured_state(
+    writer: &mut impl Write,
+    step: usize,
+    state: &marvelous_cloth::model::State,
+) -> Result<(), Box<dyn std::error::Error>> {
+    validate_state(state)
+        .map_err(|error| format!("Invalid captured state at step {step}: {error}"))?;
+    serde_json::to_writer(&mut *writer, &json!({"step":step,"state":state}))?;
+    writer.write_all(b"\n")?;
+    Ok(())
+}
+
+#[derive(serde::Deserialize)]
+struct CapturedState {
+    step: usize,
+    state: marvelous_cloth::model::State,
+}
+
+fn capture_topology(garment: &marvelous_cloth::garment::CompiledGarment) -> serde_json::Value {
+    json!({
+        "uv": garment.mesh.uv,
+        "triangles": garment.mesh.triangles.iter().map(|t| t.vertices).collect::<Vec<_>>(),
+        "panels": garment.panels.iter().map(|p| json!({"id":p.id,"vertices":p.vertices})).collect::<Vec<_>>(),
+    })
+}
+
+struct StateComparison {
+    input: BufReader<fs::File>,
+    ratio: usize,
+    source_hz: usize,
+    next_source: usize,
+    count: usize,
+    max_rms_m: f64,
+    max_vertex_m: f64,
+    final_rms_m: f64,
+    max_velocity_rms_m_s: f64,
+    max_velocity_vertex_m_s: f64,
+    final_velocity_rms_m_s: f64,
+    elapsed_ms: f64,
+}
+
+fn vector_difference(a: &[DVec3], b: &[DVec3]) -> Result<(f64, f64), &'static str> {
+    if a.is_empty() || a.len() != b.len() {
+        return Err("Comparison vector counts differ");
+    }
+    let mut sum = 0.;
+    let mut max = 0_f64;
+    for (a, b) in a.iter().zip(b) {
+        let d2 = a.distance_squared(*b);
+        sum += d2;
+        max = max.max(d2);
+    }
+    let rms = (sum / a.len() as f64).sqrt();
+    let max = max.sqrt();
+    if !rms.is_finite() || !max.is_finite() {
+        return Err("Comparison distance overflow");
+    }
+    Ok((rms, max))
+}
+impl StateComparison {
+    fn sample(
+        &mut self,
+        state: &marvelous_cloth::model::State,
+    ) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+        let clock = Instant::now();
+        let mut source = None;
+        for _ in 0..self.ratio {
+            let mut line = String::new();
+            if self.input.read_line(&mut line)? == 0 {
+                return Err("Comparison capture ended early".into());
+            }
+            let record: CapturedState = serde_json::from_str(&line)?;
+            if record.step != self.next_source {
+                return Err("Comparison capture steps are out of order".into());
+            }
+            let expected_time = (record.step + 1) as f64 / self.source_hz as f64;
+            if (record.state.time - expected_time).abs() > 1e-9 * expected_time.abs().max(1.) {
+                return Err("Comparison capture time is out of order".into());
+            }
+            self.next_source += 1;
+            validate_state(&record.state)?;
+            source = Some(record.state);
+        }
+        let source = source.ok_or("Missing comparison state")?;
+        validate_state(state)?;
+        if source.x.len() != state.x.len()
+            || (source.time - state.time).abs() > 1e-9 * state.time.abs().max(1.)
+        {
+            return Err("Comparison state vertex count or time differs".into());
+        }
+        let (rms, max) = vector_difference(&state.x, &source.x)?;
+        let (velocity_rms, velocity_max) = vector_difference(&state.v, &source.v)?;
+        self.count += 1;
+        self.max_rms_m = self.max_rms_m.max(rms);
+        self.max_vertex_m = self.max_vertex_m.max(max);
+        self.final_rms_m = rms;
+        self.max_velocity_rms_m_s = self.max_velocity_rms_m_s.max(velocity_rms);
+        self.max_velocity_vertex_m_s = self.max_velocity_vertex_m_s.max(velocity_max);
+        self.final_velocity_rms_m_s = velocity_rms;
+        self.elapsed_ms += clock.elapsed().as_secs_f64() * 1000.;
+        Ok(json!({"position_rms_m":rms,"position_max_m":max,
+            "velocity_rms_m_s":velocity_rms,"velocity_max_m_s":velocity_max}))
+    }
+    fn finish(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let mut extra = String::new();
+        if self.input.read_line(&mut extra)? != 0 {
+            return Err("Comparison capture has extra states".into());
+        }
+        Ok(())
     }
 }
 
-fn validate_controls(rows: &[Control], steps: usize) -> Result<(), &'static str> {
+struct IntersectionAudit {
+    world: marvelous_cloth::ogc::OgcWorld,
+    samples: usize,
+    elapsed_ms: f64,
+}
+impl IntersectionAudit {
+    fn sample(&mut self, state: &marvelous_cloth::model::State, label: &str) -> Result<(), String> {
+        let clock = Instant::now();
+        let result = self.world.validate_start(&self.world.positions(&state.x));
+        self.elapsed_ms += clock.elapsed().as_secs_f64() * 1000.;
+        self.samples += 1;
+        result.map_err(|error| format!("Intersection audit at {label}: {error}"))
+    }
+}
+
+fn phase(step: usize, hz: usize, idle_only: bool) -> &'static str {
+    if idle_only {
+        return "idle";
+    }
+    if step < 2 * hz {
+        "settle"
+    } else if step < 3 * hz {
+        "pull"
+    } else if step < 7 * hz / 2 {
+        "hold"
+    } else {
+        "release"
+    }
+}
+
+fn validate_controls(
+    rows: &[Control],
+    steps: usize,
+    hz: usize,
+    idle_only: bool,
+) -> Result<(), &'static str> {
     if rows.len() != steps {
         return Err("Replay step count differs");
     }
     for (i, row) in rows.iter().enumerate() {
         if row.step != i
-            || row.phase != phase(i)
-            || row.grab_target_m.is_some() != (120..210).contains(&i)
+            || row.phase != phase(i, hz, idle_only)
+            || row.grab_target_m.is_some() != (!idle_only && (2 * hz..7 * hz / 2).contains(&i))
             || row.grab_target_m.is_some_and(|p| !p.is_finite())
         {
             return Err("Replay control sequence is invalid");
         }
     }
     Ok(())
+}
+
+fn downsample_controls(
+    rows: &[Control],
+    source_hz: usize,
+    target_hz: usize,
+    steps: usize,
+    idle_only: bool,
+) -> Result<Vec<Control>, &'static str> {
+    if ![40, 60, 120].contains(&source_hz)
+        || ![40, 60, 120].contains(&target_hz)
+        || source_hz < target_hz
+        || !source_hz.is_multiple_of(target_hz)
+    {
+        return Err("Replay rates require an integer downsampling ratio");
+    }
+    let ratio = source_hz / target_hz;
+    let source_steps = steps
+        .checked_mul(ratio)
+        .ok_or("Replay step count overflow")?;
+    validate_controls(rows, source_steps, source_hz, idle_only)?;
+    let mut result = Vec::with_capacity(steps);
+    for step in 0..steps {
+        // Both indices represent the end of the same physical interval.
+        let source = &rows[(step + 1) * ratio - 1];
+        let phase = phase(step, target_hz, idle_only);
+        if source.phase != phase {
+            return Err("Replay phases do not align");
+        }
+        result.push(Control {
+            step,
+            phase: phase.into(),
+            grab_target_m: source.grab_target_m,
+        });
+    }
+    validate_controls(&result, steps, target_hz, idle_only)?;
+    Ok(result)
 }
 
 fn fixture(ratio: f64) -> GarmentTemplate {
@@ -77,6 +294,55 @@ fn fixture(ratio: f64) -> GarmentTemplate {
     t.seams[0].allow_ease = true;
     t.seams[0].notches.clear();
     t
+}
+
+fn comparison_fixture(ratio: f64, equal_seam_control: bool) -> GarmentTemplate {
+    let mut template = fixture(ratio);
+    if equal_seam_control {
+        template.seams[0].b.range = [0., 1. / ratio];
+    }
+    template
+}
+
+fn validate_matched_settings(
+    summary: &serde_json::Value,
+    settings: &VbdSettings,
+    steps: usize,
+    idle_only: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let recorded_idle = match summary.get("idle_only") {
+        None => false, // Historical pull/hold/release reports predate this field.
+        Some(value) => value.as_bool().ok_or("Replay idle_only must be boolean")?,
+    };
+    if summary.get("settings") != Some(&serde_json::to_value(settings)?)
+        || summary.get("steps").and_then(serde_json::Value::as_u64) != Some(steps as u64)
+        || recorded_idle != idle_only
+    {
+        return Err("Matched replay requires identical settings and step count".into());
+    }
+    Ok(())
+}
+
+fn validate_replay_timestep(
+    summary: Option<&serde_json::Value>,
+    hz: usize,
+) -> Result<(), &'static str> {
+    let Some(summary) = summary else {
+        return if hz == 60 {
+            Ok(())
+        } else {
+            Err("Replay without timing metadata is only supported at 60 Hz")
+        };
+    };
+    let dt = summary
+        .get("settings")
+        .and_then(|s| s.get("dt"))
+        .and_then(serde_json::Value::as_f64)
+        .ok_or("Replay summary has no timestep")?;
+    if !dt.is_finite() || (dt - 1. / hz as f64).abs() > 1e-12 {
+        return Err("Replay timestep differs; controls are indexed by step");
+    }
+    Ok(())
 }
 
 /// Independent proposed tension-only thread law, NOT installed in VBD.
@@ -109,19 +375,27 @@ fn reconcile(
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    if args.steps < 300
+    if ![40, 60, 120].contains(&args.hz)
+        || args.steps < 5 * args.hz
         || args.iterations == 0
         || !args.ease_ratio.is_finite()
         || !(1.0..=1.5).contains(&args.ease_ratio)
     {
-        return Err("Require steps >= 300, positive iterations and ease ratio in [1, 1.5]".into());
+        return Err("Require hz 40, 60 or 120, at least five simulated seconds, positive iterations and ease ratio in [1, 1.5]".into());
     }
     rayon::ThreadPoolBuilder::new()
         .num_threads(2)
         .build_global()?;
-    // Refuse accidental replacement of an earlier experiment.
-    fs::create_dir(&args.output)?;
-    let garment = Arc::new(fixture(args.ease_ratio).compile()?);
+    if args.equal_seam_control && args.ease_ratio <= 1. {
+        return Err("Equal seam control requires an ease ratio greater than 1".into());
+    }
+    let settings = VbdSettings {
+        dt: 1. / args.hz as f64,
+        iterations: args.iterations,
+        ..Default::default()
+    };
+    settings.validate()?;
+    let garment = Arc::new(comparison_fixture(args.ease_ratio, args.equal_seam_control).compile()?);
     let initial = garment.initial_state.clone();
     let replay = args
         .replay
@@ -139,14 +413,116 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     return Err(format!("Replay {file} differs from current fixture").into());
                 }
             }
+            let summary_path = dir.join("summary.json");
+            let summary: Option<serde_json::Value> = if summary_path.exists() {
+                Some(serde_json::from_slice(&fs::read(&summary_path)?)?)
+            } else {
+                None
+            };
+            let source_hz = if args.resample_replay {
+                let summary = summary
+                    .as_ref()
+                    .ok_or("Resampled replay requires timing metadata")?;
+                let dt = summary
+                    .get("settings")
+                    .and_then(|s| s.get("dt"))
+                    .and_then(serde_json::Value::as_f64)
+                    .ok_or("Replay summary has no timestep")?;
+                [40, 60, 120]
+                    .into_iter()
+                    .find(|hz| (dt - 1. / *hz as f64).abs() <= 1e-12)
+                    .ok_or("Replay timestep is not supported for resampling")?
+            } else {
+                validate_replay_timestep(summary.as_ref(), args.hz)?;
+                args.hz
+            };
+            if args.equal_seam_control {
+                validate_matched_settings(
+                    summary
+                        .as_ref()
+                        .ok_or("Matched replay requires a summary")?,
+                    &settings,
+                    args.steps,
+                    args.idle_only,
+                )?;
+            }
             let rows = fs::read_to_string(dir.join("trace.jsonl"))?
                 .lines()
                 .map(serde_json::from_str)
                 .collect::<Result<Vec<Control>, _>>()?;
-            validate_controls(&rows, args.steps)?;
-            Ok(rows)
+            if args.resample_replay {
+                Ok(downsample_controls(
+                    &rows,
+                    source_hz,
+                    args.hz,
+                    args.steps,
+                    args.idle_only,
+                )?)
+            } else {
+                validate_controls(&rows, args.steps, args.hz, args.idle_only)?;
+                Ok(rows)
+            }
         })
         .transpose()?;
+    let topology = capture_topology(&garment);
+    let mut comparison = if args.compare_states {
+        let dir = args.replay.as_ref().ok_or("Comparison requires a replay")?;
+        let saved_topology: serde_json::Value = serde_json::from_slice(
+            &fs::read(dir.join("topology.json"))
+                .map_err(|error| format!("Cannot read replay topology.json: {error}"))?,
+        )?;
+        if saved_topology != topology {
+            return Err("Comparison topology differs".into());
+        }
+        let summary: serde_json::Value =
+            serde_json::from_slice(&fs::read(dir.join("summary.json"))?)?;
+        let dt = summary
+            .get("settings")
+            .and_then(|s| s.get("dt"))
+            .and_then(serde_json::Value::as_f64)
+            .ok_or("Comparison has no timestep")?;
+        let source_hz = [40, 60, 120]
+            .into_iter()
+            .find(|hz| (dt - 1. / *hz as f64).abs() <= 1e-12)
+            .ok_or("Unsupported comparison timestep")?;
+        if source_hz < args.hz || !source_hz.is_multiple_of(args.hz) {
+            return Err("Comparison rates do not align".into());
+        }
+        let ratio = source_hz / args.hz;
+        let expected = args
+            .steps
+            .checked_mul(ratio)
+            .ok_or("Comparison length overflow")?;
+        let capture = summary
+            .get("state_capture")
+            .ok_or("Replay has no state capture")?;
+        if capture.get("schema").and_then(serde_json::Value::as_u64) != Some(1)
+            || capture.get("samples").and_then(serde_json::Value::as_u64) != Some(expected as u64)
+        {
+            return Err("Replay capture metadata does not match duration".into());
+        }
+        Some(StateComparison {
+            input: BufReader::new(
+                fs::File::open(dir.join("states.jsonl"))
+                    .map_err(|error| format!("Cannot read replay states.jsonl: {error}"))?,
+            ),
+            ratio,
+            source_hz,
+            next_source: 0,
+            count: 0,
+            max_rms_m: 0.,
+            max_vertex_m: 0.,
+            final_rms_m: 0.,
+            max_velocity_rms_m_s: 0.,
+            max_velocity_vertex_m_s: 0.,
+            final_velocity_rms_m_s: 0.,
+            elapsed_ms: 0.,
+        })
+    } else {
+        None
+    };
+    // Validate controls and settings before creating any experiment output.
+    fs::create_dir(&args.output)?;
     let seam = &garment.seams[0];
     let mut gradient = vec![DVec3::ZERO; initial.x.len()];
     for e in seam.elements(&initial.x) {
@@ -166,14 +542,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if max_error > 1e-7 {
         return Err("Production seam derivative check failed".into());
     }
-    let settings = VbdSettings {
-        dt: 1. / 60.,
-        iterations: args.iterations,
-        ..Default::default()
-    };
-    settings.validate()?;
     let mut solver = VbdSolver::new(garment.clone(), None, &initial)?;
     let mut state = initial.clone();
+    let mut intersection_audit = args.audit_every_step.then(|| IntersectionAudit {
+        world: solver.world.clone(),
+        samples: 0,
+        elapsed_ms: 0.,
+    });
+    if let Some(audit) = &mut intersection_audit {
+        audit.sample(&state, "initial state")?;
+    }
     // Select a free triangle by rest coordinates, not a serialized mesh index.
     let panel = &garment.panels[1];
     let vertices = garment
@@ -190,9 +568,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let point = |x: &[DVec3]| vertices.iter().map(|&v| x[v] / 3.).sum::<DVec3>();
     let mut anchor = DVec3::ZERO;
     let mut trace = fs::File::create(args.output.join("trace.jsonl"))?;
+    let mut captured = if args.capture_states {
+        fs::write(
+            args.output.join("topology.json"),
+            serde_json::to_vec_pretty(&topology)?,
+        )?;
+        Some(std::io::BufWriter::new(fs::File::create(
+            args.output.join("states.jsonl"),
+        )?))
+    } else {
+        None
+    };
+    let mut capture_ms = 0_f64;
     fs::write(
         args.output.join("template.json"),
-        serde_json::to_vec_pretty(&fixture(args.ease_ratio))?,
+        serde_json::to_vec_pretty(&comparison_fixture(
+            args.ease_ratio,
+            args.equal_seam_control,
+        ))?,
     )?;
     fs::write(
         args.output.join("initial.json"),
@@ -213,20 +606,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut total_diagnostic_ms = 0_f64;
     let mut release_rises = 0;
     let mut maximum_release_rise = 0_f64;
+    let mut tail_rises = 0;
+    let mut maximum_tail_rise = 0_f64;
     let mut release_start = 0.;
     let mut final_energy = 0.;
     let mut costs = Vec::new();
     let mut tail_motion = Vec::new();
     for step in 0..args.steps {
-        if step == 120 {
+        if step == 2 * args.hz {
             anchor = point(&state.x);
         }
-        let phase = phase(step);
-        let u = ((step as f64 - 119.) / 60.).clamp(0., 1.);
+        let phase = phase(step, args.hz, args.idle_only);
+        let u = ((step as f64 - (2 * args.hz - 1) as f64) / args.hz as f64).clamp(0., 1.);
         let target = replay.as_ref().map_or_else(
             || {
-                (120..210)
-                    .contains(&step)
+                (!args.idle_only && (2 * args.hz..7 * args.hz / 2).contains(&step))
                     .then_some(anchor + DVec3::Z * (0.04 * u * u * (3. - 2. * u)))
             },
             |rows| rows[step].grab_target_m,
@@ -254,6 +648,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let clock = Instant::now();
         let metrics = solver.step(&mut state, &settings, grab.as_ref())?;
         let wall_ms = clock.elapsed().as_secs_f64() * 1000.;
+        if let Some(audit) = &mut intersection_audit {
+            audit.sample(&state, &format!("accepted step {step}"))?;
+        }
+        if let Some(writer) = &mut captured {
+            let capture_clock = Instant::now();
+            write_captured_state(writer, step, &state)?;
+            capture_ms += capture_clock.elapsed().as_secs_f64() * 1000.;
+        }
+        let comparison_row = comparison.as_mut().map(|c| c.sample(&state)).transpose()?;
         let diagnostic_clock = Instant::now();
         let balance =
             solver.audit_step(&before, &state, &settings, &contacts_before, grab.as_ref())?;
@@ -276,7 +679,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         maximum_contact_refresh = maximum_contact_refresh.max(contact_refresh.abs());
         maximum_start_refresh = maximum_start_refresh.max(start_refresh.abs());
         maximum_reconciliation_error = maximum_reconciliation_error.max(reconciliation_error.abs());
-        if step >= args.steps - 60 {
+        if step >= args.steps - args.hz {
             tail_residual.push(balance.residual_rms_n);
         }
         total_diagnostic_ms += diagnostic_clock.elapsed().as_secs_f64() * 1000.;
@@ -286,49 +689,66 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if !final_energy.is_finite() {
             return Err("Nonfinite energy".into());
         }
-        if step == 210 {
+        if step == if args.idle_only { 0 } else { 7 * args.hz / 2 } {
             release_start = final_energy;
         }
         if let Some((old_phase, old_energy)) = &previous
-            && phase == "release"
+            && phase == if args.idle_only { "idle" } else { "release" }
             && old_phase == phase
         {
             let rise = final_energy - old_energy;
             release_rises += usize::from(rise > 1e-12);
             maximum_release_rise = maximum_release_rise.max(rise);
+            if step >= args.steps - args.hz {
+                tail_rises += usize::from(rise > 1e-12);
+                maximum_tail_rise = maximum_tail_rise.max(rise);
+            }
         }
         previous = Some((phase.into(), final_energy));
         let motion = metrics.motion.as_ref().map(|m| m.highpass_rms_m);
-        if step >= 60 {
+        if step >= args.hz {
             costs.push(wall_ms);
         }
-        if step >= args.steps - 60
+        if step >= args.steps - args.hz
             && let Some(m) = motion
         {
             tail_motion.push(m);
         }
-        writeln!(
-            trace,
-            "{}",
-            json!({"step":step,"phase":phase,"energy":energy,
+        let mut row = json!({"step":step,"phase":phase,"energy":energy,
             "total_j":final_energy,"step_wall_ms":wall_ms,"highpass_rms_m":motion,"velocity_rms_m_s":velocity_rms,
             "grab_target_m":grab.as_ref().map(|g|g.target),"seam_gap_m":seam.max_gap(&state.x),
             "frozen_contact_balance":balance,"contact_refresh_j":contact_refresh,
             "contact_refresh_at_start_j":start_refresh,"control_change_j":control_change,
-            "reconciliation_error_j":reconciliation_error})
-        )?;
+            "reconciliation_error_j":reconciliation_error});
+        if let Some(comparison_row) = comparison_row {
+            row["state_comparison"] = comparison_row;
+        }
+        writeln!(trace, "{row}")?;
         previous_grab = grab;
         previous_energy = Some(energy);
+    }
+    if let Some(comparison) = &mut comparison {
+        comparison.finish()?;
+    }
+    if let Some(writer) = &mut captured {
+        let capture_clock = Instant::now();
+        writer.flush()?;
+        capture_ms += capture_clock.elapsed().as_secs_f64() * 1000.;
     }
     solver
         .world
         .validate_start(&solver.world.positions(&state.x))?;
     costs.sort_by(f64::total_cmp);
-    let report = json!({"kind":"production geometric easing baseline; no elastic thread integration",
-        "gpu_used":false,"replay":args.replay,"settings":settings,"vertices":initial.x.len(),"iterations":args.iterations,"steps":args.steps,
-        "ease_ratio":args.ease_ratio,"gradient_max_error_n":max_error,
-        "release_energy_start_j":release_start,"release_energy_end_j":final_energy,
-        "release_positive_deltas":release_rises,"release_max_rise_j":maximum_release_rise,
+    let mut report = json!({"kind":if args.equal_seam_control { "matched equal-length partial seam control" } else { "production geometric easing baseline" },
+        "gpu_used":false,"replay":args.replay,"resample_replay":args.resample_replay,"settings":settings,"vertices":initial.x.len(),"iterations":args.iterations,"steps":args.steps,
+        "simulation_hz":args.hz,"simulated_seconds":args.steps as f64 / args.hz as f64,"tail_seconds":1.0,
+        "ease_ratio":args.ease_ratio,"equal_seam_control":args.equal_seam_control,"idle_only":args.idle_only,"gradient_max_error_n":max_error,
+        "observation_phase":if args.idle_only { "idle" } else { "release" },
+        "observation_energy_start_j":release_start,"observation_energy_end_j":final_energy,
+        "observation_positive_deltas":release_rises,"observation_max_rise_j":maximum_release_rise,
+        "tail_positive_deltas":tail_rises,"tail_max_rise_j":maximum_tail_rise,
+        "release_energy_start_j":(!args.idle_only).then_some(release_start),"release_energy_end_j":(!args.idle_only).then_some(final_energy),
+        "release_positive_deltas":(!args.idle_only).then_some(release_rises),"release_max_rise_j":(!args.idle_only).then_some(maximum_release_rise),
         "step_wall_mean_ms":costs.iter().sum::<f64>()/costs.len() as f64,
         "step_wall_p95_ms":costs[(costs.len()-1)*95/100],
         "tail_highpass_mean_m":tail_motion.iter().sum::<f64>()/tail_motion.len() as f64,
@@ -340,6 +760,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "final_intersection_check":"passed",
         "thread_law_example":{"rest_m":0.3,"current_m":0.33,"ea_n":10.,"energy_and_tension":thread_law(0.33,0.3,10.)},
         "limits":"Frozen pre-step diagnostic contacts may differ from the solver's internal contacts; residual includes movement-bound reactions and is not a convergence certificate. Control and contact refresh changes are separate. Uncalibrated thread law is analytical only."});
+    report["sampled_intersection_audit"] = intersection_audit
+        .as_ref()
+        .map(|audit| json!({"samples":audit.samples,"elapsed_ms":audit.elapsed_ms,"status":"passed"}))
+        .unwrap_or(serde_json::Value::Null);
+    report["state_capture"] = if args.capture_states {
+        json!({"schema": 1, "file":"states.jsonl", "samples":args.steps, "elapsed_ms":capture_ms})
+    } else {
+        serde_json::Value::Null
+    };
+    report["state_comparison"] = comparison.as_ref().map(|c| json!({"samples":c.count,"final_position_rms_m":c.final_rms_m,"max_step_rms_m":c.max_rms_m,"max_vertex_m":c.max_vertex_m,"final_velocity_rms_m_s":c.final_velocity_rms_m_s,"max_step_velocity_rms_m_s":c.max_velocity_rms_m_s,"max_vertex_velocity_m_s":c.max_velocity_vertex_m_s,"elapsed_ms":c.elapsed_ms})).unwrap_or(serde_json::Value::Null);
     fs::write(
         args.output.join("summary.json"),
         serde_json::to_vec_pretty(&report)?,
@@ -351,6 +781,186 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn vector_difference_checks_counts_and_overflow() {
+        let (rms, max) = vector_difference(
+            &[DVec3::new(3., 0., 0.), DVec3::new(0., 4., 0.)],
+            &[DVec3::ZERO, DVec3::ZERO],
+        )
+        .unwrap();
+        assert!((rms - (12.5_f64).sqrt()).abs() < 1e-12);
+        assert_eq!(max, 4.);
+        assert!(vector_difference(&[], &[]).is_err());
+        assert!(vector_difference(&[DVec3::ZERO], &[]).is_err());
+        assert!(vector_difference(&[DVec3::splat(f64::NAN)], &[DVec3::ZERO]).is_err());
+        assert!(vector_difference(&[DVec3::splat(f64::MAX)], &[DVec3::ZERO]).is_err());
+    }
+    #[test]
+    fn comparison_stream_checks_order_time_and_distance() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("states.jsonl");
+        let mut output = fs::File::create(&path).unwrap();
+        let mut source = marvelous_cloth::model::State {
+            x: vec![DVec3::ZERO],
+            v: vec![DVec3::ZERO],
+            time: 1. / 120.,
+        };
+        write_captured_state(&mut output, 0, &source).unwrap();
+        source.time = 2. / 120.;
+        write_captured_state(&mut output, 1, &source).unwrap();
+        drop(output);
+        let mut compare = StateComparison {
+            input: BufReader::new(fs::File::open(&path).unwrap()),
+            ratio: 2,
+            source_hz: 120,
+            next_source: 0,
+            count: 0,
+            max_rms_m: 0.,
+            max_vertex_m: 0.,
+            final_rms_m: 0.,
+            max_velocity_rms_m_s: 0.,
+            max_velocity_vertex_m_s: 0.,
+            final_velocity_rms_m_s: 0.,
+            elapsed_ms: 0.,
+        };
+        let target = marvelous_cloth::model::State {
+            x: vec![DVec3::new(0.003, 0., 0.)],
+            v: vec![DVec3::new(0., 0.2, 0.)],
+            time: 1. / 60.,
+        };
+        let result = compare.sample(&target).unwrap();
+        assert!((result["position_rms_m"].as_f64().unwrap() - 0.003).abs() < 1e-12);
+        assert!((result["velocity_rms_m_s"].as_f64().unwrap() - 0.2).abs() < 1e-12);
+        assert!((result["velocity_max_m_s"].as_f64().unwrap() - 0.2).abs() < 1e-12);
+        assert!((compare.final_velocity_rms_m_s - 0.2).abs() < 1e-12);
+        assert_eq!(compare.count, 1);
+        compare.finish().unwrap();
+        assert!(compare.sample(&target).is_err());
+        let mut malformed = fs::File::create(&path).unwrap();
+        write_captured_state(&mut malformed, 1, &source).unwrap();
+        drop(malformed);
+        let mut compare = StateComparison {
+            input: BufReader::new(fs::File::open(&path).unwrap()),
+            ratio: 1,
+            source_hz: 120,
+            next_source: 0,
+            count: 0,
+            max_rms_m: 0.,
+            max_vertex_m: 0.,
+            final_rms_m: 0.,
+            max_velocity_rms_m_s: 0.,
+            max_velocity_vertex_m_s: 0.,
+            final_velocity_rms_m_s: 0.,
+            elapsed_ms: 0.,
+        };
+        assert!(compare.sample(&target).is_err());
+        let mut wrong_time = fs::File::create(&path).unwrap();
+        write_captured_state(&mut wrong_time, 0, &source).unwrap();
+        drop(wrong_time);
+        let mut compare = StateComparison {
+            input: BufReader::new(fs::File::open(&path).unwrap()),
+            ratio: 1,
+            source_hz: 120,
+            next_source: 0,
+            count: 0,
+            max_rms_m: 0.,
+            max_vertex_m: 0.,
+            final_rms_m: 0.,
+            max_velocity_rms_m_s: 0.,
+            max_velocity_vertex_m_s: 0.,
+            final_velocity_rms_m_s: 0.,
+            elapsed_ms: 0.,
+        };
+        assert!(
+            compare
+                .sample(&target)
+                .unwrap_err()
+                .to_string()
+                .contains("time")
+        );
+    }
+    #[test]
+    fn captured_state_roundtrips_and_rejects_nonfinite_input() {
+        let state = marvelous_cloth::model::State {
+            x: vec![DVec3::new(0.1, 0.2, 0.3)],
+            v: vec![DVec3::new(-1., 0., 2.)],
+            time: 0.5,
+        };
+        let mut bytes = Vec::new();
+        write_captured_state(&mut bytes, 29, &state).unwrap();
+        let record: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(record["step"], 29);
+        let restored: marvelous_cloth::model::State =
+            serde_json::from_value(record["state"].clone()).unwrap();
+        assert_eq!(restored.x, state.x);
+        assert_eq!(restored.v, state.v);
+        assert_eq!(restored.time, state.time);
+        let mut invalid = state.clone();
+        invalid.x[0].x = f64::NAN;
+        let original = bytes.clone();
+        assert!(write_captured_state(&mut bytes, 30, &invalid).is_err());
+        assert_eq!(bytes, original);
+        invalid = state;
+        invalid.v.clear();
+        assert!(write_captured_state(&mut bytes, 30, &invalid).is_err());
+        assert_eq!(bytes, original);
+    }
+    #[test]
+    fn independent_intersection_audit_detects_collapsed_state() {
+        let garment = Arc::new(fixture(1.15).compile().unwrap());
+        let initial = garment.initial_state.clone();
+        let mut solver = VbdSolver::new(garment, None, &initial).unwrap();
+        let mut audit = IntersectionAudit {
+            world: solver.world.clone(),
+            samples: 0,
+            elapsed_ms: 0.,
+        };
+        audit.sample(&initial, "initial").unwrap();
+        let mut collapsed = initial.clone();
+        collapsed.x.fill(DVec3::ZERO);
+        assert!(audit.sample(&collapsed, "collapsed").is_err());
+        assert_eq!(audit.samples, 2);
+        let solver_positions = solver.world.positions(&initial.x);
+        solver.world.validate_start(&solver_positions).unwrap();
+    }
+    #[test]
+    fn matched_control_changes_only_seam_coverage() {
+        let base = fixture(1.15);
+        let control = comparison_fixture(1.15, true);
+        let mut normalized = control.clone();
+        normalized.seams = base.seams.clone();
+        assert_eq!(
+            serde_json::to_value(&base).unwrap(),
+            serde_json::to_value(&normalized).unwrap()
+        );
+        assert!((control.seams[0].b.range[1] * 0.3 * 1.15 - 0.3).abs() < 1e-12);
+        let a = base.compile().unwrap();
+        let b = control.compile().unwrap();
+        assert_eq!(
+            serde_json::to_value(&a.initial_state).unwrap(),
+            serde_json::to_value(&b.initial_state).unwrap()
+        );
+    }
+    #[test]
+    fn matched_control_rejects_settings_and_step_changes() {
+        let settings = VbdSettings {
+            dt: 1. / 60.,
+            iterations: 16,
+            ..Default::default()
+        };
+        let mut report = json!({"settings": settings, "steps": 300});
+        assert!(validate_matched_settings(&report, &settings, 300, false).is_ok());
+        assert!(validate_matched_settings(&report, &settings, 300, true).is_err());
+        assert!(validate_matched_settings(&report, &settings, 301, false).is_err());
+        report["idle_only"] = json!(true);
+        assert!(validate_matched_settings(&report, &settings, 300, true).is_ok());
+        assert!(validate_matched_settings(&report, &settings, 300, false).is_err());
+        report["idle_only"] = json!("invalid");
+        assert!(validate_matched_settings(&report, &settings, 300, false).is_err());
+        report["idle_only"] = json!(true);
+        report["settings"]["iterations"] = json!(32);
+        assert!(validate_matched_settings(&report, &settings, 300, true).is_err());
+    }
     #[test]
     fn moving_patch_observes_natural_contact_refresh() {
         use marvelous_cloth::{avatar::SurfaceMesh, model::Pattern};
@@ -555,22 +1165,79 @@ mod tests {
             (0..300)
                 .map(|i| Control {
                     step: i,
-                    phase: phase(i).into(),
+                    phase: phase(i, 60, false).into(),
                     grab_target_m: (120..210).contains(&i).then_some(DVec3::ZERO),
                 })
                 .collect::<Vec<_>>()
         };
         let mut rows = make();
-        assert!(validate_controls(&rows, 300).is_ok());
-        assert!(validate_controls(&rows, 301).is_err());
+        assert!(validate_controls(&rows, 300, 60, false).is_ok());
+        assert!(validate_controls(&rows, 300, 60, true).is_err());
+        assert!(validate_controls(&rows, 301, 60, false).is_err());
         rows.swap(120, 121);
-        assert!(validate_controls(&rows, 300).is_err());
+        assert!(validate_controls(&rows, 300, 60, false).is_err());
         let mut rows = make();
         rows[210].grab_target_m = Some(DVec3::ZERO);
-        assert!(validate_controls(&rows, 300).is_err());
+        assert!(validate_controls(&rows, 300, 60, false).is_err());
         let mut rows = make();
         rows[120].grab_target_m = Some(DVec3::splat(f64::NAN));
-        assert!(validate_controls(&rows, 300).is_err());
+        assert!(validate_controls(&rows, 300, 60, false).is_err());
+        let idle: Vec<_> = (0..300)
+            .map(|i| Control {
+                step: i,
+                phase: phase(i, 60, true).into(),
+                grab_target_m: None,
+            })
+            .collect();
+        assert!(validate_controls(&idle, 300, 60, true).is_ok());
+        assert!(validate_controls(&idle, 300, 60, false).is_err());
+    }
+    #[test]
+    fn timestep_schedules_have_matching_physical_phase_boundaries() {
+        for hz in [40, 60, 120] {
+            assert_eq!(phase(2 * hz - 1, hz, false), "settle");
+            assert_eq!(phase(2 * hz, hz, false), "pull");
+            assert_eq!(phase(3 * hz, hz, false), "hold");
+            assert_eq!(phase(7 * hz / 2, hz, false), "release");
+            assert_eq!(phase(7 * hz / 2, hz, true), "idle");
+        }
+    }
+    #[test]
+    fn replay_timing_requires_a_matching_step_interval() {
+        let summary = json!({"settings": {"dt": 1. / 60.}});
+        assert!(validate_replay_timestep(Some(&summary), 60).is_ok());
+        assert!(validate_replay_timestep(Some(&summary), 120).is_err());
+        assert!(validate_replay_timestep(Some(&json!({})), 60).is_err());
+        assert!(validate_replay_timestep(None, 60).is_ok());
+        assert!(validate_replay_timestep(None, 40).is_err());
+    }
+    #[test]
+    fn downsample_replay_uses_exact_aligned_world_targets() {
+        let source_hz = 120;
+        let rows: Vec<_> = (0..6 * source_hz)
+            .map(|step| Control {
+                step,
+                phase: phase(step, source_hz, false).into(),
+                grab_target_m: (2 * source_hz..7 * source_hz / 2)
+                    .contains(&step)
+                    .then_some(DVec3::splat((step + 1) as f64 / source_hz as f64)),
+            })
+            .collect();
+        for target_hz in [40, 60] {
+            let result =
+                downsample_controls(&rows, source_hz, target_hz, 6 * target_hz, false).unwrap();
+            for row in &result {
+                if let Some(target) = row.grab_target_m {
+                    assert_eq!(
+                        target,
+                        DVec3::splat((row.step + 1) as f64 / target_hz as f64)
+                    );
+                }
+            }
+        }
+        assert!(downsample_controls(&rows, 60, 40, 240, false).is_err());
+        assert!(downsample_controls(&rows, 120, 40, 239, false).is_err());
+        assert!(downsample_controls(&rows, 120, 40, 240, true).is_err());
     }
     #[test]
     fn proposed_thread_law_has_correct_derivative_and_slack_limit() {

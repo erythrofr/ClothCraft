@@ -65,16 +65,72 @@ pub(super) fn tool_for_command(id: CommandId) -> Option<(Tool, bool)> {
     })
 }
 
+const MAX_QUERY_CHARS: usize = 128;
+
+fn is_subsequence(needle: &str, word: &str) -> bool {
+    let mut chars = word.chars();
+    needle
+        .chars()
+        .all(|c| chars.any(|candidate| candidate == c))
+}
+
 fn matches(query: &str) -> Vec<CommandId> {
+    if query.chars().count() > MAX_QUERY_CHARS {
+        return Vec::new();
+    }
     let query = query.to_lowercase();
-    commands::REGISTRY
+    let mut results: Vec<_> = commands::REGISTRY
         .iter()
-        .filter(|d| {
-            let text = format!("{} {} {}", d.label, d.key, aliases(d.id)).to_lowercase();
-            query.split_whitespace().all(|word| text.contains(word))
+        .enumerate()
+        .filter_map(|(index, d)| {
+            let label = d.label.to_lowercase();
+            let key = d.key.to_lowercase();
+            let shortcut = d.shortcut.unwrap_or_default().to_lowercase();
+            let text = format!("{} {} {} {}", label, key, shortcut, aliases(d.id));
+            let mut fuzzy_words = 0usize;
+            for word in query.split_whitespace() {
+                if text.contains(word) {
+                    continue;
+                }
+                if word.chars().count() < 3
+                    || !text
+                        .split(|c: char| !c.is_alphanumeric())
+                        .any(|candidate| is_subsequence(word, candidate))
+                {
+                    return None;
+                }
+                fuzzy_words += 1;
+            }
+            let term = query.trim();
+            // Favor an actual command name over a match in a broad alias,
+            // while leaving an empty search in the original registry order.
+            let relevance = if term.is_empty() || label == term || key == term || shortcut == term {
+                0
+            } else if label.starts_with(term) || key.starts_with(term) || shortcut.starts_with(term)
+            {
+                1
+            } else if label
+                .split(|c: char| !c.is_alphanumeric())
+                .any(|w| w == term)
+                || key.split(|c: char| !c.is_alphanumeric()).any(|w| w == term)
+            {
+                2
+            } else if label.contains(term) || key.contains(term) {
+                3
+            } else {
+                4
+            };
+            Some((fuzzy_words, relevance, index, d.id))
         })
-        .map(|d| d.id)
-        .collect()
+        .collect();
+    if results
+        .iter()
+        .any(|(fuzzy_words, _, _, _)| *fuzzy_words == 0)
+    {
+        results.retain(|(fuzzy_words, _, _, _)| *fuzzy_words == 0);
+    }
+    results.sort_by_key(|(fuzzy_words, relevance, index, _)| (*fuzzy_words, *relevance, *index));
+    results.into_iter().map(|(_, _, _, id)| id).collect()
 }
 
 fn named(_ui: &egui::Ui, _r: &egui::Response, _name: &str) {
@@ -135,10 +191,11 @@ impl Palette {
         let modal = egui::Modal::new(egui::Id::new("command-palette")).show(ctx, |ui| {
             ui.set_width((ctx.content_rect().width() - 64.).clamp(200., 520.));
             ui.heading("Commands");
-            ui.small("Search actions · ↑ ↓ navigate · Enter run · Esc close");
+            ui.small("Search actions · ↑ ↓ / Page Up Down navigate · Enter run · Esc close");
             let response = ui.add(
                 egui::TextEdit::singleline(&mut self.query)
                     .id(egui::Id::new("palette.query"))
+                    .char_limit(MAX_QUERY_CHARS)
                     .hint_text("Search commands…")
                     .desired_width(f32::INFINITY),
             );
@@ -165,10 +222,12 @@ impl Palette {
             if selection_changed {
                 self.selected = available[0];
             }
-            let (up, down, enter, escape) = ctx.input_mut(|i| {
+            let (up, down, page_up, page_down, enter, escape) = ctx.input_mut(|i| {
                 (
                     i.consume_key(egui::Modifiers::NONE, egui::Key::ArrowUp),
                     i.consume_key(egui::Modifiers::NONE, egui::Key::ArrowDown),
+                    i.consume_key(egui::Modifiers::NONE, egui::Key::PageUp),
+                    i.consume_key(egui::Modifiers::NONE, egui::Key::PageDown),
                     i.consume_key(egui::Modifiers::NONE, egui::Key::Enter),
                     i.consume_key(egui::Modifiers::NONE, egui::Key::Escape),
                 )
@@ -182,6 +241,10 @@ impl Palette {
                     self.selected = available[(position + 1) % available.len()];
                 } else if up {
                     self.selected = available[(position + available.len() - 1) % available.len()];
+                } else if page_down {
+                    self.selected = available[(position + 5).min(available.len() - 1)];
+                } else if page_up {
+                    self.selected = available[position.saturating_sub(5)];
                 }
                 if enter && !selection_changed {
                     command = Some(results[self.selected]);
@@ -215,7 +278,15 @@ impl Palette {
                                 .selected(index == self.selected && availability.is_ok()),
                         );
                         named(ui, &row, &format!("palette.command.{}", descriptor.key));
-                        if (up || down) && index == self.selected {
+                        if (up
+                            || down
+                            || page_up
+                            || page_down
+                            || response.changed()
+                            || selection_changed)
+                            && index == self.selected
+                            && availability.is_ok()
+                        {
                             row.scroll_to_me(Some(egui::Align::Center));
                         }
                         if row.clicked() {
@@ -388,6 +459,119 @@ mod tests {
         assert_eq!(matches("frill"), vec![CommandId::ToolInternalLine]);
         assert!(matches("not-a-command").is_empty());
         assert_eq!(matches(" ").len(), commands::REGISTRY.len());
+    }
+
+    #[test]
+    fn abbreviations_preserve_exact_priority_and_bound_input() {
+        assert_eq!(matches("rctngl").first(), Some(&CommandId::ToolRectangle));
+        assert_eq!(matches("FRHND").first(), Some(&CommandId::ToolFreehand));
+        assert_eq!(matches("ruler").first(), Some(&CommandId::ToolMeasure));
+        assert!(matches("qz").is_empty());
+        assert!(matches(&"a".repeat(MAX_QUERY_CHARS + 1)).is_empty());
+        assert!(is_subsequence("fhn", "freehand"));
+        assert!(!is_subsequence("hfn", "freehand"));
+    }
+
+    #[test]
+    fn changed_search_reveals_new_selection_after_keyboard_scroll() {
+        let mut c = case();
+        let mut h = Harness::new(egui::vec2(700., 480.));
+        frames(&mut h, &mut c);
+        h.replace_text("palette.query", "tool", &mut c, &mut draw)
+            .unwrap();
+        for _ in 0..10 {
+            h.key(
+                "palette.query",
+                egui::Key::ArrowDown,
+                egui::Modifiers::NONE,
+                &mut c,
+                &mut draw,
+            )
+            .unwrap();
+        }
+        frames(&mut h, &mut c);
+        h.replace_text("palette.query", "tool.", &mut c, &mut draw)
+            .unwrap();
+        frames(&mut h, &mut c);
+        h.click("palette.command.tool.edit", &mut c, &mut draw)
+            .unwrap();
+        assert_eq!(c.commands, vec![CommandId::ToolEdit]);
+    }
+
+    #[test]
+    fn named_shortcut_search_finds_and_dispatches_the_associated_command() {
+        let mut c = case();
+        let mut h = Harness::new(egui::vec2(900., 900.));
+        frames(&mut h, &mut c);
+        h.replace_text("palette.query", "Space", &mut c, &mut draw)
+            .unwrap();
+        h.key(
+            "palette.query",
+            egui::Key::Enter,
+            egui::Modifiers::NONE,
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert_eq!(c.commands, vec![CommandId::ToggleSimulation]);
+    }
+
+    #[test]
+    fn command_names_rank_before_broad_aliases_without_reordering_empty_search() {
+        assert_eq!(matches("cloth").first(), Some(&CommandId::ToolGrab));
+        assert_eq!(matches("TOOL.GRAB").first(), Some(&CommandId::ToolGrab));
+        assert_eq!(
+            matches("   "),
+            commands::REGISTRY.iter().map(|d| d.id).collect::<Vec<_>>()
+        );
+        assert!(matches("cloth").contains(&CommandId::GarmentView));
+    }
+
+    #[test]
+    fn named_ambiguous_search_selects_the_relevant_tool() {
+        let mut c = case();
+        let mut h = Harness::new(egui::vec2(900., 900.));
+        frames(&mut h, &mut c);
+        h.replace_text("palette.query", "cloth", &mut c, &mut draw)
+            .unwrap();
+        h.key(
+            "palette.query",
+            egui::Key::Enter,
+            egui::Modifiers::NONE,
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert_eq!(c.commands, vec![CommandId::ToolGrab]);
+    }
+
+    #[test]
+    fn named_abbreviated_search_dispatches_the_real_tool_and_bounds_paste() {
+        let mut c = case();
+        let mut h = Harness::new(egui::vec2(900., 900.));
+        frames(&mut h, &mut c);
+        h.replace_text("palette.query", "rctngl", &mut c, &mut draw)
+            .unwrap();
+        h.key(
+            "palette.query",
+            egui::Key::Enter,
+            egui::Modifiers::NONE,
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert_eq!(c.commands, vec![CommandId::ToolRectangle]);
+        c.palette.begin();
+        frames(&mut h, &mut c);
+        h.replace_text(
+            "palette.query",
+            &"x".repeat(MAX_QUERY_CHARS * 4),
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert!(c.palette.query.chars().count() <= MAX_QUERY_CHARS);
+        assert!(c.commands.len() == 1 && c.palette.open);
     }
     #[test]
     fn launcher_accepts_a_complete_pointer_gesture() {
@@ -594,6 +778,70 @@ mod tests {
         )
         .unwrap();
         assert_eq!(c.commands, vec![CommandId::SplitView]);
+    }
+
+    #[test]
+    fn page_navigation_skips_disabled_commands_and_clamps() {
+        let mut c = case();
+        c.context.document_loaded = false;
+        let mut h = Harness::new(egui::vec2(900., 900.));
+        frames(&mut h, &mut c);
+        let available: Vec<_> = commands::REGISTRY
+            .iter()
+            .enumerate()
+            .filter_map(|(i, d)| commands::availability(d.id, c.context).is_ok().then_some(i))
+            .collect();
+        assert!(available.len() > 5);
+        h.key(
+            "palette.query",
+            egui::Key::PageDown,
+            egui::Modifiers::NONE,
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert_eq!(c.palette.selected, available[5]);
+        h.key(
+            "palette.query",
+            egui::Key::PageUp,
+            egui::Modifiers::NONE,
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert_eq!(c.palette.selected, available[0]);
+        h.key(
+            "palette.query",
+            egui::Key::PageUp,
+            egui::Modifiers::NONE,
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert_eq!(c.palette.selected, available[0]);
+        for _ in 0..available.len() {
+            h.key(
+                "palette.query",
+                egui::Key::PageDown,
+                egui::Modifiers::NONE,
+                &mut c,
+                &mut draw,
+            )
+            .unwrap();
+        }
+        assert_eq!(c.palette.selected, *available.last().unwrap());
+        h.key(
+            "palette.query",
+            egui::Key::Enter,
+            egui::Modifiers::NONE,
+            &mut c,
+            &mut draw,
+        )
+        .unwrap();
+        assert_eq!(
+            c.commands,
+            vec![commands::REGISTRY[*available.last().unwrap()].id]
+        );
     }
 
     #[test]
