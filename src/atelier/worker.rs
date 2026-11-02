@@ -387,6 +387,7 @@ mod final_diagnostics_transport_tests {
         )
         .unwrap();
         solver.step(&mut direct, &settings, None).unwrap();
+        let fresh_first_step = direct.clone();
         let (entered_tx, entered) = mpsc::channel();
         let (release, release_rx) = mpsc::channel();
         let (published_tx, published) = mpsc::channel();
@@ -545,18 +546,50 @@ mod final_diagnostics_transport_tests {
         assert_eq!(actual.time, direct.time);
         assert_eq!(actual.x, direct.x);
         assert_eq!(actual.v, direct.v);
-        worker.tx.as_ref().unwrap().send(work(12, true)).unwrap();
-        assert_eq!(entered.recv_timeout(timeout).unwrap(), 12);
-        worker.release.as_ref().unwrap().send(()).unwrap();
-        assert_eq!(published.recv_timeout(timeout).unwrap(), 12);
-        let failure = latest.lock().unwrap().take().unwrap();
-        assert_eq!(failure.generation, 12);
-        assert!(
-            failure
-                .result
-                .unwrap_err()
-                .contains("without a GPU backend")
-        );
+        // A rejected GPU request must leave the cached same-generation solver
+        // and its state intact. Compare the resumed step to an uninterrupted
+        // CPU solver, then repeat the failure and switch to a fresh generation.
+        for (failure_generation, resume_generation) in [(11, 11), (12, 12), (12, 13)] {
+            worker
+                .tx
+                .as_ref()
+                .unwrap()
+                .send(work(failure_generation, true))
+                .unwrap();
+            assert_eq!(entered.recv_timeout(timeout).unwrap(), failure_generation);
+            worker.release.as_ref().unwrap().send(()).unwrap();
+            assert_eq!(published.recv_timeout(timeout).unwrap(), failure_generation);
+            let failure = latest.lock().unwrap().take().unwrap();
+            assert_eq!(failure.generation, failure_generation);
+            assert!(
+                failure
+                    .result
+                    .unwrap_err()
+                    .contains("without a GPU backend")
+            );
+
+            worker
+                .tx
+                .as_ref()
+                .unwrap()
+                .send(work(resume_generation, false))
+                .unwrap();
+            assert_eq!(entered.recv_timeout(timeout).unwrap(), resume_generation);
+            worker.release.as_ref().unwrap().send(()).unwrap();
+            assert_eq!(published.recv_timeout(timeout).unwrap(), resume_generation);
+            let resumed = latest.lock().unwrap().take().unwrap();
+            assert_eq!(resumed.generation, resume_generation);
+            let actual = resumed.result.unwrap().0;
+            let expected = if resume_generation == 11 {
+                solver.step(&mut direct, &settings, None).unwrap();
+                &direct
+            } else {
+                &fresh_first_step
+            };
+            assert_eq!(actual.time, expected.time);
+            assert_eq!(actual.x, expected.x);
+            assert_eq!(actual.v, expected.v);
+        }
         worker.shutdown();
         reset();
     }
