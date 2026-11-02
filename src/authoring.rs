@@ -2293,7 +2293,7 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
             edge,
             width_m,
         } => {
-            if !width_m.is_finite() || width_m < 0. || width_m > markings::MAX_ALLOWANCE_M {
+            if !width_m.is_finite() || !(0. ..=markings::MAX_ALLOWANCE_M).contains(&width_m) {
                 return Err(format!(
                     "Seam allowance must be in [0, {} mm]",
                     markings::MAX_ALLOWANCE_M * 1000.
