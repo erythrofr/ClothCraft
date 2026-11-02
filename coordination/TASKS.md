@@ -2244,6 +2244,7 @@ Status: ready. Dependencies: EXO-REV-001.
 - `src/authoring/linked.rs`
 - `tests/pattern_markings.rs`
 - `tests/persistent_pom_references.rs`
+- `src/atelier/documents_ui.rs`
 
 **Acceptance**
 
@@ -2255,6 +2256,8 @@ Status: ready. Dependencies: EXO-REV-001.
 - Exercise create/rename/delete/cancel, invalid or stale references and keyboard focus through real named UI controls on CPU.
 - Scope this PR to a useful single-size pattern ruler; exclude body/geodesic measurements, draped lengths, grading and tolerance tables.
 - Keep the physical mesh fingerprint, metadata-only installer, playback and worker generation coherent; test the real shared installer on CPU in addition to prepared commands and persistence. Constructor-only additions to importers, presets and marking fixtures must remain mechanical.
+- Protect new and edited measurement drafts when selecting another measurement, starting a new measurement or switching panels, with explicit save/discard/cancel decisions where needed. Include drafts in document Save/New/Open/Close handling; unchanged saved selection is not dirty, and Save must not silently omit a draft.
+- Migrate saved and active unsaved stations through supported edits using operation-specific boundary identity and material-arclength mappings, with independent multi-landmark geometric validation informed by test-only PR #83. Cover the reported edge_2 t=0.75 / 0.15 m split drift through production edits and named Apply controls; preserve curve/vertex metadata and mirror semantics, and reject unsupported, degenerate or ambiguous mappings atomically. PR #66 remains an unmerged reference, not an imported implementation.
 
 **Evidence and related contributions**
 
@@ -2264,7 +2267,7 @@ Status: ready. Dependencies: EXO-REV-001.
 - https://github.com/erythrofr/ClothCraft/pull/66
 - https://github.com/erythrofr/ClothCraft/pull/227
 
-Owner explicitly requests a usable UI in the existing draft PR #227 on NicTanghe/Hamerons_ClothCraft:feature/persistent-pattern-measurements. Issue #69 is already registered. This amendment makes the single-size model + native UI a complete slice: it retains the accepted markings prerequisite and incorporates the missing persistent-measurement backend rather than waiting for every unrelated part of #13. Do not mark EXO-REV-002 or EXO-CAD-003 complete. Review the #66 schema and #227 geometry, preserve attribution, avoid a competing representation, and keep all existing reference-preservation gates. Additional importer/marking fixture paths are for coherent empty defaults; linked.rs is for explicitly reviewed measurement metadata/geometry behavior. No CLI expansion is necessary because the UI is the real caller. Use named CPU controls and the production installer; GPU/native-window checks stay opt-in. Eligibility is not ownership: obtain an accepted claim before source edits. Keep solver, session, manufacturing cutline and graded-size work separate.
+Owner explicitly requests a usable UI in the existing draft PR #227 on NicTanghe/Hamerons_ClothCraft:feature/persistent-pattern-measurements. Issue #69 is already registered. This amendment makes the single-size model + native UI a complete slice: it retains the accepted markings prerequisite and incorporates the missing persistent-measurement backend rather than waiting for every unrelated part of #13. Do not mark EXO-REV-002 or EXO-CAD-003 complete. Review the #66 schema and #227 geometry, preserve attribution, avoid a competing representation, and keep all existing reference-preservation gates. Additional importer/marking fixture paths are for coherent empty defaults; linked.rs is for explicitly reviewed measurement metadata/geometry behavior. No CLI expansion is necessary because the UI is the real caller. Use named CPU controls and the production installer; GPU/native-window checks stay opt-in. Eligibility is not ownership: obtain an accepted claim before source edits. Keep solver, session, manufacturing cutline and graded-size work separate. Review follow-up for #227: documents_ui.rs is limited to measurement-draft integration and its focused CPU regressions in the existing document paths. Coordinate open trim contributions #200/#224. The existing accepted reservation must be resolved and reclaimed against the amended manifest before using the added path; this proposal alone grants no new implementation scope.
 
 ## EXO-CAD-012
 
