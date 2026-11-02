@@ -22,10 +22,12 @@
 //! format change. The caller must display `ImportedAvatar::warnings` before
 //! accepting the geometry. It discards UVs, authored normals, materials, textures
 //! and scene object identities. Required extensions, geometry/node extensions,
-//! animation, skinning, morphs, sparse accessors and non-triangle topology are
-//! rejected explicitly. Singular/sheared node matrices are rejected. Validation
+//! animation, skinning, morphs, sparse geometry accessors and non-triangle topology
+//! are rejected explicitly. Singular/sheared node matrices are rejected. Validation
 //! detects malformed indices and degenerate/nonfinite triangles; it does not
 //! prove that an avatar is closed, consistently oriented or self-intersection-free.
+//! Discarded vertex attributes are checked for accessor existence and matching
+//! counts, but their buffer bounds, semantic types and values are not validated.
 
 const JSON_CHUNK: u32 = 0x4e4f534a;
 const BIN_CHUNK: u32 = 0x004e4942;
@@ -488,7 +490,7 @@ struct Scene {
 
 /// Load a selected static scene. `None` uses the declared default, or the only
 /// scene; ambiguous files require an explicit selection. Skins, animations,
-/// morph targets, sparse accessors and geometry extensions are rejected.
+/// morph targets, sparse geometry accessors and geometry extensions are rejected.
 /// No network, image decoding, automatic size normalization or document mutation.
 pub fn load(path: &Path, scene: Option<usize>, limits: Limits) -> Result<ImportedAvatar, String> {
     let bytes = read_bounded(path, limits.document_bytes)?;
@@ -791,6 +793,19 @@ fn append_primitive(
         .get("POSITION")
         .ok_or("Primitive has no POSITION")?;
     let (data, stride, count, _) = accessor(doc, buffers, id, true)?;
+    // Attribute-reference/count validation follows Mikristian's proposed fix:
+    // https://github.com/erythrofr/ClothCraft/issues/60#issuecomment-6381034540
+    // glTF requires the same count for all vertex attributes of a primitive,
+    // even when this geometry-only importer discards their values.
+    for &attribute_id in p.attributes.values() {
+        let attribute = doc
+            .accessors
+            .get(attribute_id)
+            .ok_or("Invalid vertex attribute accessor index")?;
+        if attribute.count != count {
+            return Err("Primitive vertex attribute counts differ".into());
+        }
+    }
     if mesh
         .vertices
         .len()

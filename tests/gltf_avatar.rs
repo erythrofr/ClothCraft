@@ -155,6 +155,62 @@ fn malformed_accessors_and_nonfinite_positions_fail() {
     bad["bufferViews"][0]["byteLength"] = json!(999);
     assert!(parse(&bad, &bin).is_err());
 }
+
+#[test]
+fn discarded_vertex_attributes_require_existing_accessors_and_matching_counts() {
+    // Based on Mikristian's independently authored handoff in issue #60:
+    // https://github.com/erythrofr/ClothCraft/issues/60#issuecomment-6381034540
+    let (doc, bin) = fixture();
+    let mut missing = doc.clone();
+    missing["meshes"][0]["primitives"][0]["attributes"]["TEXCOORD_0"] = json!(999);
+    assert!(
+        parse(&missing, &bin)
+            .unwrap_err()
+            .contains("attribute accessor")
+    );
+
+    let mut mismatched = doc.clone();
+    mismatched["accessors"].as_array_mut().unwrap().push(json!({
+        "bufferView":0,"componentType":5126,"count":2,"type":"VEC2"
+    }));
+    mismatched["meshes"][0]["primitives"][0]["attributes"]["TEXCOORD_0"] = json!(2);
+    assert!(
+        parse(&mismatched, &bin)
+            .unwrap_err()
+            .contains("counts differ")
+    );
+
+    let mut valid = doc.clone();
+    let mut valid_bin = bin.clone();
+    valid_bin.push(0); // Align the following independent buffer views.
+    for uv in [[0.0_f32, 0.0_f32], [1.0, 0.0], [0.0, 1.0]] {
+        for value in uv {
+            valid_bin.extend(value.to_le_bytes());
+        }
+    }
+    for _ in 0..3 {
+        for value in [0.0_f32, 0.0, 1.0] {
+            valid_bin.extend(value.to_le_bytes());
+        }
+    }
+    valid["buffers"][0]["byteLength"] = json!(valid_bin.len());
+    valid["bufferViews"].as_array_mut().unwrap().extend([
+        json!({"buffer":0,"byteOffset":40,"byteLength":24}),
+        json!({"buffer":0,"byteOffset":64,"byteLength":36}),
+    ]);
+    valid["accessors"].as_array_mut().unwrap().push(json!({
+        "bufferView":2,"componentType":5126,"count":3,"type":"VEC2"
+    }));
+    valid["accessors"].as_array_mut().unwrap().push(json!({
+        "bufferView":3,"componentType":5126,"count":3,"type":"VEC3"
+    }));
+    valid["meshes"][0]["primitives"][0]["attributes"]["TEXCOORD_0"] = json!(2);
+    valid["meshes"][0]["primitives"][0]["attributes"]["NORMAL"] = json!(3);
+    let expected = parse(&doc, &bin).unwrap().mesh;
+    let actual = parse(&valid, &valid_bin).unwrap().mesh;
+    assert_eq!(actual.vertices, expected.vertices);
+    assert_eq!(actual.triangles, expected.triangles);
+}
 #[test]
 fn unsupported_deformations_and_required_extensions_are_explicit_errors() {
     let (doc, bin) = fixture();
