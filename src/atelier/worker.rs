@@ -595,6 +595,104 @@ mod final_diagnostics_transport_tests {
     }
 
     #[test]
+    fn latest_mailbox_replaces_old_generation_after_inflight_step() {
+        use marvelous_cloth::{fitting::FittingProject, garment::presets::GarmentKind};
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        reset();
+        let dir = tempfile::tempdir().unwrap();
+        let avatar = dir.path().join("avatar.obj");
+        std::fs::write(&avatar, "v 10 0 -10\nv 11 0 -10\nv 10 1 -10\nf 1 2 3\n").unwrap();
+        let project = FittingProject::basic(GarmentKind::Tshirt, 0, avatar);
+        let old_scene = project.compile().unwrap();
+        let mut new_scene = project.compile().unwrap();
+        // A different starting time makes accidental reuse of the previous
+        // generation's state observable, even if both geometries are equal.
+        new_scene.state.time = 10.0;
+        let mut newest_scene = project.compile().unwrap();
+        newest_scene.state.time = 10.0;
+        let settings = VbdSettings::default();
+        let mut newest_settings = settings.clone();
+        newest_settings.gravity *= 0.25;
+        let mut expected = newest_scene.state.clone();
+        let mut solver = VbdSolver::new(
+            new_scene.garment.clone(),
+            Some(&new_scene.collider.surface),
+            &expected,
+        )
+        .unwrap();
+        solver.step(&mut expected, &newest_settings, None).unwrap();
+        let (entered_tx, entered) = mpsc::channel();
+        let (release, release_rx) = mpsc::channel();
+        let (published_tx, published) = mpsc::channel();
+        let (tx, latest, thread) = start_inner(
+            None,
+            Some(TestHooks {
+                entered: entered_tx,
+                release: release_rx,
+                published: published_tx,
+            }),
+        )
+        .unwrap();
+        let worker = TestWorker {
+            tx: Some(tx),
+            release: Some(release),
+            thread: Some(thread),
+        };
+        let work = |generation, scene| Work {
+            generation,
+            scene,
+            settings: settings.clone(),
+            grab: None,
+            gpu: false,
+            ctx: egui::Context::default(),
+            playing: false,
+            once: true,
+        };
+        let timeout = Duration::from_secs(30);
+        worker
+            .tx
+            .as_ref()
+            .unwrap()
+            .send(work(21, old_scene))
+            .unwrap();
+        assert_eq!(entered.recv_timeout(timeout).unwrap(), 21);
+        // Queue the new generation while the previous accepted step is held.
+        worker
+            .tx
+            .as_ref()
+            .unwrap()
+            .send(work(22, new_scene))
+            .unwrap();
+        // The newest controls win without dropping the earlier single-step
+        // request, even though this update itself does not request a step.
+        let mut newest = work(22, newest_scene);
+        newest.settings = newest_settings;
+        newest.once = false;
+        worker.tx.as_ref().unwrap().send(newest).unwrap();
+        worker.release.as_ref().unwrap().send(()).unwrap();
+        assert_eq!(published.recv_timeout(timeout).unwrap(), 21);
+        assert_eq!(entered.recv_timeout(timeout).unwrap(), 22);
+        {
+            let slot = latest.lock().unwrap();
+            let first = slot.as_ref().unwrap();
+            assert_eq!(first.generation, 21);
+            assert!(first.result.is_ok());
+        }
+        // Leave the first result unconsumed. The next publication replaces it.
+        worker.release.as_ref().unwrap().send(()).unwrap();
+        assert_eq!(published.recv_timeout(timeout).unwrap(), 22);
+        let last = latest.lock().unwrap().take().unwrap();
+        assert_eq!(last.generation, 22);
+        let actual = last.result.unwrap().0;
+        assert_eq!(actual.time, expected.time);
+        assert_eq!(actual.x, expected.x);
+        assert_eq!(actual.v, expected.v);
+        assert!(latest.lock().unwrap().is_none());
+        worker.shutdown();
+        reset();
+    }
+
+    #[test]
     fn newer_request_has_a_new_identity_and_supersedes_a_queued_request() {
         let _guard = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
         reset();
