@@ -389,6 +389,7 @@ impl Atelier {
     }
     fn has_document_draft(&self) -> bool {
         !self.authoring.draft.is_empty()
+            || self.authoring.measure.has_changes()
             || !self.authoring.ends.is_empty()
             || self.authoring.sewing.sides.iter().any(|s| !s.is_empty())
             || self.authoring.sewing.start.is_some()
@@ -429,6 +430,24 @@ impl Atelier {
         if !self.commit_placement() {
             return false;
         }
+        if self.authoring.measure.has_changes() {
+            match MessageDialog::new().set_title("Unsaved measurement")
+                .set_description("Include the measurement draft in this save?\nYes: apply and save it · No: discard it · Cancel: keep editing.")
+                .set_buttons(MessageButtons::YesNoCancel).show() {
+                MessageDialogResult::Yes => {
+                    match self.authoring.measure.document_command(&self.project.template) {
+                        Ok(Some(command)) => {
+                            if !self.edit(command) { return false; }
+                            self.authoring.measure.document_committed();
+                        }
+                        Ok(None) => {}
+                        Err(error) => { self.status = format!("Save cancelled: {error}"); return false; }
+                    }
+                }
+                MessageDialogResult::No => self.authoring.measure.discard(),
+                _ => return false,
+            }
+        }
         match self.snapshot_document().save(&path) {
             Ok(()) => {
                 self.document.path = Some(path.clone());
@@ -457,7 +476,7 @@ impl Atelier {
             return true;
         }
         match MessageDialog::new().set_title("Unsaved garment")
-            .set_description("Save committed changes before continuing?\nUnfinished drawing/sewing drafts are not saved.\nYes: save · No: discard · Cancel: stay here.")
+            .set_description("Save changes before continuing?\nMeasurement drafts require an explicit apply/discard decision when saving.\nUnfinished drawing/sewing drafts are not saved.\nYes: save · No: discard · Cancel: stay here.")
             .set_buttons(MessageButtons::YesNoCancel).show() {
             MessageDialogResult::Yes => self.save_document(ctx, false),
             MessageDialogResult::No => true,

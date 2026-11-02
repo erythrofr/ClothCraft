@@ -874,8 +874,8 @@ impl Atelier {
         self.editor_transition().install(edit);
     }
     pub(super) fn edit(&mut self, command: Command) -> bool {
-        match authoring::apply(&self.project.template, command) {
-            Ok(edit) => {
+        match self.authoring.measure.prepare_edit(&self.project.template, command) {
+            Ok((edit, measure)) => {
                 if edit.reset_simulation
                     && (!self.project.template.pin_targets.is_empty()
                         || !self.project.template.frozen_panels.is_empty()
@@ -892,6 +892,7 @@ impl Atelier {
                     return false;
                 }
                 self.authoring.history.record(self.project.template.clone());
+                self.authoring.measure = measure;
                 self.install_edit(edit);
                 true
             }
@@ -917,6 +918,9 @@ impl Atelier {
             .authoring
             .history
             .restore_checked(&self.project.template, redo, |edit| {
+                if self.authoring.measure.has_changes() {
+                    return Err("Save or discard the measurement draft before Undo/Redo".into());
+                }
                 if edit.reset_simulation
                     && (had_holds
                         || !edit.template.pin_targets.is_empty()
