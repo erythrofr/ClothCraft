@@ -150,14 +150,33 @@ pub(super) fn start(
     device: wgpu::Device,
     queue: wgpu::Queue,
 ) -> Result<(mpsc::Sender<Work>, Latest), std::io::Error> {
+    let (tx, latest, _thread) = start_inner(
+        Some((device, queue)),
+        #[cfg(test)]
+        None,
+    )?;
+    Ok((tx, latest))
+}
+
+#[cfg(test)]
+struct TestHooks {
+    entered: mpsc::Sender<u64>,
+    release: mpsc::Receiver<()>,
+    published: mpsc::Sender<u64>,
+}
+
+fn start_inner(
+    backend: Option<(wgpu::Device, wgpu::Queue)>,
+    #[cfg(test)] hooks: Option<TestHooks>,
+) -> Result<(mpsc::Sender<Work>, Latest, std::thread::JoinHandle<()>), std::io::Error> {
     let (tx, rx) = mpsc::channel::<Work>();
     let latest: Latest = Arc::new(Mutex::new(None));
     let output = latest.clone();
-    std::thread::Builder::new()
+    let thread = std::thread::Builder::new()
         .name("cloth-vbd".into())
         .stack_size(8 * 1024 * 1024)
         .spawn(move || {
-            let gpu = GpuVbd::new(device, queue);
+            let gpu = backend.map(|(device, queue)| GpuVbd::new(device, queue));
             let mut cache: Option<(u64, VbdSolver)> = None;
             let mut active: Option<Work> = None;
             let mut deadline = Instant::now();
@@ -200,9 +219,19 @@ pub(super) fn start(
                     // an old sample look like the answer to this request.
                     clear_final_diagnostics();
                 }
+                #[cfg(test)]
+                if let Some(hooks) = &hooks {
+                    let _ = hooks.entered.send(w.generation);
+                    if hooks.release.recv().is_err() {
+                        break;
+                    }
+                }
                 let previous = request.map(|_| w.scene.state.clone());
                 w.once = false;
                 let result: Result<(State, VbdMetrics), String> = (|| {
+                    if w.gpu && gpu.is_none() {
+                        return Err("GPU simulation requested without a GPU backend".to_owned());
+                    }
                     if cache.as_ref().is_none_or(|(g, _)| *g != w.generation) {
                         cache = Some((
                             w.generation,
@@ -217,7 +246,11 @@ pub(super) fn start(
                     }
                     let solver = &mut cache.as_mut().unwrap().1;
                     let metrics = if w.gpu {
-                        gpu.step(solver, &mut w.scene.state, &w.settings, w.grab.as_ref())
+                        gpu.as_ref()
+                            .ok_or_else(|| {
+                                "GPU simulation requested without a GPU backend".to_owned()
+                            })?
+                            .step(solver, &mut w.scene.state, &w.settings, w.grab.as_ref())
                     } else {
                         solver.step(&mut w.scene.state, &w.settings, w.grab.as_ref())
                     }?;
@@ -279,6 +312,10 @@ pub(super) fn start(
                     result,
                 });
                 drop(slot);
+                #[cfg(test)]
+                if let Some(hooks) = &hooks {
+                    let _ = hooks.published.send(w.generation);
+                }
                 w.ctx.request_repaint();
                 // Keep the wall-clock phase through isolated BVH rebuilds and OS
                 // wakeup jitter. Bound catch-up to four steps; never change the
@@ -287,7 +324,7 @@ pub(super) fn start(
                 deadline = (deadline + dt).max(Instant::now() - dt * 4);
             }
         })?;
-    Ok((tx, latest))
+    Ok((tx, latest, thread))
 }
 
 #[cfg(test)]
@@ -304,6 +341,224 @@ mod final_diagnostics_transport_tests {
         }
         FINAL_DIAGNOSTICS_REQUESTED.store(false, Ordering::Release);
         clear_final_diagnostics();
+    }
+
+    // Dropping the release sender unblocks the worker even if an assertion panics.
+    struct TestWorker {
+        tx: Option<mpsc::Sender<Work>>,
+        release: Option<mpsc::Sender<()>>,
+        thread: Option<std::thread::JoinHandle<()>>,
+    }
+
+    impl TestWorker {
+        fn shutdown(mut self) {
+            self.release.take();
+            self.tx.take();
+            self.thread.take().unwrap().join().unwrap();
+        }
+    }
+
+    impl Drop for TestWorker {
+        fn drop(&mut self) {
+            self.release.take();
+            self.tx.take();
+            if let Some(thread) = self.thread.take() {
+                let _ = thread.join();
+            }
+        }
+    }
+
+    #[test]
+    fn cpu_worker_keeps_generation_state_and_rejects_missing_gpu() {
+        use marvelous_cloth::{fitting::FittingProject, garment::presets::GarmentKind};
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        reset();
+        let dir = tempfile::tempdir().unwrap();
+        let avatar = dir.path().join("avatar.obj");
+        std::fs::write(&avatar, "v 10 0 -10\nv 11 0 -10\nv 10 1 -10\nf 1 2 3\n").unwrap();
+        let project = FittingProject::basic(GarmentKind::Tshirt, 0, avatar);
+        let scene = project.compile().unwrap();
+        let settings = VbdSettings::default();
+        let mut direct = scene.state.clone();
+        let mut solver = VbdSolver::new(
+            scene.garment.clone(),
+            Some(&scene.collider.surface),
+            &direct,
+        )
+        .unwrap();
+        solver.step(&mut direct, &settings, None).unwrap();
+        let (entered_tx, entered) = mpsc::channel();
+        let (release, release_rx) = mpsc::channel();
+        let (published_tx, published) = mpsc::channel();
+        let (tx, latest, thread) = start_inner(
+            None,
+            Some(TestHooks {
+                entered: entered_tx,
+                release: release_rx,
+                published: published_tx,
+            }),
+        )
+        .unwrap();
+        let worker = TestWorker {
+            tx: Some(tx),
+            release: Some(release),
+            thread: Some(thread),
+        };
+        let work = |generation, gpu| Work {
+            generation,
+            scene: FittingScene {
+                garment: scene.garment.clone(),
+                collider: scene.collider.clone(),
+                state: scene.state.clone(),
+                quasistatic: scene.quasistatic,
+                next_dt: scene.next_dt,
+            },
+            settings: settings.clone(),
+            grab: None,
+            gpu,
+            ctx: egui::Context::default(),
+            playing: false,
+            once: true,
+        };
+        let timeout = Duration::from_secs(30);
+        worker.tx.as_ref().unwrap().send(work(11, false)).unwrap();
+        assert_eq!(entered.recv_timeout(timeout).unwrap(), 11);
+        // Exercise the production installer and history while the actual worker
+        // holds its pending state. The test does not create a native viewport.
+        let mut editor_project =
+            FittingProject::basic(GarmentKind::Tshirt, 0, project.avatar_path.clone());
+        let mut editor_scene = editor_project.compile().unwrap();
+        let original = serde_json::to_vec(&editor_project.template).unwrap();
+        let initial_editor_state = editor_scene.state.clone();
+        let mut authoring_ui = super::super::authoring_ui::AuthoringUi::default();
+        let mut issue = super::super::issue_ui::IssueUi::default();
+        let (mut dirty, mut generation, mut playing, mut pending) = (false, 11, true, true);
+        let (mut metrics, mut grab, mut plane, mut error) = (None, None, None, None);
+        let mut status = String::new();
+        {
+            use marvelous_cloth::authoring::{self, Command};
+            let mut transition = super::super::authoring_ui::EditorTransition {
+                authoring: &mut authoring_ui,
+                project: &mut editor_project,
+                scene: &mut editor_scene,
+                issue: &mut issue,
+                dirty: &mut dirty,
+                generation: &mut generation,
+                playing: &mut playing,
+                pending: &mut pending,
+                metrics: &mut metrics,
+                grab: &mut grab,
+                drag_plane: &mut plane,
+                simulation_error: &mut error,
+                status: &mut status,
+                dt: settings.dt,
+            };
+            let edit = authoring::apply(
+                &transition.project.template,
+                Command::FabricAppearance {
+                    fabric: transition.project.template.fabrics[0].id.clone(),
+                    appearance: Some(Default::default()),
+                },
+            )
+            .unwrap();
+            assert!(!edit.reset_simulation);
+            transition
+                .authoring
+                .history
+                .record(transition.project.template.clone());
+            transition.install(edit);
+            let edited = serde_json::to_vec(&transition.project.template).unwrap();
+            assert_ne!(edited, original);
+            assert_eq!(transition.scene.state.x, initial_editor_state.x);
+            assert_eq!(transition.scene.state.v, initial_editor_state.v);
+            assert_eq!(transition.scene.state.time, initial_editor_state.time);
+            let undo = transition
+                .authoring
+                .history
+                .restore(&transition.project.template, false)
+                .unwrap();
+            transition.install(undo);
+            assert_eq!(
+                serde_json::to_vec(&transition.project.template).unwrap(),
+                original
+            );
+            assert_eq!(transition.scene.state.x, initial_editor_state.x);
+            assert_eq!(transition.scene.state.v, initial_editor_state.v);
+            assert_eq!(transition.scene.state.time, initial_editor_state.time);
+            let redo = transition
+                .authoring
+                .history
+                .restore(&transition.project.template, true)
+                .unwrap();
+            transition.install(redo);
+            assert_eq!(
+                serde_json::to_vec(&transition.project.template).unwrap(),
+                edited
+            );
+            assert_eq!(transition.scene.state.x, initial_editor_state.x);
+            assert_eq!(transition.scene.state.v, initial_editor_state.v);
+            assert_eq!(transition.scene.state.time, initial_editor_state.time);
+            assert!(*transition.playing && *transition.pending);
+            assert_eq!(*transition.generation, 11);
+        }
+        let optical_template = serde_json::to_vec(&editor_project.template).unwrap();
+        // The UI may submit its old displayed state while a real step is in flight.
+        worker.tx.as_ref().unwrap().send(work(11, false)).unwrap();
+        worker.release.as_ref().unwrap().send(()).unwrap();
+        assert_eq!(published.recv_timeout(timeout).unwrap(), 11);
+        assert_eq!(entered.recv_timeout(timeout).unwrap(), 11);
+        let first = latest.lock().unwrap().take().unwrap();
+        assert!(
+            super::super::current_worker_result(
+                Some(Done {
+                    generation: first.generation,
+                    had_grab: first.had_grab,
+                    result: first.result.clone()
+                }),
+                12
+            )
+            .is_none()
+        );
+        let accepted = super::super::current_worker_result(Some(first), generation).unwrap();
+        let actual = accepted.result.unwrap().0;
+        assert_eq!(actual.time, direct.time);
+        assert_eq!(actual.x, direct.x);
+        assert_eq!(actual.v, direct.v);
+        // Approximate the consumer's pending reset and state copy; this is not
+        // the Atelier update path. The optical edit must remain installed.
+        assert!(pending);
+        pending = false;
+        editor_scene.state = actual;
+        assert_eq!(editor_scene.state.time, direct.time);
+        assert_eq!(
+            serde_json::to_vec(&editor_project.template).unwrap(),
+            optical_template
+        );
+        assert_eq!(generation, 11);
+        assert!(!pending);
+        solver.step(&mut direct, &settings, None).unwrap();
+        worker.release.as_ref().unwrap().send(()).unwrap();
+        assert_eq!(published.recv_timeout(timeout).unwrap(), 11);
+        let second =
+            super::super::current_worker_result(latest.lock().unwrap().take(), 11).unwrap();
+        let actual = second.result.unwrap().0;
+        assert_eq!(actual.time, direct.time);
+        assert_eq!(actual.x, direct.x);
+        assert_eq!(actual.v, direct.v);
+        worker.tx.as_ref().unwrap().send(work(12, true)).unwrap();
+        assert_eq!(entered.recv_timeout(timeout).unwrap(), 12);
+        worker.release.as_ref().unwrap().send(()).unwrap();
+        assert_eq!(published.recv_timeout(timeout).unwrap(), 12);
+        let failure = latest.lock().unwrap().take().unwrap();
+        assert_eq!(failure.generation, 12);
+        assert!(
+            failure
+                .result
+                .unwrap_err()
+                .contains("without a GPU backend")
+        );
+        worker.shutdown();
+        reset();
     }
 
     #[test]
