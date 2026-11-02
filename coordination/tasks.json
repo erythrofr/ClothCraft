@@ -2514,6 +2514,7 @@
         "src/atelier/corner_ui.rs",
         "src/atelier/icons.rs",
         "src/atelier/view_controls.rs",
+        "docs/corner-tools.md",
         "src/fitting.rs",
         "src/garment/markings.rs",
         "src/garment/svg_import.rs",

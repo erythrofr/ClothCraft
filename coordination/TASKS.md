@@ -2566,6 +2566,7 @@ Status: blocked. Dependencies: EXO-CAD-003, EXO-CAD-011, EXO-MFG-015.
 - `src/atelier/corner_ui.rs`
 - `src/atelier/icons.rs`
 - `src/atelier/view_controls.rs`
+- `docs/corner-tools.md`
 - `src/fitting.rs`
 - `src/garment/markings.rs`
 - `src/garment/svg_import.rs`
