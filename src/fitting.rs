@@ -263,6 +263,7 @@ fn mesh_signature(template: &GarmentTemplate, g: &CompiledGarment) -> Result<Str
             polygon.target_lengths.clear();
             polygon.seam_allowances.clear();
             polygon.notches.clear();
+            polygon.measurements.clear();
         }
     }
     append(&serde_json::to_vec(&physical_template).map_err(|e| e.to_string())?);

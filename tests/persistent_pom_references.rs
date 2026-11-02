@@ -1,5 +1,5 @@
 //! First isolated EXO-REV-002 slice: cut-and-sewn dart identity and transactions.
-//! Persistent POM migration is not implemented by these tests.
+//! Measurement resolution is tested independently of the retained dart cases.
 use glam::DVec2;
 use marvelous_cloth::{
     authoring::{self, Command, History},
@@ -250,4 +250,133 @@ fn linked_mirror_and_curved_boundary_are_rejected_without_editing() {
             .contains("reference remapping")
     );
     assert_eq!(serde_json::to_value(&curved).unwrap(), before);
+}
+
+mod measurement_resolution {
+    use super::*;
+    use marvelous_cloth::garment::polygon::{MeasurementAnchor, PatternMeasurement};
+
+    fn measurement() -> PatternMeasurement {
+        PatternMeasurement {
+            id: "width".into(),
+            label: "Width".into(),
+            a: MeasurementAnchor {
+                edge: "edge_1".into(),
+                t: 0.25,
+            },
+            b: MeasurementAnchor {
+                edge: "edge_3".into(),
+                t: 0.75,
+            },
+        }
+    }
+
+    #[test]
+    fn rest_measurement_has_analytic_endpoints_and_distance() {
+        let template = fixture();
+        let polygon = template.panels[0].polygon.as_ref().unwrap();
+        let measurement = measurement();
+        let points = polygon.measurement_points(&measurement).unwrap();
+        assert!(points[0].distance(DVec2::new(0.1, 0.)) < 1e-12);
+        assert!(points[1].distance(DVec2::new(0.1, 0.3)) < 1e-12);
+        assert!((polygon.measurement_length(&measurement).unwrap() - 0.3).abs() < 1e-12);
+        polygon
+            .validate_measurement_records(&[measurement])
+            .unwrap();
+        for (t, expected) in [(0., DVec2::ZERO), (1., DVec2::new(0.4, 0.))] {
+            let actual = polygon
+                .measurement_anchor_position(&MeasurementAnchor {
+                    edge: "edge_1".into(),
+                    t,
+                })
+                .unwrap();
+            assert_eq!(actual, expected);
+        }
+    }
+
+    #[test]
+    fn curved_station_matches_independently_sampled_cubic_arclength() {
+        let mut template = fixture();
+        let polygon = template.panels[0].polygon.as_mut().unwrap();
+        let control = [DVec2::new(0.02, -0.18), DVec2::new(0.32, -0.04)];
+        polygon.curves.insert("edge_1".into(), control);
+        let station = MeasurementAnchor {
+            edge: "edge_1".into(),
+            t: 0.37,
+        };
+        let actual = polygon.measurement_anchor_position(&station).unwrap();
+        // A dense direct Bernstein evaluation is independent of flatten(), its
+        // subdivision decisions and the production arclength walker.
+        let evaluate = |t: f64| {
+            let u = 1. - t;
+            polygon.points[0] * u.powi(3)
+                + control[0] * (3. * u * u * t)
+                + control[1] * (3. * u * t * t)
+                + polygon.points[1] * t.powi(3)
+        };
+        let points: Vec<_> = (0..=20_000).map(|i| evaluate(i as f64 / 20_000.)).collect();
+        let total: f64 = points.windows(2).map(|p| p[0].distance(p[1])).sum();
+        let wanted = station.t * total;
+        let mut walked = 0.;
+        let expected = points
+            .windows(2)
+            .find_map(|pair| {
+                let length = pair[0].distance(pair[1]);
+                let contains = walked + length >= wanted;
+                let result = contains.then(|| pair[0].lerp(pair[1], (wanted - walked) / length));
+                walked += length;
+                result
+            })
+            .unwrap();
+        assert!(
+            actual.distance(expected) <= 0.00025,
+            "station drift: {} m",
+            actual.distance(expected)
+        );
+        assert!(
+            actual.distance(evaluate(station.t)) > 0.001,
+            "fixture must distinguish arclength from cubic parameter"
+        );
+    }
+
+    #[test]
+    fn invalid_or_ambiguous_measurement_data_is_rejected() {
+        let template = fixture();
+        let polygon = template.panels[0].polygon.as_ref().unwrap();
+        for t in [f64::NAN, f64::INFINITY, -0.01, 1.01] {
+            let mut measurement = measurement();
+            measurement.a.t = t;
+            assert!(
+                polygon
+                    .validate_measurement_records(&[measurement])
+                    .is_err()
+            );
+        }
+        let mut dangling = measurement();
+        dangling.a.edge = "deleted".into();
+        assert!(polygon.validate_measurement_records(&[dangling]).is_err());
+        assert!(
+            polygon
+                .validate_measurement_records(&[measurement(), measurement()])
+                .is_err()
+        );
+        let mut empty = measurement();
+        empty.label = "   ".into();
+        assert!(polygon.validate_measurement_records(&[empty]).is_err());
+        let mut duplicate_boundary = polygon.clone();
+        duplicate_boundary.edges[1] = "edge_1".into();
+        assert!(
+            duplicate_boundary
+                .measurement_length(&measurement())
+                .is_err()
+        );
+        let mut malformed = polygon.clone();
+        malformed.points.clear();
+        assert!(malformed.measurement_length(&measurement()).is_err());
+        assert!(
+            polygon
+                .validate_measurement_records(&vec![measurement(); 257])
+                .is_err()
+        );
+    }
 }

@@ -14,6 +14,53 @@ Launch `scripts/start-atelier.ps1`. All pieces share **one metric 2D board**, be
 
 ## Draft cloth
 
+### Attached, editable ruler measurements
+
+Choose **Measure** (M), then click near two named boundaries on the same
+editable polygonal piece. Each endpoint attaches to its boundary's sampled
+material arclength. The green draft follows the piece when it is moved or
+rotated. Open **Properties → Piece → Measurements**, enter a label and click
+**Save measurement**. The measurement becomes part of the garment document;
+ordinary Save/Open preserves it. A measurement is a straight-line distance in
+the flat material pattern, reported in millimetres, rather than a draped surface
+distance or a physical length constraint.
+
+Saved measurements remain drawn on the board in other tools. Select their row
+in **Measurements**, or click the line while using Measure, to edit them.
+Change the label, either named boundary, or the endpoint's distance from its
+boundary start, then click **Apply measurement edit**. In Measure, dragging a
+selected endpoint near a boundary on the same piece stages the same edit.
+**Delete measurement** removes the selected record. Each save, edit or deletion
+is one document undo/redo step. Typing and Enter do not commit a measurement.
+**Cancel measurement draft** or Escape outside text input discards the draft;
+saved records remain. A completed attached draft is retained when switching to
+Edit to move the piece; unfinished/free ruler gestures are cancelled.
+
+Moving or rotating a piece changes only its displayed location. Editing its
+rest geometry updates the measured distance through the retained boundary
+stations. Supported splits migrate stations to the appropriate child boundary;
+curved resampling may move a station by at most twice the 0.25 mm flattening
+tolerance. Mirrors reverse contour station direction; copies retain panel-local
+measurement IDs. Linked pieces own independent measurement labels and stations.
+Deleting a referenced point/line, cutting a referenced dart or applying a
+boolean without a defined migration is refused transactionally. Remove the
+affected measurement first. A saved endpoint never refers to a mesh vertex.
+
+The existing free board ruler remains available for interior or cross-piece
+distances, but those coordinates are temporary. Saving requires two boundary
+stations on one polygonal piece; legacy rectangular documents still load, and
+the saved-measurement controls explain when a piece has no editable polygon.
+Measurement metadata preserves the active mesh, drape, playback and worker
+generation. Older readers that reject unknown fields cannot open documents
+using the optional `measurements` extension.
+
+The station schema follows the reviewed MIT ClothCraft proposal in PR #66
+(`e3994ae80c496eb3e6371309ccabb8e4b7bea3ab`, Mikyle Couto). Resolution,
+validation, UI and integration here are independently implemented against the
+current native editor. No EXO application, solver or asset changes are included.
+Validation uses CPU geometry, saved-project/history and real named egui-control
+tests; a native window/GPU run is separate.
+
 ### Cut-and-sewn darts
 
 In **Edit**, select a straight, unsewn polygon boundary in 2D or 3D. In the

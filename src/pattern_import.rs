@@ -187,6 +187,7 @@ pub fn prepare(
             target_lengths: BTreeMap::new(),
             seam_allowances: BTreeMap::new(),
             notches: BTreeMap::new(),
+            measurements: Vec::new(),
         };
         template.panels.push(Panel {
             id: id.clone(),

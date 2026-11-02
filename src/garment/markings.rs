@@ -741,6 +741,7 @@ mod tests {
             lines: vec![],
             target_lengths: Default::default(),
             notches: Default::default(),
+            measurements: Default::default(),
             seam_allowances: Default::default(),
         }
     }

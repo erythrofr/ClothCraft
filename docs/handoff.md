@@ -1,5 +1,58 @@
 # Repository handoff
 
+## Attached, editable ruler — 1 November 2026
+
+Draft PR #227 on `feature/persistent-pattern-measurements` extends the existing
+Measure tool rather than introducing a second ruler. Click two named boundaries
+on one editable piece; the endpoints retain panel/boundary IDs and sampled
+rest-arclength fractions. A completed attached draft remains visible when
+switching to Edit to move/rotate the piece. Properties → Piece → Measurements
+provides Save, endpoint/label editing, Cancel and Delete. Saved overlays remain
+visible in other tools; select a row or use Measure to select the line. Dragging
+a selected endpoint stages an edit, committed only with Apply. Ordinary project
+Save/Open and history retain saved records. See [usage and limits](authoring.md#attached-editable-ruler-measurements).
+
+`PolygonPattern.measurements` is optional and omitted when empty. Resolution
+and the native UI use material geometry, never draped vertices or persistent
+mesh indices. CRUD is nonphysical for state compatibility, cache fingerprints,
+graphic/trim material-frame guards and the production installer. A linked pair
+owns independent measurement records; geometry synchronization retains the
+partner's directed references. Supported splits map stations onto the known
+child boundary with a 0.5 mm maximum sampled-position drift per split. Referenced
+point/line deletion, dart cuts and booleans without a migration are refused.
+Unsaved drafts detect topology changes and ID collisions before saving.
+
+Observed local validation: full `--no-default-features` CPU suite passed;
+`cloth-fit` desktop CPU tests passed 162 with one optional preview ignored.
+Coverage includes an independent dense-cubic arclength oracle, stored-project
+cache/drape retention, CRUD/history/legacy JSON, split/mirror/copy/linked behavior,
+hole/internal stations, trim compatibility, actual named Save/Rename/Cancel/Delete
+controls, invalid/stale drafts and production installer generation/state checks.
+No native window or GPU run was performed. This does not establish actual
+concurrent-worker input behavior or large-garment frame costs.
+
+Final checks also passed on the seven saved-measurement integration cases and
+the 162-test editor suite after adding the unchanged-Apply guard. Stable Rust
+1.99 all-target desktop Clippy passed with `-D warnings`, stable formatting and
+diff checks passed, and `cargo build --locked --offline -j 2 --bin cloth-fit`
+produced the local editor binary. The default nightly 1.101 build emits a
+`wgpu`/`Send` recursion-depth warning in `worker.rs` but completes; no worker
+or solver source was changed. Reproduction uses two CPU jobs/test threads:
+
+```sh
+RAYON_NUM_THREADS=2 cargo test --locked --offline --no-default-features -j 2 -- --test-threads=2
+RAYON_NUM_THREADS=2 cargo test --locked --offline -j 2 --bin cloth-fit --test persistent_pattern_measurements -- --test-threads=2
+cargo +stable clippy --locked --offline --features desktop --all-targets -j 2 -- -D warnings
+cargo +stable fmt --all -- --check
+```
+
+The human owner explicitly authorized local implementation before the amended
+task claim is accepted. PR #228 remains the requested reviewed scope/dependency
+path for #69; #227 stays draft and no catalog task is marked complete. The old
+task-13 branch is preserved. Station/schema attribution to Mikyle Couto's MIT
+ClothCraft proposal #66 is retained; this integration adds no EXO app, cutline,
+solver or asset implementation.
+
 ## Editor transitions and workspace profiles — 26 October 2026
 
 PR #111 merged as `07c4988`. The production cancellation and installation
