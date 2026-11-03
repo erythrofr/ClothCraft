@@ -171,6 +171,55 @@ failure or approve the PR. Preserve the outstanding engineering review and
 the separate #66 source-origin question. No code, assets or permissions are
 imported by this evidence update.
 
+## Follow-up: MARK-01 review at 372cb7e (2026-10-28)
+
+[PR #6](https://github.com/erythrofr/ClothCraft/pull/6) was then at
+`372cb7e9f3b09e76935926b4094de6f519d7d658`. Its
+[LICENSE](https://github.com/FireflyTheReal/ClothCraft/blob/372cb7e9f3b09e76935926b4094de6f519d7d658/LICENSE)
+remains blob `e9aeff0bad01690535d6b92b2ab27f7f725f4c3c`. The pinned
+[implementation notes](https://github.com/FireflyTheReal/ClothCraft/blob/372cb7e9f3b09e76935926b4094de6f519d7d658/docs/markings.md)
+(blob `0708ff57de461a594e2f2b26edd4152b264164dc`) attribute the design and
+state that its model, geometry and tests were independently written, with no
+source or assets copied from PR #1. These are contributor statements, not an
+independent similarity or rights-holder audit. The implementation and marking
+test blobs are `d55afd481860d195e5a098132ee43ada8ebeced9` and
+`1f3d84745e638501bfe4be6eac7460a156d00e82`, respectively.
+
+The [targeted follow-up](https://github.com/erythrofr/ClothCraft/pull/6#issuecomment-6475377300)
+rechecked and resolved the prior clipped-sheet, collapsed-hole and malformed-hole
+threads; the current tests also cover malformed outer contours and the reported
+cut-segment intrusion. The [contributor's review evidence](https://github.com/erythrofr/ClothCraft/pull/6#issuecomment-6475277395)
+records the limits of those fixes. Notches are sewing-line guides; no separate
+cut-edge notch is generated. Seven hosted checks passed at this exact head.
+These findings neither approve the complete PR nor certify a native workflow or
+physical cutting. The independent #66 source-origin question remains open.
+This evidence update imports no source, assets or rights.
+
+## Follow-up: MARK-01 accepted and merged (2026-10-31)
+
+At the owner's request, [PR #6](https://github.com/erythrofr/ClothCraft/pull/6)
+was accepted and merged as `3f52d66f400c5d04f6e9b58c5402694f4717b867` from
+FireflyTheReal's exact head `3809c0f72b11012296e999838e767eed92a704d3`.
+The pinned MIT LICENSE blob remains `e9aeff0bad01690535d6b92b2ab27f7f725f4c3c`;
+the implementation notes, marking source and marking tests at that head are
+respectively `8aaf96c2e3a257f03fc0c7645f082cc8f6548cc7`,
+`d6053b05927be01624b4fb379826f0d875c3a668` and
+`550dd255e09c0dbad2f62fea027f9711628e996b`.
+
+The contributor states in the implementation notes that the model, geometry
+and tests were independently written, without PR #1 source or assets or
+proprietary code or resources. These remain attributed statements, not an
+exhaustive similarity or rights-holder audit. The owner accepted this specific
+contribution; this is not a license grant for EXO or a resolution of the
+separate #66 source-origin question.
+
+All seven hosted checks passed on the accepted head. The maintainer independently
+reran 24 marking and six physical-SVG CPU tests; the [maintainer handoff](https://github.com/erythrofr/ClothCraft/issues/12#issuecomment-6549374620)
+and [contributor release](https://github.com/erythrofr/ClothCraft/issues/12#issuecomment-6549401947)
+record the evidence and attribution. Notches remain
+sewing-line guides; native pointer acceptance and physical-printer calibration
+remain separate work. This record is not a production cutting certification.
+
 ## Evidence required before an actual code or asset transfer
 
 For **each path** proposed for copying or adapting, attach a review record to
@@ -186,7 +235,8 @@ its specific task or PR (do **not** silently amend this register's claim):
 - **Decision:** maintainer-reviewed allow / reject / investigate status,
   date, reviewer and immutable evidence link. If a separate grant is
   necessary, identify who must sign it and preserve a link to the complete
-  grant before importing. The current state is **investigate**, not allow.
+  grant before importing. For other proposed transfers, the current state is
+  **investigate**, not allow; the accepted #6 contribution is recorded above.
 - **Engineering:** independent behavior specification and fixture source,
   test and benchmark results (with command/platform), material-coordinate
   units and model/solver invariants; no comparison numbers inferred from an
