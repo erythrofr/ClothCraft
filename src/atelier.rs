@@ -688,7 +688,8 @@ impl eframe::App for Atelier {
         }
         let previous_preferences = self.prefs.clone();
         let previous_simulation = self.settings.clone();
-        let profiles_blocked = self.profiles.open;
+        let mesh_lab_blocked = chrome::mesh_resolution_frame(&ctx, &self.output);
+        let profiles_blocked = self.profiles.open || mesh_lab_blocked;
         let profile_path = self.output.join(workspace_profiles::FILE_NAME);
         let presentation = workspace_profiles::Snapshot::capture(
             &self.prefs,

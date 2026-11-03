@@ -1,4 +1,5 @@
 //! CPU fitting run; optional GPU view/benchmark will be handled explicitly.
+#![recursion_limit = "256"]
 use clap::Parser;
 use marvelous_cloth::{
     contact::Collider,
@@ -311,7 +312,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     project.state = Some(scene.state.clone());
     project.save(&args.output.join("fitting-project.json"))?;
     let meshes: Vec<_> = project.template.panels.iter().zip(&scene.garment.panels).map(|(panel,range)| {
-        let settings=panel.polygon.as_ref().map(|p|p.meshing_settings()).unwrap_or_default();
+        let mut settings=panel.polygon.as_ref().map(|p|p.meshing_settings()).unwrap_or_default();
+        if let Some(plan)=&mut settings.physics_sizing {
+            let material=&scene.garment.materials[range.material];
+            plan.bending_nm=[material.bend_warp,material.bend_weft];plan.axis_degrees=material.grain_degrees;
+        }
         serde_json::json!({"panel":panel.id,"vertices":range.vertices.len(),"settings":settings,
             "quality":marvelous_cloth::garment::meshing::quality(&scene.garment.mesh.triangles[range.triangles.clone()],&settings)})
     }).collect();

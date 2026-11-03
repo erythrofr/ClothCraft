@@ -5,6 +5,12 @@ use layout::ViewMode;
 use marvelous_cloth::vbd::{FinalDiagnostics, FinalDiagnosticsBackend};
 #[path = "avatar_diagnostics.rs"]
 mod avatar_diagnostics;
+#[path = "mesh_resolution_ui.rs"]
+mod mesh_resolution_ui;
+
+pub(super) fn mesh_resolution_frame(ctx: &egui::Context, output: &std::path::Path) -> bool {
+    mesh_resolution_ui::frame(ctx, output)
+}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum InspectorTab {
@@ -219,8 +225,10 @@ impl Atelier {
                         avatar_diagnostics::show(ui, &self.scene, &self.settings, self.generation, self.playing, self.pending);
                     });
                     ui.strong("Mesh resolution");
-                    ui.add(egui::Slider::new(&mut self.mesh_mm, 8.0..=60.0).text("mm"));
-                    if ui.button("Remesh").clicked() {
+                    let prepared=self.project.template.panels.iter().any(|p|p.polygon.as_ref().and_then(|p|p.meshing.as_ref()).is_some_and(|m|m.physics_sizing.is_some()));
+                    ui.add_enabled(!prepared,egui::Slider::new(&mut self.mesh_mm, 8.0..=60.0).text("Uniform mm"));
+                    if prepared {ui.small("Prepared fabric-sized mesh · fixed until reset or an edit");}
+                    if ui.add_enabled(!self.playing&&!self.pending,egui::Button::new("Remesh")).clicked() {
                         self.remesh();
                     }
                     ui.small(format!(
@@ -228,6 +236,35 @@ impl Atelier {
                         self.scene.state.x.len(),
                         self.scene.garment.mesh.triangles.len()
                     ));
+                    ui.separator();
+                    let ready = !self.playing && !self.pending
+                        && self.authoring.preview.is_none() && self.authoring.drag.is_none()
+                        && self.authoring.draft.is_empty() && self.authoring.dart.is_none()
+                        && !self.authoring.board.gesture_active() && self.authoring.ends.is_empty()
+                        && self.authoring.sewing.start.is_none()
+                        && self.authoring.sewing.sides.iter().all(Vec::is_empty);
+                    if let Some(request) = mesh_resolution_ui::preparation_controls(
+                        ui, &self.project.template, self.authoring.selected.as_deref(), ready,
+                    ) {
+                        match marvelous_cloth::mesh_resolution::preparation::configure(
+                            &self.project.template, &request.panels, request.young_pa,
+                            request.ratio, request.transition_m, request.physics,
+                        ) {
+                            Ok(template) => {
+                                let mut project = self.project.clone();
+                                project.template = template;
+                                project.state = None;
+                                project.mesh_signature = None;
+                                project.prearrange = false;
+                                if self.load(project) {
+                                    self.status = "Mesh prepared · press Simulate; topology stays fixed for the run".into();
+                                }
+                            }
+                            Err(error) => self.status = error,
+                        }
+                    }
+                    ui.separator();
+                    mesh_resolution_ui::launch(ui,!self.playing&&!self.pending);
                     ui.separator();
                     ui.strong("Solver settings");
                     ui.checkbox(&mut self.gpu, "GPU compute");

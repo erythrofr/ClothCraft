@@ -21,6 +21,9 @@ pub struct MeshingSettings {
     pub min_angle_degrees: f64,
     #[serde(default = "budget")]
     pub max_vertices: usize,
+    /// Optional, static sizing plan. Evaluated only when compiling a rest mesh.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub physics_sizing: Option<crate::mesh_resolution::preparation::PhysicsSizing>,
 }
 fn one() -> f64 {
     1.0
@@ -39,11 +42,15 @@ impl Default for MeshingSettings {
             axis_degrees: 0.0,
             min_angle_degrees: angle(),
             max_vertices: budget(),
+            physics_sizing: None,
         }
     }
 }
 impl MeshingSettings {
     pub fn validate(&self) -> Result<(), String> {
+        if let Some(plan) = &self.physics_sizing {
+            plan.validate()?;
+        }
         if !self.target_edge_m.is_finite()
             || !(0.003..=0.5).contains(&self.target_edge_m)
             || !self.anisotropy.is_finite()
@@ -58,6 +65,15 @@ impl MeshingSettings {
         Ok(())
     }
     pub fn to_metric(&self, p: DVec2) -> DVec2 {
+        if let Some(plan) = &self.physics_sizing
+            && let Ok(base) = plan.base()
+        {
+            let (s, c) = plan.axis_degrees.to_radians().sin_cos();
+            return DVec2::new(
+                (c * p.x + s * p.y) / base[0],
+                (-s * p.x + c * p.y) / base[1],
+            );
+        }
         let (s, c) = self.axis_degrees.to_radians().sin_cos();
         DVec2::new(
             (c * p.x + s * p.y) / (self.target_edge_m * self.anisotropy),
@@ -148,6 +164,11 @@ pub fn triangulate_domain(
     settings: &MeshingSettings,
 ) -> Result<TriangulatedContour, String> {
     settings.validate()?;
+    if let Some(plan) = &settings.physics_sizing {
+        return crate::mesh_resolution::preparation::triangulate(
+            points, names, holes, lines, settings, plan,
+        );
+    }
     let metric: Vec<_> = points.iter().map(|p| settings.to_metric(*p)).collect();
     let mut cdt = ConstrainedDelaunayTriangulation::<Point2<f64>>::new();
     let mut handles = vec![];
