@@ -1,0 +1,89 @@
+{
+  "fabric": {
+    "young_pa": [
+      110000.0,
+      110000.0
+    ],
+    "bending_nm": [
+      2e-6,
+      2e-6
+    ],
+    "axis_degrees": 0.0
+  },
+  "calibration": {
+    "c1": 32.08,
+    "c2": -0.0001876,
+    "min_m": 0.0025,
+    "max_m": 0.05
+  },
+  "domain": {
+    "outer": {
+      "points": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.18,
+          0.0
+        ],
+        [
+          0.18,
+          0.24
+        ],
+        [
+          0.0,
+          0.24
+        ]
+      ],
+      "edges": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ]
+    },
+    "holes": [],
+    "lines": {
+      "gather": [
+        [
+          0.03,
+          0.07
+        ],
+        [
+          0.15,
+          0.07
+        ]
+      ]
+    }
+  },
+  "sources": [
+    {
+      "feature": {
+        "kind": "polyline",
+        "points": [
+          [
+            0.03,
+            0.07
+          ],
+          [
+            0.15,
+            0.07
+          ]
+        ]
+      },
+      "spacing_m": [
+        0.004603048265691552,
+        0.004603048265691552
+      ],
+      "doubling_distance_m": 0.04,
+      "exponent": 0.5
+    }
+  ],
+  "options": {
+    "seed": 42,
+    "max_vertices": 20000,
+    "candidates": 30,
+    "max_refinement_passes": 32
+  }
+}

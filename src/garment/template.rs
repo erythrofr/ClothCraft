@@ -373,7 +373,27 @@ impl GarmentTemplate {
                 }) {
                     return Err("Polygon outside declared pattern bounds".into());
                 }
-                let built = polygon.build(&material)?;
+                let built = if polygon
+                    .meshing
+                    .as_ref()
+                    .is_some_and(|m| m.physics_sizing.is_some())
+                {
+                    // Rebind estimates whenever the shared fabric or panel grain
+                    // changes. No material values are changed by mesh sizing.
+                    let mut prepared = polygon.clone();
+                    let plan = prepared
+                        .meshing
+                        .as_mut()
+                        .unwrap()
+                        .physics_sizing
+                        .as_mut()
+                        .unwrap();
+                    plan.bending_nm = [material.bend_warp, material.bend_weft];
+                    plan.axis_degrees = panel.grain_degrees;
+                    prepared.build(&material)?
+                } else {
+                    polygon.build(&material)?
+                };
                 (built.mesh, built.boundaries)
             } else {
                 (

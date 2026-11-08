@@ -121,8 +121,7 @@ pub struct State {
 }
 
 impl Pattern {
-    pub fn build(&self, material: &Material, scene: Scene) -> Result<(Mesh, State), String> {
-        material.validate()?;
+    pub(crate) fn validate(&self) -> Result<(), String> {
         if !self.width.is_finite()
             || !self.height.is_finite()
             || !(0.01..=100.0).contains(&self.width)
@@ -136,6 +135,11 @@ impl Pattern {
                 "Pattern requires dimensions in 0.01..100 m and 1..128 cells per axis".into(),
             );
         }
+        Ok(())
+    }
+    pub fn build(&self, material: &Material, scene: Scene) -> Result<(Mesh, State), String> {
+        material.validate()?;
+        self.validate()?;
         let n = (self.nx + 1) * (self.ny + 1);
         let mut mesh = Mesh {
             uv: Vec::with_capacity(n),

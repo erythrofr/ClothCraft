@@ -47,3 +47,22 @@ Commands and captures: [first fitting](first-fit.md). Density reduces geometric 
 - [Spade constrained triangulation and refinement](https://docs.rs/spade/2.15.1/spade/struct.ConstrainedDelaunayTriangulation.html): API used, Steiner insertion and quality limits.
 - [Refinement parameters](https://docs.rs/spade/2.15.1/spade/struct.RefinementParameters.html): area, angle, budget and exterior-face exclusion.
 - [Spade repository and license](https://github.com/Stoeoef/spade/blob/master/Cargo.toml): MIT OR Apache-2.0. This backend is a declared dependency, not a claimed reimplementation.
+
+## Optional static fabric sizing
+
+On the independent mesh-resolution branch, `physics_sizing` is an optional,
+omitted-when-absent meshing setting. **Simulation > Physics-inspired mesh
+preparation** builds it once and resets the scene. The controls are always
+visible and default to all polygon pieces when none is selected. It is not
+evaluated by solver steps. Reset recompiles the same plan; no on-the-fly
+remeshing is supported.
+The existing compiler still derives all rest quantities from 2D material metres.
+See [one-time preparation, demo and limits](pie-resolution.md) for explicit Pa
+inputs, boundary-band semantics, angle/area checks and CPU acceptance evidence.
+
+The default sphere/hanging reference editor exposes the same mesher through
+**Simulation > Physics-inspired mesh preparation > Remesh and reset**.
+Project v1 accepts an optional `physics_sizing` plan, omitted when absent.
+Its rectangle compiles through `PolygonPattern::build`, then receives the
+original scene placement and hanging corner pins. Clearing the plan restores
+the historical structured grid. The solver never changes topology while stepping.

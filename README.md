@@ -18,6 +18,12 @@ cargo run --release --locked -j 2 --bin cloth-fit -- --steps 0 --view
 
 The editor opens a T-shirt and the bundled MakeHuman mannequin. Windows is the main development platform; macOS and Linux need equivalent acceptance testing. The desktop requires a graphics adapter supported by wgpu. CPU command-line tools build without graphics dependencies.
 
+Plain `cargo run --locked -j 2` keeps the cloth-over-sphere reference demo.
+In that window, open **Properties → REST PATTERN → Physics-inspired mesh
+preparation** (also available in **Simulation**) and
+click **Remesh and reset** before simulating. **Use uniform grid and reset**
+restores the original grid. See [mesh preparation inputs and limits](docs/pie-resolution.md).
+
 To reopen a saved garment:
 
 ```sh

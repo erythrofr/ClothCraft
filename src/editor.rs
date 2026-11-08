@@ -10,8 +10,7 @@
 //! CLO3D control is imitated at the pixel level; the shape of a docked viewport
 //! workspace is a generic CAD convention shared by many applications.
 //!
-//! Presentation only: the worker thread, solver calls, file I/O and camera
-//! interaction below are unchanged from the previous layout.
+//! Mesh preparation explicitly rebuilds the rest mesh before simulation.
 use crate::render::{Camera, Viewport};
 use eframe::egui::{self, Color32, RichText, Stroke, Vec2};
 use marvelous_cloth::{
@@ -25,6 +24,11 @@ use std::{
     sync::{Arc, mpsc},
     time::Duration,
 };
+#[path = "editor/mesh_preparation.rs"]
+mod mesh_preparation;
+#[cfg(test)]
+#[path = "atelier/authoring_smoke/widget_harness.rs"]
+mod widget_harness;
 
 /// Chrome colours: light panels, dark docked-window title bars.
 const CHROME: Color32 = Color32::from_rgb(0xEC, 0xEC, 0xEC);
@@ -160,6 +164,7 @@ struct Editor {
     status: String,
     selected_edge: Option<usize>,
     tab: usize,
+    mesh_preparation: mesh_preparation::Draft,
 }
 impl Editor {
     fn new(
@@ -201,6 +206,7 @@ impl Editor {
                 }
             })?;
         let project_path = output.join("project.json").to_string_lossy().into_owned();
+        let mesh_preparation = mesh_preparation::Draft::from_project(&project);
         Ok(Self {
             active: project.clone(),
             draft: project,
@@ -222,6 +228,7 @@ impl Editor {
             status: "Ready. The Simulation menu starts the CPU FEM solver.".into(),
             selected_edge: None,
             tab: 0,
+            mesh_preparation,
         })
     }
     fn reset(&mut self, project: Project) {
@@ -231,6 +238,7 @@ impl Editor {
                 self.mesh = Arc::new(mesh);
                 self.state = state;
                 self.active = project.clone();
+                self.mesh_preparation = mesh_preparation::Draft::from_project(&project);
                 self.draft = project;
                 self.metrics = None;
                 self.playing = false;
@@ -572,12 +580,17 @@ impl Editor {
         ui.strong("REST PATTERN");
         ui.add(egui::Slider::new(&mut self.draft.pattern.width, 0.1..=2.0).text("Width · m"));
         ui.add(egui::Slider::new(&mut self.draft.pattern.height, 0.1..=2.0).text("Height · m"));
-        ui.add(egui::Slider::new(&mut self.draft.pattern.nx, 2..=32).text("Cells X"));
-        ui.add(egui::Slider::new(&mut self.draft.pattern.ny, 2..=32).text("Cells Y"));
+        ui.add(egui::Slider::new(&mut self.draft.pattern.nx, 2..=32).text("Uniform cells X"));
+        ui.add(egui::Slider::new(&mut self.draft.pattern.ny, 2..=32).text("Uniform cells Y"));
+        if self.draft.physics_sizing.is_some() {
+            ui.small("Grid cell counts apply when using the uniform mesh. Choose Use uniform grid and reset below to switch.");
+        }
         ui.add(
             egui::Slider::new(&mut self.draft.material.grain_degrees, 0.0..=180.0)
                 .text("Grain · °"),
         );
+        ui.add_space(8.0);
+        self.mesh_controls(ui);
         if let Some(s) = &mut self.draft.sphere {
             ui.separator();
             ui.strong("COLLISION · SPHERE");
@@ -598,14 +611,18 @@ impl Editor {
         {
             self.reset(self.draft.clone());
         }
-        ui.small("The settings are applied together. Reset rebuilds the pattern and its mass.");
+        ui.small("Apply and Reset rebuilds the current mesh mode. Use Remesh and reset above to apply sizing estimates.");
     }
 
     fn tab_objects(&mut self, ui: &mut egui::Ui) {
         ui.strong("TREE");
         ui.collapsing("2D pattern", |ui| {
             let p = &self.active.pattern;
-            ui.label(format!("{} × {} cells", p.nx, p.ny));
+            if self.active.physics_sizing.is_some() {
+                ui.label("Physics-inspired triangulation");
+            } else {
+                ui.label(format!("{} × {} cells", p.nx, p.ny));
+            }
             ui.label(format!(
                 "{:.0} × {:.0} mm",
                 p.width * 1000.0,
@@ -692,7 +709,36 @@ impl Editor {
         ui.small("Estimated values, not calibrated against measurements. Changing the fabric requires a Reset: the density is baked into the compiled mass.");
     }
 
+    fn mesh_controls(&mut self, ui: &mut egui::Ui) {
+        ui.strong("MESH RESOLUTION");
+        ui.small(format!(
+            "{} vertices · {} triangles",
+            self.mesh.uv.len(),
+            self.mesh.triangles.len()
+        ));
+        ui.small(if self.active.physics_sizing.is_some() {
+            "Current mesh: physics-inspired · fixed during simulation"
+        } else {
+            "Current mesh: uniform grid"
+        });
+        if let Some(action) = mesh_preparation::controls(
+            ui,
+            &mut self.mesh_preparation,
+            &self.draft,
+            !self.playing && !self.pending,
+        ) {
+            let mut project = self.draft.clone();
+            project.physics_sizing = match action {
+                mesh_preparation::Action::Physics(plan) => Some(plan),
+                mesh_preparation::Action::Uniform => None,
+            };
+            self.reset(project);
+        }
+    }
+
     fn tab_simulation(&mut self, ui: &mut egui::Ui) {
+        self.mesh_controls(ui);
+        ui.separator();
         ui.strong("REFERENCE · IMPLICIT EULER");
         ui.add(egui::Slider::new(&mut self.draft.solver.dt, 0.001..=0.04).text("Step · s"));
         ui.add(
