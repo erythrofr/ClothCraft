@@ -5,7 +5,7 @@ use crate::{
         CompiledGarment, GarmentTemplate, curves,
         markings::{self, Notch},
         meshing::MeshingSettings,
-        polygon::PolygonPattern,
+        polygon::{PatternMeasurement, PolygonPattern},
         seam::{BoundaryRef, SeamSpec},
         template::{Fabric, FabricProperties, Panel, Placement},
     },
@@ -37,6 +37,15 @@ pub enum PointConstruction {
 }
 
 pub enum Command {
+    /// Create or replace a panel-local, nonphysical saved measurement.
+    SetMeasurement {
+        panel: String,
+        measurement: PatternMeasurement,
+    },
+    RemoveMeasurement {
+        panel: String,
+        id: String,
+    },
     ConstructPoint {
         target: ConstructionRef,
         reference: ConstructionRef,
@@ -710,6 +719,7 @@ pub fn same_physics(a: &GarmentTemplate, b: &GarmentTemplate) -> bool {
                 // moving or deleting one never rebuilds the physical state.
                 polygon.seam_allowances.clear();
                 polygon.notches.clear();
+                polygon.measurements.clear();
             }
         }
         serde_json::to_vec(&t).unwrap()
@@ -724,9 +734,13 @@ pub fn only_appearance_changed(a: &GarmentTemplate, b: &GarmentTemplate) -> bool
         t.panels
             .iter()
             .map(|p| {
-                p.polygon
-                    .as_ref()
-                    .map(|polygon| (polygon.seam_allowances.clone(), polygon.notches.clone()))
+                p.polygon.as_ref().map(|polygon| {
+                    (
+                        polygon.seam_allowances.clone(),
+                        polygon.notches.clone(),
+                        polygon.measurements.clone(),
+                    )
+                })
             })
             .collect::<Vec<_>>()
     };
@@ -746,6 +760,7 @@ pub fn only_appearance_changed(a: &GarmentTemplate, b: &GarmentTemplate) -> bool
             if let Some(polygon) = p.polygon.as_mut() {
                 polygon.seam_allowances.clear();
                 polygon.notches.clear();
+                polygon.measurements.clear();
             }
         }
         serde_json::to_vec(&t).unwrap()
@@ -763,6 +778,7 @@ fn strip_graphic_frame_metadata(polygon: &mut serde_json::Value) {
             "target_lengths",
             "seam_allowances",
             "notches",
+            "measurements",
             // The independently reviewed #1 proposal uses annotations for
             // text-only draft notes; they do not alter the material contour.
             "annotations",
@@ -779,22 +795,6 @@ fn graphic_material_frame(panel: &Panel) -> Result<Vec<u8>, String> {
         .map_err(|e| e.to_string())
 }
 
-#[cfg(test)]
-mod graphic_frame_tests {
-    use super::*;
-    #[test]
-    fn only_reviewed_nonphysical_fields_are_ignored() {
-        let mut polygon = serde_json::json!({"points": [[0, 0]], "meshing": {}, "subdivisions": 1,
-            "target_lengths": {}, "seam_allowances": {"edge": 0.01}, "notches": {"edge": []},
-            "annotations": [{"text": "front", "position": [0.1, 0.2]}],
-            "free_curve_points": {"edge": [[0.3, 0.4]]}, "future_geometry": [1, 2]});
-        strip_graphic_frame_metadata(&mut polygon);
-        assert_eq!(
-            polygon,
-            serde_json::json!({"points": [[0, 0]], "free_curve_points": {"edge": [[0.3, 0.4]]}, "future_geometry": [1, 2]})
-        );
-    }
-}
 pub fn rotate_2d(p: DVec2, degrees: f64) -> DVec2 {
     let (s, c) = degrees.to_radians().sin_cos();
     DVec2::new(c * p.x - s * p.y, s * p.x + c * p.y)
@@ -1103,6 +1103,7 @@ pub fn freehand_contour(
         target_lengths: Default::default(),
         seam_allowances: Default::default(),
         notches: Default::default(),
+        measurements: Default::default(),
     };
     polygon.build(&crate::model::Material::default())?;
     Ok(polygon)
@@ -1193,6 +1194,67 @@ pub fn constructed_point(
     Ok(local)
 }
 
+/// Run a staged ruler through the same operation-specific migrations and
+/// rejection gates as saved measurements. The temporary record exists only in
+/// the candidate transaction, never in the returned document or history.
+pub fn apply_with_measurement_draft(
+    source: &GarmentTemplate,
+    mut command: Command,
+    panel: &str,
+    draft: &PatternMeasurement,
+) -> Result<(Edit, PatternMeasurement), String> {
+    let mut candidate = source.clone();
+    let id = unused_id(
+        "staged_measurement",
+        candidate
+            .panels
+            .iter()
+            .filter_map(|p| p.polygon.as_ref())
+            .flat_map(|p| p.measurements.iter().map(|m| m.id.clone())),
+    );
+    let polygon = candidate
+        .panels
+        .iter_mut()
+        .find(|p| p.id == panel)
+        .and_then(|p| p.polygon.as_mut())
+        .ok_or("Measurement draft's panel is missing")?;
+    let mut tracked = draft.clone();
+    tracked.id = id.clone();
+    // Text can be incomplete during a geometry edit; geometry must still be valid.
+    tracked.label = "Active measurement draft".into();
+    polygon.measurements.push(tracked.clone());
+    if let Command::Shape {
+        panel: owner,
+        polygon,
+    } = &mut command
+        && owner == panel
+    {
+        polygon.measurements.push(tracked);
+    }
+    let mut edit = apply(&candidate, command)?;
+    let mut migrated = edit
+        .template
+        .panels
+        .iter()
+        .find(|p| p.id == panel)
+        .and_then(|p| p.polygon.as_ref())
+        .and_then(|p| p.measurements.iter().find(|m| m.id == id))
+        .cloned()
+        .ok_or("Edit would remove the active measurement draft; save or discard it first")?;
+    // Copies may have copied the temporary record too. Strip it everywhere.
+    for polygon in edit
+        .template
+        .panels
+        .iter_mut()
+        .filter_map(|p| p.polygon.as_mut())
+    {
+        polygon.measurements.retain(|m| m.id != id);
+    }
+    migrated.id = draft.id.clone();
+    migrated.label = draft.label.clone();
+    Ok((edit, migrated))
+}
+
 pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String> {
     let held = |id: &str| {
         source.pin_targets.iter().any(|p| p.panel == id)
@@ -1274,6 +1336,49 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
     let mut selected = None;
     let mut new_point = None;
     match command {
+        Command::SetMeasurement { panel, measurement } => {
+            let p = template
+                .panels
+                .iter_mut()
+                .find(|p| p.id == panel)
+                .ok_or("Panel not found")?;
+            let polygon = p
+                .polygon
+                .as_mut()
+                .ok_or("Saved measurements require an editable polygon")?;
+            if let Some(old) = polygon
+                .measurements
+                .iter_mut()
+                .find(|m| m.id == measurement.id)
+            {
+                if *old == measurement {
+                    return Err("Measurement is unchanged".into());
+                }
+                *old = measurement;
+            } else {
+                polygon.measurements.push(measurement);
+            }
+            polygon.validate_measurement_records(&polygon.measurements)?;
+            selected = Some(panel);
+        }
+        Command::RemoveMeasurement { panel, id } => {
+            let p = template
+                .panels
+                .iter_mut()
+                .find(|p| p.id == panel)
+                .ok_or("Panel not found")?;
+            let polygon = p
+                .polygon
+                .as_mut()
+                .ok_or("Saved measurements require an editable polygon")?;
+            let i = polygon
+                .measurements
+                .iter()
+                .position(|m| m.id == id)
+                .ok_or("Measurement no longer exists")?;
+            polygon.measurements.remove(i);
+            selected = Some(panel);
+        }
         Command::ConstructPoint {
             target,
             reference,
@@ -1448,6 +1553,13 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
             if !poly.lines.iter().any(|l| l.id == line) {
                 return Err("Internal line not found".into());
             }
+            if poly
+                .measurements
+                .iter()
+                .any(|m| m.a.edge == line || m.b.edge == line)
+            {
+                return Err("Remove the measurement before deleting its internal line".into());
+            }
             poly.lines.retain(|l| l.id != line);
             selected = Some(panel);
         }
@@ -1608,6 +1720,7 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
                     target_lengths: Default::default(),
                     seam_allowances: Default::default(),
                     notches: Default::default(),
+                    measurements: Default::default(),
                 }),
                 fabric,
                 grain_degrees: 90.,
@@ -1676,6 +1789,11 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
                 .ok_or("Convert the rectangular pattern before editing")?;
             if polygon.edges != old.edges || polygon.points.len() != old.points.len() {
                 return Err("Named boundaries must stay stable".into());
+            }
+            if polygon.measurements != old.measurements {
+                return Err(
+                    "Use the measurement controls to change saved measurement references".into(),
+                );
             }
             p.layout_2d = Some(origin);
             p.polygon = Some(polygon);
@@ -1832,6 +1950,7 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
                     .position(|name| name == &edge)
                     .ok_or("Boundary not found")?;
                 let current = edge_length(polygon, &edge)?;
+                let previous_polygon = polygon.clone();
                 if at_m >= current {
                     return Err("Insert position is beyond the boundary".into());
                 }
@@ -1869,6 +1988,24 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
                 if controls.is_some() {
                     polygon.curves.insert(edge.clone(), first);
                     polygon.curves.insert(name.clone(), second);
+                }
+                // Resolve old stations before replacing their boundary. Curved
+                // halves have independent flattening, so project onto the known
+                // child and bound the geometric drift by two flatten tolerances.
+                let split_geometry = polygon.clone();
+                for measurement in &mut polygon.measurements {
+                    for anchor in [&mut measurement.a, &mut measurement.b] {
+                        if anchor.edge == edge {
+                            *anchor = geometry::split_measurement_anchor(
+                                &previous_polygon,
+                                &split_geometry,
+                                anchor,
+                                [&edge, &name],
+                                at_m,
+                                current,
+                            )?;
+                        }
+                    }
                 }
                 // Carry draft markings across the split. The two halves are the
                 // same physical boundary, so the allowance applies to both, and
@@ -1949,7 +2086,13 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
                 .iter()
                 .position(|name| name == &edge)
                 .ok_or("Dart source edge not found")?;
-            if polygon.curves.contains_key(&edge) || polygon.target_lengths.contains_key(&edge) {
+            if polygon.curves.contains_key(&edge)
+                || polygon.target_lengths.contains_key(&edge)
+                || polygon
+                    .measurements
+                    .iter()
+                    .any(|m| m.a.edge == edge || m.b.edge == edge)
+            {
                 return Err(
                     "Dart on a curved or annotated boundary needs explicit reference remapping"
                         .into(),
@@ -2071,10 +2214,14 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
                 [&incoming, &outgoing].iter().any(|name| {
                     polygon.seam_allowances.contains_key(*name)
                         || polygon.notches.contains_key(*name)
+                        || polygon
+                            .measurements
+                            .iter()
+                            .any(|m| &m.a.edge == *name || &m.b.edge == *name)
                 })
             }) {
                 return Err(
-                    "Seam allowances or notches use this point's boundaries; clear them first"
+                    "Seam allowances, notches or measurements use this point's boundaries; clear them first"
                         .into(),
                 );
             }
@@ -2203,7 +2350,7 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
             edge,
             width_m,
         } => {
-            if !width_m.is_finite() || width_m < 0. || width_m > markings::MAX_ALLOWANCE_M {
+            if !width_m.is_finite() || !(0. ..=markings::MAX_ALLOWANCE_M).contains(&width_m) {
                 return Err(format!(
                     "Seam allowance must be in [0, {} mm]",
                     markings::MAX_ALLOWANCE_M * 1000.
@@ -2694,5 +2841,23 @@ impl History {
         from.pop();
         to.push(current.clone());
         Ok(edit)
+    }
+}
+
+#[cfg(test)]
+mod graphic_frame_tests {
+    use super::*;
+    #[test]
+    fn only_reviewed_nonphysical_fields_are_ignored() {
+        let mut polygon = serde_json::json!({"points": [[0, 0]], "meshing": {}, "subdivisions": 1,
+            "target_lengths": {}, "seam_allowances": {"edge": 0.01}, "notches": {"edge": []},
+            "annotations": [{"text": "front", "position": [0.1, 0.2]}],
+            "measurements": [{"id": "width"}],
+            "free_curve_points": {"edge": [[0.3, 0.4]]}, "future_geometry": [1, 2]});
+        strip_graphic_frame_metadata(&mut polygon);
+        assert_eq!(
+            polygon,
+            serde_json::json!({"points": [[0, 0]], "free_curve_points": {"edge": [[0.3, 0.4]]}, "future_geometry": [1, 2]})
+        );
     }
 }

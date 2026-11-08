@@ -91,6 +91,7 @@ pub fn primitive(
         target_lengths: Default::default(),
         seam_allowances: Default::default(),
         notches: Default::default(),
+        measurements: Default::default(),
     })
 }
 
@@ -138,6 +139,13 @@ pub fn mirror(poly: &mut PolygonPattern, axis: MirrorAxis, size: DVec2) {
     for notches in poly.notches.values_mut() {
         for notch in notches {
             notch.at = 1.0 - notch.at;
+        }
+    }
+    for measurement in &mut poly.measurements {
+        for anchor in [&mut measurement.a, &mut measurement.b] {
+            if !poly.lines.iter().any(|line| line.id == anchor.edge) {
+                anchor.t = 1. - anchor.t;
+            }
         }
     }
     if let Some(settings) = &mut poly.meshing {
@@ -223,6 +231,7 @@ pub fn boolean(
             target_lengths: Default::default(),
             seam_allowances: Default::default(),
             notches: Default::default(),
+            measurements: Default::default(),
         });
     }
     Ok(out)

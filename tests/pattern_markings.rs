@@ -1057,6 +1057,7 @@ fn a_cut_segment_that_crosses_the_material_between_samples_is_refused() {
             .map(|(edge, width)| ((*edge).to_string(), width))
             .collect(),
         notches: Default::default(),
+        measurements: Default::default(),
     };
     // The unmarked outline is valid; only its cut line is refusable.
     let mut unmarked = polygon.clone();
@@ -1095,6 +1096,7 @@ fn notches_mark_the_sewing_line_and_stop_short_of_the_cut_edge() {
         target_lengths: Default::default(),
         seam_allowances,
         notches: Default::default(),
+        measurements: Default::default(),
     };
     assert!(polygon.build(&Material::default()).is_ok());
     let marker = polygon
@@ -1132,6 +1134,7 @@ fn plain_square(size_m: f64) -> PolygonPattern {
         target_lengths: Default::default(),
         seam_allowances: Default::default(),
         notches: Default::default(),
+        measurements: Default::default(),
     }
 }
 

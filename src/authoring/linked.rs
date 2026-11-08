@@ -24,7 +24,11 @@ pub(super) fn check_command(t: &GarmentTemplate, c: &Command) -> Result<(), Stri
 }
 
 fn shape(p: &Panel) -> serde_json::Value {
-    serde_json::json!([p.pattern, p.polygon, p.grain_degrees, p.pin_points])
+    let mut polygon = p.polygon.clone();
+    if let Some(polygon) = &mut polygon {
+        polygon.measurements.clear();
+    }
+    serde_json::json!([p.pattern, polygon, p.grain_degrees, p.pin_points])
 }
 
 pub(super) fn synchronize(old: &GarmentTemplate, t: &mut GarmentTemplate) -> Result<(), String> {
@@ -68,6 +72,14 @@ pub(super) fn synchronize(old: &GarmentTemplate, t: &mut GarmentTemplate) -> Res
             link.axis,
             DVec2::new(source.pattern.width, source.pattern.height),
         );
+        // Each panel owns its measurement labels/stations. A metadata edit on
+        // one member does not overwrite the other's measurements; geometric
+        // synchronization retains the target's existing directed references.
+        polygon.measurements = t.panels[to]
+            .polygon
+            .as_ref()
+            .map(|p| p.measurements.clone())
+            .unwrap_or_default();
         let target = &mut t.panels[to];
         target.pattern = source.pattern;
         target.polygon = Some(polygon);

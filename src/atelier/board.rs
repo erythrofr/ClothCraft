@@ -879,7 +879,7 @@ impl Atelier {
             .map(|(_, p)| *p)
             .unwrap_or_else(|| authoring::layout(&self.project.template, i))
     }
-    fn board_polygon(&self, i: usize) -> Option<&PolygonPattern> {
+    pub(super) fn board_polygon(&self, i: usize) -> Option<&PolygonPattern> {
         let p = &self.project.template.panels[i];
         self.authoring
             .board
@@ -1079,6 +1079,9 @@ impl Atelier {
         }
         edge.or(body)
     }
+    pub(super) fn measurement_panel_at(&self, rect: egui::Rect, pos: egui::Pos2) -> Option<usize> {
+        self.board_hit(rect, pos).map(|hit| hit.index)
+    }
     pub(super) fn select_boundary(&mut self, edge: BoundaryRef) {
         self.cancel_preview();
         self.authoring.selection.panels.clear();
@@ -1264,7 +1267,7 @@ impl Atelier {
             ));
         }
         if self.authoring.tool == Tool::Measure {
-            ui.small("2D ruler · two clicks · third click: new measurement · Esc: clear · Ctrl: no snap. Board distance, not a 3D surface tape.");
+            ui.small("Ruler · click two boundaries on one piece, then Save measurement in Properties → Piece → Measurements. Drag a selected endpoint to stage an edit. Esc: cancel draft.");
         }
         if !self.authoring.draft.is_empty()
             && matches!(self.authoring.tool, Tool::Draw | Tool::InternalLine)
@@ -2929,6 +2932,7 @@ impl Atelier {
         // marker sit above the geometry.
         self.paint_drafting(&painter, rect, response);
         self.paint_sewing_ranges(ui, rect, false);
+        self.paint_saved_measurements(ui, rect);
     }
     /// Drafting overlay: where the next click will land and why, the live
     /// measurements, and the insert/delete affordances. Presentation only; it
