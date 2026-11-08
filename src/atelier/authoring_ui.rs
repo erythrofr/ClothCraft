@@ -874,7 +874,11 @@ impl Atelier {
         self.editor_transition().install(edit);
     }
     pub(super) fn edit(&mut self, command: Command) -> bool {
-        match self.authoring.measure.prepare_edit(&self.project.template, command) {
+        match self
+            .authoring
+            .measure
+            .prepare_edit(&self.project.template, command)
+        {
             Ok((edit, measure)) => {
                 if edit.reset_simulation
                     && (!self.project.template.pin_targets.is_empty()

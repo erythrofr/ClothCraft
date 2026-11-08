@@ -274,3 +274,12 @@ named widgets. The intersection scenario also caught a popup-transition
 issue: selectors close explicitly after selection, and the test renders the
 closed popup before opening the next one. No native-window or GPU acceptance
 is claimed for this slice.
+
+### Pending measurement decisions
+
+Selecting another measurement, starting a new measurement or changing pieces
+while a measurement draft is dirty requires Save, Discard or Cancel. The
+original requested destination remains pending across inspector frames.
+History changes retain dirty draft text but disable Apply if the saved record
+or geometry no longer matches; restore the corresponding state or explicitly
+cancel the draft before selecting the current saved record.

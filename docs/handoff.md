@@ -1,5 +1,23 @@
 # Repository handoff
 
+## Measurement review follow-up — 8 November 2026
+
+Local follow-up to PR #227 at published base `24788ad`. Pending measurement
+transitions retain the original destination across inspector frames; explicit
+Discard clears the old draft before selecting another panel's measurement.
+Dirty drafts survive history/topology changes, but cannot overwrite a changed
+saved record. Named-control tests cover cross-panel Save/Discard/Cancel and
+staged edge_2 t=0.75 splitting at 0.15 m followed by Apply. Additional coverage
+checks incomplete document drafts, unchanged selections and serialization.
+Observed validation with two CPU jobs/test threads: all seven focused
+measurement tests passed; the full no-default-features suite passed 539 tests
+across 83 result groups; desktop cloth-fit passed 180 tests with one optional
+preview ignored. CPU and desktop all-target Clippy passed with `-D warnings`;
+formatting, diff whitespace checks and all six standard template validations
+passed. Local macOS links emitted an
+SDK deployment-version warning. Native file dialogs, a real GPU window and
+concurrent worker acceptance were not exercised.
+
 ## Attached, editable ruler — 1 November 2026
 
 Draft PR #227 on `feature/persistent-pattern-measurements` extends the existing

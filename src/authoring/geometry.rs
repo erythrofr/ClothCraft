@@ -8,45 +8,71 @@ use crate::garment::{seam::Side, shapes};
 /// measurement-length term (a legitimate edit can change that length).
 fn landmarks(polygon: &PolygonPattern) -> Result<[DVec2; 3], String> {
     let a = *polygon.points.first().ok_or("Missing tracking landmarks")?;
-    let b = polygon.points.iter().copied()
+    let b = polygon
+        .points
+        .iter()
+        .copied()
         .max_by(|x, y| x.distance_squared(a).total_cmp(&y.distance_squared(a)))
         .ok_or("Missing tracking landmarks")?;
-    let c = polygon.points.iter().copied()
-        .max_by(|x, y| (b-a).perp_dot(*x-a).abs().total_cmp(&(b-a).perp_dot(*y-a).abs()))
+    let c = polygon
+        .points
+        .iter()
+        .copied()
+        .max_by(|x, y| {
+            (b - a)
+                .perp_dot(*x - a)
+                .abs()
+                .total_cmp(&(b - a).perp_dot(*y - a).abs())
+        })
         .ok_or("Missing tracking landmarks")?;
     let scale = a.distance(b).max(a.distance(c)).max(b.distance(c));
-    if !scale.is_finite() || scale <= 0.
-        || ((b-a)/scale).perp_dot((c-a)/scale).abs() < 1e-8 {
+    if !scale.is_finite() || scale <= 0. || ((b - a) / scale).perp_dot((c - a) / scale).abs() < 1e-8
+    {
         return Err("Measurement tracking landmarks are degenerate; edit cancelled".into());
     }
-    Ok([a,b,c])
+    Ok([a, b, c])
 }
 
-fn landmark_error(point: DVec2, candidate: DVec2, before: [DVec2;3], after: [DVec2;3]) -> Result<f64, String> {
-    let [a,b,c] = before;
+fn landmark_error(
+    point: DVec2,
+    candidate: DVec2,
+    before: [DVec2; 3],
+    after: [DVec2; 3],
+) -> Result<f64, String> {
+    let [a, b, c] = before;
     let scale = a.distance(b).max(a.distance(c)).max(b.distance(c));
-    let u = (b-a)/scale;
-    let v = (c-a)/scale;
-    let offset = (point-a)/scale;
+    let u = (b - a) / scale;
+    let v = (c - a) / scale;
+    let offset = (point - a) / scale;
     let determinant = u.perp_dot(v);
     if !determinant.is_finite() || determinant.abs() < 1e-8 {
         return Err("Measurement tracking landmarks are degenerate; edit cancelled".into());
     }
-    let beta = offset.perp_dot(v)/determinant;
-    let gamma = u.perp_dot(offset)/determinant;
-    let predicted = after[0] + (after[1]-after[0])*beta + (after[2]-after[0])*gamma;
+    let beta = offset.perp_dot(v) / determinant;
+    let gamma = u.perp_dot(offset) / determinant;
+    let predicted = after[0] + (after[1] - after[0]) * beta + (after[2] - after[0]) * gamma;
     let relative = predicted.distance(candidate);
-    let distance_error = before.into_iter().zip(after).map(|(a,b)|
-        (a.distance(point)-b.distance(candidate)).powi(2)).sum::<f64>().sqrt()/3_f64.sqrt();
+    let distance_error = before
+        .into_iter()
+        .zip(after)
+        .map(|(a, b)| (a.distance(point) - b.distance(candidate)).powi(2))
+        .sum::<f64>()
+        .sqrt()
+        / 3_f64.sqrt();
     let error = relative.max(distance_error);
-    if !error.is_finite() { return Err("Non-finite measurement tracking geometry".into()); }
+    if !error.is_finite() {
+        return Err("Non-finite measurement tracking geometry".into());
+    }
     Ok(error)
 }
 
 pub(super) fn split_measurement_anchor(
-    old: &PolygonPattern, new: &PolygonPattern,
+    old: &PolygonPattern,
+    new: &PolygonPattern,
     anchor: &crate::garment::polygon::MeasurementAnchor,
-    children: [&str;2], at_m: f64, length: f64,
+    children: [&str; 2],
+    at_m: f64,
+    length: f64,
 ) -> Result<crate::garment::polygon::MeasurementAnchor, String> {
     let point = old.measurement_anchor_position(anchor)?;
     let before = landmarks(old)?;
@@ -66,11 +92,14 @@ pub(super) fn split_measurement_anchor(
     let slot = usize::from(anchor.t * length >= at_m);
     let tolerance = 2. * curves::FLATNESS_M + 1e-10;
     if candidates[slot].1 > tolerance {
-        return Err("Split cannot preserve the measurement material position within 0.5 mm; edit cancelled".into());
+        return Err(
+            "Split cannot preserve the measurement material position within 0.5 mm; edit cancelled"
+                .into(),
+        );
     }
     // Identity and directed arclength decide which side owns the common split
     // vertex. Elsewhere a better competing child is an inconsistent mapping.
-    if candidates[1-slot].1 + tolerance < candidates[slot].1 {
+    if candidates[1 - slot].1 + tolerance < candidates[slot].1 {
         return Err("Ambiguous measurement child mapping; edit cancelled".into());
     }
     Ok(candidates.swap_remove(slot).0)

@@ -1204,27 +1204,50 @@ pub fn apply_with_measurement_draft(
     draft: &PatternMeasurement,
 ) -> Result<(Edit, PatternMeasurement), String> {
     let mut candidate = source.clone();
-    let id = unused_id("staged_measurement", candidate.panels.iter()
-        .filter_map(|p| p.polygon.as_ref()).flat_map(|p| p.measurements.iter().map(|m| m.id.clone())));
-    let polygon = candidate.panels.iter_mut().find(|p| p.id == panel)
-        .and_then(|p| p.polygon.as_mut()).ok_or("Measurement draft's panel is missing")?;
+    let id = unused_id(
+        "staged_measurement",
+        candidate
+            .panels
+            .iter()
+            .filter_map(|p| p.polygon.as_ref())
+            .flat_map(|p| p.measurements.iter().map(|m| m.id.clone())),
+    );
+    let polygon = candidate
+        .panels
+        .iter_mut()
+        .find(|p| p.id == panel)
+        .and_then(|p| p.polygon.as_mut())
+        .ok_or("Measurement draft's panel is missing")?;
     let mut tracked = draft.clone();
     tracked.id = id.clone();
     // Text can be incomplete during a geometry edit; geometry must still be valid.
     tracked.label = "Active measurement draft".into();
     polygon.measurements.push(tracked.clone());
-    if let Command::Shape { panel: owner, polygon } = &mut command
+    if let Command::Shape {
+        panel: owner,
+        polygon,
+    } = &mut command
         && owner == panel
     {
         polygon.measurements.push(tracked);
     }
     let mut edit = apply(&candidate, command)?;
-    let mut migrated = edit.template.panels.iter().find(|p| p.id == panel)
+    let mut migrated = edit
+        .template
+        .panels
+        .iter()
+        .find(|p| p.id == panel)
         .and_then(|p| p.polygon.as_ref())
-        .and_then(|p| p.measurements.iter().find(|m| m.id == id)).cloned()
+        .and_then(|p| p.measurements.iter().find(|m| m.id == id))
+        .cloned()
         .ok_or("Edit would remove the active measurement draft; save or discard it first")?;
     // Copies may have copied the temporary record too. Strip it everywhere.
-    for polygon in edit.template.panels.iter_mut().filter_map(|p| p.polygon.as_mut()) {
+    for polygon in edit
+        .template
+        .panels
+        .iter_mut()
+        .filter_map(|p| p.polygon.as_mut())
+    {
         polygon.measurements.retain(|m| m.id != id);
     }
     migrated.id = draft.id.clone();
@@ -1974,8 +1997,12 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
                     for anchor in [&mut measurement.a, &mut measurement.b] {
                         if anchor.edge == edge {
                             *anchor = geometry::split_measurement_anchor(
-                                &previous_polygon, &split_geometry, anchor,
-                                [&edge, &name], at_m, current,
+                                &previous_polygon,
+                                &split_geometry,
+                                anchor,
+                                [&edge, &name],
+                                at_m,
+                                current,
                             )?;
                         }
                     }

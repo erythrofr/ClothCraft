@@ -18,7 +18,12 @@ struct Draft {
 }
 impl Draft {
     fn valid_for(&self, polygon: &PolygonPattern) -> bool {
-        if self.topology != names(polygon) || self.geometry.as_ref().is_some_and(|old| geometry(old) != geometry(polygon)) {
+        if self.topology != names(polygon)
+            || self
+                .geometry
+                .as_ref()
+                .is_some_and(|old| geometry(old) != geometry(polygon))
+        {
             return false;
         }
         if let Some(base) = &self.base {
@@ -52,29 +57,60 @@ pub(super) struct Tape {
 }
 impl Tape {
     pub(super) fn has_changes(&self) -> bool {
-        self.first.is_some() || self.draft.as_ref().is_some_and(|d| d.base.as_ref() != Some(&d.value))
+        self.first.is_some()
+            || self
+                .draft
+                .as_ref()
+                .is_some_and(|d| d.base.as_ref() != Some(&d.value))
     }
-    pub(super) fn document_command(&self, template: &marvelous_cloth::garment::GarmentTemplate) -> Result<Option<Command>, String> {
-        if !self.has_changes() { return Ok(None); }
+    pub(super) fn document_command(
+        &self,
+        template: &marvelous_cloth::garment::GarmentTemplate,
+    ) -> Result<Option<Command>, String> {
+        if !self.has_changes() {
+            return Ok(None);
+        }
         let owner = self.panel.as_ref().ok_or("Measurement has no panel")?;
-        let draft = self.draft.as_ref().ok_or("Finish the measurement's second endpoint or discard the draft before saving")?;
-        let polygon = template.panels.iter().find(|p| &p.id == owner).and_then(|p| p.polygon.as_ref())
+        let draft = self
+            .draft
+            .as_ref()
+            .ok_or("Finish the measurement's second endpoint or discard the draft before saving")?;
+        let polygon = template
+            .panels
+            .iter()
+            .find(|p| &p.id == owner)
+            .and_then(|p| p.polygon.as_ref())
             .ok_or("Measurement's panel is missing")?;
-        if !draft.valid_for(polygon) { return Err("Measurement draft is stale; restore its geometry or discard it before saving".into()); }
+        if !draft.valid_for(polygon) {
+            return Err(
+                "Measurement draft is stale; restore its geometry or discard it before saving"
+                    .into(),
+            );
+        }
         let mut records = polygon.measurements.clone();
-        if let Some(record) = records.iter_mut().find(|m| m.id == draft.value.id) { *record = draft.value.clone(); }
-        else { records.push(draft.value.clone()); }
+        if let Some(record) = records.iter_mut().find(|m| m.id == draft.value.id) {
+            *record = draft.value.clone();
+        } else {
+            records.push(draft.value.clone());
+        }
         polygon.validate_measurement_records(&records)?;
-        Ok(Some(Command::SetMeasurement { panel: owner.clone(), measurement: draft.value.clone() }))
+        Ok(Some(Command::SetMeasurement {
+            panel: owner.clone(),
+            measurement: draft.value.clone(),
+        }))
     }
     pub(super) fn document_committed(&mut self) {
         let id = self.draft.as_ref().map(|d| d.value.id.clone());
         self.committed(id);
     }
-    pub(super) fn discard(&mut self) { *self = Self::default(); }
+    pub(super) fn discard(&mut self) {
+        *self = Self::default();
+    }
     fn request(&mut self, transition: Transition) -> bool {
         if self.has_changes() {
-            self.transition = Some(transition);
+            if self.transition.is_none() {
+                self.transition = Some(transition);
+            }
             false
         } else {
             self.transition = Some(transition);
@@ -84,9 +120,26 @@ impl Tape {
     }
     fn finish_transition(&mut self) {
         match self.transition.take() {
-            Some(Transition::Panel(panel)) => *self = Self { panel: Some(panel), ..Default::default() },
-            Some(Transition::New(panel)) => *self = Self { panel: Some(panel), force_pick: true, ..Default::default() },
-            Some(Transition::Select(panel, value)) => self.select(&panel, &value),
+            Some(Transition::Panel(panel)) => {
+                *self = Self {
+                    panel: Some(panel),
+                    ..Default::default()
+                }
+            }
+            Some(Transition::New(panel)) => {
+                *self = Self {
+                    panel: Some(panel),
+                    force_pick: true,
+                    ..Default::default()
+                }
+            }
+            Some(Transition::Select(panel, value)) => {
+                *self = Self {
+                    panel: Some(panel.clone()),
+                    ..Default::default()
+                };
+                self.select(&panel, &value);
+            }
             None => {}
         }
     }
@@ -98,34 +151,76 @@ impl Tape {
     }
     /// Preflight the draft and the saved geometry together before adding history
     /// or installing either side of a linked edit.
-    pub(super) fn prepare_edit(&self, template: &marvelous_cloth::garment::GarmentTemplate, command: Command)
-        -> Result<(authoring::Edit, Self), String> {
+    pub(super) fn prepare_edit(
+        &self,
+        template: &marvelous_cloth::garment::GarmentTemplate,
+        command: Command,
+    ) -> Result<(authoring::Edit, Self), String> {
         let mut tape = self.clone();
         if let Some(draft) = &self.draft
             && self.has_changes()
-            && let Some(polygon) = template.panels.iter().find(|p| Some(&p.id) == self.panel.as_ref()).and_then(|p| p.polygon.as_ref())
-            && !draft.valid_for(polygon) {
-            return Err("Measurement draft is stale; restore its geometry or discard it before editing".into());
+            && let Some(polygon) = template
+                .panels
+                .iter()
+                .find(|p| Some(&p.id) == self.panel.as_ref())
+                .and_then(|p| p.polygon.as_ref())
+            && !draft.valid_for(polygon)
+        {
+            return Err(
+                "Measurement draft is stale; restore its geometry or discard it before editing"
+                    .into(),
+            );
         }
-        if matches!(command, Command::SetMeasurement { .. } | Command::RemoveMeasurement { .. }) || !self.has_changes() {
+        if matches!(
+            command,
+            Command::SetMeasurement { .. } | Command::RemoveMeasurement { .. }
+        ) || !self.has_changes()
+        {
             return Ok((authoring::apply(template, command)?, tape));
         }
-        let panel = self.panel.as_deref().ok_or("Active measurement has no panel")?;
-        let polygon = template.panels.iter().find(|p| p.id == panel).and_then(|p| p.polygon.as_ref())
+        let panel = self
+            .panel
+            .as_deref()
+            .ok_or("Active measurement has no panel")?;
+        let polygon = template
+            .panels
+            .iter()
+            .find(|p| p.id == panel)
+            .and_then(|p| p.polygon.as_ref())
             .ok_or("Active measurement's panel is missing")?;
         if self.draft.as_ref().is_some_and(|d| !d.valid_for(polygon)) {
             return Err("Measurement draft is stale; save or discard it before editing".into());
         }
-        let value = self.draft.as_ref().map(|d| d.value.clone()).or_else(|| self.first.as_ref().map(|a| PatternMeasurement {
-            id: "first_anchor".into(), label: "First anchor".into(), a: a.clone(), b: a.clone(),
-        })).ok_or("Measurement draft is missing")?;
-        let (edit, migrated) = authoring::apply_with_measurement_draft(template, command, panel, &value)?;
-        let polygon = edit.template.panels.iter().find(|p| p.id == panel).and_then(|p| p.polygon.as_ref())
+        let value = self
+            .draft
+            .as_ref()
+            .map(|d| d.value.clone())
+            .or_else(|| {
+                self.first.as_ref().map(|a| PatternMeasurement {
+                    id: "first_anchor".into(),
+                    label: "First anchor".into(),
+                    a: a.clone(),
+                    b: a.clone(),
+                })
+            })
+            .ok_or("Measurement draft is missing")?;
+        let (edit, migrated) =
+            authoring::apply_with_measurement_draft(template, command, panel, &value)?;
+        let polygon = edit
+            .template
+            .panels
+            .iter()
+            .find(|p| p.id == panel)
+            .and_then(|p| p.polygon.as_ref())
             .ok_or("Edit would remove the active measurement")?;
         if let Some(draft) = &mut tape.draft {
             draft.value = migrated;
             if let Some(base) = &mut draft.base {
-                *base = polygon.measurements.iter().find(|m| m.id == base.id).cloned()
+                *base = polygon
+                    .measurements
+                    .iter()
+                    .find(|m| m.id == base.id)
+                    .cloned()
                     .ok_or("Edit would remove the selected saved measurement")?;
             }
             draft.topology = names(polygon);
@@ -155,8 +250,10 @@ impl Tape {
         Some([self.start?, self.end.or(hover)?])
     }
     fn panel(&mut self, panel: &str) {
-        if self.panel.as_deref().is_some_and(|old| old != panel) {
-            if !self.request(Transition::Panel(panel.into())) { return; }
+        if self.panel.as_deref().is_some_and(|old| old != panel)
+            && !self.request(Transition::Panel(panel.into()))
+        {
+            return;
         }
         self.panel = Some(panel.into());
     }
@@ -251,7 +348,8 @@ impl Tape {
             }
         }
         if let Some(draft) = &mut self.draft
-            && draft.geometry.is_none() {
+            && draft.geometry.is_none()
+        {
             draft.geometry = Some(polygon.clone());
             draft.topology = names(polygon);
         }
@@ -269,7 +367,13 @@ fn names(polygon: &PolygonPattern) -> Vec<String> {
 }
 
 fn geometry(polygon: &PolygonPattern) -> serde_json::Value {
-    serde_json::json!([polygon.points, polygon.edges, polygon.curves, polygon.holes, polygon.lines])
+    serde_json::json!([
+        polygon.points,
+        polygon.edges,
+        polygon.curves,
+        polygon.holes,
+        polygon.lines
+    ])
 }
 
 /// Binding is local to one material panel, independent of board layout or mesh.
@@ -347,7 +451,9 @@ struct Controls {
 }
 fn controls(ui: &mut egui::Ui, panel: &str, polygon: &PolygonPattern, tape: &mut Tape) -> Controls {
     tape.panel(panel);
-    if tape.panel.as_deref() == Some(panel) { tape.synchronize(polygon); }
+    if tape.panel.as_deref() == Some(panel) {
+        tape.synchronize(polygon);
+    }
     let mut result = Controls {
         command: None,
         pick: false,
@@ -356,13 +462,22 @@ fn controls(ui: &mut egui::Ui, panel: &str, polygon: &PolygonPattern, tape: &mut
     ui.strong("Measurements");
     if tape.transition.is_some() {
         ui.label("Save the current measurement draft before continuing?");
-        let valid = tape.draft.as_ref().is_some_and(|d| d.geometry.as_ref().is_some_and(|p| {
-            d.valid_for(p) && p.measurement_length(&d.value).is_ok() && !d.value.label.trim().is_empty()
-        }));
+        let valid = tape.draft.as_ref().is_some_and(|d| {
+            d.geometry.as_ref().is_some_and(|p| {
+                d.valid_for(p)
+                    && p.measurement_length(&d.value).is_ok()
+                    && !d.value.label.trim().is_empty()
+            })
+        });
         let save = ui.add_enabled(valid, egui::Button::new("Save draft and continue"));
         named(ui, &save, "measurement.decision.save");
-        if save.clicked() && let (Some(owner),Some(draft)) = (&tape.panel,&tape.draft) {
-            result.command = Some(Command::SetMeasurement { panel: owner.clone(), measurement: draft.value.clone() });
+        if save.clicked()
+            && let (Some(owner), Some(draft)) = (&tape.panel, &tape.draft)
+        {
+            result.command = Some(Command::SetMeasurement {
+                panel: owner.clone(),
+                measurement: draft.value.clone(),
+            });
         }
         let discard = ui.button("Discard draft and continue");
         named(ui, &discard, "measurement.decision.discard");
@@ -387,10 +502,8 @@ fn controls(ui: &mut egui::Ui, panel: &str, polygon: &PolygonPattern, tape: &mut
             format!("{} · {length:.1} mm", measurement.label),
         );
         named(ui, &row, &format!("measurement.select.{}", measurement.id));
-        if row.clicked() {
-            if tape.selected.as_ref() != Some(&measurement.id) {
-                tape.request(Transition::Select(panel.into(), measurement.clone()));
-            }
+        if row.clicked() && tape.selected.as_ref() != Some(&measurement.id) {
+            tape.request(Transition::Select(panel.into(), measurement.clone()));
         }
     }
     let new = ui.button("New measurement");
@@ -419,7 +532,9 @@ fn controls(ui: &mut egui::Ui, panel: &str, polygon: &PolygonPattern, tape: &mut
         } else {
             if !draft.valid_for(polygon) {
                 Err("Measurement draft is stale; restore its geometry or discard the draft".into())
-            } else { polygon.validate_measurement_records(&proposed) }
+            } else {
+                polygon.validate_measurement_records(&proposed)
+            }
         };
         if let Err(error) = &validation {
             ui.colored_label(Color32::GOLD, error);
@@ -492,7 +607,9 @@ impl Atelier {
             })
             .body_returned;
         if let Some(result) = result {
-            if let Some(panel) = result.focus { self.authoring.selected = Some(panel); }
+            if let Some(panel) = result.focus {
+                self.authoring.selected = Some(panel);
+            }
             if result.pick {
                 self.set_authoring_tool(Tool::Measure, false);
                 self.authoring.measure.force_pick = true;
@@ -505,7 +622,9 @@ impl Atelier {
                 if self.edit(command) {
                     self.authoring.measure.committed(id);
                     self.authoring.selected = self.authoring.measure.panel.clone();
-                    if self.authoring.measure.force_pick { self.set_authoring_tool(Tool::Measure, false); }
+                    if self.authoring.measure.force_pick {
+                        self.set_authoring_tool(Tool::Measure, false);
+                    }
                 }
             }
         }
@@ -700,7 +819,9 @@ impl Atelier {
                 self.authoring.selected = Some(panel.clone());
                 self.authoring.edge = None;
                 self.authoring.anchor = None;
-                self.authoring.measure.request(Transition::Select(panel, measurement));
+                self.authoring
+                    .measure
+                    .request(Transition::Select(panel, measurement));
                 self.inspector_tab = super::chrome::InspectorTab::Piece;
             } else if self
                 .authoring
@@ -895,8 +1016,14 @@ mod tests {
         let mut polygon = t.panels[0].polygon.clone().unwrap();
         polygon.edges[1] = "renamed".into();
         tape.synchronize(&polygon);
-        assert!(tape.draft.is_none());
+        assert!(tape.draft.is_some());
+        assert!(!tape.draft.as_ref().unwrap().valid_for(&polygon));
         assert!(tape.error.as_deref().unwrap().contains("topology"));
+        let mut stale = t.clone();
+        stale.panels[0].polygon = Some(polygon);
+        assert!(tape.document_command(&stale).is_err());
+        assert!(tape.document_command(&t).unwrap().is_some());
+        tape.discard();
         attach_pair(&mut tape, &t);
         let mut polygon = t.panels[0].polygon.clone().unwrap();
         polygon
@@ -915,6 +1042,152 @@ mod tests {
         incomplete.cancel_incomplete();
         assert!(incomplete.first.is_none());
     }
+    #[test]
+    fn document_draft_commit_roundtrip_and_incomplete_refusal() {
+        let mut t = fixture();
+        let mut tape = Tape::default();
+        let panel = &t.panels[0];
+        tape.attach(
+            &panel.id,
+            MeasurementAnchor {
+                edge: "edge_1".into(),
+                t: 0.2,
+            },
+            panel.polygon.as_ref().unwrap(),
+        );
+        assert!(tape.has_changes());
+        assert!(tape.document_command(&t).is_err());
+        tape.discard();
+        assert!(tape.document_command(&t).unwrap().is_none());
+        attach_pair(&mut tape, &t);
+        let expected = tape.draft.as_ref().unwrap().value.clone();
+        t = authoring::apply(&t, tape.document_command(&t).unwrap().unwrap())
+            .unwrap()
+            .template;
+        tape.document_committed();
+        let reopened: marvelous_cloth::garment::GarmentTemplate =
+            serde_json::from_slice(&serde_json::to_vec(&t).unwrap()).unwrap();
+        assert_eq!(
+            reopened.panels[0].polygon.as_ref().unwrap().measurements,
+            vec![expected.clone()]
+        );
+        tape.select(&t.panels[0].id, &expected);
+        tape.synchronize(t.panels[0].polygon.as_ref().unwrap());
+        assert!(!tape.has_changes());
+        assert!(tape.document_command(&t).unwrap().is_none());
+        tape.draft.as_mut().unwrap().value.label = "Edited".into();
+        assert!(tape.has_changes());
+        assert!(tape.document_command(&t).unwrap().is_some());
+    }
+
+    #[test]
+    fn staged_endpoint_survives_split_and_named_apply() {
+        use super::super::authoring_smoke::widget_harness::Harness;
+        let mut t = fixture();
+        let owner = t.panels[0].id.clone();
+        let mut tape = Tape::default();
+        attach_pair(&mut tape, &t);
+        t = authoring::apply(&t, tape.document_command(&t).unwrap().unwrap())
+            .unwrap()
+            .template;
+        let saved = t.panels[0].polygon.as_ref().unwrap().measurements[0].clone();
+        tape.discard();
+        tape.select(&owner, &saved);
+        tape.synchronize(t.panels[0].polygon.as_ref().unwrap());
+        tape.draft.as_mut().unwrap().value.b = MeasurementAnchor {
+            edge: "edge_2".into(),
+            t: 0.75,
+        };
+        let before = t.panels[0]
+            .polygon
+            .as_ref()
+            .unwrap()
+            .measurement_points(&tape.draft.as_ref().unwrap().value)
+            .unwrap();
+        tape.cancel_incomplete();
+        let (edit, migrated) = tape
+            .prepare_edit(
+                &t,
+                Command::SplitBoundary {
+                    panel: owner.clone(),
+                    edge: "edge_2".into(),
+                    at_m: 0.15,
+                },
+            )
+            .unwrap();
+        t = edit.template;
+        tape = migrated;
+        let mut h = Harness::new(Vec2::new(500., 900.));
+        let mut draw = |ui: &mut egui::Ui, tape: &mut Tape| {
+            let result = controls(ui, &owner, t.panels[0].polygon.as_ref().unwrap(), tape);
+            if let Some(command) = result.command {
+                t = authoring::apply(&t, command).unwrap().template;
+                tape.document_committed();
+            }
+        };
+        h.frame(&mut tape, &mut draw);
+        h.click("measurement.apply", &mut tape, &mut draw).unwrap();
+        let p = t.panels[0].polygon.as_ref().unwrap();
+        assert_eq!(p.measurements.len(), 1);
+        for (a, b) in before
+            .into_iter()
+            .zip(p.measurement_points(&p.measurements[0]).unwrap())
+        {
+            assert!(a.distance(b) <= 0.0005);
+        }
+        assert!(!tape.has_changes());
+    }
+
+    #[test]
+    fn cross_panel_decision_preserves_requested_selection() {
+        use super::super::authoring_smoke::widget_harness::Harness;
+        for decision in ["cancel", "discard", "save"] {
+            let t = fixture();
+            let polygon = t.panels[0].polygon.as_ref().unwrap();
+            let mut tape = Tape::default();
+            attach_pair(&mut tape, &t);
+            let mut target = tape.draft.as_ref().unwrap().value.clone();
+            target.id = "target".into();
+            let mut destination = polygon.clone();
+            destination.measurements.push(target.clone());
+            assert!(!tape.request(Transition::Select("other".into(), target.clone())));
+            let mut h = Harness::new(Vec2::new(500., 900.));
+            let mut draw = |ui: &mut egui::Ui, tape: &mut Tape| {
+                let result = controls(ui, "other", &destination, tape);
+                if let Some(command) = result.command {
+                    let edit = authoring::apply(&t, command).unwrap();
+                    assert_eq!(
+                        edit.template.panels[0]
+                            .polygon
+                            .as_ref()
+                            .unwrap()
+                            .measurements
+                            .len(),
+                        1
+                    );
+                    tape.document_committed();
+                }
+            };
+            h.frame(&mut tape, &mut draw);
+            h.frame(&mut tape, &mut draw);
+            h.click(
+                &format!("measurement.decision.{decision}"),
+                &mut tape,
+                &mut draw,
+            )
+            .unwrap();
+            if decision == "cancel" {
+                assert_eq!(tape.panel.as_deref(), Some(t.panels[0].id.as_str()));
+                assert!(tape.has_changes());
+            } else {
+                assert_eq!(tape.panel.as_deref(), Some("other"));
+                assert_eq!(tape.selected.as_deref(), Some("target"));
+                assert_eq!(tape.draft.as_ref().unwrap().value, target);
+                assert!(!tape.has_changes());
+            }
+        }
+    }
+
     #[test]
     fn named_ruler_controls_save_rename_cancel_delete_and_history() {
         use super::super::authoring_smoke::widget_harness::Harness;
@@ -1016,7 +1289,7 @@ mod tests {
             c.template.panels[0].polygon.as_ref().unwrap().measurements[0].label,
             "Finished waist"
         );
-        // A history change refreshes a selected draft rather than resurrecting stale text.
+        // History preserves dirty text, but refuses to overwrite the changed record.
         c.tape.select(
             &c.template.panels[0].id,
             &c.template.panels[0].polygon.as_ref().unwrap().measurements[0],
@@ -1024,6 +1297,21 @@ mod tests {
         c.tape.draft.as_mut().unwrap().value.label = "Stale unsaved label".into();
         c.template = c.history.restore(&c.template, false).unwrap().template;
         h.frame(&mut c, &mut draw);
+        assert_eq!(
+            c.tape.draft.as_ref().unwrap().value.label,
+            "Stale unsaved label"
+        );
+        assert!(c.tape.document_command(&c.template).is_err());
+        assert!(
+            h.click("measurement.apply", &mut c, &mut draw)
+                .unwrap_err()
+                .contains("disabled")
+        );
+        h.click("measurement.cancel", &mut c, &mut draw).unwrap();
+        h.click("measurement.select.measurement_1", &mut c, &mut draw)
+            .unwrap();
+        h.frame(&mut c, &mut draw);
         assert_eq!(c.tape.draft.as_ref().unwrap().value.label, "Waist width");
+        assert!(!c.tape.has_changes());
     }
 }
