@@ -129,6 +129,7 @@ impl Atelier {
             ui.small("Pattern outlines: generic ASCII DXF · physical SVG subsets");
             ui.label("Export");
             ui.small("Project and template JSON · garment OBJ · SVG patterns · fiber guides");
+            ui.small("Physical SVG includes stored seam allowances and sewing-line notches; notches are not duplicated onto the cutting line. Print at actual size and check the 100 mm ruler; sheets are untiled and not cutting-certified.");
             ui.small("Industrial DXF, GLB export, animated avatars, USD, Alembic, FBX and PDF are not yet supported.");
             ui.separator();
             ui.small("Export folder (files replaced on every export):");
