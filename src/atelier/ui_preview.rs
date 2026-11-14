@@ -109,7 +109,8 @@ fn export_chrome_preview() {
             egui::Panel::top("top").show(ui,|ui| { ui.horizontal(|ui| {
                 ui.colored_label(workspace::ACCENT,egui::RichText::new("CLOTHCRAFT").strong());
                 ui.small("ALPHA");ui.separator();
-                for label in ["▶ Simulate","Simulation","File","Export","Workspace","Examples","Online patterns"] { let _=ui.button(label); }
+                for label in ["▶ Simulate","Simulation","File","Import","Export","View"] { let _=ui.button(label); }
+                for label in ["Commands…","Workspace profiles…","Preferences…"] { let _=ui.button(label); }
             }); });
             egui::Panel::bottom("bottom").show(ui,|ui| { ui.small("CPU layout preview · real egui chrome · placeholder canvases · GPU renderer not started"); });
             egui::Panel::left("tools").exact_size(52.).resizable(false).show(ui,|ui| { ui.vertical_centered(|ui| {
