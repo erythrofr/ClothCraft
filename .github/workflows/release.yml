@@ -1,0 +1,135 @@
+name: Release
+
+# Builds the Windows x64 portable package and attaches it to a GitHub release.
+#
+# To release: set `version` in the [package] section of Cargo.toml, commit, then push a tag
+# that matches it:
+#
+#   git tag v0.1.0 && git push origin v0.1.0
+#
+# The version job refuses a tag that disagrees with Cargo.toml. A tag with a suffix
+# (v0.2.0-rc.1) is published as a pre-release.
+#
+# Run from the Actions tab (workflow_dispatch) it builds and uploads the package as a
+# workflow artifact but publishes nothing.
+#
+# Only Windows is packaged: scripts/package-windows.ps1 is the only packaging script.
+# The build is unsigned, so Windows SmartScreen asks the user to confirm the first launch.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  version:
+    name: version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      prerelease: ${{ steps.v.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        name: Read the version and check it against the tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(sed -n '/^\[package\]/,/^\[/{s/^version *= *"\(.*\)"/\1/p}' Cargo.toml | head -n 1)"
+          if [ -z "$version" ]; then
+            echo "::error::could not read version from [package] in Cargo.toml"
+            exit 1
+          fi
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "${GITHUB_REF_NAME#v}" != "$version" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match version $version in Cargo.toml; bump the version, commit, and tag again"
+            exit 1
+          fi
+          prerelease=false
+          case "$version" in *-*) prerelease=true ;; esac
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+          echo "Releasing ClothCraft $version (prerelease: $prerelease)"
+
+  windows:
+    name: Windows x64
+    needs: version
+    runs-on: windows-2025
+    timeout-minutes: 60
+    env:
+      RAYON_NUM_THREADS: 2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-windows
+      - name: Build the portable executables
+        shell: pwsh
+        run: >-
+          cargo build --locked --release -j 2 --features desktop
+          --bin cloth-fit --bin marvelous-cloth --bin cloth-template --bin cloth-session
+      - name: Package and verify the portable ZIP
+        shell: pwsh
+        run: |
+          $destination = Join-Path $env:RUNNER_TEMP "ClothCraft-${{ needs.version.outputs.version }}-windows-x64"
+          ./scripts/package-windows.ps1 -Destination $destination -Revision $env:GITHUB_SHA -Verify
+          Copy-Item "$destination.zip" -Destination dist/
+          Copy-Item "$destination.zip.sha256" -Destination dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-windows-x64
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    name: publish release
+    # Only for a pushed tag. A manual run stops after the artifact above.
+    if: github.ref_type == 'tag'
+    needs: [version, windows]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: artifacts
+          merge-multiple: true
+      - name: Create the release
+        working-directory: artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.version.outputs.version }}
+          PRERELEASE: ${{ needs.version.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          ls -l
+          sha256sum -- *.zip | tee SHA256SUMS.txt
+          cat > notes.md <<'NOTES'
+          Download the Windows portable `.zip`, unpack it, and run `Start ClothCraft.cmd`. `SHA256SUMS.txt` lists the checksum.
+
+          The build is not code-signed. Windows SmartScreen shows "unrecognized app": choose More info, then Run anyway.
+          NOTES
+          pre=()
+          if [ "$PRERELEASE" = "true" ]; then pre=(--prerelease); fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG exists: replacing its assets"
+            gh release upload "$TAG" --clobber -- *.zip SHA256SUMS.txt
+          else
+            gh release create "$TAG" --verify-tag --title "ClothCraft $VERSION" --notes-file notes.md --generate-notes "${pre[@]}" -- *.zip SHA256SUMS.txt
+          fi

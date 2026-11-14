@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ClothCraft</title>
+  <meta name="description" content="ClothCraft: an open-source garment editor and cloth simulation prototype written in Rust.">
+  <style>
+    :root { --bg: #fbfaf7; --fg: #1d1d1b; --dim: #5b5a55; --line: #e2dfd7; --accent: #2f6f5e; }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) { --bg: #161715; --fg: #ecebe6; --dim: #a7a59c; --line: #33332e; --accent: #7fc1ab; }
+    }
+    :root[data-theme="dark"] { --bg: #161715; --fg: #ecebe6; --dim: #a7a59c; --line: #33332e; --accent: #7fc1ab; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    .wrap { max-width: 860px; margin: 0 auto; padding: 0 16px; }
+    header, main, footer { padding: 32px 0; }
+    h1 { font-size: 2.2rem; margin: 0 0 8px; }
+    h2 { font-size: 1.4rem; margin: 32px 0 8px; }
+    a { color: var(--accent); }
+    .lede { color: var(--dim); font-size: 1.1rem; margin: 0 0 20px; }
+    .button { display: inline-block; padding: 10px 18px; border: 1px solid var(--accent); border-radius: 6px; text-decoration: none; margin: 4px 8px 4px 0; }
+    .button.primary { background: var(--accent); color: var(--bg); }
+    .fork { border-left: 3px solid var(--accent); padding: 8px 14px; color: var(--dim); margin: 24px 0 0; }
+    img.shot { width: 100%; height: auto; border: 1px solid var(--line); border-radius: 6px; margin-top: 24px; }
+    pre { background: rgba(127,127,127,0.12); padding: 12px; border-radius: 6px; overflow-x: auto; }
+    footer { border-top: 1px solid var(--line); color: var(--dim); font-size: 14px; }
+    footer a { color: inherit; }
+  </style>
+</head>
+<body>
+<main class="wrap">
+  <h1>ClothCraft</h1>
+  <p class="lede">An open-source garment editor and cloth simulation prototype, written in Rust.</p>
+  <p>Draw patterns, sew them together, place them around an avatar and simulate the result. This is a research prototype, not a production garment tool. Expect unfinished interactions and slow simulation on dense meshes.</p>
+
+  <p class="fork">ClothCraft is a fork of <a href="https://github.com/erythrofr/ClothCraft">erythrofr/ClothCraft</a>, the original project this one is based on.</p>
+
+  <img class="shot" src="workspace.png" width="1200" height="800" alt="The ClothCraft workspace with a garment pattern and avatar">
+
+  <h2>Download</h2>
+  <p>The Windows portable package is on the <a href="https://github.com/rsxdalv/ClothCraft/releases/latest">latest release</a>. Unzip it and run <code>Start ClothCraft.cmd</code>.</p>
+  <p>
+    <a class="button primary" href="https://github.com/rsxdalv/ClothCraft/releases/latest">Latest release</a>
+  </p>
+  <p>The build is not code-signed, so Windows SmartScreen asks you to confirm the first launch. Choose <em>More info</em>, then <em>Run anyway</em>.</p>
+
+  <h2>Build it yourself</h2>
+  <p>You need <a href="https://rustup.rs">Rust</a> stable and Git.</p>
+<pre><code>git clone https://github.com/rsxdalv/ClothCraft
+cd ClothCraft
+cargo run --release --locked -j 2 --bin cloth-fit -- --steps 0 --view</code></pre>
+
+  <h2>More</h2>
+  <p>The <a href="https://github.com/rsxdalv/ClothCraft#readme">README</a> covers the project, and the <a href="https://github.com/rsxdalv/ClothCraft">source</a> is on GitHub.</p>
+</main>
+<footer>
+  <div class="wrap">
+    ClothCraft is open source. <a href="https://github.com/rsxdalv/ClothCraft">Source on GitHub</a>.
+    Forked from <a href="https://github.com/erythrofr/ClothCraft">erythrofr/ClothCraft</a>.
+  </div>
+</footer>
+</body>
+</html>
