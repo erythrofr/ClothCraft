@@ -5,7 +5,7 @@ edition = "2024"
 description = "Native garment editor with a double-precision CPU FEM reference"
 license = "MIT"
 repository = "https://github.com/erythrofr/ClothCraft"
-default-run = "marvelous-cloth"
+default-run = "cloth-fit"
 
 [features]
 default = ["desktop"]
