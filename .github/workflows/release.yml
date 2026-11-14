@@ -85,6 +85,7 @@ jobs:
         run: |
           $destination = Join-Path $env:RUNNER_TEMP "ClothCraft-${{ needs.version.outputs.version }}-windows-x64"
           ./scripts/package-windows.ps1 -Destination $destination -Revision $env:GITHUB_SHA -Verify
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
           Copy-Item "$destination.zip" -Destination dist/
           Copy-Item "$destination.zip.sha256" -Destination dist/
       - uses: actions/upload-artifact@v4
