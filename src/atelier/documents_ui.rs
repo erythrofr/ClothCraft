@@ -588,13 +588,11 @@ impl Atelier {
         }
         self.document.last_recovery = Instant::now();
     }
-    pub(super) fn document_menu(&mut self, ui: &mut egui::Ui) {
+    /// File: project lifecycle and export. Sources that bring new content
+    /// into the scene (templates, examples, imports) live in `import_menu`.
+    pub(super) fn file_menu(&mut self, ui: &mut egui::Ui) {
         let ctx = ui.ctx().clone();
         for (label, action) in [
-            ("Import SVG patterns…", 8),
-            ("Import DXF patterns…", 7),
-            ("Import avatar…", 6),
-            ("Templates…", 5),
             ("New project…", 0),
             ("Open…  Ctrl+O", 1),
             ("Save  Ctrl+S", 2),
@@ -612,16 +610,71 @@ impl Atelier {
                     3 => {
                         self.save_document(&ctx, true);
                     }
-                    4 => self.open_document(&ctx, true),
-                    6 => self.open_avatar_import(&ctx),
-                    7 => self.open_pattern_import(),
-                    8 => self.open_svg_import(),
-                    _ => self.open_template_browser(&ctx),
+                    _ => self.open_document(&ctx, true),
                 }
             }
         }
         ui.separator();
+        let default_folder = self.output.display().to_string();
+        if ui
+            .button("Export to default folder")
+            .on_hover_text(format!("Saves the JSON project, the patterns, the OBJ garment and the previews into {default_folder}."))
+            .clicked()
+        {
+            self.invoke_command(super::commands::CommandId::ExportSession, &ctx);
+            ui.close();
+        }
+        if ui
+            .button("Export to folder…")
+            .on_hover_text("Choose any folder for this export. The default export folder is not changed.")
+            .clicked()
+        {
+            ui.close();
+            if let Some(folder) = rfd::FileDialog::new()
+                .set_title("Choose an export folder")
+                .pick_folder()
+            {
+                self.export_to(&folder);
+            }
+        }
+        ui.separator();
         self.export_information(ui);
+    }
+
+    /// Import: templates and examples first, then files and online sources.
+    /// Online links do not add pieces to the scene.
+    pub(super) fn import_menu(&mut self, ui: &mut egui::Ui) {
+        let ctx = ui.ctx().clone();
+        if ui.button("Templates…").clicked() {
+            ui.close();
+            self.open_template_browser(&ctx);
+        }
+        for (label, id) in [
+            ("Example: T-shirt", super::commands::CommandId::LoadTshirt),
+            ("Example: Dress", super::commands::CommandId::LoadDress),
+        ] {
+            if ui.button(label).clicked() {
+                self.invoke_command(id, &ctx);
+                ui.close();
+            }
+        }
+        ui.separator();
+        for (label, action) in [
+            ("Import SVG patterns…", 8),
+            ("Import DXF patterns…", 7),
+            ("Import avatar…", 6),
+        ] {
+            if ui.button(label).clicked() {
+                ui.close();
+                match action {
+                    6 => self.open_avatar_import(&ctx),
+                    7 => self.open_pattern_import(),
+                    _ => self.open_svg_import(),
+                }
+            }
+        }
+        ui.separator();
+        self.online_patterns(ui);
     }
     // Only the explicitly selected acceptance scenario reaches this adapter.
     // It substitutes a fixture path for dialogs, not the Save/Open transactions.
