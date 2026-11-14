@@ -558,14 +558,19 @@ impl Atelier {
         self.load(p);
     }
     fn export(&mut self) -> bool {
+        let output = self.output.clone();
+        self.export_to(&output)
+    }
+    /// Writes the session into `output`. The default export folder is not changed.
+    fn export_to(&mut self, output: &std::path::Path) -> bool {
         if !self.commit_placement() {
             return false;
         }
-        let result = export_session(&self.project, &self.scene, &self.settings, &self.output);
+        let result = export_session(&self.project, &self.scene, &self.settings, output);
         let succeeded = result.is_ok();
         self.status = result.map_or_else(
             |e| e.to_string(),
-            |_| format!("Export: {}", self.output.display()),
+            |_| format!("Export: {}", output.display()),
         );
         succeeded
     }
