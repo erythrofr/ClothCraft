@@ -432,6 +432,7 @@ impl Atelier {
         match self.snapshot_document().save(&path) {
             Ok(()) => {
                 self.document.path = Some(path.clone());
+                self.remember_recent(&path);
                 self.document.dirty = false;
                 self.remove_recovery();
                 self.status = format!(
@@ -521,6 +522,9 @@ impl Atelier {
                 self.simulation_error = None;
                 self.grab = None;
                 self.drag_plane = None;
+                if !recovered {
+                    self.remember_recent(&path);
+                }
                 self.document.path = (!recovered).then_some(path);
                 self.document.dirty = recovered || relinked;
                 self.status = if recovered {
@@ -588,13 +592,61 @@ impl Atelier {
         }
         self.document.last_recovery = Instant::now();
     }
+    /// File > Open recent: newest first. A file that has gone missing is removed from the list.
+    fn open_recent_menu(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
+        ui.menu_button("Open recent", |ui| {
+            if self.prefs.recent_files.is_empty() {
+                let _ = ui.add_enabled(false, egui::Button::new("No recent files"));
+                return;
+            }
+            for path in self.prefs.recent_files.clone() {
+                let name = path
+                    .file_name()
+                    .map_or_else(|| path.display().to_string(), |n| n.to_string_lossy().into_owned());
+                if ui.button(name).on_hover_text(path.display().to_string()).clicked() {
+                    ui.close();
+                    if !self.can_replace_document(ctx) {
+                        return;
+                    }
+                    if path.is_file() {
+                        self.open_document_path(path, false);
+                    } else {
+                        self.prefs.recent_files.retain(|p| p != &path);
+                        self.status = format!("Recent file not found; removed from the list: {}", path.display());
+                    }
+                    return;
+                }
+            }
+            ui.separator();
+            if ui.button("Clear list").clicked() {
+                self.prefs.recent_files.clear();
+                ui.close();
+            }
+        });
+    }
+    /// Moves `path` to the top of File > Open recent.
+    fn remember_recent(&mut self, path: &std::path::Path) {
+        self.prefs.recent_files.retain(|p| p != path);
+        self.prefs.recent_files.insert(0, path.to_path_buf());
+        self.prefs
+            .recent_files
+            .truncate(super::settings::RECENT_FILES_MAX);
+    }
     /// File: project lifecycle and export. Sources that bring new content
     /// into the scene (templates, examples, imports) live in `import_menu`.
     pub(super) fn file_menu(&mut self, ui: &mut egui::Ui) {
         let ctx = ui.ctx().clone();
+        for (label, action) in [("New project…", 0), ("Open…  Ctrl+O", 1)] {
+            if ui.button(label).clicked() {
+                ui.close();
+                match action {
+                    0 => self.new_document(&ctx),
+                    _ => self.open_document(&ctx, false),
+                }
+            }
+        }
+        self.open_recent_menu(ui, &ctx);
         for (label, action) in [
-            ("New project…", 0),
-            ("Open…  Ctrl+O", 1),
             ("Save  Ctrl+S", 2),
             ("Save As…  Ctrl+Shift+S", 3),
             ("Recover snapshot…", 4),
@@ -603,7 +655,6 @@ impl Atelier {
                 ui.close();
                 match action {
                     0 => self.new_document(&ctx),
-                    1 => self.open_document(&ctx, false),
                     2 => {
                         self.save_document(&ctx, false);
                     }
