@@ -187,7 +187,8 @@ fn view_cube(ui: &mut egui::Ui, camera: &mut Camera) {
         let colour = if hovered == Some(*preset) { lit } else { fill };
         painter.add(egui::Shape::convex_polygon(quad.to_vec(), colour, stroke));
         painter.text(
-            quad.iter().fold(egui::Pos2::ZERO, |acc, p| acc + p.to_vec2() / 4.),
+            quad.iter()
+                .fold(egui::Pos2::ZERO, |acc, p| acc + p.to_vec2() / 4.),
             egui::Align2::CENTER_CENTER,
             preset.label(),
             egui::FontId::proportional(11.),
@@ -223,7 +224,9 @@ pub(super) fn view_bar(ui: &mut egui::Ui, camera: &mut Camera, bounds: ViewBound
             };
             if ui
                 .small_button(projection)
-                .on_hover_text("Switch between the matched perspective and orthographic projections")
+                .on_hover_text(
+                    "Switch between the matched perspective and orthographic projections",
+                )
                 .clicked()
             {
                 camera.toggle_projection();

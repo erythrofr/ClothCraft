@@ -106,10 +106,7 @@ fn add_mirror(
     edge: String,
     f: f64,
 ) -> Result<(), String> {
-    if let Some(i) = cuts
-        .iter()
-        .position(|c| c.panel == panel && c.edge == edge)
-    {
+    if let Some(i) = cuts.iter().position(|c| c.panel == panel && c.edge == edge) {
         if (cuts[i].f - f).abs() > SAME_POINT {
             return Err(format!(
                 "Sewn seams need different split points on {edge}; split them separately"
@@ -175,10 +172,7 @@ fn piece(cut: &Cut, lo: f64, hi: f64) -> Result<(String, [f64; 2]), String> {
     if range[1] - range[0] < TOL {
         return Err(format!("A seam piece on {} would be empty", cut.edge));
     }
-    Ok((
-        name,
-        [range[0].clamp(0., 1.), range[1].clamp(0., 1.)],
-    ))
+    Ok((name, [range[0].clamp(0., 1.), range[1].clamp(0., 1.)]))
 }
 
 fn single(seam: &SeamSpec, b: bool) -> Result<BoundaryRef, String> {
@@ -268,10 +262,7 @@ pub(super) fn after_origin_split(
                 }
                 let rx = hits[0];
                 let ry = single(seam, !origin_b)?;
-                let partner_edge = ry
-                    .edge
-                    .clone()
-                    .ok_or("Sewn boundary needs a named edge")?;
+                let partner_edge = ry.edge.clone().ok_or("Sewn boundary needs a named edge")?;
                 if ry.panel == cut.panel && partner_edge == cut.edge {
                     return Err(format!(
                         "Seam {} joins {} to itself; it can't be split here",
@@ -319,7 +310,8 @@ pub(super) fn after_origin_split(
                 .ok_or("This panel has no editable contour")?;
             edge_length(polygon, &cut.edge)?
         };
-        let (_, actual_child) = split_polygon(t, cut.panel.clone(), cut.edge.clone(), cut.f * before)?;
+        let (_, actual_child) =
+            split_polygon(t, cut.panel.clone(), cut.edge.clone(), cut.f * before)?;
         if actual_child != cut.child {
             return Err(format!("Mirrored boundary names differ on {}", cut.edge));
         }
@@ -349,10 +341,7 @@ pub(super) fn after_origin_split(
             let Some(name) = r.edge.clone() else {
                 continue;
             };
-            if let Some(cut) = cuts
-                .iter()
-                .find(|c| c.panel == r.panel && c.edge == name)
-            {
+            if let Some(cut) = cuts.iter().find(|c| c.panel == r.panel && c.edge == name) {
                 let (edge, range) = piece(cut, r.range[0], r.range[1])?;
                 r.edge = Some(edge);
                 r.range = range;

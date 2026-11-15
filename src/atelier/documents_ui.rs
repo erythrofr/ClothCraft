@@ -603,10 +603,15 @@ impl Atelier {
                 return;
             }
             for path in self.prefs.recent_files.clone() {
-                let name = path
-                    .file_name()
-                    .map_or_else(|| path.display().to_string(), |n| n.to_string_lossy().into_owned());
-                if ui.button(name).on_hover_text(path.display().to_string()).clicked() {
+                let name = path.file_name().map_or_else(
+                    || path.display().to_string(),
+                    |n| n.to_string_lossy().into_owned(),
+                );
+                if ui
+                    .button(name)
+                    .on_hover_text(path.display().to_string())
+                    .clicked()
+                {
                     ui.close();
                     if !self.can_replace_document(ctx) {
                         return;
@@ -615,7 +620,10 @@ impl Atelier {
                         self.open_document_path(path, false);
                     } else {
                         self.prefs.recent_files.retain(|p| p != &path);
-                        self.status = format!("Recent file not found; removed from the list: {}", path.display());
+                        self.status = format!(
+                            "Recent file not found; removed from the list: {}",
+                            path.display()
+                        );
                     }
                     return;
                 }
@@ -680,7 +688,9 @@ impl Atelier {
         }
         if ui
             .button("Export to folder…")
-            .on_hover_text("Choose any folder for this export. The default export folder is not changed.")
+            .on_hover_text(
+                "Choose any folder for this export. The default export folder is not changed.",
+            )
             .clicked()
         {
             ui.close();

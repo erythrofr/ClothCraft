@@ -29,7 +29,9 @@ const VERTEX_FLOATS: usize = 18;
 
 /// Pixels of a fabric texture as RGBA8, from `(width, height, pixels)`. `None` when
 /// an embedded image cannot be decoded; the caller then shows plain colour.
-pub fn texture_pixels(texture: &crate::garment::appearance::FabricTexture) -> Option<(u32, u32, Vec<u8>)> {
+pub fn texture_pixels(
+    texture: &crate::garment::appearance::FabricTexture,
+) -> Option<(u32, u32, Vec<u8>)> {
     use crate::garment::appearance::{FabricTexture, hex_bytes};
     match texture {
         FabricTexture::Pattern { pattern, .. } => Some(pattern_pixels(*pattern)),
@@ -763,7 +765,10 @@ impl Viewport {
         }
     }
     /// GPU bind group for a fabric texture, uploaded once per distinct tile.
-    fn fabric_bind(&mut self, texture: &crate::garment::appearance::FabricTexture) -> wgpu::BindGroup {
+    fn fabric_bind(
+        &mut self,
+        texture: &crate::garment::appearance::FabricTexture,
+    ) -> wgpu::BindGroup {
         let key = pixel_key(texture);
         if let Some(bind) = self.fabric_textures.get(&key) {
             return bind.clone();
@@ -1021,8 +1026,22 @@ impl Viewport {
                 for pair in points.windows(2) {
                     let [a, b] = [pair[0], pair[1]];
                     let d = (b - a).cross(Vec3::Z).normalize_or_zero() * 0.0013;
-                    triangle([a - d, a + d, b + d], [1.0, 0.72, 0.22], false, None, -1., None);
-                    triangle([a - d, b + d, b - d], [1.0, 0.72, 0.22], false, None, -1., None);
+                    triangle(
+                        [a - d, a + d, b + d],
+                        [1.0, 0.72, 0.22],
+                        false,
+                        None,
+                        -1.,
+                        None,
+                    );
+                    triangle(
+                        [a - d, b + d, b - d],
+                        [1.0, 0.72, 0.22],
+                        false,
+                        None,
+                        -1.,
+                        None,
+                    );
                 }
             }
         }
@@ -1072,7 +1091,9 @@ impl Viewport {
                     for (i, v) in p.into_iter().enumerate() {
                         body.extend_from_slice(&v.extend(1.).to_array());
                         body.extend_from_slice(&normals[t[i]].to_array());
-                        body.extend_from_slice(&[0.46, 0.47, 0.49, 0., 0., 0., 0., -1., 0., 0., 0.]);
+                        body.extend_from_slice(&[
+                            0.46, 0.47, 0.49, 0., 0., 0., 0., -1., 0., 0., 0.,
+                        ]);
                     }
                 }
                 self.avatar_count = (body.len() / VERTEX_FLOATS) as u32;

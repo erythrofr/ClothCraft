@@ -57,10 +57,7 @@ struct Geometry {
 use glam::DVec2;
 
 fn geometry(surface: &SurfaceMesh) -> Geometry {
-    let (mut low, mut high) = (
-        DVec3::splat(f64::INFINITY),
-        DVec3::splat(f64::NEG_INFINITY),
-    );
+    let (mut low, mut high) = (DVec3::splat(f64::INFINITY), DVec3::splat(f64::NEG_INFINITY));
     for v in &surface.vertices {
         low = low.min(*v);
         high = high.max(*v);
@@ -82,7 +79,11 @@ fn geometry(surface: &SurfaceMesh) -> Geometry {
     // Per edge: how many front-facing and back-facing triangles use it.
     let mut edges: HashMap<(usize, usize), [u32; 2]> = HashMap::new();
     for [a, b, c] in &surface.triangles {
-        let (pa, pb, pc) = (surface.vertices[*a], surface.vertices[*b], surface.vertices[*c]);
+        let (pa, pb, pc) = (
+            surface.vertices[*a],
+            surface.vertices[*b],
+            surface.vertices[*c],
+        );
         let nz = (pb - pa).cross(pc - pa).z;
         let is_front = nz > 0.0;
         if nz > 0.0 {
@@ -137,12 +138,7 @@ pub(super) fn paint(painter: &egui::Painter, rect: egui::Rect, board: &Board, ba
     // and moved right by its width and the gap, so it sits beside the front view.
     let front = |p: DVec2| board.screen(rect, p);
     let shift = geometry.width + backdrop.back_gap;
-    let behind = |p: DVec2| {
-        board.screen(
-            rect,
-            DVec2::new(2. * geometry.centre - p.x + shift, p.y),
-        )
-    };
+    let behind = |p: DVec2| board.screen(rect, DVec2::new(2. * geometry.centre - p.x + shift, p.y));
     let draw = |tris: &[[DVec2; 3]], map: &dyn Fn(DVec2) -> egui::Pos2| {
         let mut mesh = egui::Mesh::default();
         mesh.vertices.reserve(tris.len() * 3);

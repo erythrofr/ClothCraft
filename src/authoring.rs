@@ -1064,7 +1064,12 @@ fn seam_uses(template: &GarmentTemplate, panel: &str, edge: &str) -> bool {
     })
 }
 
-fn split_polygon(template: &mut GarmentTemplate, panel: String, edge: String, at_m: f64) -> Result<(usize, String), String> {
+fn split_polygon(
+    template: &mut GarmentTemplate,
+    panel: String,
+    edge: String,
+    at_m: f64,
+) -> Result<(usize, String), String> {
     if !at_m.is_finite() || at_m <= 0. {
         return Err("Insert position must be a positive finite length".into());
     }
@@ -1076,8 +1081,7 @@ fn split_polygon(template: &mut GarmentTemplate, panel: String, edge: String, at
         .is_some_and(|polygon| polygon.target_lengths.contains_key(&edge))
     {
         return Err(
-            "This boundary has a target length; clear the target before splitting it"
-                .into(),
+            "This boundary has a target length; clear the target before splitting it".into(),
         );
     }
     let p = template
@@ -1100,9 +1104,9 @@ fn split_polygon(template: &mut GarmentTemplate, panel: String, edge: String, at
             return Err("Insert position is beyond the boundary".into());
         }
         if polygon.notches.get(&edge).is_some_and(|notches| {
-            notches.iter().any(|notch| {
-                (notch.at * current - at_m).abs() < markings::end_clearance(notch)
-            })
+            notches
+                .iter()
+                .any(|notch| (notch.at * current - at_m).abs() < markings::end_clearance(notch))
         }) {
             return Err(
                 "Split would place a notch within 1 mm of a boundary end or inside its V span; move or remove it first"
@@ -1483,18 +1487,15 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
             selected = clipboard.paste(&mut template, center)?.first().cloned();
         }
         Command::SetHidden { panel, hidden } => {
-            let partner = template
-                .mirror_links
-                .iter()
-                .find_map(|l| {
-                    if l.a == panel {
-                        Some(l.b.clone())
-                    } else if l.b == panel {
-                        Some(l.a.clone())
-                    } else {
-                        None
-                    }
-                });
+            let partner = template.mirror_links.iter().find_map(|l| {
+                if l.a == panel {
+                    Some(l.b.clone())
+                } else if l.b == panel {
+                    Some(l.a.clone())
+                } else {
+                    None
+                }
+            });
             let mut found = false;
             for p in template.panels.iter_mut() {
                 if p.id == panel || Some(&p.id) == partner.as_ref() {
@@ -1530,7 +1531,8 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
                     .as_ref()
                     .ok_or("This panel has no editable contour")?;
                 let origin = layout(&template, i);
-                let (mut low, mut high) = (DVec2::splat(f64::INFINITY), DVec2::splat(f64::NEG_INFINITY));
+                let (mut low, mut high) =
+                    (DVec2::splat(f64::INFINITY), DVec2::splat(f64::NEG_INFINITY));
                 for k in 0..polygon.edges.len() {
                     for q in polygon.edge_points(k)? {
                         let board = origin + rotate_2d(q, p.layout_rotation_degrees);
@@ -2006,8 +2008,7 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
             selected = Some(panel);
         }
         Command::SplitBoundary { panel, edge, at_m } => {
-            let (index, child) =
-                split_polygon(&mut template, panel.clone(), edge.clone(), at_m)?;
+            let (index, child) = split_polygon(&mut template, panel.clone(), edge.clone(), at_m)?;
             seam_split::after_origin_split(&mut template, &panel, &edge, &child)?;
             selected = Some(panel);
             new_point = Some(index);

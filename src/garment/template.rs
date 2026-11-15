@@ -502,11 +502,10 @@ impl GarmentTemplate {
         for (i, spec) in self.seams.iter().enumerate() {
             // A seam touching a hidden piece is not simulated: the piece has no
             // boundary to sew to. The seam stays in the template for when it returns.
-            if spec.references().any(|r| {
-                self.panels
-                    .iter()
-                    .any(|p| p.id == r.panel && p.hidden)
-            }) {
+            if spec
+                .references()
+                .any(|r| self.panels.iter().any(|p| p.id == r.panel && p.hidden))
+            {
                 continue;
             }
             if spec.a_tail.len() >= 128 || spec.b_tail.len() >= 128 {

@@ -1072,8 +1072,7 @@ impl Atelier {
             // A hidden piece's outline does not catch clicks unless it is selected:
             // otherwise its perimeter takes every click near it, and its inside,
             // the way back to the piece, cannot be reached.
-            let outline_clickable =
-                !p.hidden || self.authoring.selected.as_ref() == Some(&p.id);
+            let outline_clickable = !p.hidden || self.authoring.selected.as_ref() == Some(&p.id);
             let mut contour = vec![];
             for k in 0..poly.points.len() {
                 let Ok(points) = poly.edge_points(k) else {
@@ -2574,7 +2573,10 @@ impl Atelier {
                     let (stroke, tag) = if selected {
                         (Stroke::new(2., accent), accent)
                     } else {
-                        (Stroke::new(1., Color32::from_gray(0x8A)), Color32::from_gray(0x6A))
+                        (
+                            Stroke::new(1., Color32::from_gray(0x8A)),
+                            Color32::from_gray(0x6A),
+                        )
                     };
                     let mut sum = egui::Vec2::ZERO;
                     let mut count = 0.;

@@ -10,11 +10,8 @@ use marvelous_cloth::{
 use std::path::PathBuf;
 
 fn run(kind: GarmentKind, panel: &str, edge: &str, steps: usize) -> Result<String, String> {
-    let mut project = FittingProject::basic(
-        kind,
-        0,
-        PathBuf::from("assets/makehuman/mannequin.obj"),
-    );
+    let mut project =
+        FittingProject::basic(kind, 0, PathBuf::from("assets/makehuman/mannequin.obj"));
     let polygon = project
         .template
         .panels
@@ -69,7 +66,13 @@ fn report_dress_dynamics_after_split() {
     let kind = GarmentKind::Dress;
     let baseline = run(kind, "front", "hem", 0);
     eprintln!("baseline (no split, 0 steps): {baseline:?}");
-    for edge in ["shoulder-right", "side-right", "side-left", "shoulder-left", "hem"] {
+    for edge in [
+        "shoulder-right",
+        "side-right",
+        "side-left",
+        "shoulder-left",
+        "hem",
+    ] {
         eprintln!("front/{edge} 30 steps: {:?}", run(kind, "front", edge, 30));
     }
 }

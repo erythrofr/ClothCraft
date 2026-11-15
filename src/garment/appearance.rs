@@ -49,7 +49,10 @@ impl FabricAppearance {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum FabricTexture {
     /// A built-in tile, repeating every `repeat_mm` millimetres of fabric.
-    Pattern { pattern: PatternKind, repeat_mm: f64 },
+    Pattern {
+        pattern: PatternKind,
+        repeat_mm: f64,
+    },
     /// An image tile stored as PNG bytes in hex, repeating every `repeat_mm`.
     /// The image is stretched to a square when it is imported.
     Image {
@@ -106,10 +109,12 @@ impl FabricTexture {
 /// Lowercase hex of `bytes`, two digits per byte.
 pub fn to_hex(bytes: &[u8]) -> String {
     use std::fmt::Write;
-    bytes.iter().fold(String::with_capacity(bytes.len() * 2), |mut s, b| {
-        let _ = write!(s, "{b:02x}");
-        s
-    })
+    bytes
+        .iter()
+        .fold(String::with_capacity(bytes.len() * 2), |mut s, b| {
+            let _ = write!(s, "{b:02x}");
+            s
+        })
 }
 
 /// Bytes from hex text, or `None` when it has an odd length or a non-hex digit.
