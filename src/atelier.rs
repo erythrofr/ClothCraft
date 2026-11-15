@@ -12,6 +12,8 @@ use std::{path::PathBuf, sync::mpsc, time::Duration};
 mod authoring_smoke;
 #[path = "atelier/authoring_ui.rs"]
 mod authoring_ui;
+#[path = "atelier/backdrop.rs"]
+mod backdrop;
 #[path = "atelier/board.rs"]
 mod board;
 #[path = "atelier/chrome.rs"]
@@ -443,6 +445,7 @@ impl Atelier {
 
     fn invoke_command(&mut self, id: commands::CommandId, ctx: &egui::Context) {
         if let Err(error) = self.dispatch_command(id, ctx) {
+            eprintln!("[ClothCraft] command failed: {error}");
             self.status = error;
         }
     }
@@ -522,6 +525,7 @@ impl Atelier {
                 true
             }
             Err(e) => {
+                eprintln!("[ClothCraft] project could not be compiled: {e}");
                 self.status = e;
                 false
             }
@@ -558,14 +562,19 @@ impl Atelier {
         self.load(p);
     }
     fn export(&mut self) -> bool {
+        let output = self.output.clone();
+        self.export_to(&output)
+    }
+    /// Writes the session into `output`. The default export folder is not changed.
+    fn export_to(&mut self, output: &std::path::Path) -> bool {
         if !self.commit_placement() {
             return false;
         }
-        let result = export_session(&self.project, &self.scene, &self.settings, &self.output);
+        let result = export_session(&self.project, &self.scene, &self.settings, output);
         let succeeded = result.is_ok();
         self.status = result.map_or_else(
             |e| e.to_string(),
-            |_| format!("Export: {}", self.output.display()),
+            |_| format!("Export: {}", output.display()),
         );
         succeeded
     }
@@ -759,6 +768,7 @@ impl eframe::App for Atelier {
                     self.metrics = Some(m);
                 }
                 Err(e) => {
+                    eprintln!("[ClothCraft] simulation step failed: {e}");
                     self.playing = false;
                     self.simulation_error = Some(e.clone());
                     self.status = e;
@@ -779,18 +789,21 @@ impl eframe::App for Atelier {
                     egui::RichText::new("CLOTHCRAFT").strong().size(15.),
                 );
                 ui.label(egui::RichText::new("ALPHA").small().color(Color32::GRAY))
-                    .on_hover_text("Research prototype · most production features remain to be built");
+                    .on_hover_text(
+                        "Research prototype · most production features remain to be built",
+                    );
                 ui.separator();
-                if command_palette::launch_button(ui, can_open_palette) {
-                    self.palette.begin();
-                }
-                let play = ui.button(if self.playing {
-                    "⏸ Pause"
-                } else if self.authoring.ends.len() == 2 && !self.authoring.sewing.chain_mode {
-                    "▶ Sew and simulate"
-                } else {
-                    "▶ Simulate"
-                });
+                ui.menu_button("File", |ui| self.file_menu(ui));
+                ui.menu_button("Import", |ui| self.import_menu(ui));
+                let play = ui
+                    .button(if self.playing {
+                        "⏸ Pause"
+                    } else if self.authoring.ends.len() == 2 && !self.authoring.sewing.chain_mode {
+                        "▶ Sew and simulate"
+                    } else {
+                        "▶ Simulate"
+                    })
+                    .on_hover_text("Space");
                 self.smoke_target("simulate", play.rect.center());
                 if play.clicked() {
                     self.invoke_command(commands::CommandId::ToggleSimulation, &ctx);
@@ -799,66 +812,94 @@ impl eframe::App for Atelier {
                     let step = commands::CommandId::StepSimulation;
                     let enabled = commands::availability(step, self.command_context());
                     let reason = enabled.as_ref().err().map(|e| e.message());
-                    if ui.add_enabled(enabled.is_ok(), egui::Button::new("Advance one step"))
+                    if ui
+                        .add_enabled(enabled.is_ok(), egui::Button::new("Advance one step"))
                         .on_disabled_hover_text(reason.unwrap_or(""))
-                        .clicked() {
+                        .clicked()
+                    {
                         self.invoke_command(step, &ctx);
                         ui.close();
                     }
-                    if ui.button("Reset the flat arrangement").on_hover_text("Resets the drape of every panel").clicked() {
-                        self.invoke_command(commands::CommandId::ResetSimulation, &ctx); ui.close();
-                    }
-                });
-                ui.menu_button("File",|ui| self.document_menu(ui));
-                let export_button = ui.button("Export").on_hover_text("Saves the JSON project, the patterns, the OBJ garment and the previews into the session folder.");
-                self.smoke_target("export", export_button.rect.center());
-                if export_button.clicked() {
-                    self.invoke_command(commands::CommandId::ExportSession, &ctx);
-                }
-                ui.separator();
-                ui.menu_button("Workspace", |ui| {
-                    ui.checkbox(&mut self.tools_visible, "Tool rail");
-                    stage_settings::menu_button()
-                        .ui(ui, |ui| {
-                        if let Some(action) = stage_settings::controls(ui, can_open_palette, &mut self.prefs.viewport) {
-                            let path = self.output.join(stage_settings::FILE_NAME);
-                            self.status = stage_settings::execute(action, &path, &mut self.camera, &mut self.prefs.viewport)
-                                .unwrap_or_else(|e| format!("Presentation: {e}"));
-                            ui.close();
-                        }
-                    });
-                    if ui.add_enabled(can_open_palette, egui::Button::new("Workspace profiles…")).clicked() {
-                        self.profiles.begin(&self.output.join(workspace_profiles::FILE_NAME));
+                    if ui
+                        .button("Reset the flat arrangement")
+                        .on_hover_text("Resets the drape of every panel")
+                        .clicked()
+                    {
+                        self.invoke_command(commands::CommandId::ResetSimulation, &ctx);
                         ui.close();
                     }
+                });
+                ui.separator();
+                ui.menu_button("View", |ui| {
+                    ui.checkbox(&mut self.tools_visible, "Tool rail");
                     let inspector = self.prefs.workspace.inspector_open;
-                    if ui.selectable_label(inspector, "Properties inspector").clicked() {
+                    if ui
+                        .selectable_label(inspector, "Properties inspector")
+                        .clicked()
+                    {
                         self.invoke_command(commands::CommandId::ToggleInspector, &ctx);
                     }
+                    ui.separator();
                     for (mode, id, label) in [
-                        (layout::ViewMode::Split,commands::CommandId::SplitView,"Split view"),
-                        (layout::ViewMode::Garment,commands::CommandId::GarmentView,"3D only"),
-                        (layout::ViewMode::Patterns,commands::CommandId::PatternView,"2D only")
+                        (
+                            layout::ViewMode::Split,
+                            commands::CommandId::SplitView,
+                            "Split view",
+                        ),
+                        (
+                            layout::ViewMode::Garment,
+                            commands::CommandId::GarmentView,
+                            "3D only",
+                        ),
+                        (
+                            layout::ViewMode::Patterns,
+                            commands::CommandId::PatternView,
+                            "2D only",
+                        ),
                     ] {
-                        if ui.selectable_label(self.prefs.workspace.mode == mode, label).clicked() {
+                        if ui.radio(self.prefs.workspace.mode == mode, label).clicked() {
                             self.invoke_command(id, &ctx);
                         }
                     }
                     ui.separator();
-                    if ui.button("Reset layout").clicked() { self.invoke_command(commands::CommandId::ResetLayout, &ctx); ui.close(); }
-                    if ui.button("Preferences…").clicked() { self.invoke_command(commands::CommandId::OpenPreferences, &ctx); ui.close(); }
-                });
-                ui.menu_button("Examples", |ui| {
-                    if ui.button("T-shirt").clicked() {
-                        self.invoke_command(commands::CommandId::LoadTshirt, &ctx);
+                    stage_settings::menu_button().ui(ui, |ui| {
+                        if let Some(action) =
+                            stage_settings::controls(ui, can_open_palette, &mut self.prefs.viewport)
+                        {
+                            let path = self.output.join(stage_settings::FILE_NAME);
+                            self.status = stage_settings::execute(
+                                action,
+                                &path,
+                                &mut self.camera,
+                                &mut self.prefs.viewport,
+                            )
+                            .unwrap_or_else(|e| format!("Presentation: {e}"));
+                            ui.close();
+                        }
+                    });
+                    ui.separator();
+                    if ui.button("Reset layout").clicked() {
+                        self.invoke_command(commands::CommandId::ResetLayout, &ctx);
                         ui.close();
                     }
-                    if ui.button("Dress").clicked() {
-                        self.invoke_command(commands::CommandId::LoadDress, &ctx);
-                        ui.close();
+                });
+                // Right-aligned utilities: added right to left, so they read
+                // Commands… · Workspace profiles… · Preferences… from the left.
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if ui.button("Preferences…").clicked() {
+                        self.invoke_command(commands::CommandId::OpenPreferences, &ctx);
+                    }
+                    if ui
+                        .add_enabled(can_open_palette, egui::Button::new("Workspace profiles…"))
+                        .clicked()
+                    {
+                        self.profiles
+                            .begin(&self.output.join(workspace_profiles::FILE_NAME));
+                    }
+                    if command_palette::launch_button(ui, can_open_palette) {
+                        self.palette.begin();
                     }
                 });
-                self.online_patterns(ui);
             });
         });
         let mut changed = false;
