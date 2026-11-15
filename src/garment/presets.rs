@@ -106,9 +106,11 @@ pub fn basic(kind: GarmentKind, subdivisions: u32) -> GarmentTemplate {
             ..Default::default()
         }),
     };
-    let panels = [("front", 0.38), ("back", -0.15)]
+    // 3D placement stays where the seams were fitted. Only the 2D board position of
+    // the back moves right, one panel width plus a gap, so the pieces do not stack.
+    let panels = [("front", 0.38, None), ("back", -0.15, Some(0.7))]
         .into_iter()
-        .map(|(id, z)| Panel {
+        .map(|(id, z, board_x)| Panel {
             id: id.into(),
             name: format!("{} {id}", kind.name()),
             pattern: Pattern {
@@ -126,8 +128,9 @@ pub fn basic(kind: GarmentKind, subdivisions: u32) -> GarmentTemplate {
             },
             pins: vec![],
             pin_points: vec![],
-            layout_2d: None,
+            layout_2d: board_x.map(|x| DVec2::new(x, 0.)),
             layout_rotation_degrees: 0.,
+            hidden: false,
         })
         .collect();
     let seams = sewn

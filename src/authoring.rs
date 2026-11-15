@@ -16,6 +16,7 @@ pub mod clipboard;
 pub mod constructions;
 mod geometry;
 mod linked;
+mod seam_split;
 use crate::garment::shapes::{BooleanOp, MirrorAxis, Primitive};
 
 /// A contour corner is the start of a named outgoing boundary, never a mesh index.
@@ -36,6 +37,18 @@ pub enum PointConstruction {
     Intersection(ConstructionRef),
 }
 
+/// Where panels line up: an edge or centre line of the selection's bounding box.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AlignMode {
+    Left,
+    CenterX,
+    Right,
+    Top,
+    CenterY,
+    Bottom,
+}
+
+#[derive(Debug)]
 pub enum Command {
     ConstructPoint {
         target: ConstructionRef,
@@ -56,6 +69,18 @@ pub enum Command {
     LayoutGroup {
         panels: Vec<String>,
         delta: DVec2,
+    },
+    /// Leave a piece out of the simulation, or bring it back. Its mirror partner
+    /// follows. The piece stays on the 2D board either way.
+    SetHidden {
+        panel: String,
+        hidden: bool,
+    },
+    /// Move each panel's 2D placement so its bounding box lines up with the
+    /// selection's bounding box, along one edge or centre line.
+    AlignLayout {
+        panels: Vec<String>,
+        mode: AlignMode,
     },
     Primitive {
         kind: Primitive,
@@ -681,16 +706,13 @@ fn capture_panel_targets(
         .collect())
 }
 
+/// 2D board position of a piece's origin. Stored when it is drawn; otherwise it is
+/// read from the piece's 3D placement through the one fixed board map.
 pub fn layout(template: &GarmentTemplate, index: usize) -> DVec2 {
-    template.panels[index].layout_2d.unwrap_or_else(|| {
-        DVec2::new(
-            template.panels[..index]
-                .iter()
-                .map(|p| p.pattern.width + 0.15)
-                .sum(),
-            0.,
-        )
-    })
+    let panel = &template.panels[index];
+    panel
+        .layout_2d
+        .unwrap_or_else(|| crate::garment::template::world_to_board(panel.placement.translation))
 }
 pub fn same_physics(a: &GarmentTemplate, b: &GarmentTemplate) -> bool {
     let without_layout = |t: &GarmentTemplate| {
@@ -1042,6 +1064,116 @@ fn seam_uses(template: &GarmentTemplate, panel: &str, edge: &str) -> bool {
     })
 }
 
+fn split_polygon(
+    template: &mut GarmentTemplate,
+    panel: String,
+    edge: String,
+    at_m: f64,
+) -> Result<(usize, String), String> {
+    if !at_m.is_finite() || at_m <= 0. {
+        return Err("Insert position must be a positive finite length".into());
+    }
+    if template
+        .panels
+        .iter()
+        .find(|p| p.id == panel)
+        .and_then(|p| p.polygon.as_ref())
+        .is_some_and(|polygon| polygon.target_lengths.contains_key(&edge))
+    {
+        return Err(
+            "This boundary has a target length; clear the target before splitting it".into(),
+        );
+    }
+    let p = template
+        .panels
+        .iter_mut()
+        .find(|p| p.id == panel)
+        .ok_or("Panel not found")?;
+    let (index, child) = {
+        let polygon = p
+            .polygon
+            .as_mut()
+            .ok_or("This panel has no editable contour")?;
+        let index = polygon
+            .edges
+            .iter()
+            .position(|name| name == &edge)
+            .ok_or("Boundary not found")?;
+        let current = edge_length(polygon, &edge)?;
+        if at_m >= current {
+            return Err("Insert position is beyond the boundary".into());
+        }
+        if polygon.notches.get(&edge).is_some_and(|notches| {
+            notches
+                .iter()
+                .any(|notch| (notch.at * current - at_m).abs() < markings::end_clearance(notch))
+        }) {
+            return Err(
+                "Split would place a notch within 1 mm of a boundary end or inside its V span; move or remove it first"
+                    .into(),
+            );
+        }
+        let count = polygon.points.len();
+        let a = polygon.points[index];
+        let b = polygon.points[(index + 1) % count];
+        let controls = polygon.curves.get(&edge).copied();
+        let (point, first, second) = match controls {
+            // Any cubic parameter splits the outline exactly; the point
+            // is placed at the requested material arclength.
+            Some([c1, c2]) => {
+                let cubic = [a, c1, c2, b];
+                let parameter = parameter_at_arclength(cubic, at_m)?;
+                let (left, right) = split_cubic(cubic, parameter);
+                (left[3], [left[1], left[2]], [right[1], right[2]])
+            }
+            None => {
+                let t = at_m / current;
+                (a.lerp(b, t), [DVec2::ZERO; 2], [DVec2::ZERO; 2])
+            }
+        };
+        polygon.points.insert(index + 1, point);
+        let name = split_edge_name(&polygon.edges, &edge);
+        polygon.edges.insert(index + 1, name.clone());
+        if controls.is_some() {
+            polygon.curves.insert(edge.clone(), first);
+            polygon.curves.insert(name.clone(), second);
+        }
+        // Carry draft markings across the split. The two halves are the
+        // same physical boundary, so the allowance applies to both, and
+        // each notch keeps its material arclength position.
+        if let Some(width) = polygon.seam_allowances.get(&edge).copied() {
+            polygon.seam_allowances.insert(name.clone(), width);
+        }
+        if let Some(notches) = polygon.notches.remove(&edge) {
+            // The split point is exact on a cubic, but the two halves are
+            // sampled as separate boundaries. Use their actual sampled
+            // lengths, not the requested split length, so a curved-edge
+            // notch keeps its material arclength position.
+            let left_len = edge_length(polygon, &edge)?;
+            let right_len = edge_length(polygon, &name)?;
+            let (mut left, mut right) = (Vec::new(), Vec::new());
+            for mut notch in notches {
+                let along = notch.at * current;
+                if along < at_m {
+                    notch.at = along / left_len;
+                    left.push(notch);
+                } else {
+                    notch.at = (along - at_m) / right_len;
+                    right.push(notch);
+                }
+            }
+            for (target, list) in [(edge.clone(), left), (name.clone(), right)] {
+                if !list.is_empty() {
+                    polygon.notches.insert(target, list);
+                }
+            }
+        }
+        (index + 1, name)
+    };
+    normalize(p);
+    Ok((index, child))
+}
+
 /// An error leaves the input byte-for-byte unchanged; no partial edit is visible.
 /// Fit a stroke and close it explicitly with a straight edge when necessary.
 /// Coordinates remain in board/material metres. Validation uses the same
@@ -1305,12 +1437,8 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
                 .fold(DVec2::splat(f64::INFINITY), DVec2::min);
             polygon.translate_material(-lo);
             let id = unused_id("panel", template.panels.iter().map(|p| p.id.clone()));
-            let translation = if let Some(first) = template.panels.first() {
-                let delta = lo - layout(&template, 0);
-                first.placement.translation + DVec3::new(delta.x, -delta.y, 0.12)
-            } else {
-                DVec3::new(0., 1.5, 0.45)
-            };
+            // Absolute: the piece's 3D place is fixed by where it was drawn on the board.
+            let translation = crate::garment::template::board_to_world(lo);
             let mut panel = Panel {
                 id: id.clone(),
                 name: id.clone(),
@@ -1331,6 +1459,7 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
                 pin_points: vec![],
                 layout_2d: Some(lo),
                 layout_rotation_degrees: 0.,
+                hidden: false,
             };
             normalize(&mut panel);
             template.panels.push(panel);
@@ -1356,6 +1485,92 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
         }
         Command::Paste { clipboard, center } => {
             selected = clipboard.paste(&mut template, center)?.first().cloned();
+        }
+        Command::SetHidden { panel, hidden } => {
+            let partner = template.mirror_links.iter().find_map(|l| {
+                if l.a == panel {
+                    Some(l.b.clone())
+                } else if l.b == panel {
+                    Some(l.a.clone())
+                } else {
+                    None
+                }
+            });
+            let mut found = false;
+            for p in template.panels.iter_mut() {
+                if p.id == panel || Some(&p.id) == partner.as_ref() {
+                    p.hidden = hidden;
+                    found |= p.id == panel;
+                }
+            }
+            if !found {
+                return Err("Panel not found".into());
+            }
+            selected = Some(panel);
+        }
+        Command::AlignLayout { panels, mode } => {
+            if panels.len() < 2 {
+                return Err("Select two or more panels to align".into());
+            }
+            let ids: std::collections::BTreeSet<_> = panels.iter().collect();
+            if ids
+                .iter()
+                .any(|id| !template.panels.iter().any(|p| &p.id == *id))
+            {
+                return Err("Panel not found".into());
+            }
+            // Bounding box of each selected panel on the board, including its
+            // rotation and the sampled curves, so curved edges count fully.
+            let mut boxes = Vec::new();
+            for (i, p) in template.panels.iter().enumerate() {
+                if !ids.contains(&p.id) {
+                    continue;
+                }
+                let polygon = p
+                    .polygon
+                    .as_ref()
+                    .ok_or("This panel has no editable contour")?;
+                let origin = layout(&template, i);
+                let (mut low, mut high) =
+                    (DVec2::splat(f64::INFINITY), DVec2::splat(f64::NEG_INFINITY));
+                for k in 0..polygon.edges.len() {
+                    for q in polygon.edge_points(k)? {
+                        let board = origin + rotate_2d(q, p.layout_rotation_degrees);
+                        low = low.min(board);
+                        high = high.max(board);
+                    }
+                }
+                boxes.push((p.id.clone(), origin, low, high));
+            }
+            let (group_low, group_high) = boxes.iter().fold(
+                (DVec2::splat(f64::INFINITY), DVec2::splat(f64::NEG_INFINITY)),
+                |(low, high), (_, _, l, h)| (low.min(*l), high.max(*h)),
+            );
+            let target = |low: DVec2, high: DVec2| -> DVec2 {
+                match mode {
+                    AlignMode::Left => DVec2::new(group_low.x - low.x, 0.),
+                    AlignMode::Right => DVec2::new(group_high.x - high.x, 0.),
+                    AlignMode::CenterX => DVec2::new(
+                        (group_low.x + group_high.x) * 0.5 - (low.x + high.x) * 0.5,
+                        0.,
+                    ),
+                    AlignMode::Top => DVec2::new(0., group_low.y - low.y),
+                    AlignMode::Bottom => DVec2::new(0., group_high.y - high.y),
+                    AlignMode::CenterY => DVec2::new(
+                        0.,
+                        (group_low.y + group_high.y) * 0.5 - (low.y + high.y) * 0.5,
+                    ),
+                }
+            };
+            let moves: Vec<(String, DVec2)> = boxes
+                .into_iter()
+                .map(|(id, origin, low, high)| (id, origin + target(low, high)))
+                .collect();
+            for (id, placed) in moves {
+                if let Some(p) = template.panels.iter_mut().find(|p| p.id == id) {
+                    p.layout_2d = Some(placed);
+                }
+            }
         }
         Command::LayoutGroup { panels, delta } => {
             if !delta.is_finite() || panels.is_empty() {
@@ -1612,18 +1827,15 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
                 fabric,
                 grain_degrees: 90.,
                 placement: Placement {
-                    translation: if let Some(first) = template.panels.first() {
-                        let delta = lo - layout(&template, 0);
-                        first.placement.translation + DVec3::new(delta.x, -delta.y, 0.12)
-                    } else {
-                        DVec3::new(-size.x * 0.5, 1.5, 0.45)
-                    },
+                    // Absolute: the piece's 3D place is fixed by where it was drawn on the board.
+                    translation: crate::garment::template::board_to_world(lo),
                     ..Default::default()
                 },
                 pins: vec![],
                 pin_points: vec![],
                 layout_2d: Some(lo),
                 layout_rotation_degrees: 0.,
+                hidden: false,
             });
             normalize(template.panels.last_mut().unwrap());
             template.version = 2;
@@ -1796,113 +2008,8 @@ pub fn apply(source: &GarmentTemplate, command: Command) -> Result<Edit, String>
             selected = Some(panel);
         }
         Command::SplitBoundary { panel, edge, at_m } => {
-            if !at_m.is_finite() || at_m <= 0. {
-                return Err("Insert position must be a positive finite length".into());
-            }
-            if seam_uses(&template, &panel, &edge) {
-                return Err(
-                    "This boundary belongs to a seam; delete the seam before splitting it".into(),
-                );
-            }
-            if template
-                .panels
-                .iter()
-                .find(|p| p.id == panel)
-                .and_then(|p| p.polygon.as_ref())
-                .is_some_and(|polygon| polygon.target_lengths.contains_key(&edge))
-            {
-                return Err(
-                    "This boundary has a target length; clear the target before splitting it"
-                        .into(),
-                );
-            }
-            let p = template
-                .panels
-                .iter_mut()
-                .find(|p| p.id == panel)
-                .ok_or("Panel not found")?;
-            let index = {
-                let polygon = p
-                    .polygon
-                    .as_mut()
-                    .ok_or("This panel has no editable contour")?;
-                let index = polygon
-                    .edges
-                    .iter()
-                    .position(|name| name == &edge)
-                    .ok_or("Boundary not found")?;
-                let current = edge_length(polygon, &edge)?;
-                if at_m >= current {
-                    return Err("Insert position is beyond the boundary".into());
-                }
-                if polygon.notches.get(&edge).is_some_and(|notches| {
-                    notches.iter().any(|notch| {
-                        (notch.at * current - at_m).abs() < markings::end_clearance(notch)
-                    })
-                }) {
-                    return Err(
-                        "Split would place a notch within 1 mm of a boundary end or inside its V span; move or remove it first"
-                            .into(),
-                    );
-                }
-                let count = polygon.points.len();
-                let a = polygon.points[index];
-                let b = polygon.points[(index + 1) % count];
-                let controls = polygon.curves.get(&edge).copied();
-                let (point, first, second) = match controls {
-                    // Any cubic parameter splits the outline exactly; the point
-                    // is placed at the requested material arclength.
-                    Some([c1, c2]) => {
-                        let cubic = [a, c1, c2, b];
-                        let parameter = parameter_at_arclength(cubic, at_m)?;
-                        let (left, right) = split_cubic(cubic, parameter);
-                        (left[3], [left[1], left[2]], [right[1], right[2]])
-                    }
-                    None => {
-                        let t = at_m / current;
-                        (a.lerp(b, t), [DVec2::ZERO; 2], [DVec2::ZERO; 2])
-                    }
-                };
-                polygon.points.insert(index + 1, point);
-                let name = split_edge_name(&polygon.edges, &edge);
-                polygon.edges.insert(index + 1, name.clone());
-                if controls.is_some() {
-                    polygon.curves.insert(edge.clone(), first);
-                    polygon.curves.insert(name.clone(), second);
-                }
-                // Carry draft markings across the split. The two halves are the
-                // same physical boundary, so the allowance applies to both, and
-                // each notch keeps its material arclength position.
-                if let Some(width) = polygon.seam_allowances.get(&edge).copied() {
-                    polygon.seam_allowances.insert(name.clone(), width);
-                }
-                if let Some(notches) = polygon.notches.remove(&edge) {
-                    // The split point is exact on a cubic, but the two halves are
-                    // sampled as separate boundaries. Use their actual sampled
-                    // lengths, not the requested split length, so a curved-edge
-                    // notch keeps its material arclength position.
-                    let left_len = edge_length(polygon, &edge)?;
-                    let right_len = edge_length(polygon, &name)?;
-                    let (mut left, mut right) = (Vec::new(), Vec::new());
-                    for mut notch in notches {
-                        let along = notch.at * current;
-                        if along < at_m {
-                            notch.at = along / left_len;
-                            left.push(notch);
-                        } else {
-                            notch.at = (along - at_m) / right_len;
-                            right.push(notch);
-                        }
-                    }
-                    for (target, list) in [(edge.clone(), left), (name.clone(), right)] {
-                        if !list.is_empty() {
-                            polygon.notches.insert(target, list);
-                        }
-                    }
-                }
-                index + 1
-            };
-            normalize(p);
+            let (index, child) = split_polygon(&mut template, panel.clone(), edge.clone(), at_m)?;
+            seam_split::after_origin_split(&mut template, &panel, &edge, &child)?;
             selected = Some(panel);
             new_point = Some(index);
         }

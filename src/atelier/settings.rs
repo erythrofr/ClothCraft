@@ -6,7 +6,7 @@
 //! the board and `VbdSettings::validate` actually accept.
 use eframe::egui;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Name of the preferences file inside the session output directory.
 pub(super) const FILE_NAME: &str = "preferences.json";
@@ -32,6 +32,8 @@ pub(super) const ITERATIONS_MAX: usize = 128;
 const DEFAULT_SNAP_MM: f64 = 10.;
 const DEFAULT_DT: f64 = 1. / 60.;
 const DEFAULT_ITERATIONS: usize = 16;
+/// Length of the File > Open recent list.
+pub(super) const RECENT_FILES_MAX: usize = 10;
 
 /// User preferences. Every field is read by the live atelier; nothing is stored
 /// for show only.
@@ -52,6 +54,8 @@ pub(super) struct Preferences {
     pub(super) dt: f64,
     /// VBD iterations per physical step.
     pub(super) iterations: usize,
+    /// Project files opened or saved most recently, newest first.
+    pub(super) recent_files: Vec<PathBuf>,
 }
 
 impl Default for Preferences {
@@ -65,6 +69,7 @@ impl Default for Preferences {
             wireframe: false,
             dt: DEFAULT_DT,
             iterations: DEFAULT_ITERATIONS,
+            recent_files: Vec::new(),
         }
     }
 }
@@ -78,6 +83,7 @@ impl Preferences {
         self.snap_mm = finite_or(self.snap_mm, DEFAULT_SNAP_MM).clamp(SNAP_MM_MIN, SNAP_MM_MAX);
         self.dt = finite_or(self.dt, DEFAULT_DT).clamp(DT_MIN, DT_MAX);
         self.iterations = self.iterations.clamp(ITERATIONS_MIN, ITERATIONS_MAX);
+        self.recent_files.truncate(RECENT_FILES_MAX);
     }
 }
 

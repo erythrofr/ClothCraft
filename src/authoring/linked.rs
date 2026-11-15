@@ -5,8 +5,9 @@ use super::*;
 pub(super) fn check_command(t: &GarmentTemplate, c: &Command) -> Result<(), String> {
     let linked = |id: &str| t.mirror_links.iter().any(|l| l.a == id || l.b == id);
     let blocked = match c {
+        // A split is allowed: `synchronize` copies the whole edited contour to
+        // the partner, including the new point and its boundary name.
         Command::LinkedMirror { panel, .. }
-        | Command::SplitBoundary { panel, .. }
         | Command::RemovePoint { panel, .. }
         | Command::Mirror {
             panel,

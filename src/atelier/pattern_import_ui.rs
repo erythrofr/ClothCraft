@@ -380,7 +380,11 @@ mod tests {
         let panel = e.template.panels.last().unwrap();
         assert!((panel.pattern.width - 0.2).abs() < 1e-12);
         assert!((panel.pattern.height - 0.4).abs() < 1e-12);
-        assert!(panel.placement.translation.x > 11.);
+        // The 3D place is the fixed board map applied to the stored 2D position.
+        assert_eq!(
+            panel.placement.translation,
+            marvelous_cloth::garment::template::board_to_world(panel.layout_2d.unwrap())
+        );
         assert_eq!(serde_json::to_vec(&c.project).unwrap(), before); // preparation is atomic
         assert!(!c.document.dirty);
     }

@@ -216,7 +216,12 @@ fn run_ogc(
     Ok(())
 }
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args = Args::parse();
+    let mut args = Args::parse();
+    // A bare launch (`cargo run`, double-clicking the executable) opens the editor.
+    // Any argument keeps the batch behaviour that scripts and the docs rely on.
+    if std::env::args_os().len() == 1 {
+        args.view = true;
+    }
     if !(1..=16).contains(&args.threads) || args.steps > 10_000 {
         return Err("Require 1..16 threads and at most 10000 steps".into());
     }

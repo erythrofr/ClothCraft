@@ -36,6 +36,8 @@ pub(super) const NUDGE_COARSE_MM: f64 = 10.;
 pub(super) const ANGLE_STEP_DEGREES: f64 = 15.;
 /// Above this difference the true sampled length and the chord are both shown.
 const CHORD_DISPLAY_MM: f64 = 0.2;
+/// Opacity of simulated panel fills (0–255), so the avatar silhouette shows through.
+const PANEL_ALPHA: u8 = 191;
 
 /// What the pointer captured, named on canvas before the click.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -105,9 +107,6 @@ pub(super) struct InsertHint {
     pub edge: String,
     /// Material position of the insertion point, in board coordinates.
     pub point: DVec2,
-    /// Material position of the clickable `+` badge. It sits just outside the
-    /// boundary so that clicking the boundary itself still selects it.
-    pub badge: DVec2,
     /// Material arclength from the boundary's first endpoint, in metres.
     pub at_m: f64,
 }
@@ -202,10 +201,12 @@ pub(super) struct Board {
     pub layout: Option<(String, DVec2)>,
     pub rotation: Option<(String, f64)>,
     pub group_layout: Vec<(String, DVec2)>,
+    pub backdrop: super::backdrop::Backdrop,
 }
 impl Default for Board {
     fn default() -> Self {
         Self {
+            backdrop: Default::default(),
             freehand: FreehandDraft::default(),
             center: DVec2::ZERO,
             scale: 300.,
@@ -639,6 +640,22 @@ fn board_pointer_angle(pos: egui::Pos2, rect: egui::Rect) -> f64 {
 }
 /// Millimetre dimension annotation for a selected piece. Presentation only: the
 /// labels follow the pattern size and never feed back into the rest contour.
+/// Draw a dashed line from `a` to `b`, for pieces that are switched off.
+fn dashed_line(painter: &egui::Painter, a: egui::Pos2, b: egui::Pos2, stroke: Stroke) {
+    let delta = b - a;
+    let length = delta.length();
+    if length < 1e-3 {
+        return;
+    }
+    let unit = delta / length;
+    let mut t = 0.;
+    while t < length {
+        let end = (t + 6.).min(length);
+        painter.line_segment([a + unit * t, a + unit * end], stroke);
+        t += 10.;
+    }
+}
+
 fn paint_panel_dimensions(
     painter: &egui::Painter,
     point: &impl Fn(DVec2) -> egui::Pos2,
@@ -843,6 +860,33 @@ impl Atelier {
             );
         }
     }
+    /// Align the selected panels' 2D bounding boxes to an edge or centre line.
+    pub(super) fn align_menu(&mut self, ui: &mut egui::Ui) {
+        let panels = self.selected_panels();
+        let mut chosen = None;
+        ui.menu_button("Align", |ui| {
+            let enabled = panels.len() >= 2;
+            for (label, mode) in [
+                ("Left edges", authoring::AlignMode::Left),
+                ("Centre horizontally", authoring::AlignMode::CenterX),
+                ("Right edges", authoring::AlignMode::Right),
+                ("Top edges", authoring::AlignMode::Top),
+                ("Centre vertically", authoring::AlignMode::CenterY),
+                ("Bottom edges", authoring::AlignMode::Bottom),
+            ] {
+                if ui
+                    .add_enabled(enabled, egui::Button::new(label))
+                    .on_hover_text("Aligns bounding boxes of the selected panels on the 2D board")
+                    .clicked()
+                {
+                    chosen = Some(mode);
+                }
+            }
+        });
+        if let Some(mode) = chosen {
+            self.edit(Command::AlignLayout { panels, mode });
+        }
+    }
     pub(super) fn board_angle(&self, i: usize) -> f64 {
         let panel = &self.project.template.panels[i];
         self.authoring
@@ -1025,6 +1069,10 @@ impl Atelier {
                     }
                 }
             }
+            // A hidden piece's outline does not catch clicks unless it is selected:
+            // otherwise its perimeter takes every click near it, and its inside,
+            // the way back to the piece, cannot be reached.
+            let outline_clickable = !p.hidden || self.authoring.selected.as_ref() == Some(&p.id);
             let mut contour = vec![];
             for k in 0..poly.points.len() {
                 let Ok(points) = poly.edge_points(k) else {
@@ -1032,7 +1080,7 @@ impl Atelier {
                 };
                 for pair in points.windows(2) {
                     let d = segment_distance(pos, point(pair[0]), point(pair[1]));
-                    if d < best {
+                    if d < best && outline_clickable {
                         best = d;
                         edge = Some(Hit {
                             index: i,
@@ -1220,6 +1268,8 @@ impl Atelier {
             if ui.selectable_label(self.authoring.board.freehand.enabled, "Freehand").on_hover_text("Drag a new panel outline, release to preview, then Create panel").clicked() {
                 self.activate_freehand();
             }
+            self.align_menu(ui);
+            super::backdrop::menu(ui, &mut self.authoring.board.backdrop);
             let quick = ui.small_button("Quick · Q").on_hover_text("Shapes, mirrors and booleans near the cursor");
             self.smoke_target("quick_open", quick.rect.center());
             if quick.clicked() { self.quick.open(ui.ctx(), quick.rect.left_bottom()); }
@@ -1380,6 +1430,7 @@ impl Atelier {
                 .resolve_snap(rect, pos, &geometry, reference, angle_lock, suspended)
         });
         self.authoring.board.hover_snap = hover_snap;
+        // The insertion point under the pointer; a double click inserts it.
         self.authoring.board.insert_hint = if self.authoring.tool == Tool::Edit {
             response
                 .hover_pos()
@@ -1861,7 +1912,9 @@ impl Atelier {
         let mut best = SNAP_EDGE_PX;
         let mut hit = None;
         for (i, panel) in self.project.template.panels.iter().enumerate() {
-            let Some(poly) = self.board_polygon(i) else {
+            // The saved contour, the same one the split command reads. A drag
+            // preview would name edges the command cannot find.
+            let Some(poly) = panel.polygon.as_ref() else {
                 continue;
             };
             let origin = self.board_origin(i);
@@ -1869,19 +1922,11 @@ impl Atelier {
             // Local rest coordinates to board material coordinates.
             let placed = |uv: DVec2| origin + authoring::rotate_2d(uv, angle);
             let screen = |uv: DVec2| self.authoring.board.screen(rect, placed(uv));
-            let centroid = poly.points.iter().fold(DVec2::ZERO, |sum, p| sum + *p)
-                / poly.points.len().max(1) as f64;
-            let placed_centroid = placed(centroid);
-            // The badge offset is 18 screen pixels, expressed in material metres so
-            // it stays the same size at every zoom.
-            let offset_m = 18. / self.authoring.board.scale.max(1.) as f64;
             for (k, name) in poly.edges.iter().enumerate() {
                 // The split command refuses a boundary that carries a stored
-                // target or belongs to a seam, so the badge is not offered there.
-                // Clearing the target, or deleting the seam, brings it back.
-                if poly.target_lengths.contains_key(name)
-                    || self.seam_uses(&panel.id, &[name.as_str()])
-                {
+                // target, so no point is offered there. Clearing the target
+                // brings it back. Sewn boundaries split their seams with them.
+                if poly.target_lengths.contains_key(name) {
                     continue;
                 }
                 let Ok(points) = poly.edge_points(k) else {
@@ -1902,13 +1947,10 @@ impl Atelier {
                     let at_m = along + length * t as f64;
                     if distance < best && at_m > 1e-4 && at_m < total - 1e-4 {
                         best = distance;
-                        let point = placed(a + (b - a) * t as f64);
-                        let outward = (point - placed_centroid).normalize_or_zero();
                         hit = Some(InsertHint {
                             panel: panel.id.clone(),
                             edge: name.clone(),
-                            point,
-                            badge: point + outward * offset_m,
+                            point: placed(a + (b - a) * t as f64),
                             at_m,
                         });
                     }
@@ -1918,22 +1960,23 @@ impl Atelier {
         }
         hit
     }
-    /// Insert a point when the visible `+` badge is clicked. Returns true when
-    /// the click belonged to the badge and must not select anything else. The
-    /// badge sits outside the boundary, so clicking the boundary still selects it.
-    fn insert_hint_clicked(&mut self, rect: egui::Rect, pos: egui::Pos2) -> bool {
+    /// Insert the point under the pointer on a double click. Returns true when a
+    /// point was inserted.
+    fn insert_hint_double_clicked(&mut self) -> bool {
         let Some(hint) = self.authoring.board.insert_hint.clone() else {
             return false;
         };
-        let badge = self.authoring.board.screen(rect, hint.badge);
-        if badge.distance(pos) > SNAP_POINT_PX {
-            return false;
-        }
-        self.edit(Command::SplitBoundary {
+        let inserted = self.edit(Command::SplitBoundary {
             panel: hint.panel,
             edge: hint.edge,
             at_m: hint.at_m,
-        })
+        });
+        if inserted {
+            // The new point now sits where the badge was. Drop the frozen hint so the
+            // next frame recomputes it instead of offering the same spot again.
+            self.authoring.board.insert_hint = None;
+        }
+        inserted
     }
     /// Exact length for a named boundary. `target_mm == 0` clears the target.
     fn apply_target_length(&mut self, panel: String, edge: String, target_mm: f64) {
@@ -2270,12 +2313,14 @@ impl Atelier {
                 _ => {}
             }
         }
+        // A double click on an edge inserts a point there. It also counts as a
+        // click, so the click path below is skipped for that press.
+        let inserted = response.double_clicked() && self.insert_hint_double_clicked();
         if response.clicked()
+            && !inserted
             && let Some(pos) = pos
         {
-            if self.insert_hint_clicked(rect, pos) {
-                // Consumed by the visible insert marker.
-            } else if let Some((panel, k)) = self.delete_badge_at(rect, pos) {
+            if let Some((panel, k)) = self.delete_badge_at(rect, pos) {
                 self.edit(Command::RemovePoint { panel, point: k });
             } else if matches!(self.authoring.tool, Tool::Draw | Tool::InternalLine) {
                 if self.authoring.tool == Tool::InternalLine
@@ -2482,6 +2527,10 @@ impl Atelier {
         }) {
             self.authoring.dart = None;
         }
+        super::backdrop::refresh(
+            &mut self.authoring.board.backdrop,
+            &self.scene.collider.surface,
+        );
         let mut smoke_targets: Vec<(String, egui::Pos2)> = vec![];
         let painter = ui.painter().with_clip_rect(rect);
         // The pattern board is a white drafting sheet; the 3D window has its own
@@ -2509,12 +2558,57 @@ impl Atelier {
                 Stroke::new(0.5, Color32::from_gray(0xDC)),
             );
         }
+        super::backdrop::paint(&painter, rect, board, &board.backdrop);
         if !self.authoring.replace {
             for (i, panel) in self.project.template.panels.iter().enumerate() {
                 let origin = self.board_origin(i);
                 let angle = self.board_angle(i);
                 let point = |uv| board.screen(rect, origin + authoring::rotate_2d(uv, angle));
                 let selected = self.authoring.selected.as_ref() == Some(&panel.id);
+                if panel.hidden {
+                    // Not simulated: dashed grey outline and a "Not simulated" tag,
+                    // so it reads as switched off rather than broken. Selected, it
+                    // turns solid blue. Clicks inside still select it (see board_hit).
+                    let accent = Color32::from_rgb(0x2F, 0x6F, 0xD6);
+                    let (stroke, tag) = if selected {
+                        (Stroke::new(2., accent), accent)
+                    } else {
+                        (
+                            Stroke::new(1., Color32::from_gray(0x8A)),
+                            Color32::from_gray(0x6A),
+                        )
+                    };
+                    let mut sum = egui::Vec2::ZERO;
+                    let mut count = 0.;
+                    if let Some(polygon) = panel.polygon.as_ref() {
+                        for k in 0..polygon.edges.len() {
+                            if let Ok(points) = polygon.edge_points(k) {
+                                for pair in points.windows(2) {
+                                    let (a, b) = (point(pair[0]), point(pair[1]));
+                                    if selected {
+                                        painter.line_segment([a, b], stroke);
+                                    } else {
+                                        dashed_line(&painter, a, b, stroke);
+                                    }
+                                }
+                            }
+                        }
+                        for uv in &polygon.points {
+                            sum += point(*uv).to_vec2();
+                            count += 1.;
+                        }
+                    }
+                    if count > 0. {
+                        painter.text(
+                            (sum / count).to_pos2(),
+                            egui::Align2::CENTER_CENTER,
+                            "Not simulated",
+                            egui::FontId::proportional(11.),
+                            tag,
+                        );
+                    }
+                    continue;
+                }
                 if i == 0 {
                     for (name, uv) in [
                         ("inside_a", DVec2::new(0.1, 0.15)),
@@ -2536,9 +2630,9 @@ impl Atelier {
                             // Light blue for the active piece, light grey for the
                             // rest: the board is white, so the fill carries the
                             // selection instead of a bright outline on dark.
-                            Color32::from_rgb(0xC9, 0xDF, 0xF5)
+                            Color32::from_rgba_unmultiplied(0xC9, 0xDF, 0xF5, PANEL_ALPHA)
                         } else {
-                            Color32::from_rgb(0xE9, 0xEC, 0xF1)
+                            Color32::from_rgba_unmultiplied(0xE9, 0xEC, 0xF1, PANEL_ALPHA)
                         },
                     );
                 }
@@ -3093,31 +3187,19 @@ impl Atelier {
                 );
             }
         }
-        // Insert-point affordance. The point itself is marked on the boundary, and
-        // the clickable `+` badge sits just outside it, so a click on the boundary
-        // still selects the boundary rather than silently splitting it.
+        // Insert-point preview: the point under the pointer on the boundary. A
+        // double click inserts it.
         if board.drag.is_none()
             && let Some(hint) = &board.insert_hint
         {
             let on_edge = board.screen(rect, hint.point);
-            let at = board.screen(rect, hint.badge);
             let color = Color32::from_rgb(0x00, 0x8A, 0x66);
-            painter.line_segment([on_edge, at], Stroke::new(1., color));
-            painter.circle_filled(on_edge, 3., color);
-            painter.circle_stroke(at, 7., Stroke::new(2., color));
-            painter.line_segment(
-                [at + Vec2::new(-5., 0.), at + Vec2::new(5., 0.)],
-                Stroke::new(2., color),
-            );
-            painter.line_segment(
-                [at + Vec2::new(0., -5.), at + Vec2::new(0., 5.)],
-                Stroke::new(2., color),
-            );
+            painter.circle_filled(on_edge, 4., color);
             chip(
                 painter,
-                at,
+                on_edge + Vec2::new(14., -14.),
                 &format!(
-                    "Insert point on {} · {:.1} mm",
+                    "Double-click to insert point on {} · {:.1} mm",
                     hint.edge,
                     hint.at_m * 1000.
                 ),
