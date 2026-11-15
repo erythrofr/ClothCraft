@@ -101,9 +101,135 @@ impl Atelier {
     }
 }
 
-/// 3D view bar: preset directions, framing, restore and the projection toggle.
+/// Outline of a cube face with outward normal `n`, as four corners in order.
+fn face_quad(n: Vec3) -> [Vec3; 4] {
+    let (a, b) = if n.x != 0. {
+        (Vec3::Y, Vec3::Z)
+    } else if n.y != 0. {
+        (Vec3::X, Vec3::Z)
+    } else {
+        (Vec3::X, Vec3::Y)
+    };
+    [n + a + b, n - a + b, n - a - b, n + a - b]
+}
+
+/// Whether `p` lies inside a convex quadrilateral given in order.
+fn inside_quad(p: egui::Pos2, q: &[egui::Pos2; 4]) -> bool {
+    let mut sign = 0.0_f32;
+    for i in 0..4 {
+        let (a, b) = (q[i], q[(i + 1) % 4]);
+        let cross = (b - a).x * (p - a).y - (b - a).y * (p - a).x;
+        if cross.abs() < 1e-6 {
+            continue;
+        }
+        if sign == 0. {
+            sign = cross.signum();
+        } else if sign != cross.signum() {
+            return false;
+        }
+    }
+    true
+}
+
+/// View cube: click a visible face for that preset view, or a corner for Iso.
+/// The cube turns with the camera, so it always shows what the view is looking at.
+fn view_cube(ui: &mut egui::Ui, camera: &mut Camera) {
+    const SIZE: f32 = 76.;
+    let (rect, response) = ui.allocate_exact_size(egui::vec2(SIZE, SIZE), egui::Sense::click());
+    let painter = ui.painter_at(rect);
+    let centre = rect.center();
+    let scale = SIZE * 0.3;
+    let (right, up, dir) = (camera.right(), camera.up(), camera.direction());
+    let project = |v: Vec3| {
+        egui::pos2(
+            centre.x + v.dot(right) * scale,
+            centre.y - v.dot(up) * scale,
+        )
+    };
+    let hover = response.hover_pos();
+    let mut hovered: Option<PresetView> = None;
+    let mut faces = Vec::new();
+    for preset in PresetView::ALL {
+        if preset == PresetView::Isometric {
+            continue;
+        }
+        let n = preset.direction();
+        if n.dot(dir) <= 0. {
+            continue;
+        }
+        let quad = face_quad(n).map(project);
+        if hover.is_some_and(|p| inside_quad(p, &quad)) {
+            hovered = Some(preset);
+        }
+        faces.push((preset, quad));
+    }
+    // Visible corners: the three faces meeting there are all in view.
+    let mut corners = Vec::new();
+    for sx in [-1., 1.] {
+        for sy in [-1., 1.] {
+            for sz in [-1., 1.] {
+                let c = Vec3::new(sx, sy, sz);
+                if c.dot(dir) > 0. {
+                    corners.push(project(c));
+                }
+            }
+        }
+    }
+    for corner in &corners {
+        if hover.is_some_and(|p| p.distance(*corner) < 6.) {
+            hovered = Some(PresetView::Isometric);
+        }
+    }
+    let fill = egui::Color32::from_gray(238);
+    let lit = egui::Color32::from_rgb(0xC9, 0xDD, 0xF5);
+    let stroke = egui::Stroke::new(1., egui::Color32::from_gray(120));
+    for (preset, quad) in &faces {
+        let colour = if hovered == Some(*preset) { lit } else { fill };
+        painter.add(egui::Shape::convex_polygon(quad.to_vec(), colour, stroke));
+        painter.text(
+            quad.iter().fold(egui::Pos2::ZERO, |acc, p| acc + p.to_vec2() / 4.),
+            egui::Align2::CENTER_CENTER,
+            preset.label(),
+            egui::FontId::proportional(11.),
+            egui::Color32::from_gray(40),
+        );
+    }
+    for corner in &corners {
+        let colour = if hovered == Some(PresetView::Isometric) {
+            lit
+        } else {
+            egui::Color32::from_gray(120)
+        };
+        painter.circle_filled(*corner, 3.5, colour);
+    }
+    if response.clicked()
+        && let Some(preset) = hovered
+    {
+        camera.apply_preset(preset);
+    }
+    response.on_hover_text("Click a face for that view, a corner for Iso");
+}
+
+/// 3D view bar: view cube with projection toggle, preset directions, framing and
+/// restore.
 pub(super) fn view_bar(ui: &mut egui::Ui, camera: &mut Camera, bounds: ViewBounds) {
     ui.horizontal_wrapped(|ui| {
+        ui.vertical(|ui| {
+            view_cube(ui, camera);
+            let projection = if camera.orthographic {
+                "Orthographic"
+            } else {
+                "Perspective"
+            };
+            if ui
+                .small_button(projection)
+                .on_hover_text("Switch between the matched perspective and orthographic projections")
+                .clicked()
+            {
+                camera.toggle_projection();
+            }
+        });
+        ui.separator();
         ui.label(egui::RichText::new("View").small());
         for preset in PresetView::ALL {
             if ui
@@ -143,18 +269,6 @@ pub(super) fn view_bar(ui: &mut egui::Ui, camera: &mut Camera, bounds: ViewBound
             .clicked()
         {
             camera.restore_pose();
-        }
-        let projection = if camera.orthographic {
-            "Orthographic"
-        } else {
-            "Perspective"
-        };
-        if ui
-            .selectable_label(camera.orthographic, projection)
-            .on_hover_text("Switch between the matched perspective and orthographic projections")
-            .clicked()
-        {
-            camera.toggle_projection();
         }
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             ui.small(format!("distance {:.2} m", camera.distance));

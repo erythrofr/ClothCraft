@@ -86,6 +86,23 @@ impl Default for Placement {
         }
     }
 }
+/// Height of the 2D board's origin in world metres. Board y points down, world y up.
+pub const BOARD_TOP_Y: f64 = 1.5;
+/// Depth of flat pieces in front of the avatar, in world metres.
+pub const BOARD_DEPTH_Z: f64 = 0.45;
+
+/// The one fixed map from the 2D board to the 3D world, used when a piece is drawn.
+/// A board point (x, y) is world point (x, BOARD_TOP_Y - y, BOARD_DEPTH_Z). It is
+/// absolute: it does not depend on other pieces or on the avatar's position.
+pub fn board_to_world(p: DVec2) -> DVec3 {
+    DVec3::new(p.x, BOARD_TOP_Y - p.y, BOARD_DEPTH_Z)
+}
+
+/// Inverse of [`board_to_world`], for the 2D position of a placed piece.
+pub fn world_to_board(t: DVec3) -> DVec2 {
+    DVec2::new(t.x, BOARD_TOP_Y - t.y)
+}
+
 impl Placement {
     pub fn transform(&self, p: DVec3) -> DVec3 {
         let r = self.rotation_degrees * (std::f64::consts::PI / 180.0);
@@ -119,6 +136,10 @@ pub struct Panel {
     /// Board presentation only; material coordinates and grain are unchanged.
     #[serde(default, skip_serializing_if = "is_zero")]
     pub layout_rotation_degrees: f64,
+    /// Left out of the simulation: no mesh, no seams, no contacts. The piece stays
+    /// on the 2D board, so it can be shown again without reloading anything.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub hidden: bool,
     #[serde(default)]
     pub pins: Vec<Corner>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -361,6 +382,20 @@ impl GarmentTemplate {
                 return Err(format!("Duplicate pin in {}", panel.id));
             }
             let material = f.properties.bind(panel.grain_degrees);
+            if panel.hidden {
+                // An empty range keeps every other panel's index where it is. The
+                // piece adds no vertices, triangles or seams to the simulation.
+                let (vertices, triangles) = (out.mesh.uv.len(), out.mesh.triangles.len());
+                out.panels.push(PanelRange {
+                    id: panel.id.clone(),
+                    vertices: vertices..vertices,
+                    triangles: triangles..triangles,
+                    material: out.materials.len(),
+                    boundaries: BTreeMap::new(),
+                });
+                out.materials.push(material);
+                continue;
+            }
             let (mut mesh, mut boundaries) = if let Some(polygon) = &panel.polygon {
                 if !panel.pins.is_empty() {
                     return Err("Polygon panels use pin_points, not rectangle corners".into());
@@ -465,6 +500,15 @@ impl GarmentTemplate {
             )
         };
         for (i, spec) in self.seams.iter().enumerate() {
+            // A seam touching a hidden piece is not simulated: the piece has no
+            // boundary to sew to. The seam stays in the template for when it returns.
+            if spec.references().any(|r| {
+                self.panels
+                    .iter()
+                    .any(|p| p.id == r.panel && p.hidden)
+            }) {
+                continue;
+            }
             if spec.a_tail.len() >= 128 || spec.b_tail.len() >= 128 {
                 return Err("Sewing side needs 1..128 segments".into());
             }
@@ -557,6 +601,7 @@ impl GarmentTemplate {
                     pin_points: vec![],
                     layout_2d: None,
                     layout_rotation_degrees: 0.,
+                    hidden: false,
                     id: "left".into(),
                     name: "Left panel".into(),
                     pattern: Pattern {
@@ -578,6 +623,7 @@ impl GarmentTemplate {
                     pin_points: vec![],
                     layout_2d: None,
                     layout_rotation_degrees: 0.,
+                    hidden: false,
                     id: "right".into(),
                     name: "Right panel".into(),
                     pattern: Pattern {

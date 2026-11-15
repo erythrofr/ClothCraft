@@ -12,6 +12,8 @@ use std::{path::PathBuf, sync::mpsc, time::Duration};
 mod authoring_smoke;
 #[path = "atelier/authoring_ui.rs"]
 mod authoring_ui;
+#[path = "atelier/backdrop.rs"]
+mod backdrop;
 #[path = "atelier/board.rs"]
 mod board;
 #[path = "atelier/chrome.rs"]
@@ -443,6 +445,7 @@ impl Atelier {
 
     fn invoke_command(&mut self, id: commands::CommandId, ctx: &egui::Context) {
         if let Err(error) = self.dispatch_command(id, ctx) {
+            eprintln!("[ClothCraft] command failed: {error}");
             self.status = error;
         }
     }
@@ -522,6 +525,7 @@ impl Atelier {
                 true
             }
             Err(e) => {
+                eprintln!("[ClothCraft] project could not be compiled: {e}");
                 self.status = e;
                 false
             }
@@ -764,6 +768,7 @@ impl eframe::App for Atelier {
                     self.metrics = Some(m);
                 }
                 Err(e) => {
+                    eprintln!("[ClothCraft] simulation step failed: {e}");
                     self.playing = false;
                     self.simulation_error = Some(e.clone());
                     self.status = e;

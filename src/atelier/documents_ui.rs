@@ -22,6 +22,8 @@ pub(super) struct DocumentUi {
     last_recovery: Instant,
     recovery: PathBuf,
     checked_recovery: bool,
+    /// Newest snapshot from an earlier session, offered in a non-blocking window.
+    offered_recovery: Option<PathBuf>,
     closing: bool,
     smoke_fixture: Option<PathBuf>,
 }
@@ -49,6 +51,7 @@ impl DocumentUi {
             last_recovery: Instant::now(),
             recovery: output.join(format!("recovery-{}.json", std::process::id())),
             checked_recovery: false,
+            offered_recovery: None,
             closing: false,
             smoke_fixture: None,
         }
@@ -797,18 +800,30 @@ impl Atelier {
                         .is_some_and(|s| s.starts_with("recovery-") && s.ends_with(".json"))
                 })
                 .max_by_key(|p| p.metadata().and_then(|m| m.modified()).ok());
-            if let Some(path) = previous
-                && MessageDialog::new()
-                    .set_title("Recovery available")
-                    .set_description(format!(
-                        "Open the last recovery snapshot?\n{}",
-                        path.display()
-                    ))
-                    .set_buttons(MessageButtons::YesNo)
-                    .show()
-                    == MessageDialogResult::Yes
-            {
+            // Offered in a window once the app is up, never a blocking dialog before it.
+            self.document.offered_recovery = previous;
+        }
+        if let Some(path) = self.document.offered_recovery.clone() {
+            let mut restore = false;
+            let mut later = false;
+            egui::Window::new("Unsaved work found")
+                .anchor(egui::Align2::CENTER_TOP, [0., 48.])
+                .collapsible(false)
+                .resizable(false)
+                .show(ctx, |ui| {
+                    ui.label("An earlier session left a recovery snapshot.");
+                    ui.small(path.display().to_string());
+                    ui.horizontal(|ui| {
+                        restore = ui.button("Restore").clicked();
+                        later = ui.button("Not now").clicked();
+                    });
+                });
+            if restore {
+                self.document.offered_recovery = None;
                 self.open_document_path(path, true);
+            } else if later {
+                // Keeps the snapshot file; only the prompt is dismissed.
+                self.document.offered_recovery = None;
             }
         }
         let shortcut = ctx.input_mut(|i| {
