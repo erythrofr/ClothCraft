@@ -387,7 +387,11 @@ mod tests {
         let p = edit.template.panels.last().unwrap();
         assert!((p.pattern.width - 0.1).abs() < 1e-12);
         assert!((p.pattern.height - 0.2).abs() < 1e-12);
-        assert!(p.placement.translation.x > 11.);
+        // The 3D place is the fixed board map applied to the stored 2D position.
+        assert_eq!(
+            p.placement.translation,
+            marvelous_cloth::garment::template::board_to_world(p.layout_2d.unwrap())
+        );
         let mut state = c.scene.state.clone();
         state.time = 3.;
         state.v.fill(glam::DVec3::new(0.1, 0.2, 0.3));

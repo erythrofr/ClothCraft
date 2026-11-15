@@ -194,6 +194,44 @@ fn value(
     .inner
 }
 
+/// Repeat size of the current texture, or a sensible default for a new one.
+fn repeat_of(texture: &Option<marvelous_cloth::garment::appearance::FabricTexture>) -> f64 {
+    use marvelous_cloth::garment::appearance::FabricTexture;
+    match texture {
+        Some(FabricTexture::Pattern { repeat_mm, .. } | FabricTexture::Image { repeat_mm, .. }) => {
+            *repeat_mm
+        }
+        None => 9.0,
+    }
+}
+
+/// Ask for a PNG and store it as a 256-pixel square tile. `Ok(None)` when cancelled.
+fn pick_png_tile() -> Result<Option<marvelous_cloth::garment::appearance::FabricTexture>, String> {
+    use marvelous_cloth::garment::appearance::{FabricTexture, to_hex};
+    let Some(path) = rfd::FileDialog::new()
+        .add_filter("PNG image", &["png"])
+        .pick_file()
+    else {
+        return Ok(None);
+    };
+    let bytes = std::fs::read(&path).map_err(|e| format!("Cannot read {}: {e}", path.display()))?;
+    let decoded = image::load_from_memory_with_format(&bytes, image::ImageFormat::Png)
+        .map_err(|e| format!("{} is not a readable PNG: {e}", path.display()))?;
+    let square = decoded.resize_exact(256, 256, image::imageops::FilterType::Triangle);
+    let mut png = Vec::new();
+    square
+        .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+        .map_err(|e| format!("Cannot store the image: {e}"))?;
+    Ok(Some(FabricTexture::Image {
+        name: path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "image".into()),
+        png_hex: to_hex(&png),
+        repeat_mm: 50.0,
+    }))
+}
+
 fn appearance_controls(
     ui: &mut egui::Ui,
     draft: &mut Option<marvelous_cloth::garment::appearance::FabricAppearance>,
@@ -247,6 +285,62 @@ fn appearance_controls(
                 egui::vec2(4., 4.),
             ),
         ));
+        // Texture: display only, shown in the 3D view. A white colour shows it unchanged.
+        ui.separator();
+        ui.label("Texture · 3D view only");
+        use marvelous_cloth::garment::appearance::{FabricTexture, PatternKind};
+        let selected = match &value.texture {
+            None => "None".to_owned(),
+            Some(FabricTexture::Pattern { pattern, .. }) => pattern.label().to_owned(),
+            Some(FabricTexture::Image { name, .. }) => format!("Image: {name}"),
+        };
+        egui::ComboBox::from_id_salt("fabric_texture")
+            .selected_text(selected)
+            .show_ui(ui, |ui| {
+                if ui.selectable_label(value.texture.is_none(), "None").clicked() {
+                    value.texture = None;
+                }
+                for pattern in PatternKind::ALL {
+                    let on = matches!(&value.texture, Some(FabricTexture::Pattern { pattern: p, .. }) if *p == pattern);
+                    if ui.selectable_label(on, pattern.label()).clicked() {
+                        value.texture = Some(FabricTexture::Pattern {
+                            pattern,
+                            repeat_mm: repeat_of(&value.texture),
+                        });
+                    }
+                }
+            });
+        ui.horizontal(|ui| {
+            if ui
+                .button("Choose PNG image…")
+                .on_hover_text("Stretched to a square and repeated over the fabric")
+                .clicked()
+            {
+                match pick_png_tile() {
+                    Ok(Some(texture)) => value.texture = Some(texture),
+                    Ok(None) => {}
+                    Err(error) => {
+                        let _ = rfd::MessageDialog::new()
+                            .set_title("Texture image")
+                            .set_description(error)
+                            .show();
+                    }
+                }
+            }
+            if let Some(texture) = &mut value.texture {
+                let repeat = match texture {
+                    FabricTexture::Pattern { repeat_mm, .. }
+                    | FabricTexture::Image { repeat_mm, .. } => repeat_mm,
+                };
+                ui.add(
+                    egui::DragValue::new(repeat)
+                        .range(0.5..=1000.)
+                        .speed(0.5)
+                        .suffix(" mm repeat"),
+                );
+            }
+        });
+        ui.small("Apply appearance to commit the texture.");
     }
     let apply = ui.button("Apply appearance");
     #[cfg(test)]

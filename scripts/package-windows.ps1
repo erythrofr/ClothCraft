@@ -75,7 +75,9 @@ if (-not $Revision) {
     if ($LASTEXITCODE -ne 0) { throw 'Could not identify source commit' }
     $revisionOrigin = 'packaging checkout'
 }
-$version = '0.1.0-preview'
+$cargoToml = Get-Content -LiteralPath (Join-Path $repo 'Cargo.toml') -TotalCount 5
+$version = ($cargoToml | Where-Object { $_ -match '^version = "([^"]+)"' } | Select-Object -First 1) -replace '^version = "([^"]+)".*$', '$1'
+if (-not $version) { throw 'Could not read the version from Cargo.toml' }
 $rustVersion = (& rustc --version)
 if ($LASTEXITCODE -ne 0) { throw 'rustc is needed to record the build environment' }
 $cargoVersion = (& cargo --version)

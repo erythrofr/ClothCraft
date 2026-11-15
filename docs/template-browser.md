@@ -1,6 +1,6 @@
 # Template browser
 
-Open **File → Templates…**, or the grid button at the top of the tool rail.
+Open **Import → Templates…**, or the grid button at the top of the tool rail.
 The browser contains six original ClothCraft examples: T-shirt, dress, curved
 panels, two rectangles, partial/chained seams and local easing. These are
 engineering fixtures with uncalibrated fabrics, not production-ready or graded

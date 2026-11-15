@@ -13,11 +13,18 @@ struct VertexOut {
     @location(2) barycentric: vec3<f32>,
     @location(3) world: vec3f,
     @location(4) roughness: f32,
+    @location(5) uv: vec2f,
 };
+
+// Fabric texture (group 1): a repeating tint that multiplies the colour. White
+// when a triangle has no texture. Display only; it never reaches the simulation.
+@group(1) @binding(0) var fabric_texture: texture_2d<f32>;
+@group(1) @binding(1) var fabric_sampler: sampler;
 
 @vertex
 fn vs_main(@location(0) clip: vec4<f32>, @location(1) normal: vec3<f32>,
-           @location(2) color: vec4<f32>, @location(3) bary: vec3<f32>, @location(4) roughness: f32) -> VertexOut {
+           @location(2) color: vec4<f32>, @location(3) bary: vec3<f32>, @location(4) roughness: f32,
+           @location(5) uv_pad: vec3<f32>) -> VertexOut {
     var out: VertexOut;
     out.position = view.projection * clip;
     out.world = clip.xyz;
@@ -25,6 +32,7 @@ fn vs_main(@location(0) clip: vec4<f32>, @location(1) normal: vec3<f32>,
     out.normal = normal;
     out.color = color;
     out.barycentric = bary;
+    out.uv = uv_pad.xy;
     return out;
 }
 
@@ -38,6 +46,9 @@ fn encode_srgb(linear: vec3f) -> vec3f {
 
 @fragment
 fn fs_main(in: VertexOut, @builtin(front_facing) front: bool) -> @location(0) vec4<f32> {
+    // Sampled before any early return: texture sampling needs uniform control flow.
+    let sampled = textureSample(fabric_texture, fabric_sampler, in.uv).rgb;
+    let tint = select(vec3f(1.0), sampled, in.roughness >= 0.0);
     let n = in.normal / max(length(in.normal), 0.000001) * select(-1.0, 1.0, front);
     let lighting = 0.35 * view.ambient.x + 0.65 * view.light.w * abs(dot(n, normalize(view.light.xyz)));
     let derivative = max(fwidth(in.barycentric), vec3<f32>(0.00001));
@@ -63,6 +74,7 @@ fn fs_main(in: VertexOut, @builtin(front_facing) front: bool) -> @location(0) ve
     let gl = 2.0 * nl / max(nl + sqrt(a2 + (1.0 - a2) * nl * nl), 0.0001);
     let fresnel = 0.04 + 0.96 * pow(1.0 - vh, 5.0);
     let specular = distribution * gv * gl * fresnel / max(4.0 * nv, 0.0001);
-    let rgb = (in.color.rgb * (0.25 * view.ambient.x + 0.7 * view.light.w * nl * (1.0 - fresnel)) + vec3f(0.2 * view.light.w * specular)) * wire_factor;
+    let base = in.color.rgb * tint;
+    let rgb = (base * (0.25 * view.ambient.x + 0.7 * view.light.w * nl * (1.0 - fresnel)) + vec3f(0.2 * view.light.w * specular)) * wire_factor;
     return vec4f(encode_srgb(rgb), 1.0);
 }

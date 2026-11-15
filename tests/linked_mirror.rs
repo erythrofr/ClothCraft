@@ -190,6 +190,35 @@ fn topology_edits_are_rejected_until_unlinked_and_delete_cleans_relation() {
 }
 
 #[test]
+fn split_boundary_on_either_linked_piece_mirrors_to_the_partner() {
+    let t = fixture();
+    let base = t.panels[1].polygon.as_ref().unwrap().points.len();
+    let split = |t: &GarmentTemplate, i: usize, at_m: f64| {
+        authoring::apply(
+            t,
+            Command::SplitBoundary {
+                panel: t.panels[i].id.clone(),
+                edge: "edge_1".into(),
+                at_m,
+            },
+        )
+        .unwrap()
+        .template
+    };
+    let one = split(&t, 0, 0.1);
+    verify(&one);
+    for panel in &one.panels {
+        assert_eq!(panel.polygon.as_ref().unwrap().points.len(), base + 1);
+    }
+    // The first split leaves a 0.1 m "edge_1" on both pieces, so cut it shorter.
+    let two = split(&one, 1, 0.03);
+    verify(&two);
+    for panel in &two.panels {
+        assert_eq!(panel.polygon.as_ref().unwrap().points.len(), base + 2);
+    }
+}
+
+#[test]
 fn sewing_ranges_keep_their_direction_during_linked_edits() {
     use marvelous_cloth::garment::seam::{BoundaryRef, Side};
     let t = fixture();

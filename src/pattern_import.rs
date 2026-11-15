@@ -200,12 +200,14 @@ pub fn prepare(
             polygon: Some(polygon),
             fabric: fabric.into(),
             grain_degrees: 90.,
+            // Absolute: the 3D place follows the board position, as for drawn pieces.
             placement: Placement {
-                translation: origin + DVec3::new(x, 0., 0.),
+                translation: crate::garment::template::board_to_world(DVec2::new(board_x + x, 0.)),
                 ..Default::default()
             },
             layout_2d: Some(DVec2::new(board_x + x, 0.)),
             layout_rotation_degrees: 0.,
+            hidden: false,
             pins: vec![],
             pin_points: vec![],
         });

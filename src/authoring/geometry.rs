@@ -13,17 +13,10 @@ pub(super) fn add_polygon(
         return Err("Invalid 2D position".into());
     }
     let id = unused_id("panel", t.panels.iter().map(|p| p.id.clone()));
-    let placement = if let Some(p) = t.panels.first().filter(|_| !replace) {
-        let delta = origin - layout(t, 0);
-        Placement {
-            translation: p.placement.translation + DVec3::new(delta.x, -delta.y, 0.12),
-            ..Default::default()
-        }
-    } else {
-        Placement {
-            translation: DVec3::new(-0.25, 1.5, 0.45),
-            ..Default::default()
-        }
+    // Absolute: the piece's 3D place is fixed by where it was drawn on the board.
+    let placement = Placement {
+        translation: crate::garment::template::board_to_world(origin),
+        ..Default::default()
     };
     if replace {
         t.panels.clear();
@@ -47,6 +40,7 @@ pub(super) fn add_polygon(
         pin_points: vec![],
         layout_2d: Some(origin),
         layout_rotation_degrees: 0.,
+        hidden: false,
     };
     normalize(&mut p);
     t.panels.push(p);

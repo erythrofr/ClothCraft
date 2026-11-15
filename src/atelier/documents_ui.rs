@@ -22,6 +22,8 @@ pub(super) struct DocumentUi {
     last_recovery: Instant,
     recovery: PathBuf,
     checked_recovery: bool,
+    /// Newest snapshot from an earlier session, offered in a non-blocking window.
+    offered_recovery: Option<PathBuf>,
     closing: bool,
     smoke_fixture: Option<PathBuf>,
 }
@@ -49,6 +51,7 @@ impl DocumentUi {
             last_recovery: Instant::now(),
             recovery: output.join(format!("recovery-{}.json", std::process::id())),
             checked_recovery: false,
+            offered_recovery: None,
             closing: false,
             smoke_fixture: None,
         }
@@ -432,6 +435,7 @@ impl Atelier {
         match self.snapshot_document().save(&path) {
             Ok(()) => {
                 self.document.path = Some(path.clone());
+                self.remember_recent(&path);
                 self.document.dirty = false;
                 self.remove_recovery();
                 self.status = format!(
@@ -521,6 +525,9 @@ impl Atelier {
                 self.simulation_error = None;
                 self.grab = None;
                 self.drag_plane = None;
+                if !recovered {
+                    self.remember_recent(&path);
+                }
                 self.document.path = (!recovered).then_some(path);
                 self.document.dirty = recovered || relinked;
                 self.status = if recovered {
@@ -588,15 +595,69 @@ impl Atelier {
         }
         self.document.last_recovery = Instant::now();
     }
-    pub(super) fn document_menu(&mut self, ui: &mut egui::Ui) {
+    /// File > Open recent: newest first. A file that has gone missing is removed from the list.
+    fn open_recent_menu(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
+        ui.menu_button("Open recent", |ui| {
+            if self.prefs.recent_files.is_empty() {
+                let _ = ui.add_enabled(false, egui::Button::new("No recent files"));
+                return;
+            }
+            for path in self.prefs.recent_files.clone() {
+                let name = path.file_name().map_or_else(
+                    || path.display().to_string(),
+                    |n| n.to_string_lossy().into_owned(),
+                );
+                if ui
+                    .button(name)
+                    .on_hover_text(path.display().to_string())
+                    .clicked()
+                {
+                    ui.close();
+                    if !self.can_replace_document(ctx) {
+                        return;
+                    }
+                    if path.is_file() {
+                        self.open_document_path(path, false);
+                    } else {
+                        self.prefs.recent_files.retain(|p| p != &path);
+                        self.status = format!(
+                            "Recent file not found; removed from the list: {}",
+                            path.display()
+                        );
+                    }
+                    return;
+                }
+            }
+            ui.separator();
+            if ui.button("Clear list").clicked() {
+                self.prefs.recent_files.clear();
+                ui.close();
+            }
+        });
+    }
+    /// Moves `path` to the top of File > Open recent.
+    fn remember_recent(&mut self, path: &std::path::Path) {
+        self.prefs.recent_files.retain(|p| p != path);
+        self.prefs.recent_files.insert(0, path.to_path_buf());
+        self.prefs
+            .recent_files
+            .truncate(super::settings::RECENT_FILES_MAX);
+    }
+    /// File: project lifecycle and export. Sources that bring new content
+    /// into the scene (templates, examples, imports) live in `import_menu`.
+    pub(super) fn file_menu(&mut self, ui: &mut egui::Ui) {
         let ctx = ui.ctx().clone();
+        for (label, action) in [("New project…", 0), ("Open…  Ctrl+O", 1)] {
+            if ui.button(label).clicked() {
+                ui.close();
+                match action {
+                    0 => self.new_document(&ctx),
+                    _ => self.open_document(&ctx, false),
+                }
+            }
+        }
+        self.open_recent_menu(ui, &ctx);
         for (label, action) in [
-            ("Import SVG patterns…", 8),
-            ("Import DXF patterns…", 7),
-            ("Import avatar…", 6),
-            ("Templates…", 5),
-            ("New project…", 0),
-            ("Open…  Ctrl+O", 1),
             ("Save  Ctrl+S", 2),
             ("Save As…  Ctrl+Shift+S", 3),
             ("Recover snapshot…", 4),
@@ -605,23 +666,79 @@ impl Atelier {
                 ui.close();
                 match action {
                     0 => self.new_document(&ctx),
-                    1 => self.open_document(&ctx, false),
                     2 => {
                         self.save_document(&ctx, false);
                     }
                     3 => {
                         self.save_document(&ctx, true);
                     }
-                    4 => self.open_document(&ctx, true),
-                    6 => self.open_avatar_import(&ctx),
-                    7 => self.open_pattern_import(),
-                    8 => self.open_svg_import(),
-                    _ => self.open_template_browser(&ctx),
+                    _ => self.open_document(&ctx, true),
                 }
             }
         }
         ui.separator();
+        let default_folder = self.output.display().to_string();
+        if ui
+            .button("Export to default folder")
+            .on_hover_text(format!("Saves the JSON project, the patterns, the OBJ garment and the previews into {default_folder}."))
+            .clicked()
+        {
+            self.invoke_command(super::commands::CommandId::ExportSession, &ctx);
+            ui.close();
+        }
+        if ui
+            .button("Export to folder…")
+            .on_hover_text(
+                "Choose any folder for this export. The default export folder is not changed.",
+            )
+            .clicked()
+        {
+            ui.close();
+            if let Some(folder) = rfd::FileDialog::new()
+                .set_title("Choose an export folder")
+                .pick_folder()
+            {
+                self.export_to(&folder);
+            }
+        }
+        ui.separator();
         self.export_information(ui);
+    }
+
+    /// Import: templates and examples first, then files and online sources.
+    /// Online links do not add pieces to the scene.
+    pub(super) fn import_menu(&mut self, ui: &mut egui::Ui) {
+        let ctx = ui.ctx().clone();
+        if ui.button("Templates…").clicked() {
+            ui.close();
+            self.open_template_browser(&ctx);
+        }
+        for (label, id) in [
+            ("Example: T-shirt", super::commands::CommandId::LoadTshirt),
+            ("Example: Dress", super::commands::CommandId::LoadDress),
+        ] {
+            if ui.button(label).clicked() {
+                self.invoke_command(id, &ctx);
+                ui.close();
+            }
+        }
+        ui.separator();
+        for (label, action) in [
+            ("Import SVG patterns…", 8),
+            ("Import DXF patterns…", 7),
+            ("Import avatar…", 6),
+        ] {
+            if ui.button(label).clicked() {
+                ui.close();
+                match action {
+                    6 => self.open_avatar_import(&ctx),
+                    7 => self.open_pattern_import(),
+                    _ => self.open_svg_import(),
+                }
+            }
+        }
+        ui.separator();
+        self.online_patterns(ui);
     }
     // Only the explicitly selected acceptance scenario reaches this adapter.
     // It substitutes a fixture path for dialogs, not the Save/Open transactions.
@@ -693,18 +810,30 @@ impl Atelier {
                         .is_some_and(|s| s.starts_with("recovery-") && s.ends_with(".json"))
                 })
                 .max_by_key(|p| p.metadata().and_then(|m| m.modified()).ok());
-            if let Some(path) = previous
-                && MessageDialog::new()
-                    .set_title("Recovery available")
-                    .set_description(format!(
-                        "Open the last recovery snapshot?\n{}",
-                        path.display()
-                    ))
-                    .set_buttons(MessageButtons::YesNo)
-                    .show()
-                    == MessageDialogResult::Yes
-            {
+            // Offered in a window once the app is up, never a blocking dialog before it.
+            self.document.offered_recovery = previous;
+        }
+        if let Some(path) = self.document.offered_recovery.clone() {
+            let mut restore = false;
+            let mut later = false;
+            egui::Window::new("Unsaved work found")
+                .anchor(egui::Align2::CENTER_TOP, [0., 48.])
+                .collapsible(false)
+                .resizable(false)
+                .show(ctx, |ui| {
+                    ui.label("An earlier session left a recovery snapshot.");
+                    ui.small(path.display().to_string());
+                    ui.horizontal(|ui| {
+                        restore = ui.button("Restore").clicked();
+                        later = ui.button("Not now").clicked();
+                    });
+                });
+            if restore {
+                self.document.offered_recovery = None;
                 self.open_document_path(path, true);
+            } else if later {
+                // Keeps the snapshot file; only the prompt is dismissed.
+                self.document.offered_recovery = None;
             }
         }
         let shortcut = ctx.input_mut(|i| {

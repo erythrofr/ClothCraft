@@ -99,7 +99,18 @@ fn append_preserves_existing_panels_seams_and_drape_and_adds_expected_area() {
     assert_eq!(&next.x[..state.x.len()], state.x);
     assert_eq!(&next.v[..state.v.len()], state.v);
     assert_eq!(next.time, 3.);
-    assert!(next.x[state.x.len()..].iter().all(|p| p.x >= 2.));
+    // The imported panel lands on the board to the right of every existing panel,
+    // and its 3D placement is the absolute board-to-world image of that position.
+    let new_index = t.panels.len();
+    let new_board = marvelous_cloth::authoring::layout(&e.template, new_index);
+    let old_right = (0..t.panels.len())
+        .map(|i| marvelous_cloth::authoring::layout(&t, i).x + t.panels[i].pattern.width)
+        .fold(f64::NEG_INFINITY, f64::max);
+    assert!(new_board.x >= old_right);
+    assert_eq!(
+        e.template.panels[new_index].placement.translation,
+        marvelous_cloth::garment::template::board_to_world(new_board)
+    );
 }
 
 #[test]
