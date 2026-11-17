@@ -637,20 +637,42 @@ fn enter_freehand_draft(authoring: &mut super::authoring_ui::AuthoringUi) {
 fn board_pointer_angle(pos: egui::Pos2, rect: egui::Rect) -> f64 {
     ((pos.y - rect.center().y) as f64).atan2((pos.x - rect.center().x) as f64)
 }
+/// Material-space extent of a piece's drawn outline. The pattern box can be larger:
+/// it also holds the Bézier handles, which may stick out past the curve.
+pub(super) fn outline_bounds(panel: &Panel) -> (DVec2, DVec2) {
+    let pattern_box = (
+        DVec2::ZERO,
+        DVec2::new(panel.pattern.width, panel.pattern.height),
+    );
+    let Some(polygon) = &panel.polygon else {
+        return pattern_box;
+    };
+    let mut bounds: Option<(DVec2, DVec2)> = None;
+    for k in 0..polygon.points.len() {
+        let Ok(samples) = polygon.edge_points(k) else {
+            return pattern_box;
+        };
+        for p in samples {
+            bounds = Some(bounds.map_or((p, p), |(lo, hi)| (lo.min(p), hi.max(p))));
+        }
+    }
+    bounds.unwrap_or(pattern_box)
+}
 /// Millimetre dimension annotation for a selected piece. Presentation only: the
-/// labels follow the pattern size and never feed back into the rest contour.
+/// labels follow the drawn outline and never feed back into the rest contour.
 fn paint_panel_dimensions(
     painter: &egui::Painter,
     point: &impl Fn(DVec2) -> egui::Pos2,
     panel: &Panel,
 ) {
-    let (w, h) = (panel.pattern.width, panel.pattern.height);
+    let (lo, hi) = outline_bounds(panel);
+    let (w, h) = (hi.x - lo.x, hi.y - lo.y);
     let color = Color32::from_rgb(0x15, 0x65, 0xC0);
     let font = egui::FontId::proportional(12.);
     let tick = 4.;
     // Width, below the bottom edge.
-    let a = point(DVec2::new(0., h));
-    let b = point(DVec2::new(w, h));
+    let a = point(DVec2::new(lo.x, hi.y));
+    let b = point(hi);
     let y = a.y.max(b.y) + 14.;
     painter.line_segment(
         [egui::pos2(a.x, y), egui::pos2(b.x, y)],
@@ -670,8 +692,8 @@ fn paint_panel_dimensions(
         color,
     );
     // Height, beside the right edge.
-    let a = point(DVec2::new(w, 0.));
-    let b = point(DVec2::new(w, h));
+    let a = point(DVec2::new(hi.x, lo.y));
+    let b = point(hi);
     let x = a.x.max(b.x) + 14.;
     painter.line_segment(
         [egui::pos2(x, a.y), egui::pos2(x, b.y)],
@@ -3255,6 +3277,79 @@ impl Atelier {
 /// material coordinate.
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn piece_size_labels_measure_the_drawn_outline_not_the_handles() {
+        use glam::DVec2;
+        use marvelous_cloth::{
+            authoring::{self, Command},
+            garment::{
+                meshing::MeshingSettings,
+                presets::{self, GarmentKind},
+                shapes::Primitive,
+            },
+        };
+        let template = authoring::apply(
+            &presets::basic(GarmentKind::Tshirt, 0),
+            Command::Primitive {
+                kind: Primitive::Rectangle,
+                size: DVec2::new(0.4, 0.3),
+                sweep_degrees: 180.,
+                origin: DVec2::ZERO,
+                meshing: MeshingSettings {
+                    target_edge_m: 0.05,
+                    ..Default::default()
+                },
+                fabric: "woven-reference".into(),
+                replace: true,
+            },
+        )
+        .unwrap()
+        .template;
+        let panel = &template.panels[0];
+        let (lo, hi) = super::outline_bounds(panel);
+        assert!(
+            (hi - lo - DVec2::new(0.4, 0.3)).length() < 1e-9,
+            "straight outline"
+        );
+        // Bulge one straight edge outwards: both handles sit 0.2 m out, the cubic only
+        // reaches 3/4 of that, so the drawn piece is 0.45 m tall, not 0.5 m.
+        let mut polygon = panel.polygon.clone().unwrap();
+        let k = (0..polygon.points.len())
+            .find(|&k| {
+                let (a, b) = (
+                    polygon.points[k],
+                    polygon.points[(k + 1) % polygon.points.len()],
+                );
+                a.y.abs() < 1e-12 && b.y.abs() < 1e-12
+            })
+            .expect("an edge along v = 0");
+        let (a, b) = (
+            polygon.points[k],
+            polygon.points[(k + 1) % polygon.points.len()],
+        );
+        let out = DVec2::new(0., -0.2);
+        polygon.curves.insert(
+            polygon.edges[k].clone(),
+            [a + (b - a) / 3. + out, a + (b - a) * (2. / 3.) + out],
+        );
+        let curved = authoring::apply(
+            &template,
+            Command::Shape {
+                panel: panel.id.clone(),
+                polygon,
+            },
+        )
+        .unwrap()
+        .template;
+        let panel = &curved.panels[0];
+        assert!(
+            (panel.pattern.height - 0.5).abs() < 1e-9,
+            "the pattern box holds the handles"
+        );
+        let (lo, hi) = super::outline_bounds(panel);
+        assert!((hi.x - lo.x - 0.4).abs() < 1e-9);
+        assert!((hi.y - lo.y - 0.45).abs() < 1e-3, "{}", hi.y - lo.y);
+    }
     #[test]
     fn freehand_gesture_uses_all_samples_and_release_outside_canvas() {
         let mut board = Board::default();
