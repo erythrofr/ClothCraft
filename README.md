@@ -1,5 +1,9 @@
 # ClothCraft
 
+> [!IMPORTANT]
+> **ClothCraft development has moved to [NicTanghe/ClothCraft](https://github.com/NicTanghe/ClothCraft).**
+> Please use that repository for updates, bug reports, and contributions.
+
 An open-source garment editor and cloth simulation prototype, written in Rust.
 
 Draw patterns, sew them together, place them around an avatar and simulate the result. Most work so far has gone into building a physics foundation that can handle difficult contact. The editor, interchange formats and material calibration need substantial work.
