@@ -88,6 +88,17 @@ impl Atelier {
         });
     }
     pub(super) fn drafting_properties(&mut self, ui: &mut egui::Ui, panel: &Panel) {
+        let mut simulated = !panel.hidden;
+        if ui
+            .checkbox(&mut simulated, "Simulate in 3D")
+            .on_hover_text("Off: this piece and its seams are left out of the simulation. It stays on the 2D board.")
+            .changed()
+        {
+            self.edit(Command::SetHidden {
+                panel: panel.id.clone(),
+                hidden: !simulated,
+            });
+        }
         self.linked_mirror_properties(ui, &panel.id);
         ui.collapsing("Mirrors and booleans", |ui| {
             ui.small("X: left / right · Y: up / down in local pattern coordinates.");

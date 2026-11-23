@@ -64,7 +64,7 @@ Overlay uses [i_overlay 9.0.1](https://docs.rs/i_overlay/9.0.1/i_overlay/), even
 
 ## Web pattern library investigation
 
-**Free patterns · Web** opens official FreeSewing designs; it does not import or replace the current scene:
+**Import → Free patterns · Web** opens official FreeSewing designs; it does not import or replace the current scene:
 
 | Design | Use | Official source checked 2026-10-15 |
 |---|---|---|

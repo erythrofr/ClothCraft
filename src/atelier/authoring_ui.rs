@@ -874,6 +874,7 @@ impl Atelier {
         self.editor_transition().install(edit);
     }
     pub(super) fn edit(&mut self, command: Command) -> bool {
+        let described = format!("{command:?}");
         match authoring::apply(&self.project.template, command) {
             Ok(edit) => {
                 if edit.reset_simulation
@@ -887,6 +888,7 @@ impl Atelier {
                         Some(&self.scene.collider.surface),
                     )
                 {
+                    eprintln!("[ClothCraft] edit rejected by pin check: {error}");
                     self.authoring.error = Some(error.clone());
                     self.status = error;
                     return false;
@@ -896,6 +898,7 @@ impl Atelier {
                 true
             }
             Err(e) => {
+                eprintln!("[ClothCraft] edit rejected: {e}\n  command: {described}");
                 self.authoring.error = Some(e.clone());
                 self.status = e;
                 false
@@ -931,7 +934,10 @@ impl Atelier {
                 Ok(())
             }) {
             Ok(edit) => self.install_edit(edit),
-            Err(e) => self.status = e,
+            Err(e) => {
+                eprintln!("[ClothCraft] undo/redo failed: {e}");
+                self.status = e;
+            }
         }
     }
     pub(super) fn cancel_preview(&mut self) {
@@ -1001,35 +1007,35 @@ impl Atelier {
                     "Edit",
                     "Edit",
                     false,
-                    "Select, points and Bézier handles · 2D rotation with the round handle",
+                    "V · Select, points and Bézier handles · 2D rotation with the round handle",
                 ),
                 (
                     Tool::Draw,
                     "Pen",
                     "Pen",
                     false,
-                    "Click for a corner, click and drag for a curve",
+                    "P · Click for a corner, click and drag for a curve",
                 ),
                 (
                     Tool::Rectangle,
                     "Rectangle",
                     "Rectangle",
                     false,
-                    "Drag between two corners to create fabric",
+                    "U · Drag between two corners to create fabric",
                 ),
                 (
                     Tool::Sew,
                     "Sew",
                     "Sew",
                     false,
-                    "Choose two boundaries in the 2D or 3D views",
+                    "S · Choose two boundaries in the 2D or 3D views",
                 ),
                 (
                     Tool::InternalLine,
                     "Internal line",
                     "Internal line",
                     false,
-                    "Click a boundary to choose its panel, then draw inside; Enter to finish",
+                    "I · Click a boundary to choose its panel, then draw inside; Enter to finish",
                 ),
                 (
                     Tool::Measure,
@@ -1057,7 +1063,7 @@ impl Atelier {
                     "Grab",
                     "Grab",
                     false,
-                    "Drag the simulated cloth with the mouse",
+                    "H · Drag the simulated cloth with the mouse",
                 ),
                 (
                     Tool::Inspect,
@@ -1206,6 +1212,19 @@ impl Atelier {
         }
         if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::M)) {
             self.set_authoring_tool(Tool::Measure, false);
+        }
+        // Plain letter keys for the left tool bar (shown in each tool's tooltip).
+        for (key, tool) in [
+            (egui::Key::V, Tool::Edit),
+            (egui::Key::P, Tool::Draw),
+            (egui::Key::U, Tool::Rectangle),
+            (egui::Key::S, Tool::Sew),
+            (egui::Key::I, Tool::InternalLine),
+            (egui::Key::H, Tool::Grab),
+        ] {
+            if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, key)) {
+                self.set_authoring_tool(tool, false);
+            }
         }
         if ctx.input(|i| !i.modifiers.command && !i.modifiers.alt && i.key_pressed(egui::Key::R)) {
             self.set_authoring_tool(Tool::Place, true);

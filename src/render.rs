@@ -24,7 +24,151 @@ pub struct DrawModel<'a> {
     pub collider: Option<&'a dyn Collider>,
     pub seams: &'a [CompiledSeam],
 }
-const VERTEX_FLOATS: usize = 15;
+/// clip(4) normal(3) colour+wire(4) barycentric(3) roughness(1) uv+pad(3).
+const VERTEX_FLOATS: usize = 18;
+
+/// Pixels of a fabric texture as RGBA8, from `(width, height, pixels)`. `None` when
+/// an embedded image cannot be decoded; the caller then shows plain colour.
+pub fn texture_pixels(
+    texture: &crate::garment::appearance::FabricTexture,
+) -> Option<(u32, u32, Vec<u8>)> {
+    use crate::garment::appearance::{FabricTexture, hex_bytes};
+    match texture {
+        FabricTexture::Pattern { pattern, .. } => Some(pattern_pixels(*pattern)),
+        FabricTexture::Image { png_hex, .. } => {
+            let bytes = hex_bytes(png_hex)?;
+            let image = image::load_from_memory_with_format(&bytes, image::ImageFormat::Png)
+                .ok()?
+                .to_rgba8();
+            Some((image.width(), image.height(), image.into_raw()))
+        }
+    }
+}
+
+/// Built-in tiles: tints that multiply the fabric colour. Sized so the repeat is
+/// seamless: the weave is a 3x3 tile, the others 8x8.
+fn pattern_pixels(kind: crate::garment::appearance::PatternKind) -> (u32, u32, Vec<u8>) {
+    use crate::garment::appearance::PatternKind;
+    let size: u32 = if kind == PatternKind::Weave { 3 } else { 8 };
+    let mut rgba = Vec::with_capacity((size * size * 4) as usize);
+    for y in 0..size {
+        for x in 0..size {
+            let tint = match kind {
+                PatternKind::Weave => {
+                    if (x + y) % 2 == 0 {
+                        1.0
+                    } else {
+                        0.8
+                    }
+                }
+                PatternKind::Checker => {
+                    if (x / 4 + y / 4) % 2 == 0 {
+                        1.0
+                    } else {
+                        0.7
+                    }
+                }
+                PatternKind::Stripes => {
+                    if (x / 2) % 2 == 0 {
+                        1.0
+                    } else {
+                        0.7
+                    }
+                }
+                PatternKind::Dots => {
+                    let dx = x as f64 - 3.5;
+                    let dy = y as f64 - 3.5;
+                    if (dx * dx + dy * dy).sqrt() < 2.0 {
+                        0.55
+                    } else {
+                        1.0
+                    }
+                }
+            };
+            let c = (tint * 255.0_f64).round() as u8;
+            rgba.extend_from_slice(&[c, c, c, 255]);
+        }
+    }
+    (size, size, rgba)
+}
+
+/// Stable key for the pixels of a texture, so identical tiles share one GPU texture.
+fn pixel_key(texture: &crate::garment::appearance::FabricTexture) -> u64 {
+    use crate::garment::appearance::FabricTexture;
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    match texture {
+        FabricTexture::Pattern { pattern, .. } => {
+            0u8.hash(&mut hasher);
+            (*pattern as u8).hash(&mut hasher);
+        }
+        FabricTexture::Image { png_hex, .. } => {
+            1u8.hash(&mut hasher);
+            png_hex.hash(&mut hasher);
+        }
+    }
+    hasher.finish()
+}
+
+/// Upload RGBA8 pixels as a repeating, sRGB-decoded fabric texture.
+fn upload_fabric(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    layout: &wgpu::BindGroupLayout,
+    sampler: &wgpu::Sampler,
+    width: u32,
+    height: u32,
+    rgba: &[u8],
+) -> wgpu::BindGroup {
+    let texture = device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("fabric-texture"),
+        size: wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+        view_formats: &[],
+    });
+    queue.write_texture(
+        wgpu::TexelCopyTextureInfo {
+            texture: &texture,
+            mip_level: 0,
+            origin: wgpu::Origin3d::ZERO,
+            aspect: wgpu::TextureAspect::All,
+        },
+        rgba,
+        wgpu::TexelCopyBufferLayout {
+            offset: 0,
+            bytes_per_row: Some(4 * width),
+            rows_per_image: Some(height),
+        },
+        wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        },
+    );
+    let view = texture.create_view(&Default::default());
+    device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("fabric-texture"),
+        layout,
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::TextureView(&view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::Sampler(sampler),
+            },
+        ],
+    })
+}
 
 fn cloth_surface(
     appearance: Option<&crate::garment::appearance::FabricAppearance>,
@@ -441,6 +585,12 @@ pub struct Viewport {
     avatar_buffer: Option<wgpu::Buffer>,
     avatar_key: (usize, usize),
     avatar_count: u32,
+    /// Group 1 of the cloth pipeline: one repeating texture and its sampler.
+    fabric_layout: wgpu::BindGroupLayout,
+    fabric_sampler: wgpu::Sampler,
+    /// Plain white, used by every triangle without a texture.
+    fabric_white: wgpu::BindGroup,
+    fabric_textures: std::collections::HashMap<u64, wgpu::BindGroup>,
 }
 impl Viewport {
     fn target(device: &wgpu::Device, size: [u32; 2], depth: bool, samples: u32) -> wgpu::Texture {
@@ -474,7 +624,7 @@ impl Viewport {
             label: Some("cloth-lit-wireframe"),
             source: wgpu::ShaderSource::Wgsl(include_str!("cloth.wgsl").into()),
         });
-        let attrs = wgpu::vertex_attr_array![0=>Float32x4,1=>Float32x3,2=>Float32x4,3=>Float32x3,4=>Float32];
+        let attrs = wgpu::vertex_attr_array![0=>Float32x4,1=>Float32x3,2=>Float32x4,3=>Float32x3,4=>Float32,5=>Float32x3];
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("cloth-viewport"),
             layout: None,
@@ -537,6 +687,24 @@ impl Viewport {
         let appearance = appearance::Appearance::default();
         let samples = appearance.samples(supports_msaa4);
         let pipeline = Self::mesh_pipeline(device, samples);
+        let fabric_layout = pipeline.get_bind_group_layout(1);
+        let fabric_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("fabric-sampler"),
+            address_mode_u: wgpu::AddressMode::Repeat,
+            address_mode_v: wgpu::AddressMode::Repeat,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            ..Default::default()
+        });
+        let fabric_white = upload_fabric(
+            device,
+            &render_state.queue,
+            &fabric_layout,
+            &fabric_sampler,
+            1,
+            1,
+            &[255, 255, 255, 255],
+        );
         let environment = environment::Environment::new(device, samples);
         let msaa_color = (samples > 1)
             .then(|| Self::target(device, [1, 1], false, samples).create_view(&Default::default()));
@@ -590,7 +758,38 @@ impl Viewport {
             avatar_buffer: None,
             avatar_key: (0, 0),
             avatar_count: 0,
+            fabric_layout,
+            fabric_sampler,
+            fabric_white,
+            fabric_textures: Default::default(),
         }
+    }
+    /// GPU bind group for a fabric texture, uploaded once per distinct tile.
+    fn fabric_bind(
+        &mut self,
+        texture: &crate::garment::appearance::FabricTexture,
+    ) -> wgpu::BindGroup {
+        let key = pixel_key(texture);
+        if let Some(bind) = self.fabric_textures.get(&key) {
+            return bind.clone();
+        }
+        let (width, height, rgba) = texture_pixels(texture).unwrap_or((1, 1, vec![255; 4]));
+        if self.fabric_textures.len() >= 32 {
+            self.fabric_textures.clear();
+        }
+        let device = self.render_state.device.clone();
+        let queue = self.render_state.queue.clone();
+        let bind = upload_fabric(
+            &device,
+            &queue,
+            &self.fabric_layout,
+            &self.fabric_sampler,
+            width,
+            height,
+            &rgba,
+        );
+        self.fabric_textures.insert(key, bind.clone());
+        bind
     }
     #[allow(clippy::too_many_arguments)]
     pub fn draw(
@@ -643,7 +842,8 @@ impl Viewport {
             collider,
             seams,
         } = model;
-        let device = &self.render_state.device;
+        let device = self.render_state.device.clone();
+        let device = &device;
         let max = device.limits().max_texture_dimension_2d.min(4096);
         let size = size.map(|s| s.clamp(1, max));
         let samples = self.appearance.samples(self.supports_msaa4);
@@ -719,16 +919,39 @@ impl Viewport {
         for n in &mut smooth {
             *n = n.normalize_or_zero();
         }
+        // One slot per material that has a texture; `material_slot` maps material to slot.
+        // Diagnostic overlays (roughness < 0) are drawn plain, see the call site.
+        let mut slots: Vec<(wgpu::BindGroup, f32)> = vec![(self.fabric_white.clone(), 1.0)];
+        let mut material_slot = vec![0usize; materials.len()];
+        for (m, slot) in material_slot.iter_mut().enumerate() {
+            let texture = optics
+                .and_then(|values| values.get(m))
+                .and_then(Option::as_ref)
+                .and_then(|a| a.texture.as_ref());
+            if let Some(texture) = texture {
+                *slot = slots.len();
+                slots.push((self.fabric_bind(texture), texture.repeat_m() as f32));
+            }
+        }
+        // Fabric textures: slot 0 is plain white. `texture` is the texture coordinate
+        // per corner and the slot to sample. Consecutive triangles that share a slot
+        // are drawn together, so `runs` lists (slot, first vertex) in draw order.
+        let mut runs: Vec<(usize, u32)> = Vec::new();
         let mut triangle = |points: [Vec3; 3],
                             color: [f32; 3],
                             wire: bool,
                             normals: Option<[Vec3; 3]>,
-                            roughness: f32| {
+                            roughness: f32,
+                            texture: Option<([glam::Vec2; 3], usize)>| {
             let normal = (points[1] - points[0])
                 .cross(points[2] - points[0])
                 .normalize_or_zero();
             if normal.length_squared() < 0.5 {
                 return;
+            }
+            let slot = texture.map_or(0, |(_, s)| s);
+            if runs.last().is_none_or(|(s, _)| *s != slot) {
+                runs.push((slot, (data.len() / VERTEX_FLOATS) as u32));
             }
             for (i, p) in points.into_iter().enumerate() {
                 data.extend_from_slice(&p.extend(1.0).to_array());
@@ -741,6 +964,8 @@ impl Viewport {
                     if i == 2 { 1.0 } else { 0.0 },
                 ]);
                 data.push(roughness);
+                let uv = texture.map_or(glam::Vec2::ZERO, |(uv, _)| uv[i]);
+                data.extend_from_slice(&[uv.x, uv.y, 0.0]);
             }
         };
         for (face, t) in mesh.triangles.iter().enumerate() {
@@ -768,12 +993,20 @@ impl Viewport {
                 contact,
                 heat.then_some(strain),
             );
+            // The texture is display only, and only on plain custom-coloured cloth.
+            let slot = if roughness >= 0.0 {
+                material_slot[t.material]
+            } else {
+                0
+            };
+            let repeat = slots[slot].1;
             triangle(
                 t.vertices.map(|i| state.x[i].as_vec3()),
                 color,
                 wire,
                 Some(t.vertices.map(|i| smooth[i])),
                 roughness,
+                Some((t.vertices.map(|i| mesh.uv[i].as_vec2() / repeat), slot)),
             );
         }
         for seam in seams {
@@ -793,8 +1026,22 @@ impl Viewport {
                 for pair in points.windows(2) {
                     let [a, b] = [pair[0], pair[1]];
                     let d = (b - a).cross(Vec3::Z).normalize_or_zero() * 0.0013;
-                    triangle([a - d, a + d, b + d], [1.0, 0.72, 0.22], false, None, -1.);
-                    triangle([a - d, b + d, b - d], [1.0, 0.72, 0.22], false, None, -1.);
+                    triangle(
+                        [a - d, a + d, b + d],
+                        [1.0, 0.72, 0.22],
+                        false,
+                        None,
+                        -1.,
+                        None,
+                    );
+                    triangle(
+                        [a - d, b + d, b - d],
+                        [1.0, 0.72, 0.22],
+                        false,
+                        None,
+                        -1.,
+                        None,
+                    );
                 }
             }
         }
@@ -814,8 +1061,8 @@ impl Viewport {
                         point(i, j + 1),
                         point(i + 1, j + 1),
                     ];
-                    triangle([a, c, b], [0.38, 0.4, 0.46], false, None, -1.);
-                    triangle([b, c, d], [0.38, 0.4, 0.46], false, None, -1.);
+                    triangle([a, c, b], [0.38, 0.4, 0.46], false, None, -1., None);
+                    triangle([b, c, d], [0.38, 0.4, 0.46], false, None, -1., None);
                 }
             }
         }
@@ -844,7 +1091,9 @@ impl Viewport {
                     for (i, v) in p.into_iter().enumerate() {
                         body.extend_from_slice(&v.extend(1.).to_array());
                         body.extend_from_slice(&normals[t[i]].to_array());
-                        body.extend_from_slice(&[0.46, 0.47, 0.49, 0., 0., 0., 0., -1.]);
+                        body.extend_from_slice(&[
+                            0.46, 0.47, 0.49, 0., 0., 0., 0., -1., 0., 0., 0.,
+                        ]);
                     }
                 }
                 self.avatar_count = (body.len() / VERTEX_FLOATS) as u32;
@@ -914,8 +1163,16 @@ impl Viewport {
             pass.set_pipeline(&self.pipeline);
             pass.set_bind_group(0, &self.view_bind, &[]);
             pass.set_vertex_buffer(0, self.vertices.slice(..));
-            pass.draw(0..(data.len() / VERTEX_FLOATS) as u32, 0..1);
+            let total = (data.len() / VERTEX_FLOATS) as u32;
+            for (k, (slot, start)) in runs.iter().enumerate() {
+                let end = runs.get(k + 1).map_or(total, |next| next.1);
+                if end > *start {
+                    pass.set_bind_group(1, &slots[*slot].0, &[]);
+                    pass.draw(*start..end, 0..1);
+                }
+            }
             if let Some(body) = &self.avatar_buffer {
+                pass.set_bind_group(1, &slots[0].0, &[]);
                 pass.set_vertex_buffer(0, body.slice(..));
                 pass.draw(0..self.avatar_count, 0..1);
             }
@@ -1375,6 +1632,7 @@ mod tests {
         let optics = crate::garment::appearance::FabricAppearance {
             color_srgb: [255, 0, 0],
             roughness: 0.3,
+            texture: None,
         };
         assert_eq!(
             cloth_surface(None, false, false, None),

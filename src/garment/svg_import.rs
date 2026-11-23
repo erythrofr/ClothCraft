@@ -873,12 +873,14 @@ pub fn prepare(
             polygon: Some(polygon),
             fabric: fabric.into(),
             grain_degrees: 90.,
+            // Absolute: the 3D place follows the board position, as for drawn pieces.
             placement: Placement {
-                translation: origin + DVec3::new(offset, 0., 0.),
+                translation: super::template::board_to_world(DVec2::new(board_x + offset, 0.)),
                 ..Default::default()
             },
             layout_2d: Some(DVec2::new(board_x + offset, 0.)),
             layout_rotation_degrees: 0.,
+            hidden: false,
             pins: vec![],
             pin_points: vec![],
         });

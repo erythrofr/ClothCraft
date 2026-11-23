@@ -6,6 +6,8 @@
 
 An open-source garment editor and cloth simulation prototype, written in Rust.
 
+This repository is a fork of [erythrofr/ClothCraft](https://github.com/erythrofr/ClothCraft), the original project.
+
 Draw patterns, sew them together, place them around an avatar and simulate the result. Most work so far has gone into building a physics foundation that can handle difficult contact. The editor, interchange formats and material calibration need substantial work.
 
 **This is a research prototype, not a production garment tool.** Expect unfinished interactions, residual oscillation, slow simulation on dense meshes and cases that still fail. Help is welcome with the interface, physics, testing, documentation and file formats. You do not need to be a programmer to contribute a useful reproduction, workflow sketch or testable hypothesis.
